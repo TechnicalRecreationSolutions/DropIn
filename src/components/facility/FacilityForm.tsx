@@ -2,8 +2,6 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { createClient } from "@/lib/supabase/client";
-import { slugify } from "@/lib/utils/slugify";
 
 const CANADIAN_PROVINCES = [
   ["AB", "Alberta"], ["BC", "British Columbia"], ["MB", "Manitoba"],
@@ -63,47 +61,16 @@ export default function FacilityForm({ orgId, facilityId, defaultValues }: Facil
     setError(null);
     setLoading(true);
 
-    const supabase = createClient();
+    const res = await fetch("/api/facilities", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...form, facilityId }),
+    });
 
-    // Get current user's org_id if not passed as prop
-    let currentOrgId = orgId;
-    if (!currentOrgId) {
-      const { data: membership } = await supabase
-        .from("org_memberships")
-        .select("org_id")
-        .limit(1)
-        .maybeSingle() as { data: { org_id: string } | null };
-      currentOrgId = membership?.org_id;
-    }
+    const data = await res.json();
 
-    if (!currentOrgId) {
-      setError("Could not determine your organization. Please refresh and try again.");
-      setLoading(false);
-      return;
-    }
-
-    const payload = {
-      ...form,
-      org_id: currentOrgId,
-      slug: slugify(form.name),
-      country: "CA",
-    };
-
-    let dbError;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = (supabase as any).from("facilities");
-    if (isEditing) {
-      ({ error: dbError } = await table.update(payload).eq("id", facilityId));
-    } else {
-      ({ error: dbError } = await table.insert(payload));
-    }
-
-    if (dbError) {
-      setError(
-        dbError.code === "23505"
-          ? "A facility with this name already exists in your organization."
-          : "Something went wrong. Please try again."
-      );
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong. Please try again.");
       setLoading(false);
       return;
     }

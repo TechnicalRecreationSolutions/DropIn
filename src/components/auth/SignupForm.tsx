@@ -3,8 +3,6 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { slugify } from "@/lib/utils/slugify";
 
 export default function SignupForm() {
   const router = useRouter();
@@ -26,45 +24,22 @@ export default function SignupForm() {
       return;
     }
 
-    const supabase = createClient();
-
-    // 1. Create auth user
-    const { data: authData, error: authError } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: { org_name: orgName },
-      },
+    const res = await fetch("/api/auth/signup", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ orgName, email, password }),
     });
 
-    if (authError || !authData.user) {
-      setError(authError?.message ?? "Something went wrong. Please try again.");
+    const data = await res.json();
+
+    if (!res.ok) {
+      setError(data.error ?? "Something went wrong. Please try again.");
       setLoading(false);
       return;
     }
 
-    // 2. Create the organization and owner membership
-    // The slug is derived from the org name — conflicts are handled server-side
-    const slug = slugify(orgName);
-
-    const { error: orgError } = await supabase
-      .from("organizations")
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      .insert({ name: orgName, slug, status: "pending", country: "CA" } as any);
-
-    if (orgError) {
-      setError(
-        orgError.code === "23505"
-          ? "An organization with that name already exists. Please choose a different name."
-          : "Could not create your organization. Please try again."
-      );
-      setLoading(false);
-      return;
-    }
-
-    // Org membership and subscription creation are handled by a Supabase trigger
-    // (see supabase/functions). Navigate to onboarding to complete setup.
-    router.push("/dashboard/org/onboarding");
+    router.push(data.redirect ?? "/dashboard");
+    router.refresh();
   }
 
   return (
