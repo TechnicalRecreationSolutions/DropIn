@@ -1,0 +1,174 @@
+import type { Metadata } from "next";
+import { notFound } from "next/navigation";
+import { MapPin, Globe, Phone, Clock } from "lucide-react";
+import { createClient } from "@/lib/supabase/server";
+import FacilityScheduleClient from "./FacilityScheduleClient";
+
+interface PageProps {
+  params: Promise<{ facilitySlug: string }>;
+}
+
+type FacilityDetail = {
+  id: string; name: string; slug: string;
+  address_line1: string; city: string; province: string; postal_code: string;
+  description: string | null; website_url: string | null; phone: string | null;
+  is_published: boolean; org_id: string;
+};
+
+type ProgramSummary = {
+  id: string; name: string; sport_category: string;
+  activity_type: string; cost_cents: number;
+  age_group: string | null; skill_level: string | null;
+};
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { facilitySlug } = await params;
+  const supabase = await createClient();
+
+  const { data: facility } = await supabase
+    .from("facilities")
+    .select("name, city, province, description")
+    .eq("slug", facilitySlug)
+    .eq("is_published", true)
+    .single() as unknown as { data: Pick<FacilityDetail, "name" | "city" | "province" | "description"> | null };
+
+  if (!facility) return { title: "Facility Not Found — Dropin" };
+
+  return {
+    title: `${facility.name} — Dropin`,
+    description:
+      facility.description ??
+      `Drop-in schedules and programs at ${facility.name} in ${facility.city}, ${facility.province}.`,
+    openGraph: {
+      title: `${facility.name} — Dropin`,
+      description: `Find drop-in programs at ${facility.name}.`,
+    },
+  };
+}
+
+export default async function FacilityDetailPage({ params }: PageProps) {
+  const { facilitySlug } = await params;
+  const supabase = await createClient();
+
+  const { data: facility } = await supabase
+    .from("facilities")
+    .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, org_id")
+    .eq("slug", facilitySlug)
+    .eq("is_published", true)
+    .single() as unknown as { data: FacilityDetail | null };
+
+  if (!facility) notFound();
+
+  // Fetch programs for the sidebar (published only)
+  const { data: programs } = await supabase
+    .from("programs")
+    .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
+    .eq("facility_id", facility.id)
+    .eq("is_published", true)
+    .order("name") as unknown as { data: ProgramSummary[] | null };
+
+  return (
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+      {/* Breadcrumb */}
+      <nav className="text-sm text-gray-500 mb-6">
+        <a href="/" className="hover:text-gray-700 transition-colors">Home</a>
+        <span className="mx-2">›</span>
+        <a href="/search" className="hover:text-gray-700 transition-colors">Facilities</a>
+        <span className="mx-2">›</span>
+        <span className="text-gray-900">{facility.name}</span>
+      </nav>
+
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-8">
+        {/* Left: Schedule + heading */}
+        <div>
+          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{facility.name}</h1>
+          <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
+            <MapPin className="w-4 h-4 shrink-0" />
+            <span>{facility.address_line1}, {facility.city}, {facility.province} {facility.postal_code}</span>
+          </div>
+
+          {facility.description && (
+            <p className="text-gray-600 text-sm mb-6 max-w-2xl">{facility.description}</p>
+          )}
+
+          {/* Weekly schedule — client component for interactivity */}
+          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
+            <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Schedule</h2>
+            <FacilityScheduleClient facilityId={facility.id} />
+          </div>
+        </div>
+
+        {/* Right sidebar: info + programs list */}
+        <aside className="mt-8 lg:mt-0 space-y-5">
+          {/* Contact / info card */}
+          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
+            <h2 className="font-semibold text-gray-900">Information</h2>
+
+            {facility.phone && (
+              <div className="flex items-center gap-3 text-sm text-gray-600">
+                <Phone className="w-4 h-4 shrink-0 text-gray-400" />
+                <a href={`tel:${facility.phone}`} className="hover:text-blue-600 transition-colors">
+                  {facility.phone}
+                </a>
+              </div>
+            )}
+
+            {facility.website_url && (
+              <div className="flex items-center gap-3 text-sm text-gray-600">
+                <Globe className="w-4 h-4 shrink-0 text-gray-400" />
+                <a
+                  href={facility.website_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="hover:text-blue-600 transition-colors truncate"
+                >
+                  {facility.website_url.replace(/^https?:\/\//, "")}
+                </a>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3 text-sm text-gray-600">
+              <Clock className="w-4 h-4 shrink-0 text-gray-400" />
+              <span>{facility.city}, {facility.province}</span>
+            </div>
+          </div>
+
+          {/* Programs offered */}
+          {programs && programs.length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="font-semibold text-gray-900 mb-3">Programs offered</h2>
+              <ul className="space-y-2">
+                {programs.map((program) => (
+                  <li key={program.id} className="flex items-start justify-between gap-2 text-sm">
+                    <div>
+                      <p className="font-medium text-gray-800">{program.name}</p>
+                      <p className="text-xs text-gray-500 capitalize">
+                        {program.activity_type.replace("_", " ")} · {program.sport_category}
+                        {program.age_group ? ` · ${program.age_group.replace("_", " ")}` : ""}
+                      </p>
+                    </div>
+                    <span className="shrink-0 text-sm font-medium text-gray-700">
+                      {program.cost_cents === 0 ? "Free" : `$${(program.cost_cents / 100).toFixed(2)}`}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
+          {/* CTA for orgs */}
+          <div className="bg-blue-50 rounded-xl border border-blue-100 p-5 text-center">
+            <p className="text-sm font-medium text-blue-900 mb-1">Are you this facility?</p>
+            <p className="text-xs text-blue-700 mb-3">Claim your page to manage your schedule directly.</p>
+            <a
+              href="/signup"
+              className="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+            >
+              Claim this facility
+            </a>
+          </div>
+        </aside>
+      </div>
+    </div>
+  );
+}
