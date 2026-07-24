@@ -41,6 +41,10 @@ yarn-error.log*
 # vercel
 .vercel
 
+# vendored skill content — restored from skills-lock.json, not source
+/.agents/
+/.claude/
+
 # typescript
 *.tsbuildinfo
 next-env.d.ts

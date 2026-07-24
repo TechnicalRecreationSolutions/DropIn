@@ -33,11 +33,11 @@ ALTER TABLE scraping_configs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "scraping_configs_members_crud"
   ON scraping_configs FOR ALL
-  USING (org_id = ANY(auth.user_org_ids()));
+  USING (org_id = ANY(public.user_org_ids()));
 
 CREATE POLICY "scraping_configs_superadmin_all"
   ON scraping_configs FOR ALL
-  USING (auth.is_superadmin());
+  USING (public.is_superadmin());
 
 -- =============================================================================
 -- SCRAPING JOBS
@@ -66,7 +66,7 @@ ALTER TABLE scraping_jobs ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "scraping_jobs_members_read"
   ON scraping_jobs FOR SELECT
-  USING (org_id = ANY(auth.user_org_ids()) OR auth.is_superadmin());
+  USING (org_id = ANY(public.user_org_ids()) OR public.is_superadmin());
 
 -- Job writes come from the scraping webhook handler (service role)
 
@@ -101,7 +101,7 @@ ALTER TABLE scraping_conflicts ENABLE ROW LEVEL SECURITY;
 
 CREATE POLICY "conflicts_members_read_write"
   ON scraping_conflicts FOR ALL
-  USING (org_id = ANY(auth.user_org_ids()) OR auth.is_superadmin());
+  USING (org_id = ANY(public.user_org_ids()) OR public.is_superadmin());
 
 CREATE INDEX idx_scraping_conflicts_job_id ON scraping_conflicts (job_id);
 

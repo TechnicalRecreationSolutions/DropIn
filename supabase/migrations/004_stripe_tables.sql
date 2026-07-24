@@ -29,7 +29,7 @@ ALTER TABLE subscriptions ENABLE ROW LEVEL SECURITY;
 -- Org members can view their own subscription
 CREATE POLICY "subscriptions_members_read"
   ON subscriptions FOR SELECT
-  USING (org_id = ANY(auth.user_org_ids()) OR auth.is_superadmin());
+  USING (org_id = ANY(public.user_org_ids()) OR public.is_superadmin());
 
 -- Writes come exclusively from the Stripe webhook handler (service role — bypasses RLS)
 -- No application-level INSERT/UPDATE policy is defined here intentionally.

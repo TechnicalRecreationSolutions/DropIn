@@ -36,11 +36,11 @@ CREATE POLICY "widget_configs_public_read"
 -- Only org members can update their widget config
 CREATE POLICY "widget_configs_members_update"
   ON widget_configs FOR UPDATE
-  USING (org_id = ANY(auth.user_org_ids()));
+  USING (org_id = ANY(public.user_org_ids()));
 
 CREATE POLICY "widget_configs_superadmin_all"
   ON widget_configs FOR ALL
-  USING (auth.is_superadmin());
+  USING (public.is_superadmin());
 
 -- =============================================================================
 -- ANALYTICS EVENTS
@@ -80,7 +80,7 @@ CREATE POLICY "analytics_public_insert"
 -- Org staff can read their own analytics
 CREATE POLICY "analytics_members_read"
   ON analytics_events FOR SELECT
-  USING (org_id = ANY(auth.user_org_ids()) OR auth.is_superadmin());
+  USING (org_id = ANY(public.user_org_ids()) OR public.is_superadmin());
 
 -- =============================================================================
 -- ANALYTICS DAILY SUMMARY (materialized view)
