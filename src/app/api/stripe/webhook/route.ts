@@ -123,7 +123,11 @@ async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
   const status = subscription.status; // active, trialing, past_due, canceled, etc.
 
   // Period dates live on the subscription item, not the subscription root
-  // (moved in newer Stripe API versions — see subscription.items.data[].current_period_start/end)
+  // (moved in newer Stripe API versions — see subscription.items.data[].current_period_start/end).
+  // Cast needed: the installed stripe package's types are pinned to an older
+  // API version than the account's runtime behavior and don't declare these fields yet.
+  const itemPeriod = item as unknown as { current_period_start: number; current_period_end: number };
+
   await db.from("subscriptions").upsert(
     {
       org_id: orgId,
@@ -131,8 +135,8 @@ async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
       stripe_customer_id: subscription.customer as string,
       plan_tier: tier,
       status,
-      current_period_start: new Date(item.current_period_start * 1000).toISOString(),
-      current_period_end: new Date(item.current_period_end * 1000).toISOString(),
+      current_period_start: new Date(itemPeriod.current_period_start * 1000).toISOString(),
+      current_period_end: new Date(itemPeriod.current_period_end * 1000).toISOString(),
       cancel_at_period_end: subscription.cancel_at_period_end,
       updated_at: new Date().toISOString(),
     },
