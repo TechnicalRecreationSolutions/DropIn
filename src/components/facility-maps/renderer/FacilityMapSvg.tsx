@@ -7,6 +7,9 @@ import {
   PoolShape,
   LeisurePoolShape,
   CourtShape,
+  RinkShape,
+  GymFloorShape,
+  ClimbingWallShape,
   RoomShape,
   ContextElement,
   type UnitRect,
@@ -92,11 +95,10 @@ export default function FacilityMapSvg({
     return { x: s.x * VIEW_W, y: s.y * viewH, w: s.width * VIEW_W, h: s.height * viewH };
   }
 
-  // Larger shapes render first so a small studio overlapping a big court
-  // stays visible and clickable on top of it.
-  const standalone = shapes
-    .filter((s) => s.groupId === null)
-    .sort((a, b) => b.width * b.height - a.width * a.height);
+  // One render unit per standalone shape or lane group, interleaved and
+  // sorted large-to-small so a small studio overlapping a big pool or court
+  // stays visible and clickable on top of it regardless of unit kind.
+  const standalone = shapes.filter((s) => s.groupId === null);
   const groupIds = [...new Set(shapes.filter((s) => s.groupId !== null).map((s) => s.groupId!))];
   const groups = groupIds.map((groupId) => ({
     groupId,
@@ -104,6 +106,7 @@ export default function FacilityMapSvg({
       .filter((s) => s.groupId === groupId)
       .sort((a, b) => (a.laneIndex ?? 0) - (b.laneIndex ?? 0)),
   }));
+  const renderUnits: { key: string; area: number; render: () => React.ReactNode }[] = [];
 
   return (
     <div ref={containerRef} className={className}>
@@ -153,55 +156,72 @@ export default function FacilityMapSvg({
           <ContextElement key={element.key} element={element} rect={toUnits(element)} pxPerUnit={pxPerUnit} />
         ))}
 
-        {standalone.map((shape) => {
-          const rect = toUnits(shape);
-          const family = shapeFamily(shape.presetKey);
-          const common = {
-            shape,
-            rect,
-            status: statusBySpaceId?.get(shape.spaceId),
-            selected: shape.spaceId === selectedSpaceId,
-            pxPerUnit,
-            defs,
-            onClick: onSpaceClick,
-          };
-          if (family === "leisure-pool") return <LeisurePoolShape key={shape.key} {...common} />;
-          if (family === "pool") {
-            // A standalone pool (single-lane, or a backfilled legacy row):
-            // render as a one-lane pool so it still reads as water.
-            return (
-              <PoolShape
-                key={shape.key}
-                rect={rect}
-                rotation={shape.rotation}
-                lanes={[{ shape, status: common.status }]}
-                selectedSpaceId={selectedSpaceId}
-                pxPerUnit={pxPerUnit}
-                defs={defs}
-                onLaneClick={onSpaceClick}
-              />
-            );
+        {(() => {
+          for (const shape of standalone) {
+            const rect = toUnits(shape);
+            const family = shapeFamily(shape.presetKey);
+            const common = {
+              shape,
+              rect,
+              status: statusBySpaceId?.get(shape.spaceId),
+              selected: shape.spaceId === selectedSpaceId,
+              pxPerUnit,
+              defs,
+              onClick: onSpaceClick,
+            };
+            renderUnits.push({
+              key: shape.key,
+              area: shape.width * shape.height,
+              render: () => {
+                if (family === "leisure-pool") return <LeisurePoolShape key={shape.key} {...common} />;
+                if (family === "pool") {
+                  // A standalone pool (single-lane, or a backfilled legacy
+                  // row): render as a one-lane pool so it still reads as water.
+                  return (
+                    <PoolShape
+                      key={shape.key}
+                      rect={rect}
+                      rotation={shape.rotation}
+                      lanes={[{ shape, status: common.status }]}
+                      selectedSpaceId={selectedSpaceId}
+                      pxPerUnit={pxPerUnit}
+                      defs={defs}
+                      onLaneClick={onSpaceClick}
+                    />
+                  );
+                }
+                if (family.startsWith("court-")) return <CourtShape key={shape.key} {...common} family={family} />;
+                if (family === "rink") return <RinkShape key={shape.key} {...common} />;
+                if (family === "gym-floor") return <GymFloorShape key={shape.key} {...common} />;
+                if (family === "climbing-wall") return <ClimbingWallShape key={shape.key} {...common} />;
+                return <RoomShape key={shape.key} {...common} />;
+              },
+            });
           }
-          if (family.startsWith("court-")) return <CourtShape key={shape.key} {...common} family={family} />;
-          return <RoomShape key={shape.key} {...common} />;
-        })}
 
-        {groups.map(({ groupId, members }) => {
-          if (members.length === 0) return null;
-          const outer = members[0]; // every member shares the identical outer rect
-          return (
-            <PoolShape
-              key={groupId}
-              rect={toUnits(outer)}
-              rotation={outer.rotation}
-              lanes={members.map((m) => ({ shape: m, status: statusBySpaceId?.get(m.spaceId) }))}
-              selectedSpaceId={selectedSpaceId}
-              pxPerUnit={pxPerUnit}
-              defs={defs}
-              onLaneClick={onSpaceClick}
-            />
-          );
-        })}
+          for (const { groupId, members } of groups) {
+            if (members.length === 0) continue;
+            const outer = members[0]; // every member shares the identical outer rect
+            renderUnits.push({
+              key: groupId,
+              area: outer.width * outer.height,
+              render: () => (
+                <PoolShape
+                  key={groupId}
+                  rect={toUnits(outer)}
+                  rotation={outer.rotation}
+                  lanes={members.map((m) => ({ shape: m, status: statusBySpaceId?.get(m.spaceId) }))}
+                  selectedSpaceId={selectedSpaceId}
+                  pxPerUnit={pxPerUnit}
+                  defs={defs}
+                  onLaneClick={onSpaceClick}
+                />
+              ),
+            });
+          }
+
+          return renderUnits.sort((a, b) => b.area - a.area).map((u) => u.render());
+        })()}
       </svg>
     </div>
   );

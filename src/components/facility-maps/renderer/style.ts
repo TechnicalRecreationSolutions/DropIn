@@ -40,6 +40,13 @@ export const MAP_COLORS = {
   zoneText: "#948C7E",
   entrance: "#3B4149",
 
+  ice: "#EDF5F9",
+  iceLine: "#C74A4A",
+  iceBlue: "#4A7BC7",
+  iceText: "#4A6B85",
+  stoneLight: "#A99E90",
+  stoneDark: "#8D8274",
+
   accent: "var(--org-accent, #2563eb)",
   soonFill: "#F5A623",
   soonStroke: "#E8960C",
@@ -62,6 +69,9 @@ export type ShapeFamily =
   | "court-volleyball"
   | "court-badminton"
   | "court-pickleball"
+  | "rink"
+  | "gym-floor"
+  | "climbing-wall"
   | "room";
 
 /**
@@ -86,6 +96,9 @@ export function shapeFamily(presetKey: string): ShapeFamily {
       return "court-pickleball";
   }
   if (presetKey.startsWith("court-")) return "court-basketball";
+  if (presetKey.startsWith("rink")) return "rink";
+  if (presetKey.startsWith("gym")) return "gym-floor";
+  if (presetKey.startsWith("climb")) return "climbing-wall";
   return "room";
 }
 

@@ -536,6 +536,157 @@ export function CourtShape({
 }
 
 // ---------------------------------------------------------------------------
+// Ice rink
+// ---------------------------------------------------------------------------
+
+/** An ice rink: pale ice, hockey-rounded corners, red/blue lines, center circle. */
+export function RinkShape({ shape, rect, status, selected, pxPerUnit, onClick }: StandaloneShapeProps) {
+  const { cx, cy } = centerOf(rect);
+  const r = Math.min(rect.w, rect.h) * 0.22;
+  const showMarkings = rect.w * pxPerUnit >= 110;
+  const strokeW = clamp(1.2, rect.w * 0.006, 3);
+
+  return (
+    <g
+      transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
+      style={{ filter: shadowFilter(status) }}
+    >
+      <g {...interactionProps(shape, onClick)}>
+        <rect
+          x={rect.x}
+          y={rect.y}
+          width={rect.w}
+          height={rect.h}
+          rx={r}
+          fill={MAP_COLORS.ice}
+          stroke={MAP_COLORS.roomStroke}
+          strokeWidth={1.5}
+        />
+        {showMarkings && (
+          <g pointerEvents="none">
+            <line x1={cx} y1={rect.y} x2={cx} y2={rect.y + rect.h} stroke={MAP_COLORS.iceLine} strokeWidth={strokeW * 1.4} />
+            <line x1={rect.x + rect.w * 0.31} y1={rect.y} x2={rect.x + rect.w * 0.31} y2={rect.y + rect.h} stroke={MAP_COLORS.iceBlue} strokeWidth={strokeW * 1.2} />
+            <line x1={rect.x + rect.w * 0.69} y1={rect.y} x2={rect.x + rect.w * 0.69} y2={rect.y + rect.h} stroke={MAP_COLORS.iceBlue} strokeWidth={strokeW * 1.2} />
+            <circle cx={cx} cy={cy} r={Math.min(rect.h * 0.18, rect.w * 0.08)} fill="none" stroke={MAP_COLORS.iceLine} strokeWidth={strokeW} />
+          </g>
+        )}
+        <StatusOverlay rect={rect} r={r} status={status} />
+        <LabelBlock
+          rect={rect}
+          rotation={shape.rotation}
+          name={shape.displayName}
+          status={status}
+          pxPerUnit={pxPerUnit}
+          onDark={false}
+        />
+        {selected && <SelectionRing rect={rect} r={r} />}
+      </g>
+    </g>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Gym floor
+// ---------------------------------------------------------------------------
+
+/** Multi-use hardwood: wood grain and a boundary line, deliberately no sport markings. */
+export function GymFloorShape({ shape, rect, status, selected, pxPerUnit, defs, onClick }: StandaloneShapeProps) {
+  const { cx, cy } = centerOf(rect);
+  const r = clamp(4, Math.min(rect.w, rect.h) * 0.05, 10);
+  const strokeW = clamp(1.2, rect.w * 0.006, 3);
+
+  return (
+    <g
+      transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
+      style={{ filter: shadowFilter(status) }}
+    >
+      <g {...interactionProps(shape, onClick)}>
+        <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={r} fill={defs.wood} />
+        <rect
+          x={rect.x + strokeW * 2}
+          y={rect.y + strokeW * 2}
+          width={rect.w - strokeW * 4}
+          height={rect.h - strokeW * 4}
+          rx={Math.max(0, r - strokeW * 2)}
+          fill="none"
+          stroke={MAP_COLORS.marking}
+          strokeWidth={strokeW}
+          pointerEvents="none"
+        />
+        <StatusOverlay rect={rect} r={r} status={status} />
+        <LabelBlock
+          rect={rect}
+          rotation={shape.rotation}
+          name={shape.displayName}
+          status={status}
+          pxPerUnit={pxPerUnit}
+          onDark
+        />
+        {selected && <SelectionRing rect={rect} r={r} />}
+      </g>
+    </g>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Climbing wall
+// ---------------------------------------------------------------------------
+
+const HOLD_COLORS = ["#D96A6A", "#E8B54C", "#6FA287", "#5E8FBF", "#9C7BC0"];
+
+/** A climbing wall: stone panel scattered with colored hold dots (deterministic layout). */
+export function ClimbingWallShape({ shape, rect, status, selected, pxPerUnit, onClick }: StandaloneShapeProps) {
+  const { cx, cy } = centerOf(rect);
+  const r = clamp(3, Math.min(rect.w, rect.h) * 0.08, 8);
+  const showHolds = rect.w * pxPerUnit >= 80;
+
+  // Deterministic pseudo-random holds — a tiny LCG so the wall looks the
+  // same on every render without storing anything.
+  const holds: { x: number; y: number; color: string }[] = [];
+  if (showHolds) {
+    const count = clamp(8, Math.round((rect.w * rect.h) / 900), 40);
+    let seed = 7;
+    const next = () => {
+      seed = (seed * 48271) % 2147483647;
+      return seed / 2147483647;
+    };
+    for (let i = 0; i < count; i++) {
+      holds.push({
+        x: rect.x + rect.w * (0.06 + next() * 0.88),
+        y: rect.y + rect.h * (0.15 + next() * 0.7),
+        color: HOLD_COLORS[Math.floor(next() * HOLD_COLORS.length)],
+      });
+    }
+  }
+  const holdR = clamp(1.5, Math.min(rect.w, rect.h) * 0.035, 4);
+
+  return (
+    <g
+      transform={shape.rotation ? `rotate(${shape.rotation} ${cx} ${cy})` : undefined}
+      style={{ filter: shadowFilter(status) }}
+    >
+      <g {...interactionProps(shape, onClick)}>
+        <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h} rx={r} fill={MAP_COLORS.stoneLight} />
+        <rect x={rect.x} y={rect.y} width={rect.w} height={rect.h * 0.12} rx={r} fill={MAP_COLORS.stoneDark} pointerEvents="none" />
+        {holds.map((hold, i) => (
+          <circle key={i} cx={hold.x} cy={hold.y} r={holdR} fill={hold.color} pointerEvents="none" />
+        ))}
+        <StatusOverlay rect={rect} r={r} status={status} />
+        <LabelBlock
+          rect={rect}
+          rotation={shape.rotation}
+          name={shape.displayName}
+          status={status}
+          pxPerUnit={pxPerUnit}
+          onDark
+        />
+        {selected && <SelectionRing rect={rect} r={r} />}
+      </g>
+    </g>
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Generic room
 // ---------------------------------------------------------------------------
 
