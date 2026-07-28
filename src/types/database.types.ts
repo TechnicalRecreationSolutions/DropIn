@@ -94,11 +94,122 @@ export type Database = {
         >;
         Update: Partial<Database["public"]["Tables"]["facilities"]["Insert"]>;
       };
-      programs: {
+      departments: {
+        Row: {
+          id: string;
+          facility_id: string;
+          org_id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          display_order: number;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["departments"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["departments"]["Insert"]>;
+      };
+      spaces: {
         Row: {
           id: string;
           org_id: string;
           facility_id: string;
+          department_id: string | null;
+          name: string;
+          slug: string;
+          description: string | null;
+          capacity: number | null;
+          display_order: number;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["spaces"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["spaces"]["Insert"]>;
+      };
+      facility_maps: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_id: string;
+          name: string;
+          canvas_width: number;
+          canvas_height: number;
+          is_published: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["facility_maps"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Database["public"]["Tables"]["facility_maps"]["Insert"]
+        >;
+      };
+      space_hotspots: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_map_id: string;
+          space_id: string;
+          shape: "rect";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          rotation: number;
+          label: string | null;
+          group_id: string | null;
+          lane_index: number | null;
+          preset_key: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["space_hotspots"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Database["public"]["Tables"]["space_hotspots"]["Insert"]
+        >;
+      };
+      map_context_elements: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_map_id: string;
+          kind: "zone" | "entrance";
+          x: number;
+          y: number;
+          width: number;
+          height: number;
+          rotation: number;
+          label: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["map_context_elements"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Database["public"]["Tables"]["map_context_elements"]["Insert"]
+        >;
+      };
+      schedule_groups: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_id: string;
+          department_id: string | null;
           name: string;
           slug: string;
           description: string | null;
@@ -111,7 +222,10 @@ export type Database = {
           cost_notes: string | null;
           photo_urls: string[];
           tags: string[];
+          display_order: number;
           is_published: boolean;
+          schedule_type: "time_block" | "continuous";
+          continuous_hours_note: string | null;
           source: "manual" | "scraped" | "imported";
           source_url: string | null;
           external_id: string | null;
@@ -120,16 +234,41 @@ export type Database = {
           updated_at: string;
         };
         Insert: Omit<
-          Database["public"]["Tables"]["programs"]["Row"],
+          Database["public"]["Tables"]["schedule_groups"]["Row"],
           "id" | "created_at" | "updated_at"
         >;
-        Update: Partial<Database["public"]["Tables"]["programs"]["Insert"]>;
+        Update: Partial<
+          Database["public"]["Tables"]["schedule_groups"]["Insert"]
+        >;
+      };
+      session_templates: {
+        Row: {
+          id: string;
+          org_id: string;
+          schedule_group_id: string;
+          name: string;
+          color: string | null;
+          default_duration_minutes: number;
+          default_space_id: string | null;
+          display_order: number;
+          is_active: boolean;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_templates"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<
+          Database["public"]["Tables"]["session_templates"]["Insert"]
+        >;
       };
       sessions: {
         Row: {
           id: string;
-          program_id: string;
+          schedule_group_id: string;
           org_id: string;
+          template_id: string | null;
           rrule: string;
           dtstart: string;
           dtend_time: string;
@@ -137,6 +276,7 @@ export type Database = {
           valid_from: string;
           valid_until: string | null;
           location_detail: string | null;
+          space_id: string | null;
           source: "manual" | "scraped" | "imported";
           source_url: string | null;
           external_id: string | null;
@@ -186,6 +326,9 @@ export type Database = {
           time_range_end: string;
           program_ids: string[] | null;
           custom_title: string | null;
+          allowed_templates: ("grid" | "list" | "map" | "floorplan")[];
+          facility_id: string | null;
+          department_id: string | null;
           updated_at: string;
         };
         Insert: Omit<
@@ -227,7 +370,7 @@ export type Database = {
             | "program_click"
             | "facility_view"
             | "schedule_view";
-          program_id: string | null;
+          schedule_group_id: string | null;
           facility_id: string | null;
           referrer_url: string | null;
           user_agent: string | null;

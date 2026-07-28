@@ -3,8 +3,18 @@ import type { Database } from "./database.types";
 export type Session = Database["public"]["Tables"]["sessions"]["Row"];
 export type SessionException =
   Database["public"]["Tables"]["session_exceptions"]["Row"];
-export type Program = Database["public"]["Tables"]["programs"]["Row"];
+export type ScheduleGroup = Database["public"]["Tables"]["schedule_groups"]["Row"];
 export type Facility = Database["public"]["Tables"]["facilities"]["Row"];
+export type FacilityMap = Database["public"]["Tables"]["facility_maps"]["Row"];
+export type SpaceHotspot = Database["public"]["Tables"]["space_hotspots"]["Row"];
+export type MapContextElement =
+  Database["public"]["Tables"]["map_context_elements"]["Row"];
+
+/** A hotspot joined with its space's display info, as returned to the public floorplan view. */
+export type SpaceHotspotWithSpace = SpaceHotspot & {
+  spaceName: string;
+  spaceCapacity: number | null;
+};
 
 /**
  * A concrete, expanded occurrence of a recurring session.
@@ -14,7 +24,6 @@ export type ExpandedSession = {
   /** Unique key for this specific occurrence: `${sessionId}_${date}` */
   key: string;
   sessionId: string;
-  programId: string;
   orgId: string;
 
   /** Absolute start datetime for this occurrence */
@@ -22,10 +31,11 @@ export type ExpandedSession = {
   /** Absolute end datetime for this occurrence */
   end: Date;
 
-  /** Denormalized program info for display without extra fetches */
-  programName: string;
+  /** Denormalized schedule group info for display without extra fetches */
+  scheduleGroupId: string;
+  scheduleGroupName: string;
   sportCategory: string;
-  activityType: Program["activity_type"];
+  activityType: ScheduleGroup["activity_type"];
   costCents: number;
   costNotes: string | null;
   ageGroup: string | null;
@@ -36,7 +46,20 @@ export type ExpandedSession = {
   facilityId: string;
   facilityName: string;
 
-  /** Optional sub-location within facility (e.g. "Lane 3", "Rink B") */
+  /** Denormalized department info — null if the schedule group has no department */
+  departmentId: string | null;
+  departmentName: string | null;
+
+  /** Structured space within the facility, if one is attached (e.g. "Lane 3") */
+  spaceId: string | null;
+  spaceName: string | null;
+
+  /** Session template this occurrence was placed from, if any (see session_templates) */
+  templateId: string | null;
+  templateName: string | null;
+  templateColor: string | null;
+
+  /** Free-text location note — shown alongside the space, e.g. entry instructions */
   locationDetail: string | null;
 
   /** Data origin — used to show staleness warnings on scraped sessions */
@@ -51,13 +74,17 @@ export type ExpandedSession = {
   modificationNote?: string | null;
 };
 
+/** Which visual layout a schedule is rendered as. */
+export type ScheduleTemplate = "grid" | "list" | "map" | "floorplan";
+
 /** Parameters for expanding sessions into a week view */
 export type WeekExpandParams = {
   weekStart: Date;
   weekEnd: Date;
   orgId?: string;
   facilityId?: string;
-  programId?: string;
+  departmentId?: string;
+  scheduleGroupId?: string;
 };
 
 /** Grid position for rendering in the weekly schedule grid */
