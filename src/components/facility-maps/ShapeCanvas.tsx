@@ -1,13 +1,16 @@
 "use client";
 
-import { useRef } from "react";
-import { Trash2, RotateCw } from "lucide-react";
+import { useMemo, useRef, useState } from "react";
+import { Trash2, RotateCw, Copy } from "lucide-react";
+import FacilityMapSvg from "./renderer/FacilityMapSvg";
+import type { RenderShape, RenderContextElement } from "./renderer/types";
 import {
   resizeFromOppositeCorner,
   angleFromCenter,
   clampRotation,
   center,
-  laneRectsWithinGroup,
+  snapValue,
+  snapAngle,
 } from "@/lib/facility-shapes/geometry";
 
 export interface EditableShape {
@@ -28,12 +31,30 @@ export interface EditableShape {
   laneIndex: number | null;
 }
 
+export interface EditableContextElement {
+  key: string;
+  kind: "zone" | "entrance";
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  rotation: number;
+  label: string | null;
+}
+
 interface ShapeCanvasProps {
+  /** Canvas extent in meters (facility_maps.canvas_width/height). */
   canvasWidth: number;
   canvasHeight: number;
   shapes: EditableShape[];
+  contextElements: EditableContextElement[];
   spaces: { id: string; name: string }[];
-  onChange: (shapes: EditableShape[]) => void;
+  /** Live geometry/field updates (fires continuously during a drag). */
+  onChange: (shapes: EditableShape[], contextElements: EditableContextElement[]) => void;
+  /** A gesture or atomic edit finished — the caller records an undo step. */
+  onCommit: () => void;
+  /** Duplicate needs a Space for the copy, which only the caller can arrange. */
+  onDuplicate: (shape: EditableShape) => void;
 }
 
 interface Point {
@@ -42,35 +63,154 @@ interface Point {
 }
 
 const MIN_SIZE = 0.03;
+/** Grid pitch in meters — every move/resize lands on a tidy half-meter. */
+const GRID_METERS = 0.5;
+/** Snap radius in screen pixels (converted to canvas fractions per axis). */
+const SNAP_PX = 8;
+const ROTATION_SNAP_STEP = 15;
+const ROTATION_SNAP_THRESHOLD = 6;
+/** Arrow-key nudge in meters; Shift steps a full grid cell. */
+const NUDGE_METERS = 0.1;
 
-/** Every row that shares a shape's outer rect — itself alone if standalone, or its whole group. */
-function siblingKeys(shape: EditableShape, allShapes: EditableShape[]): Set<string> {
-  if (shape.groupId === null) return new Set([shape.key]);
-  return new Set(allShapes.filter((s) => s.groupId === shape.groupId).map((s) => s.key));
+/**
+ * One draggable unit on the canvas: a standalone shape, a whole lane group
+ * (which moves/resizes/rotates as one), or a context element. `rect` is any
+ * member's shared geometry; `memberKeys` is every row the unit updates.
+ */
+interface EditUnit {
+  unitKey: string;
+  kind: "shape" | "group" | "context";
+  rect: { x: number; y: number; width: number; height: number; rotation: number };
+  memberKeys: Set<string>;
+  label: string;
+  /** The representative shape for duplicate; undefined for context elements. */
+  shape?: EditableShape;
 }
 
 /**
- * Blank-canvas facility diagram builder — shapes are placed via
- * MapEditorClient's handlePlacePreset (called from ShapePalette's
- * pointer-drag), then freely moved/resized/rotated/relabeled as plain
- * absolutely-positioned divs with CSS `transform: rotate()`. No canvas/SVG
- * library: move and click hit-testing ride on native DOM/CSS behavior
- * (which already accounts for the rotation transform correctly), and
- * resize is the only place that needs rotation-aware math, done via
- * lib/facility-shapes/geometry.ts.
+ * Facility map authoring canvas. The visuals ARE the shared renderer
+ * (FacilityMapSvg) — admins manipulate the same illustrated pools/courts
+ * visitors will see, not wireframe stand-ins — with an editing overlay of
+ * transparent hit areas and, on the selected unit, handles for rotate
+ * (top), resize (bottom-right), duplicate and delete.
  *
- * A multi-lane preset (e.g. "4-Lane 25m Pool") places `laneCount` rows
- * sharing one `groupId`, all carrying the IDENTICAL outer rect — there is
- * no separate "group" concept to render, just N rows agreeing on the same
- * x/y/width/height/rotation. Move/resize/rotate on any lane updates every
- * row in its group together, so the group always stays in sync; only the
- * rendering step (grouping shapes by groupId, one wrapper + N stripe divs
- * per group) is what makes them visually act as "one locked-together unit."
+ * Editing ergonomics: moves and resizes snap to a half-meter grid and to
+ * other shapes' edges/centers (which draw a fleeting alignment guide);
+ * rotation snaps to 15° steps. With a unit selected, arrow keys nudge
+ * (Shift = full grid cell), Delete removes, Ctrl/Cmd+D duplicates, Escape
+ * deselects. Every gesture end calls onCommit so the owner can push an
+ * undo step; live drag frames go through onChange only.
  */
-export default function ShapeCanvas({ canvasWidth, canvasHeight, shapes, spaces, onChange }: ShapeCanvasProps) {
+export default function ShapeCanvas({
+  canvasWidth,
+  canvasHeight,
+  shapes,
+  contextElements,
+  spaces,
+  onChange,
+  onCommit,
+  onDuplicate,
+}: ShapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [guides, setGuides] = useState<{ v: number | null; h: number | null }>({ v: null, h: null });
 
-  const assignedSpaceIds = new Set(shapes.map((s) => s.space_id));
+  const spaceNameById = useMemo(() => new Map(spaces.map((s) => [s.id, s.name])), [spaces]);
+
+  // ---- Render-model mapping (visuals via the shared engine) ----------------
+
+  const renderShapes: RenderShape[] = shapes.map((s) => ({
+    key: s.key,
+    spaceId: s.space_id,
+    x: s.x,
+    y: s.y,
+    width: s.width,
+    height: s.height,
+    rotation: s.rotation,
+    presetKey: s.presetKey,
+    displayName: s.label ?? spaceNameById.get(s.space_id) ?? "Unassigned",
+    groupId: s.groupId,
+    laneIndex: s.laneIndex,
+  }));
+
+  const renderContext: RenderContextElement[] = contextElements.map((c) => ({
+    key: c.key,
+    kind: c.kind,
+    x: c.x,
+    y: c.y,
+    width: c.width,
+    height: c.height,
+    rotation: c.rotation,
+    label: c.label,
+  }));
+
+  // ---- Edit units ----------------------------------------------------------
+
+  const units: EditUnit[] = useMemo(() => {
+    const result: EditUnit[] = [];
+    const seenGroups = new Set<string>();
+    for (const s of shapes) {
+      if (s.groupId === null) {
+        result.push({
+          unitKey: s.key,
+          kind: "shape",
+          rect: s,
+          memberKeys: new Set([s.key]),
+          label: s.label ?? spaceNameById.get(s.space_id) ?? "Shape",
+          shape: s,
+        });
+      } else if (!seenGroups.has(s.groupId)) {
+        seenGroups.add(s.groupId);
+        const members = shapes.filter((m) => m.groupId === s.groupId);
+        result.push({
+          unitKey: `group:${s.groupId}`,
+          kind: "group",
+          rect: s,
+          memberKeys: new Set(members.map((m) => m.key)),
+          label: "Pool",
+          shape: s,
+        });
+      }
+    }
+    for (const c of contextElements) {
+      result.push({
+        unitKey: c.key,
+        kind: "context",
+        rect: c,
+        memberKeys: new Set([c.key]),
+        label: c.label ?? (c.kind === "entrance" ? "Entrance" : "Zone"),
+      });
+    }
+    return result;
+  }, [shapes, contextElements, spaceNameById]);
+
+  const selectedUnit = units.find((u) => u.unitKey === selectedKey) ?? null;
+
+  // ---- Shared update plumbing ---------------------------------------------
+
+  function applyToUnit(unit: EditUnit, patch: Partial<EditableShape & EditableContextElement>) {
+    if (unit.kind === "context") {
+      onChange(
+        shapes,
+        contextElements.map((c) => (unit.memberKeys.has(c.key) ? { ...c, ...patch } : c))
+      );
+    } else {
+      onChange(
+        shapes.map((s) => (unit.memberKeys.has(s.key) ? { ...s, ...patch } : s)),
+        contextElements
+      );
+    }
+  }
+
+  function removeUnit(unit: EditUnit) {
+    if (unit.kind === "context") {
+      onChange(shapes, contextElements.filter((c) => !unit.memberKeys.has(c.key)));
+    } else {
+      onChange(shapes.filter((s) => !unit.memberKeys.has(s.key)), contextElements);
+    }
+    setSelectedKey(null);
+    onCommit();
+  }
 
   function pointFromEvent(e: { clientX: number; clientY: number }): Point {
     const rect = containerRef.current!.getBoundingClientRect();
@@ -80,239 +220,332 @@ export default function ShapeCanvas({ canvasWidth, canvasHeight, shapes, spaces,
     };
   }
 
-  function startMove(e: React.PointerEvent, shape: EditableShape) {
+  // ---- Snap targets --------------------------------------------------------
+
+  function buildSnapTargets(activeUnit: EditUnit) {
+    const gridStepX = GRID_METERS / canvasWidth;
+    const gridStepY = GRID_METERS / canvasHeight;
+    const gridX: number[] = [];
+    const gridY: number[] = [];
+    for (let v = 0; v <= 1.0001; v += gridStepX) gridX.push(v);
+    for (let v = 0; v <= 1.0001; v += gridStepY) gridY.push(v);
+
+    const alignX: number[] = [];
+    const alignY: number[] = [];
+    for (const u of units) {
+      if (u.unitKey === activeUnit.unitKey) continue;
+      alignX.push(u.rect.x, u.rect.x + u.rect.width, u.rect.x + u.rect.width / 2);
+      alignY.push(u.rect.y, u.rect.y + u.rect.height, u.rect.y + u.rect.height / 2);
+    }
+    return { gridX, gridY, alignX, alignY };
+  }
+
+  function snapThresholds() {
+    const rect = containerRef.current!.getBoundingClientRect();
+    return { x: SNAP_PX / rect.width, y: SNAP_PX / rect.height };
+  }
+
+  /** Snap one axis of a moving rect: try align targets (guide shown), then grid. */
+  function snapAxis(
+    pos: number,
+    size: number,
+    alignTargets: number[],
+    gridTargets: number[],
+    threshold: number
+  ): { pos: number; guide: number | null } {
+    const anchors = [pos, pos + size, pos + size / 2];
+    let best: { pos: number; guide: number | null; delta: number } | null = null;
+    for (let i = 0; i < anchors.length; i++) {
+      const aligned = snapValue(anchors[i], alignTargets, threshold);
+      if (aligned.snappedTo !== null) {
+        const delta = Math.abs(aligned.value - anchors[i]);
+        if (!best || delta < best.delta) {
+          best = { pos: pos + (aligned.value - anchors[i]), guide: aligned.snappedTo, delta };
+        }
+      }
+    }
+    if (best) return { pos: best.pos, guide: best.guide };
+    const gridded = snapValue(pos, gridTargets, threshold);
+    return { pos: gridded.value, guide: null };
+  }
+
+  // ---- Gestures ------------------------------------------------------------
+
+  function startMove(e: React.PointerEvent, unit: EditUnit) {
     e.stopPropagation();
+    setSelectedKey(unit.unitKey);
     const p = pointFromEvent(e);
-    const grabOffsetX = p.x - shape.x;
-    const grabOffsetY = p.y - shape.y;
-    const keys = siblingKeys(shape, shapes);
+    const grabOffsetX = p.x - unit.rect.x;
+    const grabOffsetY = p.y - unit.rect.y;
+    const { gridX, gridY, alignX, alignY } = buildSnapTargets(unit);
+    const threshold = snapThresholds();
+    const { width, height } = unit.rect;
+    let moved = false;
 
     function handleMove(moveEvent: PointerEvent) {
+      moved = true;
       const mp = pointFromEvent(moveEvent);
-      const newX = Math.min(1 - shape.width, Math.max(0, mp.x - grabOffsetX));
-      const newY = Math.min(1 - shape.height, Math.max(0, mp.y - grabOffsetY));
-      onChange(shapes.map((s) => (keys.has(s.key) ? { ...s, x: newX, y: newY } : s)));
+      const rawX = Math.min(1 - width, Math.max(0, mp.x - grabOffsetX));
+      const rawY = Math.min(1 - height, Math.max(0, mp.y - grabOffsetY));
+      const sx = snapAxis(rawX, width, alignX, gridX, threshold.x);
+      const sy = snapAxis(rawY, height, alignY, gridY, threshold.y);
+      setGuides({ v: sx.guide, h: sy.guide });
+      applyToUnit(unit, {
+        x: Math.min(1 - width, Math.max(0, sx.pos)),
+        y: Math.min(1 - height, Math.max(0, sy.pos)),
+      });
     }
 
     function handleUp() {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      setGuides({ v: null, h: null });
+      if (moved) onCommit();
     }
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
 
-  function startResize(e: React.PointerEvent, shape: EditableShape) {
+  function startResize(e: React.PointerEvent, unit: EditUnit) {
     e.stopPropagation();
-    const keys = siblingKeys(shape, shapes);
+    const { gridX, gridY } = buildSnapTargets(unit);
+    const threshold = snapThresholds();
+    const startRect = { ...unit.rect };
 
     function handleMove(moveEvent: PointerEvent) {
       const mp = pointFromEvent(moveEvent);
-      const nextRect = resizeFromOppositeCorner(shape, shape.rotation, mp, MIN_SIZE);
-      onChange(shapes.map((s) => (keys.has(s.key) ? { ...s, ...nextRect } : s)));
+      const next = resizeFromOppositeCorner(startRect, startRect.rotation, mp, MIN_SIZE);
+      // Grid-snap the far edges only while unrotated — snapping a rotated
+      // rect's axis-aligned edge would fight the rotation math.
+      if (startRect.rotation === 0) {
+        const right = snapValue(next.x + next.width, gridX, threshold.x);
+        const bottom = snapValue(next.y + next.height, gridY, threshold.y);
+        next.width = Math.max(MIN_SIZE, right.value - next.x);
+        next.height = Math.max(MIN_SIZE, bottom.value - next.y);
+      }
+      applyToUnit(unit, next);
     }
 
     function handleUp() {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      onCommit();
     }
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
 
-  function startRotate(e: React.PointerEvent, shape: EditableShape) {
+  function startRotate(e: React.PointerEvent, unit: EditUnit) {
     e.stopPropagation();
     const containerRect = containerRef.current!.getBoundingClientRect();
-    const keys = siblingKeys(shape, shapes);
 
-    function shapeCenterScreen() {
-      const c = center(shape);
-      return {
+    function handleMove(moveEvent: PointerEvent) {
+      const c = center(unit.rect);
+      const centerScreen = {
         x: containerRect.left + c.x * containerRect.width,
         y: containerRect.top + c.y * containerRect.height,
       };
-    }
-
-    function handleMove(moveEvent: PointerEvent) {
-      const c = shapeCenterScreen();
-      const angle = clampRotation(angleFromCenter(c, { x: moveEvent.clientX, y: moveEvent.clientY }));
-      onChange(shapes.map((s) => (keys.has(s.key) ? { ...s, rotation: angle } : s)));
+      const raw = clampRotation(
+        angleFromCenter(centerScreen, { x: moveEvent.clientX, y: moveEvent.clientY })
+      );
+      applyToUnit(unit, { rotation: snapAngle(raw, ROTATION_SNAP_STEP, ROTATION_SNAP_THRESHOLD) });
     }
 
     function handleUp() {
       window.removeEventListener("pointermove", handleMove);
       window.removeEventListener("pointerup", handleUp);
+      onCommit();
     }
 
     window.addEventListener("pointermove", handleMove);
     window.addEventListener("pointerup", handleUp);
   }
 
-  function updateSpaceId(key: string, spaceId: string) {
-    onChange(shapes.map((s) => (s.key === key ? { ...s, space_id: spaceId } : s)));
+  // ---- Keyboard ------------------------------------------------------------
+
+  function handleKeyDown(e: React.KeyboardEvent) {
+    if (!selectedUnit) return;
+    const stepX = (e.shiftKey ? GRID_METERS : NUDGE_METERS) / canvasWidth;
+    const stepY = (e.shiftKey ? GRID_METERS : NUDGE_METERS) / canvasHeight;
+    const { rect } = selectedUnit;
+
+    const nudge = (dx: number, dy: number) => {
+      e.preventDefault();
+      applyToUnit(selectedUnit, {
+        x: Math.min(1 - rect.width, Math.max(0, rect.x + dx)),
+        y: Math.min(1 - rect.height, Math.max(0, rect.y + dy)),
+      });
+      onCommit();
+    };
+
+    switch (e.key) {
+      case "ArrowLeft":
+        return nudge(-stepX, 0);
+      case "ArrowRight":
+        return nudge(stepX, 0);
+      case "ArrowUp":
+        return nudge(0, -stepY);
+      case "ArrowDown":
+        return nudge(0, stepY);
+      case "Delete":
+      case "Backspace":
+        e.preventDefault();
+        return removeUnit(selectedUnit);
+      case "Escape":
+        return setSelectedKey(null);
+      case "d":
+      case "D":
+        if ((e.ctrlKey || e.metaKey) && selectedUnit.shape) {
+          e.preventDefault();
+          onDuplicate(selectedUnit.shape);
+        }
+        return;
+    }
   }
 
-  function updateLabel(key: string, label: string) {
-    onChange(shapes.map((s) => (s.key === key ? { ...s, label: label || null } : s)));
-  }
+  // ---- Render --------------------------------------------------------------
 
-  function removeShape(key: string) {
-    onChange(shapes.filter((s) => s.key !== key));
-  }
-
-  // Group shapes for rendering: standalone shapes render as one rect each;
-  // grouped shapes render as one wrapper (any member's shared rect) with
-  // laneRectsWithinGroup stripes inside, ordered by lane_index but using
-  // array position (not the raw index value) as the stripe slot — see
-  // geometry.ts for why this makes deletion/reordering renumber-free.
-  const standaloneShapes = shapes.filter((s) => s.groupId === null);
-  const groupIds = [...new Set(shapes.filter((s) => s.groupId !== null).map((s) => s.groupId!))];
-  const groups = groupIds.map((groupId) => {
-    const members = shapes
-      .filter((s) => s.groupId === groupId)
-      .sort((a, b) => (a.laneIndex ?? 0) - (b.laneIndex ?? 0));
-    return { groupId, members };
-  });
+  const isEmpty = shapes.length === 0 && contextElements.length === 0;
+  const assignedSpaceIds = new Set(shapes.map((s) => s.space_id));
 
   return (
     <div>
       <div
         ref={containerRef}
         data-shape-canvas="true"
-        className="relative w-full rounded-xl overflow-hidden border border-gray-200 bg-gray-50 select-none touch-none"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}
+        onPointerDown={() => setSelectedKey(null)}
+        aria-label="Facility map canvas — select a shape, then use arrow keys to nudge, Delete to remove"
+        className="relative w-full rounded-xl overflow-hidden select-none touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
         style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
       >
-        {standaloneShapes.map((shape) => {
-          const space = spaces.find((s) => s.id === shape.space_id);
-          const displayLabel = shape.label ?? space?.name ?? "Unassigned";
+        <FacilityMapSvg
+          className="absolute inset-0 pointer-events-none"
+          canvasWidth={canvasWidth}
+          canvasHeight={canvasHeight}
+          shapes={renderShapes}
+          contextElements={renderContext}
+        />
+
+        {/* Alignment guides */}
+        {guides.v !== null && (
+          <div
+            className="absolute top-0 bottom-0 w-px bg-blue-500/70 pointer-events-none"
+            style={{ left: `${guides.v * 100}%` }}
+          />
+        )}
+        {guides.h !== null && (
+          <div
+            className="absolute left-0 right-0 h-px bg-blue-500/70 pointer-events-none"
+            style={{ top: `${guides.h * 100}%` }}
+          />
+        )}
+
+        {/* Editing overlay — transparent hit areas + handles on selection. */}
+        {units.map((unit) => {
+          const isSelected = unit.unitKey === selectedKey;
           return (
             <div
-              key={shape.key}
-              onPointerDown={(e) => startMove(e, shape)}
-              className="absolute border-2 border-blue-500 bg-blue-500/15 cursor-move"
+              key={unit.unitKey}
+              onPointerDown={(e) => startMove(e, unit)}
+              className={`absolute cursor-move ${isSelected ? "z-10" : ""}`}
               style={{
-                left: `${shape.x * 100}%`,
-                top: `${shape.y * 100}%`,
-                width: `${shape.width * 100}%`,
-                height: `${shape.height * 100}%`,
-                transform: `rotate(${shape.rotation}deg)`,
+                left: `${unit.rect.x * 100}%`,
+                top: `${unit.rect.y * 100}%`,
+                width: `${unit.rect.width * 100}%`,
+                height: `${unit.rect.height * 100}%`,
+                transform: `rotate(${unit.rect.rotation}deg)`,
                 transformOrigin: "center",
               }}
+              role="button"
+              aria-label={`${unit.label} — drag to move`}
             >
-              <span className="absolute inset-0 flex items-center justify-center text-[11px] font-medium text-blue-700 text-center px-1 pointer-events-none">
-                {displayLabel}
-              </span>
+              {isSelected && (
+                <>
+                  <div className="absolute -inset-0.5 border-2 border-blue-500 border-dashed rounded pointer-events-none" />
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  removeShape(shape.key);
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm"
-                aria-label="Remove shape"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
-
-              <div
-                onPointerDown={(e) => startRotate(e, shape)}
-                className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 cursor-grab shadow-sm"
-                aria-label="Rotate shape"
-              >
-                <RotateCw className="w-2.5 h-2.5" />
-              </div>
-
-              <div
-                onPointerDown={(e) => startResize(e, shape)}
-                className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white cursor-nwse-resize"
-              />
-            </div>
-          );
-        })}
-
-        {groups.map(({ groupId, members }) => {
-          if (members.length === 0) return null;
-          const outer = members[0]; // every member shares the identical outer rect
-          const laneRects = laneRectsWithinGroup(outer, members.length);
-          return (
-            <div
-              key={groupId}
-              onPointerDown={(e) => startMove(e, outer)}
-              className="absolute border-2 border-blue-500 cursor-move"
-              style={{
-                left: `${outer.x * 100}%`,
-                top: `${outer.y * 100}%`,
-                width: `${outer.width * 100}%`,
-                height: `${outer.height * 100}%`,
-                transform: `rotate(${outer.rotation}deg)`,
-                transformOrigin: "center",
-              }}
-            >
-              {members.map((lane, i) => {
-                const laneRect = laneRects[i];
-                const space = spaces.find((s) => s.id === lane.space_id);
-                const displayLabel = lane.label ?? space?.name ?? "Unassigned";
-                return (
-                  <div
-                    key={lane.key}
-                    className="absolute bg-blue-500/15 border-t border-blue-300 first:border-t-0 flex items-center justify-center"
-                    style={{
-                      left: `${((laneRect.x - outer.x) / outer.width) * 100}%`,
-                      top: `${((laneRect.y - outer.y) / outer.height) * 100}%`,
-                      width: `${(laneRect.width / outer.width) * 100}%`,
-                      height: `${(laneRect.height / outer.height) * 100}%`,
-                    }}
-                  >
-                    <span className="text-[10px] font-medium text-blue-700 text-center px-1 truncate pointer-events-none">
-                      {displayLabel}
-                    </span>
+                  <div className="absolute -top-3 -right-3 flex gap-1">
+                    {unit.shape && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          onDuplicate(unit.shape!);
+                        }}
+                        onPointerDown={(e) => e.stopPropagation()}
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-300 shadow-sm"
+                        aria-label={`Duplicate ${unit.label}`}
+                      >
+                        <Copy className="w-3 h-3" />
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        removeUnit(unit);
+                      }}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      className="w-6 h-6 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm"
+                      aria-label={`Remove ${unit.label}`}
+                    >
+                      <Trash2 className="w-3 h-3" />
+                    </button>
                   </div>
-                );
-              })}
 
-              <button
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onChange(shapes.filter((s) => s.groupId !== groupId));
-                }}
-                onPointerDown={(e) => e.stopPropagation()}
-                className="absolute -top-2 -right-2 w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm"
-                aria-label="Remove pool"
-              >
-                <Trash2 className="w-3 h-3" />
-              </button>
+                  <div
+                    onPointerDown={(e) => startRotate(e, unit)}
+                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 cursor-grab shadow-sm"
+                    aria-label={`Rotate ${unit.label}`}
+                  >
+                    <RotateCw className="w-3 h-3" />
+                  </div>
 
-              <div
-                onPointerDown={(e) => startRotate(e, outer)}
-                className="absolute -top-6 left-1/2 -translate-x-1/2 w-4 h-4 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 cursor-grab shadow-sm"
-                aria-label="Rotate pool"
-              >
-                <RotateCw className="w-2.5 h-2.5" />
-              </div>
-
-              <div
-                onPointerDown={(e) => startResize(e, outer)}
-                className="absolute -bottom-1.5 -right-1.5 w-3.5 h-3.5 rounded-full bg-blue-600 border-2 border-white cursor-nwse-resize"
-              />
+                  <div
+                    onPointerDown={(e) => startResize(e, unit)}
+                    className="absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white cursor-nwse-resize shadow-sm"
+                    aria-label={`Resize ${unit.label}`}
+                  />
+                </>
+              )}
             </div>
           );
         })}
+
+        {isEmpty && (
+          <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
+            <div className="text-center px-6">
+              <p className="text-sm font-semibold text-gray-500">Build your facility</p>
+              <p className="text-xs text-gray-400 mt-1 max-w-xs">
+                Drag a pool, court, or room from the palette below onto this canvas. Add zones like
+                &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
+              </p>
+            </div>
+          </div>
+        )}
       </div>
 
-      <p className="text-xs text-gray-400 mt-2">Drag a preset from below onto the canvas to place it.</p>
+      <p className="text-xs text-gray-400 mt-2">
+        Click a shape to select it — drag to move, use the handles to rotate and resize, arrow keys
+        to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges.
+      </p>
 
-      {shapes.length > 0 && (
+      {(shapes.length > 0 || contextElements.length > 0) && (
         <div className="mt-4 space-y-2">
-          {[...standaloneShapes, ...groups.flatMap((g) => g.members)].map((shape) => (
+          {shapes.map((shape) => (
             <div key={shape.key} className="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 flex-wrap">
               <select
                 value={shape.space_id}
-                onChange={(e) => updateSpaceId(shape.key, e.target.value)}
+                onChange={(e) => {
+                  onChange(
+                    shapes.map((s) => (s.key === shape.key ? { ...s, space_id: e.target.value } : s)),
+                    contextElements
+                  );
+                  onCommit();
+                }}
                 className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {spaces.map((s) => (
@@ -324,15 +557,56 @@ export default function ShapeCanvas({ canvasWidth, canvasHeight, shapes, spaces,
               <input
                 type="text"
                 value={shape.label ?? ""}
-                onChange={(e) => updateLabel(shape.key, e.target.value)}
+                onChange={(e) =>
+                  onChange(
+                    shapes.map((s) => (s.key === shape.key ? { ...s, label: e.target.value || null } : s)),
+                    contextElements
+                  )
+                }
+                onBlur={onCommit}
                 placeholder="Label override (optional)"
                 className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
               <button
                 type="button"
-                onClick={() => removeShape(shape.key)}
+                onClick={() => {
+                  onChange(shapes.filter((s) => s.key !== shape.key), contextElements);
+                  onCommit();
+                }}
                 className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
                 aria-label="Remove shape"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+          ))}
+
+          {contextElements.map((ctx) => (
+            <div key={ctx.key} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 flex-wrap">
+              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 w-20 shrink-0">
+                {ctx.kind === "entrance" ? "Entrance" : "Zone"}
+              </span>
+              <input
+                type="text"
+                value={ctx.label ?? ""}
+                onChange={(e) =>
+                  onChange(
+                    shapes,
+                    contextElements.map((c) => (c.key === ctx.key ? { ...c, label: e.target.value || null } : c))
+                  )
+                }
+                onBlur={onCommit}
+                placeholder={ctx.kind === "entrance" ? "Entrance" : "e.g. Lobby, Change Rooms"}
+                className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+              <button
+                type="button"
+                onClick={() => {
+                  onChange(shapes, contextElements.filter((c) => c.key !== ctx.key));
+                  onCommit();
+                }}
+                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+                aria-label="Remove context element"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

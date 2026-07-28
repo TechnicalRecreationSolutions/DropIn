@@ -98,6 +98,36 @@ export function clampRotation(deg: number): number {
 }
 
 /**
+ * Snaps `value` to the nearest entry in `targets` when within `threshold`,
+ * else returns it unchanged. Returns the snapped target too so the caller
+ * can draw an alignment guide at it. Used by the editor canvas for
+ * grid/edge/center snapping — targets and threshold are both in the same
+ * unitless space as `value` (canvas fractions).
+ */
+export function snapValue(
+  value: number,
+  targets: number[],
+  threshold: number
+): { value: number; snappedTo: number | null } {
+  let best: number | null = null;
+  let bestDelta = threshold;
+  for (const target of targets) {
+    const delta = Math.abs(value - target);
+    if (delta <= bestDelta) {
+      best = target;
+      bestDelta = delta;
+    }
+  }
+  return best === null ? { value, snappedTo: null } : { value: best, snappedTo: best };
+}
+
+/** Snaps an angle to the nearest multiple of `stepDeg` when within `thresholdDeg`. */
+export function snapAngle(deg: number, stepDeg: number, thresholdDeg: number): number {
+  const nearest = Math.round(deg / stepDeg) * stepDeg;
+  return Math.abs(deg - nearest) <= thresholdDeg ? clampRotation(nearest) : deg;
+}
+
+/**
  * Divides a group's shared outer rect into `laneCount` equal-height
  * horizontal stripes (each spanning the full width), stacked top to
  * bottom — matches how real pool lanes lay out side by side across the
