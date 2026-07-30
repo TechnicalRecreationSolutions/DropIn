@@ -4,13 +4,26 @@
 
 Dropin is a public discovery platform that lets consumers find drop-in recreation across organizations and municipalities, while giving organizations a modern way to publish and manage their schedules.
 
+For the delivery history, current schema map, and open work, see [`docs/PLAN.md`](docs/PLAN.md). This README covers what the app is and how to run it.
+
 ---
 
 ## What problem does this solve?
 
-**For consumers:** Recreation information is siloed across dozens of municipal and private websites, each with a different UX. Finding "where can I lap swim this week?" requires visiting multiple sites.
+**For consumers:** Recreation information is siloed across dozens of municipal and private websites, each with a different UX. Finding "where can I lap swim this week?" requires visiting multiple sites. Dropin's **facility map** turns that into a visual, recognition-first experience — see a picture of the building, tap the pool, know what's happening there right now.
 
-**For organizations:** Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, forcing staff to build redundant paper or PDF schedules every week. Dropin provides a visual weekly schedule layer that works *on top of* existing systems — no migration required.
+**For organizations:** Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, forcing staff to build redundant paper or PDF schedules every week. Dropin provides a visual weekly schedule layer and an illustrated facility map that work *on top of* existing systems — no migration required. A drag-and-drop **schedule builder** lets staff place reusable session templates instead of filling out a form for every session.
+
+---
+
+## Flagship features
+
+These are the product's actual differentiators, not incidental features — see `docs/PLAN.md` for status/roadmap of each:
+
+- **Facility map** (`src/components/facility-maps/`) — an illustrated SVG rendering engine shared by the admin builder and the public viewer. Pools render as water with lane ropes, courts get real markings, spaces glow when a session is live. Recipe and design principles: `docs/prompts/facility-map-flagship.md`.
+- **Schedule builder** (`src/components/schedule-builder/`, `src/components/session-template/`) — color-coded, reusable session templates that staff drag onto a visual builder instead of re-filling an 11-field form per session.
+
+Ingestion into a schedule is **manual entry or Excel/CSV import only.** An earlier phase built an automated scraping pipeline (Xplor/ActiveNet/NextRec) end-to-end on the Dropin side, but the external scraper service was never built, and the feature was fully removed (`supabase/migrations/021_remove_scraping.sql`). It is not on the roadmap — don't reintroduce scraping-shaped code or docs without a deliberate decision to revisit it.
 
 ---
 
@@ -23,7 +36,8 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
 │  │  Public Discovery │  │  Org Dashboard   │  │   Widget     │  │
 │  │  /search, /browse│  │  /dashboard/*    │  │ /widget/[id] │  │
-│  │  /facility, /prog│  │  Schedule editor │  │ (iframe)     │  │
+│  │  /facility        │  │  Schedule + map  │  │ (iframe)     │  │
+│  │                    │  │  builders        │  │              │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────┘  │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -31,26 +45,23 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 │  │              API Routes + Server Components              │   │
 │  └──────────────────────────────────────────────────────────┘   │
 │                                                                 │
-│  ┌───────────────────┐  ┌────────────┐  ┌───────────────────┐  │
-│  │  Supabase         │  │  Stripe    │  │  External Scraper │  │
-│  │  Postgres + RLS   │  │  Billing   │  │  Playwright svc   │  │
-│  │  Auth + Realtime  │  │            │  │  (Railway/Fly.io) │  │
-│  └───────────────────┘  └────────────┘  └───────────────────┘  │
+│  ┌───────────────────┐  ┌────────────┐                          │
+│  │  Supabase         │  │  Stripe    │                          │
+│  │  Postgres + RLS   │  │  Billing   │                          │
+│  │  Auth + Realtime  │  │            │                          │
+│  └───────────────────┘  └────────────┘                          │
 └─────────────────────────────────────────────────────────────────┘
 ```
 
 ### Data flow for schedules
 
-1. Organization staff add their schedule via one of three ingestion paths:
-   - **Manual** — build schedule directly in the Dropin dashboard
-   - **Upload** — import from Excel/CSV (existing paper schedules)
-   - **Scraping** — auto-sync from their existing Xplor/ActiveNet/NextRec page
+1. Organization staff add sessions via one of two ingestion paths: **manual** (built directly in the dashboard, optionally via the drag-and-drop session-template builder) or **import** (Excel/CSV upload of existing paper schedules).
 
 2. Sessions are stored as **RRULE recurrence rules** (not individual events). "Lap Swim runs Mon/Wed/Fri 6–8am" is one database row.
 
 3. At query time, `lib/rrule/expand.ts` expands rules into concrete occurrences for the requested week range.
 
-4. The weekly visual schedule grid renders expanded sessions. Consumers view it at `/facility/[slug]`, organizations edit it in the dashboard, and the embeddable widget shows it in an iframe on the org's own site.
+4. The weekly grid and the illustrated facility map both render expanded sessions. Consumers view them at `/facility/[facilitySlug]`, organizations edit the underlying data in the dashboard, and the embeddable widget shows either view in an iframe on the org's own site.
 
 ---
 
@@ -66,10 +77,12 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 | Client state | Zustand |
 | Server state | TanStack Query |
 | Forms | React Hook Form + Zod |
-| Maps | Mapbox GL JS |
+| Drag and drop | dnd-kit |
+| Maps (discovery) | Mapbox GL JS |
+| Facility map rendering | Hand-rolled SVG (`src/components/facility-maps/renderer/`) |
 | Email | Resend |
+| Import parsing | xlsx, papaparse |
 | Recurrence | rrule (RFC 5545) |
-| Scraping | External Node + Playwright service |
 
 ---
 
@@ -79,8 +92,8 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 dropin/
 ├── src/
 │   ├── app/                    # Next.js App Router pages and API routes
-│   │   ├── (public)/           # Public discovery pages (no auth)
-│   │   ├── (auth)/             # Login, signup, password reset
+│   │   ├── (public)/           # Public discovery: search, browse, facility pages
+│   │   ├── (auth)/             # Login, signup, org onboarding
 │   │   ├── (dashboard)/        # Org staff dashboard (auth required)
 │   │   ├── (admin)/            # Superadmin panel
 │   │   ├── widget/[orgId]/     # Embeddable widget iframe
@@ -88,29 +101,37 @@ dropin/
 │   │
 │   ├── components/
 │   │   ├── ui/                 # shadcn/ui base components
-│   │   ├── layout/             # Nav, sidebar, providers
-│   │   ├── discovery/          # Search, map, facility cards
-│   │   ├── schedule/           # Weekly grid (read-only public view)
-│   │   ├── schedule-editor/    # Weekly grid (editable dashboard view)
-│   │   ├── import/             # File upload, column mapping, preview
-│   │   ├── scraping/           # Scrape config, conflict resolution
-│   │   └── widget/             # Widget configurator and preview
+│   │   ├── layout/              # Nav, sidebar, providers
+│   │   ├── discovery/           # Search, map, facility cards
+│   │   ├── schedule/             # Weekly grid + floorplan view (public/read-only)
+│   │   ├── schedule-editor/       # Weekly grid (editable dashboard view)
+│   │   ├── schedule-builder/      # Drag-and-drop session template builder
+│   │   ├── session-template/      # Session template CRUD
+│   │   ├── facility-maps/          # Illustrated SVG map engine + admin builder
+│   │   ├── department/, facility/, schedule-group/, space/  # Entity forms/lists
+│   │   ├── import/                # File upload, column mapping, preview
+│   │   ├── billing/                 # Stripe checkout/portal UI
+│   │   ├── analytics/               # Dashboard analytics widgets
+│   │   └── widget/                   # Widget configurator and preview
 │   │
 │   ├── lib/
-│   │   ├── supabase/           # DB clients: browser, server, middleware, admin
-│   │   ├── rrule/              # Recurrence rule expansion
-│   │   ├── import/             # Excel/CSV parsing and validation
-│   │   ├── scraping/           # Conflict detection and platform adapters
-│   │   ├── auth/               # Session helpers, role checking
-│   │   └── utils/              # cn, dates, slugify, sport-categories
+│   │   ├── supabase/            # DB clients: browser, server, middleware, admin
+│   │   ├── rrule/                # Recurrence rule expansion
+│   │   ├── schedule/              # Live-status logic (`sessionStatus.ts`), shared across views
+│   │   ├── facility-shapes/        # Facility map preset taxonomy (pools, courts, rooms)
+│   │   ├── maps/                    # Facility map geometry helpers
+│   │   ├── import/                   # Excel/CSV parsing and validation
+│   │   ├── stripe/                    # Plans, client
+│   │   ├── auth/                       # Session helpers, role checking
+│   │   └── utils/                       # cn, dates, slugify, sport-categories
 │   │
 │   ├── hooks/                  # Custom React hooks (TanStack Query wrappers)
 │   ├── store/                  # Zustand stores (editor state, search filters)
-│   └── types/                  # TypeScript types (database, schedule, app)
+│   └── types/                  # TypeScript types — see "Database types" below
 │
 ├── supabase/
-│   ├── migrations/             # Numbered SQL migrations (run in order)
-│   └── functions/              # Edge functions (scraping scheduler, email)
+│   ├── migrations/             # Numbered SQL migrations (run in order, never edited after running)
+│   └── functions/              # Edge functions (email)
 │
 └── public/
     └── embed/widget.js         # Public embed script (organizations paste this)
@@ -170,18 +191,13 @@ Open [http://localhost:3000](http://localhost:3000).
 
 ## Database Migrations
 
-Migrations live in `supabase/migrations/` and run in numbered order:
+Migrations live in `supabase/migrations/` and run in numbered order. **Never modify a migration that has already run in production** — create a new numbered migration instead, even to fix a mistake in an old one (see `021_remove_scraping.sql` for the pattern: it defensively handles columns/tables that may or may not exist depending on which historical version of an earlier migration a given database actually ran).
 
-| File | Purpose |
-|---|---|
-| `001_initial_schema.sql` | Core tables: orgs, facilities, programs, sessions, exceptions |
-| `002_rls_policies.sql` | Row Level Security policies for all tables |
-| `003_indexes.sql` | Performance indexes |
-| `004_stripe_tables.sql` | Subscription and Stripe event tables |
-| `005_analytics_tables.sql` | Widget config and analytics event tables |
-| `006_scraping_tables.sql` | Scraping config, job, and conflict tables |
+The migration list itself is not duplicated here — it changes too often to keep two copies in sync. For a narrative map of what the schema actually looks like right now, grouped by concern, see [`docs/PLAN.md`](docs/PLAN.md).
 
-**Never modify a migration that has been run in production.** Create a new numbered migration instead.
+### Database types
+
+`src/types/database.types.ts` is meant to be generated by `supabase gen types` (step 3 above) whenever the schema changes. If you're working against a local/manual schema without a linked Supabase project, it must be hand-updated to match — check it against the migrations before trusting it, it has drifted before.
 
 ---
 
@@ -215,17 +231,8 @@ The script creates an iframe pointing to `/widget/[orgId]` and auto-resizes it v
 
 ---
 
-## Delivery Phases
+## Project status
 
-This project follows agile delivery — each phase ships a working vertical slice:
-
-| Phase | Scope | Status |
-|---|---|---|
-| 1 | Foundation: auth, org creation, layout | 🔨 In progress |
-| 2 | Core data model: facilities, programs, sessions, weekly grid | Pending |
-| 3 | Public discovery: search, map, SEO pages | Pending |
-| 4 | Org dashboard: editor, import, widget, billing | Pending |
-| 5 | Scraping: automated sync from Xplor/ActiveNet/NextRec | Pending |
-| 6 | Widget embed script, analytics, admin panel | Pending |
+This is a real production app headed for a professional audit and app-store deployment, built agile — each phase ships a working vertical slice. The original 5-phase plan (foundation → core data model → public discovery → org dashboard → widget/scraping) shipped, and the product has grown well past it since. See [`docs/PLAN.md`](docs/PLAN.md) for the full delivery history, what's actively being cleaned up, and what's next.
 
 Run `/security-review` before merging any phase.
