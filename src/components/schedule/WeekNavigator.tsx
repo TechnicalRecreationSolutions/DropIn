@@ -44,7 +44,8 @@ export default function WeekNavigator({ weekStart, onWeekChange }: WeekNavigator
       {!isCurrentWeek && (
         <button
           onClick={() => onWeekChange(new Date())}
-          className="hidden sm:flex items-center gap-1 px-3 py-1.5 text-xs font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"
+          className="today-btn hidden sm:flex items-center gap-1 px-3 py-1.5 text-xs font-medium rounded-lg transition-colors"
+          style={{ color: "var(--org-primary, #2563eb)" }}
         >
           <Calendar className="w-3.5 h-3.5" />
           Today

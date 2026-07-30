@@ -8,7 +8,8 @@ const QuerySchema = z.object({
   weekStart: z.string().datetime({ offset: true }).optional(),
   orgId: z.string().uuid().optional(),
   facilityId: z.string().uuid().optional(),
-  programId: z.string().uuid().optional(),
+  departmentId: z.string().uuid().optional(),
+  scheduleGroupId: z.string().uuid().optional(),
 });
 
 /**
@@ -18,13 +19,14 @@ const QuerySchema = z.object({
  * Used by WeeklyScheduleGrid (public) and WeeklyScheduleEditor (dashboard).
  *
  * Query params:
- *   weekStart   ISO datetime — any date in the target week (defaults to current week)
- *   orgId       Filter to one organization
- *   facilityId  Filter to one facility
- *   programId   Filter to one program
+ *   weekStart        ISO datetime — any date in the target week (defaults to current week)
+ *   orgId             Filter to one organization
+ *   facilityId        Filter to one facility
+ *   departmentId      Filter to one department
+ *   scheduleGroupId   Filter to one schedule group
  *
- * At least one of orgId, facilityId, or programId is required to prevent
- * unbounded queries across the entire dataset.
+ * At least one of orgId, facilityId, or scheduleGroupId is required to
+ * prevent unbounded queries across the entire dataset.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -33,7 +35,8 @@ export async function GET(request: Request) {
     weekStart: searchParams.get("weekStart") ?? undefined,
     orgId: searchParams.get("orgId") ?? undefined,
     facilityId: searchParams.get("facilityId") ?? undefined,
-    programId: searchParams.get("programId") ?? undefined,
+    departmentId: searchParams.get("departmentId") ?? undefined,
+    scheduleGroupId: searchParams.get("scheduleGroupId") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -43,11 +46,11 @@ export async function GET(request: Request) {
     );
   }
 
-  const { weekStart: weekStartParam, orgId, facilityId, programId } = parsed.data;
+  const { weekStart: weekStartParam, orgId, facilityId, departmentId, scheduleGroupId } = parsed.data;
 
-  if (!orgId && !facilityId && !programId) {
+  if (!orgId && !facilityId && !scheduleGroupId) {
     return NextResponse.json(
-      { error: "At least one of orgId, facilityId, or programId is required" },
+      { error: "At least one of orgId, facilityId, or scheduleGroupId is required" },
       { status: 400 }
     );
   }
@@ -59,16 +62,19 @@ export async function GET(request: Request) {
 
   const supabase = await createClient();
 
-  // Build sessions query with program + facility join
+  // Build sessions query with schedule group + facility + department join
   let query = supabase
     .from("sessions")
     .select(`
       *,
-      programs (
+      schedule_groups (
         id, name, sport_category, activity_type, cost_cents, cost_notes,
         age_group, skill_level, max_participants, is_published,
-        facilities ( id, name )
-      )
+        facilities ( id, name ),
+        departments ( id, name )
+      ),
+      session_spaces ( spaces ( id, name, display_order ) ),
+      session_templates ( id, name, color )
     `)
     .eq("is_active", true)
     .lte("valid_from", weekEnd.toISOString().split("T")[0]);
@@ -79,8 +85,9 @@ export async function GET(request: Request) {
   );
 
   if (orgId) query = query.eq("org_id", orgId);
-  if (facilityId) query = query.eq("programs.facility_id", facilityId);
-  if (programId) query = query.eq("program_id", programId);
+  if (facilityId) query = query.eq("schedule_groups.facility_id", facilityId);
+  if (departmentId) query = query.eq("schedule_groups.department_id", departmentId);
+  if (scheduleGroupId) query = query.eq("schedule_group_id", scheduleGroupId);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: sessions, error: sessionsError } = await query as any;
@@ -115,7 +122,8 @@ export async function GET(request: Request) {
     weekEnd,
     orgId,
     facilityId,
-    programId,
+    departmentId,
+    scheduleGroupId,
   });
 
   return NextResponse.json({

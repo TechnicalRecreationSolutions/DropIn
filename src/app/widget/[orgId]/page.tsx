@@ -1,10 +1,17 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
+import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import WidgetScheduleClient from "./WidgetScheduleClient";
 
 interface WidgetPageProps {
   params: Promise<{ orgId: string }>;
-  searchParams: Promise<{ facilityId?: string; theme?: string }>;
+  searchParams: Promise<{
+    facilityId?: string;
+    departmentId?: string;
+    theme?: string;
+    templates?: string;
+    preview?: string;
+  }>;
 }
 
 /**
@@ -16,11 +23,18 @@ interface WidgetPageProps {
  */
 export default async function WidgetPage({ params, searchParams }: WidgetPageProps) {
   const { orgId } = await params;
-  const { facilityId, theme = "light" } = await searchParams;
+  const {
+    facilityId,
+    departmentId,
+    theme = "light",
+    templates: previewTemplates,
+    preview,
+  } = await searchParams;
 
   const supabase = await createClient();
 
   // Verify org exists and is active
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: org } = await (supabase as any)
     .from("organizations")
     .select("id, name, slug")
@@ -33,6 +47,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // If facilityId provided, verify it belongs to this org
   let facility: { id: string; name: string } | null = null;
   if (facilityId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: f } = await (supabase as any)
       .from("facilities")
       .select("id, name")
@@ -42,37 +57,90 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     facility = f;
   }
 
+  // If departmentId provided, verify it belongs to this org (and facility, if both given)
+  let department: { id: string; name: string } | null = null;
+  if (departmentId) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    let deptQuery = (supabase as any)
+      .from("departments")
+      .select("id, name")
+      .eq("id", departmentId)
+      .eq("org_id", orgId);
+    if (facilityId) deptQuery = deptQuery.eq("facility_id", facilityId);
+    const { data: d } = await deptQuery.single() as { data: { id: string; name: string } | null };
+    department = d;
+  }
+
+  // allowedTemplates reflects the org's saved widget_configs row for this
+  // exact facility+department scope by default. The configurator's own
+  // unsaved preview passes ?preview=1&templates=grid,list to see a choice
+  // before saving — a real embed never sends `preview`, so it always
+  // renders the saved value regardless of what's in its query string.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let widgetConfigQuery = (supabase as any).from("widget_configs").select("allowed_templates, primary_color").eq("org_id", orgId);
+  widgetConfigQuery = facility ? widgetConfigQuery.eq("facility_id", facility.id) : widgetConfigQuery.is("facility_id", null);
+  widgetConfigQuery = department ? widgetConfigQuery.eq("department_id", department.id) : widgetConfigQuery.is("department_id", null);
+  const { data: widgetConfig } = await widgetConfigQuery.maybeSingle() as {
+    data: { allowed_templates: ("grid" | "list" | "map" | "floorplan")[]; primary_color: string } | null;
+  };
+
+  const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
+
+  const validTemplates = ["grid", "list", "map", "floorplan"] as const;
+  function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan")[] {
+    if (!value) return [];
+    return value
+      .split(",")
+      .map((t) => t.trim())
+      .filter((t): t is "grid" | "list" | "map" | "floorplan" => (validTemplates as readonly string[]).includes(t));
+  }
+
+  const previewList = parseTemplateList(previewTemplates);
+  const rawAllowedTemplates =
+    preview === "1" && previewList.length > 0
+      ? previewList
+      : widgetConfig?.allowed_templates ?? ["grid", "list", "map"];
+  // Floorplan only makes sense scoped to a single facility — an org-wide
+  // embed (no facilityId) has no one facility map to show.
+  const allowedTemplates = facility
+    ? rawAllowedTemplates
+    : rawAllowedTemplates.filter((t) => t !== "floorplan");
+
   const isDark = theme === "dark";
 
   return (
     <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
-      {/* Header */}
-      <div className="mb-4 flex items-center justify-between">
-        <div>
-          <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-            {org.name}
-          </p>
-          {facility && (
-            <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-              {facility.name}
-            </h2>
-          )}
+      <OrgThemeProvider primaryColor={primaryColor}>
+        {/* Header */}
+        <div className="mb-4 flex items-center justify-between">
+          <div>
+            <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              {org.name}
+            </p>
+            {facility && (
+              <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
+                {facility.name}{department ? ` · ${department.name}` : ""}
+              </h2>
+            )}
+          </div>
+          <a
+            href={`/org/${org.slug}`}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+          >
+            dropin.app ↗
+          </a>
         </div>
-        <a
-          href={`/org/${org.slug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs text-blue-500 hover:text-blue-600 font-medium"
-        >
-          dropin.app ↗
-        </a>
-      </div>
 
-      <WidgetScheduleClient
-        orgId={org.id}
-        facilityId={facility?.id}
-        theme={theme === "dark" ? "dark" : "light"}
-      />
+        <WidgetScheduleClient
+          orgId={org.id}
+          facilityId={facility?.id}
+          departmentId={department?.id}
+          theme={theme === "dark" ? "dark" : "light"}
+          allowedTemplates={allowedTemplates}
+        />
+      </OrgThemeProvider>
     </div>
   );
 }

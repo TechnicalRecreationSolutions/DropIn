@@ -8,7 +8,6 @@ export interface Plan {
   limits: {
     facilities: number;        // -1 = unlimited
     programsPerFacility: number;
-    scrapingConfigs: number;
     staffMembers: number;
     analyticsHistoryDays: number;
   };
@@ -23,7 +22,6 @@ export const PLANS: Record<PlanTier, Plan> = {
     limits: {
       facilities: 1,
       programsPerFacility: 5,
-      scrapingConfigs: 0,
       staffMembers: 1,
       analyticsHistoryDays: 30,
     },
@@ -36,7 +34,6 @@ export const PLANS: Record<PlanTier, Plan> = {
     limits: {
       facilities: 5,
       programsPerFacility: -1,
-      scrapingConfigs: 3,
       staffMembers: 5,
       analyticsHistoryDays: 365,
     },
@@ -49,7 +46,6 @@ export const PLANS: Record<PlanTier, Plan> = {
     limits: {
       facilities: -1,
       programsPerFacility: -1,
-      scrapingConfigs: -1,
       staffMembers: -1,
       analyticsHistoryDays: -1,
     },

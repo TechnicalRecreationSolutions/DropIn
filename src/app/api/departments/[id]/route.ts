@@ -1,0 +1,91 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { slugify } from "@/lib/utils/slugify";
+
+const UpdateDepartmentSchema = z.object({
+  name: z.string().min(1).optional(),
+  description: z.string().nullish(),
+  is_published: z.boolean().optional(),
+});
+
+async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>) {
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return null;
+
+  const { data: membership } = await supabase
+    .from("org_memberships")
+    .select("org_id, role")
+    .eq("user_id", user.id)
+    .single() as unknown as { data: { org_id: string; role: string } | null };
+
+  return membership;
+}
+
+/**
+ * PATCH /api/departments/[id] — update a department's name/description/publish state.
+ * DELETE /api/departments/[id] — remove a department.
+ */
+export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const membership = await getMembership(supabase);
+  if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Only org owners and admins can manage departments" }, { status: 403 });
+  }
+
+  let body: unknown;
+  try {
+    body = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = UpdateDepartmentSchema.safeParse(body);
+  if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  const payload = {
+    ...parsed.data,
+    ...(parsed.data.name ? { slug: slugify(parsed.data.name) } : {}),
+  };
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data, error } = await (supabase as any)
+    .from("departments")
+    .update(payload)
+    .eq("id", id)
+    .eq("org_id", membership.org_id)
+    .select("*")
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json(
+      { error: error.code === "23505" ? "A department with this name already exists at that facility." : "Could not update department." },
+      { status: 500 }
+    );
+  }
+  if (!data) return NextResponse.json({ error: "Department not found" }, { status: 404 });
+
+  return NextResponse.json({ department: data });
+}
+
+export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
+  const { id } = await params;
+  const supabase = await createClient();
+  const membership = await getMembership(supabase);
+  if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!["owner", "admin"].includes(membership.role)) {
+    return NextResponse.json({ error: "Only org owners and admins can manage departments" }, { status: 403 });
+  }
+
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error } = await (supabase as any)
+    .from("departments")
+    .delete()
+    .eq("id", id)
+    .eq("org_id", membership.org_id);
+
+  if (error) return NextResponse.json({ error: "Could not delete department" }, { status: 500 });
+  return NextResponse.json({ ok: true });
+}

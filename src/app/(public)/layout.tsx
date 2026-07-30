@@ -1,3 +1,4 @@
+import Link from "next/link";
 import PublicNav from "@/components/layout/PublicNav";
 import Providers from "@/components/layout/Providers";
 
@@ -24,15 +25,15 @@ export default function PublicLayout({
                 <div>
                   <p className="text-white font-medium mb-2">Discover</p>
                   <ul className="space-y-1">
-                    <li><a href="/search" className="hover:text-white transition-colors">Find Activities</a></li>
-                    <li><a href="/browse" className="hover:text-white transition-colors">Browse Sports</a></li>
+                    <li><Link href="/search" className="hover:text-white transition-colors">Find Activities</Link></li>
+                    <li><Link href="/browse" className="hover:text-white transition-colors">Browse Sports</Link></li>
                   </ul>
                 </div>
                 <div>
                   <p className="text-white font-medium mb-2">Organizations</p>
                   <ul className="space-y-1">
-                    <li><a href="/signup" className="hover:text-white transition-colors">List Your Facility</a></li>
-                    <li><a href="/login" className="hover:text-white transition-colors">Sign In</a></li>
+                    <li><Link href="/signup" className="hover:text-white transition-colors">List Your Facility</Link></li>
+                    <li><Link href="/login" className="hover:text-white transition-colors">Sign In</Link></li>
                   </ul>
                 </div>
               </div>

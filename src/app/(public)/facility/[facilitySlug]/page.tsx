@@ -1,8 +1,11 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
+import Link from "next/link";
 import { MapPin, Globe, Phone, Clock } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
+import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import FacilityScheduleClient from "./FacilityScheduleClient";
+import type { ScheduleTemplate } from "@/types/schedule.types";
 
 interface PageProps {
   params: Promise<{ facilitySlug: string }>;
@@ -15,7 +18,7 @@ type FacilityDetail = {
   is_published: boolean; org_id: string;
 };
 
-type ProgramSummary = {
+type ScheduleGroupSummary = {
   id: string; name: string; sport_category: string;
   activity_type: string; cost_cents: number;
   age_group: string | null; skill_level: string | null;
@@ -38,10 +41,10 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     title: `${facility.name} — Dropin`,
     description:
       facility.description ??
-      `Drop-in schedules and programs at ${facility.name} in ${facility.city}, ${facility.province}.`,
+      `Drop-in schedules at ${facility.name} in ${facility.city}, ${facility.province}.`,
     openGraph: {
       title: `${facility.name} — Dropin`,
-      description: `Find drop-in programs at ${facility.name}.`,
+      description: `Find drop-in schedules at ${facility.name}.`,
     },
   };
 }
@@ -59,21 +62,36 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
   if (!facility) notFound();
 
-  // Fetch programs for the sidebar (published only)
-  const { data: programs } = await supabase
-    .from("programs")
+  // Fetch schedules for the sidebar (published only)
+  const { data: scheduleGroups } = await supabase
+    .from("schedule_groups")
     .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
     .eq("facility_id", facility.id)
     .eq("is_published", true)
-    .order("name") as unknown as { data: ProgramSummary[] | null };
+    .order("name") as unknown as { data: ScheduleGroupSummary[] | null };
+
+  // Same allowed layouts/colors as the org's embeddable widget, for a
+  // consistent look. Scoped to this facility's config row (falling back to
+  // the org-wide default when a facility-specific row doesn't exist),
+  // matching the scoping already applied in widget/[orgId]/page.tsx.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { data: widgetConfig } = await (supabase as any)
+    .from("widget_configs")
+    .select("allowed_templates, primary_color")
+    .eq("org_id", facility.org_id)
+    .eq("facility_id", facility.id)
+    .is("department_id", null)
+    .maybeSingle() as { data: { allowed_templates: ScheduleTemplate[]; primary_color: string } | null };
+  const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
+  const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
       <nav className="text-sm text-gray-500 mb-6">
-        <a href="/" className="hover:text-gray-700 transition-colors">Home</a>
+        <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
         <span className="mx-2">›</span>
-        <a href="/search" className="hover:text-gray-700 transition-colors">Facilities</a>
+        <Link href="/search" className="hover:text-gray-700 transition-colors">Facilities</Link>
         <span className="mx-2">›</span>
         <span className="text-gray-900">{facility.name}</span>
       </nav>
@@ -92,13 +110,12 @@ export default async function FacilityDetailPage({ params }: PageProps) {
           )}
 
           {/* Weekly schedule — client component for interactivity */}
-          <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-6">
-            <h2 className="text-lg font-semibold text-gray-900 mb-4">Weekly Schedule</h2>
-            <FacilityScheduleClient facilityId={facility.id} />
-          </div>
+          <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-gray-200 overflow-hidden">
+            <FacilityScheduleClient facilityId={facility.id} allowedTemplates={allowedTemplates} />
+          </OrgThemeProvider>
         </div>
 
-        {/* Right sidebar: info + programs list */}
+        {/* Right sidebar: info + schedules list */}
         <aside className="mt-8 lg:mt-0 space-y-5">
           {/* Contact / info card */}
           <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
@@ -133,22 +150,22 @@ export default async function FacilityDetailPage({ params }: PageProps) {
             </div>
           </div>
 
-          {/* Programs offered */}
-          {programs && programs.length > 0 && (
+          {/* Schedules offered */}
+          {scheduleGroups && scheduleGroups.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="font-semibold text-gray-900 mb-3">Programs offered</h2>
+              <h2 className="font-semibold text-gray-900 mb-3">Schedules offered</h2>
               <ul className="space-y-2">
-                {programs.map((program) => (
-                  <li key={program.id} className="flex items-start justify-between gap-2 text-sm">
+                {scheduleGroups.map((sg) => (
+                  <li key={sg.id} className="flex items-start justify-between gap-2 text-sm">
                     <div>
-                      <p className="font-medium text-gray-800">{program.name}</p>
+                      <p className="font-medium text-gray-800">{sg.name}</p>
                       <p className="text-xs text-gray-500 capitalize">
-                        {program.activity_type.replace("_", " ")} · {program.sport_category}
-                        {program.age_group ? ` · ${program.age_group.replace("_", " ")}` : ""}
+                        {sg.activity_type.replace("_", " ")} · {sg.sport_category}
+                        {sg.age_group ? ` · ${sg.age_group.replace("_", " ")}` : ""}
                       </p>
                     </div>
                     <span className="shrink-0 text-sm font-medium text-gray-700">
-                      {program.cost_cents === 0 ? "Free" : `$${(program.cost_cents / 100).toFixed(2)}`}
+                      {sg.cost_cents === 0 ? "Free" : `$${(sg.cost_cents / 100).toFixed(2)}`}
                     </span>
                   </li>
                 ))}

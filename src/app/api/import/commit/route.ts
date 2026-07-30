@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { slugify } from "@/lib/utils/slugify";
+import { zonedTimeToUtc } from "@/lib/utils/timezone";
 import type { ImportPreviewRow } from "../route";
 
 export const runtime = "nodejs";
@@ -9,11 +10,12 @@ export const runtime = "nodejs";
 const CommitSchema = z.object({
   rows: z.array(z.any()),
   facilityId: z.string().uuid(),
+  departmentId: z.string().uuid().nullish(),
 });
 
 /**
  * POST /api/import/commit
- * Inserts validated import rows into programs + sessions tables.
+ * Inserts validated import rows into schedule_groups + sessions tables.
  * Skips rows with validation errors.
  */
 export async function POST(request: Request) {
@@ -33,13 +35,13 @@ export async function POST(request: Request) {
   const parsed = CommitSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { rows, facilityId } = parsed.data;
+  const { rows, facilityId, departmentId } = parsed.data;
   const validRows = (rows as ImportPreviewRow[]).filter((r) => r._errors.length === 0);
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = supabase as any;
 
-  let programsCreated = 0;
+  let scheduleGroupsCreated = 0;
   let sessionsCreated = 0;
   const errors: string[] = [];
 
@@ -48,13 +50,14 @@ export async function POST(request: Request) {
       const slug = slugify(row.program_name);
       const costCents = row.cost ? Math.round(parseFloat(row.cost) * 100) : 0;
 
-      // Upsert program by slug + facility
-      const { data: program, error: pErr } = await db
-        .from("programs")
+      // Upsert schedule group by slug + facility
+      const { data: scheduleGroup, error: sgErr } = await db
+        .from("schedule_groups")
         .upsert({
           name: row.program_name,
           slug,
           facility_id: facilityId,
+          department_id: departmentId ?? null,
           org_id: membership.org_id,
           sport_category: row.sport_category.toLowerCase().replace(/\s+/g, "_"),
           activity_type: row.activity_type ?? "drop_in",
@@ -65,18 +68,18 @@ export async function POST(request: Request) {
         .select("id")
         .single();
 
-      if (pErr || !program) {
-        errors.push(`Row ${row._index + 1}: Could not create program "${row.program_name}"`);
+      if (sgErr || !scheduleGroup) {
+        errors.push(`Row ${row._index + 1}: Could not create schedule "${row.program_name}"`);
         continue;
       }
 
-      programsCreated++;
+      scheduleGroupsCreated++;
 
-      // Build dtstart from season_start + start_time
-      const dtstart = new Date(`${row.season_start}T${row.start_time}:00`).toISOString();
+      // Build dtstart from season_start + start_time, wall-clock in the facility's timezone
+      const dtstart = zonedTimeToUtc(row.season_start, row.start_time, "America/Edmonton").toISOString();
 
       const { error: sErr } = await db.from("sessions").insert({
-        program_id: program.id,
+        schedule_group_id: scheduleGroup.id,
         org_id: membership.org_id,
         rrule: row._rrule,
         dtstart,
@@ -100,5 +103,5 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ ok: true, programsCreated, sessionsCreated, errors });
+  return NextResponse.json({ ok: true, scheduleGroupsCreated, sessionsCreated, errors });
 }

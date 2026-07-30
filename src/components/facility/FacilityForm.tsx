@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { useQueryClient } from "@tanstack/react-query";
 
 const CANADIAN_PROVINCES = [
   ["AB", "Alberta"], ["BC", "British Columbia"], ["MB", "Manitoba"],
@@ -12,7 +13,6 @@ const CANADIAN_PROVINCES = [
 ];
 
 interface FacilityFormProps {
-  orgId?: string;
   facilityId?: string;
   defaultValues?: {
     name?: string;
@@ -28,8 +28,9 @@ interface FacilityFormProps {
   };
 }
 
-export default function FacilityForm({ orgId, facilityId, defaultValues }: FacilityFormProps) {
+export default function FacilityForm({ facilityId, defaultValues }: FacilityFormProps) {
   const router = useRouter();
+  const queryClient = useQueryClient();
   const isEditing = !!facilityId;
 
   const [form, setForm] = useState({
@@ -64,7 +65,12 @@ export default function FacilityForm({ orgId, facilityId, defaultValues }: Facil
     const res = await fetch("/api/facilities", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...form, facilityId }),
+      body: JSON.stringify({
+        ...form,
+        email: form.email || null,
+        website_url: form.website_url || null,
+        facilityId,
+      }),
     });
 
     const data = await res.json();
@@ -75,6 +81,7 @@ export default function FacilityForm({ orgId, facilityId, defaultValues }: Facil
       return;
     }
 
+    queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
     router.push("/dashboard/facilities");
     router.refresh();
   }

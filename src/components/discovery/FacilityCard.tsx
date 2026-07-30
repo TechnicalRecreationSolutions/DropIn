@@ -9,8 +9,8 @@ export interface FacilityCardData {
   city: string;
   province: string;
   description: string | null;
-  sport_categories: string[]; // distinct sport categories across published programs
-  program_count: number;
+  sport_categories: string[]; // distinct sport categories across published schedules
+  schedule_count: number;
 }
 
 interface FacilityCardProps {
@@ -40,7 +40,7 @@ export default function FacilityCard({ facility, highlighted }: FacilityCardProp
           </div>
         </div>
         <span className="shrink-0 text-xs text-gray-400 bg-gray-100 px-2 py-0.5 rounded-full">
-          {facility.program_count} program{facility.program_count !== 1 ? "s" : ""}
+          {facility.schedule_count} schedule{facility.schedule_count !== 1 ? "s" : ""}
         </span>
       </div>
 

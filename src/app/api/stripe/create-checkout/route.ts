@@ -69,6 +69,7 @@ export async function POST(request: Request) {
     customerId = customer.id;
 
     // Persist customer ID (using service role would bypass RLS; use server client which has org access via RLS)
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (supabase as any)
       .from("organizations")
       .update({ stripe_customer_id: customerId })

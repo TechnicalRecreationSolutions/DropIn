@@ -78,9 +78,10 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   const liveSessionBySpaceId = useMemo(() => {
     const map = new Map<string, ExpandedSession>();
     for (const session of sessions) {
-      if (!session.spaceId) continue;
+      if (session.spaceIds.length === 0) continue;
       const { isLive } = getSessionLiveStatus(session, scrubDate);
-      if (isLive) map.set(session.spaceId, session);
+      if (!isLive) continue;
+      for (const spaceId of session.spaceIds) map.set(spaceId, session);
     }
     return map;
   }, [sessions, scrubDate]);
@@ -90,11 +91,13 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   const nextSessionBySpaceId = useMemo(() => {
     const map = new Map<string, ExpandedSession>();
     for (const session of sessions) {
-      if (!session.spaceId) continue;
+      if (session.spaceIds.length === 0) continue;
       if (session.start.toDateString() !== scrubDate.toDateString()) continue;
       if (session.start <= scrubDate) continue;
-      const earliest = map.get(session.spaceId);
-      if (!earliest || session.start < earliest.start) map.set(session.spaceId, session);
+      for (const spaceId of session.spaceIds) {
+        const earliest = map.get(spaceId);
+        if (!earliest || session.start < earliest.start) map.set(spaceId, session);
+      }
     }
     return map;
   }, [sessions, scrubDate]);

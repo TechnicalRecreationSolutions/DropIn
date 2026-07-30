@@ -3,14 +3,16 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 
 const SessionSchema = z.object({
-  program_id: z.string().uuid(),
+  schedule_group_id: z.string().uuid(),
   rrule: z.string().min(1),
   dtstart: z.string().datetime({ offset: true }),
   dtend_time: z.string().regex(/^\d{2}:\d{2}$/),
   timezone: z.string().default("America/Edmonton"),
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
+  space_ids: z.array(z.string().uuid()).optional().default([]),
   location_detail: z.string().nullable().optional(),
+  template_id: z.string().uuid().nullable().optional(),
   sessionId: z.string().uuid().optional(),
 });
 
@@ -40,18 +42,45 @@ export async function POST(request: Request) {
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
 
-  // Confirm program belongs to this org
-  const { data: program } = await supabase
-    .from("programs")
-    .select("id")
-    .eq("id", fields.program_id)
+  // Confirm the schedule belongs to this org
+  const { data: scheduleGroup } = await supabase
+    .from("schedule_groups")
+    .select("id, facility_id")
+    .eq("id", fields.schedule_group_id)
     .eq("org_id", membership.org_id)
-    .single() as unknown as { data: { id: string } | null };
+    .single() as unknown as { data: { id: string; facility_id: string } | null };
 
-  if (!program) return NextResponse.json({ error: "Program not found" }, { status: 404 });
+  if (!scheduleGroup) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
 
+  // Every space must belong to the same facility as the schedule it's attached to
+  if (fields.space_ids.length > 0) {
+    const { data: validSpaces } = await supabase
+      .from("spaces")
+      .select("id")
+      .in("id", fields.space_ids)
+      .eq("facility_id", scheduleGroup.facility_id);
+
+    if ((validSpaces?.length ?? 0) !== fields.space_ids.length) {
+      return NextResponse.json({ error: "One or more spaces not found at this facility" }, { status: 404 });
+    }
+  }
+
+  // A template must belong to the same schedule group the session is being placed under —
+  // templates are scoped to one schedule group, not shared org-wide.
+  if (fields.template_id) {
+    const { data: template } = await supabase
+      .from("session_templates")
+      .select("id")
+      .eq("id", fields.template_id)
+      .eq("schedule_group_id", fields.schedule_group_id)
+      .single() as unknown as { data: { id: string } | null };
+
+    if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
+  }
+
+  const { space_ids, ...sessionFields } = fields;
   const payload = {
-    ...fields,
+    ...sessionFields,
     org_id: membership.org_id,
     source: "manual" as const,
     is_active: true,
@@ -60,16 +89,40 @@ export async function POST(request: Request) {
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const table = (supabase as any).from("sessions");
 
+  let targetSessionId: string;
+
   if (sessionId) {
     const { error } = await table.update(payload).eq("id", sessionId).eq("org_id", membership.org_id);
     if (error) return NextResponse.json({ error: "Failed to update session." }, { status: 500 });
-    return NextResponse.json({ ok: true, sessionId });
+    targetSessionId = sessionId;
+  } else {
+    const { data: session, error } = await table.insert(payload).select("id").single();
+    if (error) return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+    targetSessionId = session.id;
   }
 
-  const { data: session, error } = await table.insert(payload).select("id").single();
-  if (error) return NextResponse.json({ error: "Failed to create session." }, { status: 500 });
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const { error: deleteSpacesError } = await (supabase as any)
+    .from("session_spaces")
+    .delete()
+    .eq("session_id", targetSessionId);
 
-  return NextResponse.json({ ok: true, sessionId: session.id });
+  if (deleteSpacesError) {
+    return NextResponse.json({ error: "Failed to update session spaces." }, { status: 500 });
+  }
+
+  if (space_ids.length > 0) {
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { error: insertSpacesError } = await (supabase as any)
+      .from("session_spaces")
+      .insert(space_ids.map((space_id) => ({ session_id: targetSessionId, space_id, org_id: membership.org_id })));
+
+    if (insertSpacesError) {
+      return NextResponse.json({ error: "Failed to attach spaces to session." }, { status: 500 });
+    }
+  }
+
+  return NextResponse.json({ ok: true, sessionId: targetSessionId });
 }
 
 /** DELETE /api/sessions?sessionId=uuid — deactivate a session */

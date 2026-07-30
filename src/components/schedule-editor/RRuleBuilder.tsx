@@ -53,9 +53,12 @@ export default function RRuleBuilder({
   const [frequency, setFrequency] = useState<"daily" | "weekly">("weekly");
   const [selectedDays, setSelectedDays] = useState<string[]>(["MO", "WE", "FR"]);
 
-  // Parse initial value if provided
+  // Parse initial value once on mount, seeding editable local state from the
+  // parent's RRULE string — not a derived value kept in sync on every change,
+  // the two effects below own frequency/selectedDays from here on.
   useEffect(() => {
     if (value.includes("FREQ=DAILY")) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFrequency("daily");
     } else if (value.includes("BYDAY=")) {
       const match = value.match(/BYDAY=([^;]+)/);

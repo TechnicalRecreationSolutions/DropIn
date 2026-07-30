@@ -16,13 +16,13 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q, sport, city } = await searchParams;
   const supabase = await createClient();
 
-  // Fetch published facilities with their published program sport categories
+  // Fetch published facilities with their published schedule sport categories
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let query = (supabase as any)
     .from("facilities")
-    .select("id, name, slug, city, province, description, lat, lng, programs(sport_category)")
+    .select("id, name, slug, city, province, description, lat, lng, schedule_groups(sport_category)")
     .eq("is_published", true)
-    .eq("programs.is_published", true);
+    .eq("schedule_groups.is_published", true);
 
   if (city) query = query.ilike("city", `%${city}%`);
   if (q) query = query.ilike("name", `%${q}%`);
@@ -32,12 +32,12 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   type RawFacility = {
     id: string; name: string; slug: string; city: string; province: string;
     description: string | null; lat: number | null; lng: number | null;
-    programs: { sport_category: string }[];
+    schedule_groups: { sport_category: string }[];
   };
 
   const facilities = ((raw as RawFacility[]) ?? [])
     .map((f) => {
-      const sportCategories = [...new Set(f.programs.map((p) => p.sport_category))];
+      const sportCategories = [...new Set(f.schedule_groups.map((sg) => sg.sport_category))];
       return {
         id: f.id,
         name: f.name,
@@ -48,7 +48,7 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
         lat: f.lat,
         lng: f.lng,
         sport_categories: sportCategories,
-        program_count: f.programs.length,
+        schedule_count: f.schedule_groups.length,
       };
     })
     .filter((f) => !sport || f.sport_categories.includes(sport));

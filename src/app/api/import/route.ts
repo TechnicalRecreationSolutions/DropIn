@@ -1,7 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildRRuleString } from "@/lib/rrule/validate";
-import { slugify } from "@/lib/utils/slugify";
 
 export const runtime = "nodejs"; // xlsx requires Node runtime
 

@@ -2,27 +2,33 @@
 
 import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Upload, CheckCircle, AlertCircle, FileText, X } from "lucide-react";
 import type { ImportPreviewRow } from "@/app/api/import/route";
 
 interface ImportWizardProps {
   facilities: { id: string; name: string }[];
+  /** When set, import is locked to this facility (and optional department) — hides the facility picker. */
+  initialFacilityId?: string;
+  initialDepartmentId?: string;
+  departmentName?: string;
 }
 
 type Step = "upload" | "preview" | "done";
 
-export default function ImportWizard({ facilities }: ImportWizardProps) {
+export default function ImportWizard({ facilities, initialFacilityId, initialDepartmentId, departmentName }: ImportWizardProps) {
   const router = useRouter();
   const fileRef = useRef<HTMLInputElement>(null);
 
   const [step, setStep] = useState<Step>("upload");
-  const [facilityId, setFacilityId] = useState(facilities[0]?.id ?? "");
+  const [facilityId, setFacilityId] = useState(initialFacilityId ?? facilities[0]?.id ?? "");
+  const facilityLocked = !!initialFacilityId;
   const [file, setFile] = useState<File | null>(null);
   const [preview, setPreview] = useState<ImportPreviewRow[]>([]);
   const [errorCount, setErrorCount] = useState(0);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [result, setResult] = useState<{ programsCreated: number; sessionsCreated: number } | null>(null);
+  const [result, setResult] = useState<{ scheduleGroupsCreated: number; sessionsCreated: number } | null>(null);
 
   async function handleUpload() {
     if (!file || !facilityId) return;
@@ -51,13 +57,13 @@ export default function ImportWizard({ facilities }: ImportWizardProps) {
     const res = await fetch("/api/import/commit", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ rows: preview, facilityId }),
+      body: JSON.stringify({ rows: preview, facilityId, departmentId: initialDepartmentId ?? null }),
     });
     const data = await res.json();
 
     if (!res.ok) { setError(data.error); setLoading(false); return; }
 
-    setResult({ programsCreated: data.programsCreated, sessionsCreated: data.sessionsCreated });
+    setResult({ scheduleGroupsCreated: data.scheduleGroupsCreated, sessionsCreated: data.sessionsCreated });
     setStep("done");
     setLoading(false);
   }
@@ -65,7 +71,7 @@ export default function ImportWizard({ facilities }: ImportWizardProps) {
   if (facilities.length === 0) {
     return (
       <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
-        You need to <a href="/dashboard/facilities/new" className="underline font-medium">add a facility</a> before importing.
+        You need to <Link href="/dashboard/facilities/new" className="underline font-medium">add a facility</Link> before importing.
       </div>
     );
   }
@@ -88,14 +94,23 @@ export default function ImportWizard({ facilities }: ImportWizardProps) {
       {step === "upload" && (
         <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Facility *</label>
-            <select
-              value={facilityId}
-              onChange={(e) => setFacilityId(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            >
-              {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-            </select>
+            <label className="block text-sm font-medium text-gray-700 mb-1">
+              {facilityLocked ? "Importing into" : "Facility *"}
+            </label>
+            {facilityLocked ? (
+              <p className="px-3 py-2.5 text-sm text-gray-700 bg-gray-100 rounded-lg">
+                {facilities.find((f) => f.id === facilityId)?.name ?? "This facility"}
+                {departmentName ? ` › ${departmentName}` : ""}
+              </p>
+            ) : (
+              <select
+                value={facilityId}
+                onChange={(e) => setFacilityId(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              >
+                {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
+              </select>
+            )}
           </div>
 
           {/* File drop zone */}
@@ -163,7 +178,7 @@ export default function ImportWizard({ facilities }: ImportWizardProps) {
                 <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
                   <tr>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Program</th>
+                    <th className="px-3 py-2 text-left font-medium text-gray-600">Schedule</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Sport</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Days</th>
                     <th className="px-3 py-2 text-left font-medium text-gray-600">Time</th>
@@ -212,7 +227,7 @@ export default function ImportWizard({ facilities }: ImportWizardProps) {
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-gray-900 mb-1">Import complete</h3>
           <p className="text-gray-500 text-sm">
-            {result.programsCreated} program{result.programsCreated !== 1 ? "s" : ""} and{" "}
+            {result.scheduleGroupsCreated} schedule{result.scheduleGroupsCreated !== 1 ? "s" : ""} and{" "}
             {result.sessionsCreated} session{result.sessionsCreated !== 1 ? "s" : ""} created.
           </p>
           <div className="flex justify-center gap-3 mt-6">

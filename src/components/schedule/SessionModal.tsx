@@ -1,6 +1,6 @@
 "use client";
 
-import { X, Clock, MapPin, DollarSign, Users, Tag } from "lucide-react";
+import { X, Clock, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatTime, formatDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
@@ -8,13 +8,16 @@ import { getSportCategory } from "@/lib/utils/sport-categories";
 interface SessionModalProps {
   session: ExpandedSession;
   onClose: () => void;
+  /** Staff-only: when provided, shows a delete action for this recurring session. */
+  onDelete?: (session: ExpandedSession) => void;
+  isDeleting?: boolean;
 }
 
 /**
  * Click-through session detail modal for the public schedule view.
  * Opens when a session block is tapped/clicked in WeeklyScheduleGrid.
  */
-export default function SessionModal({ session, onClose }: SessionModalProps) {
+export default function SessionModal({ session, onClose, onDelete, isDeleting }: SessionModalProps) {
   const sport = getSportCategory(session.sportCategory);
 
   return (
@@ -25,7 +28,7 @@ export default function SessionModal({ session, onClose }: SessionModalProps) {
         onClick={onClose}
         role="dialog"
         aria-modal="true"
-        aria-label={session.programName}
+        aria-label={session.templateName ?? session.scheduleGroupName}
       >
         {/* Sheet (mobile: slides from bottom; desktop: centered card) */}
         <div
@@ -40,8 +43,9 @@ export default function SessionModal({ session, onClose }: SessionModalProps) {
           {/* Header */}
           <div className="flex items-start justify-between p-5 pb-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{session.programName}</h2>
+              <h2 className="text-lg font-bold text-gray-900">{session.templateName ?? session.scheduleGroupName}</h2>
               <p className="text-sm text-gray-500 capitalize mt-0.5">
+                {session.templateName && `${session.scheduleGroupName} · `}
                 {sport?.label ?? session.sportCategory} · {session.activityType.replace("_", " ")}
               </p>
             </div>
@@ -66,8 +70,9 @@ export default function SessionModal({ session, onClose }: SessionModalProps) {
             <div className="flex items-center gap-3 text-sm">
               <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
               <span className="text-gray-700">
-                {session.facilityName}
-                {session.locationDetail && ` · ${session.locationDetail}`}
+                {[session.facilityName, session.spaceNames.join(", "), session.locationDetail]
+                  .filter(Boolean)
+                  .join(" · ")}
               </span>
             </div>
 
@@ -106,10 +111,15 @@ export default function SessionModal({ session, onClose }: SessionModalProps) {
               </div>
             )}
 
-            {session.source === "scraped" && session.lastSyncedAt && (
-              <p className="text-xs text-gray-400">
-                Data synced from source · Last updated {new Date(session.lastSyncedAt).toLocaleDateString()}
-              </p>
+            {onDelete && (
+              <button
+                onClick={() => onDelete(session)}
+                disabled={isDeleting}
+                className="w-full mt-2 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+              >
+                <Trash2 className="w-4 h-4" />
+                {isDeleting ? "Removing…" : "Remove recurring session"}
+              </button>
             )}
           </div>
         </div>

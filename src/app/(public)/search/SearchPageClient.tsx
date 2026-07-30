@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback } from "react";
-import { useRouter, useSearchParams } from "next/navigation";
+import { useRouter } from "next/navigation";
 import dynamic from "next/dynamic";
 import { Search, SlidersHorizontal } from "lucide-react";
 import FacilityCard, { type FacilityCardData } from "@/components/discovery/FacilityCard";

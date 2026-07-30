@@ -36,6 +36,17 @@ export function parseDate(iso: string): Date {
   return parseISO(iso);
 }
 
+/**
+ * Local calendar date as "YYYY-MM-DD" (defaults to today). Use this instead
+ * of `date.toISOString().split("T")[0]` for anything meant to represent "the
+ * user's current day" — `toISOString()` converts to UTC first, which rolls
+ * over to the next calendar date during evening hours in any timezone behind
+ * UTC (all of North America), silently scheduling a "today" pick a day late.
+ */
+export function localDateString(date: Date = new Date()): string {
+  return format(date, "yyyy-MM-dd");
+}
+
 /** Convert a time string like "09:30" into minutes from midnight */
 export function timeToMinutes(time: string): number {
   const [hours, minutes] = time.split(":").map(Number);

@@ -3,9 +3,11 @@
 import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
-import { LogOut, ChevronDown } from "lucide-react";
+import { LogOut, ChevronDown, Menu } from "lucide-react";
 import { useState } from "react";
 import type { Organization, OrgMembership } from "@/types/app.types";
+import { Button } from "@/components/ui/button";
+import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 
 interface DashboardTopbarProps {
   org: Organization;
@@ -15,6 +17,7 @@ interface DashboardTopbarProps {
 export default function DashboardTopbar({ org, membership }: DashboardTopbarProps) {
   const router = useRouter();
   const [menuOpen, setMenuOpen] = useState(false);
+  const { open: openTreeSheet } = useMobileTreeSheet();
 
   async function handleSignOut() {
     const supabase = createClient();
@@ -25,8 +28,16 @@ export default function DashboardTopbar({ org, membership }: DashboardTopbarProp
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-      {/* Left: breadcrumb / org name on mobile */}
-      <div className="lg:hidden">
+      {/* Left: tree browser trigger on mobile — the sidebar is desktop-only */}
+      <div className="lg:hidden flex items-center gap-1">
+        <Button
+          variant="ghost"
+          size="icon"
+          aria-label="Browse facilities"
+          onClick={openTreeSheet}
+        >
+          <Menu className="size-5 text-gray-700" />
+        </Button>
         <Link href="/" className="text-blue-600 font-bold text-sm">Dropin</Link>
       </div>
 
@@ -47,14 +58,6 @@ export default function DashboardTopbar({ org, membership }: DashboardTopbarProp
           <>
             <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
             <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-20 py-1">
-              <Link
-                href="/dashboard/org"
-                onClick={() => setMenuOpen(false)}
-                className="block px-4 py-2 text-sm text-gray-700 hover:bg-gray-50"
-              >
-                Organization settings
-              </Link>
-              <hr className="my-1 border-gray-100" />
               <button
                 onClick={handleSignOut}
                 className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"

@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { CheckCircle2, Zap } from "lucide-react";
 import { PLANS, type PlanTier } from "@/lib/stripe/plans";
 
@@ -12,31 +11,27 @@ interface BillingClientProps {
 const PLAN_FEATURES: Record<PlanTier, string[]> = {
   free: [
     "1 facility",
-    "5 programs per facility",
+    "5 schedules per facility",
     "1 staff member",
     "30 days analytics history",
-    "No web scraping",
   ],
   pro: [
     "Up to 5 facilities",
-    "Unlimited programs",
+    "Unlimited schedules",
     "Up to 5 staff members",
     "1 year analytics history",
-    "3 scraping configs",
     "Priority support",
   ],
   enterprise: [
     "Unlimited facilities",
-    "Unlimited programs",
+    "Unlimited schedules",
     "Unlimited staff members",
     "Unlimited analytics history",
-    "Unlimited scraping configs",
     "Dedicated support",
   ],
 };
 
 export default function BillingClient({ currentTier }: BillingClientProps) {
-  const router = useRouter();
   const [loading, setLoading] = useState<PlanTier | null>(null);
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -59,6 +54,9 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
       return;
     }
 
+    // Full navigation to Stripe Checkout — not a render-time mutation, the
+    // lint rule can't distinguish an event-handler redirect from a render bug.
+    // eslint-disable-next-line react-hooks/immutability
     window.location.href = data.url;
   }
 
@@ -75,6 +73,7 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
       return;
     }
 
+    // Full navigation to the Stripe billing portal — same rationale as above.
     window.location.href = data.url;
   }
 

@@ -101,5 +101,6 @@ export async function POST(request: Request) {
     );
   }
 
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   return NextResponse.json({ ok: true, facilityId: (facility as any).id });
 }

@@ -1,0 +1,82 @@
+import { NextResponse } from "next/server";
+import { z } from "zod";
+import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
+import { slugify } from "@/lib/utils/slugify";
+
+const OnboardSchema = z.object({
+  orgName: z.string().min(2).max(100),
+});
+
+/**
+ * POST /api/auth/onboard-org
+ *
+ * For an already-authenticated user with no organization membership yet
+ * (e.g. an auth user created outside the normal /signup flow) — creates an
+ * organization + owner membership for their existing session, without
+ * creating a new auth user. Mirrors /api/auth/signup's org-creation steps,
+ * minus the auth-user creation.
+ */
+export async function POST(request: Request) {
+  const supabase = await createClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  const body = await request.json().catch(() => null);
+  const parsed = OnboardSchema.safeParse(body);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
+      { status: 400 }
+    );
+  }
+
+  // Already has a membership — nothing to do, just send them to the dashboard.
+  const { data: existingMembership } = await supabase
+    .from("org_memberships")
+    .select("id")
+    .eq("user_id", user.id)
+    .limit(1)
+    .maybeSingle();
+
+  if (existingMembership) {
+    return NextResponse.json({ ok: true, redirect: "/dashboard" });
+  }
+
+  const { orgName } = parsed.data;
+  const slug = slugify(orgName);
+
+  // Service role — a fresh user has no org yet, so no RLS policy would allow
+  // this insert under their own session.
+  const admin = createAdminClient();
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const adminAny = admin as any;
+
+  const { data: org, error: orgError } = await adminAny
+    .from("organizations")
+    .insert({ name: orgName, slug, status: "active", country: "CA" })
+    .select("id")
+    .single();
+
+  if (orgError) {
+    if (orgError.code === "23505") {
+      return NextResponse.json(
+        { error: "An organization with that name already exists. Please choose a different name." },
+        { status: 409 }
+      );
+    }
+    return NextResponse.json({ error: "Could not create organization. Please try again." }, { status: 500 });
+  }
+
+  const { error: membershipError } = await adminAny
+    .from("org_memberships")
+    .insert({ org_id: org.id, user_id: user.id, role: "owner" });
+
+  if (membershipError) {
+    // Roll back the org so a retry doesn't collide on the slug.
+    await adminAny.from("organizations").delete().eq("id", org.id);
+    return NextResponse.json({ error: "Could not complete setup. Please try again." }, { status: 500 });
+  }
+
+  return NextResponse.json({ ok: true, redirect: "/dashboard" });
+}

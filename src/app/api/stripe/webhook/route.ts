@@ -47,6 +47,9 @@ export async function POST(request: Request) {
   }
 
   const admin = createAdminClient();
+  // stripe_events isn't in the generated Database types yet — cast once here
+  // rather than scattering `any` through every query below.
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const db = admin as any;
 
   // Idempotency: check if this event has already been processed
@@ -80,6 +83,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function handleEvent(event: Stripe.Event, db: any) {
   switch (event.type) {
     case "customer.subscription.created":
@@ -108,6 +112,7 @@ async function handleEvent(event: Stripe.Event, db: any) {
   }
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
   const orgId = subscription.metadata?.org_id;
   if (!orgId) {
@@ -144,6 +149,7 @@ async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
   );
 }
 
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
 async function cancelSubscription(subscription: Stripe.Subscription, db: any) {
   const orgId = subscription.metadata?.org_id;
   if (!orgId) return;

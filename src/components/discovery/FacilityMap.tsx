@@ -3,9 +3,13 @@
 import { useEffect, useRef, useCallback } from "react";
 import mapboxgl from "mapbox-gl";
 import "mapbox-gl/dist/mapbox-gl.css";
-import type { FacilityCardData } from "./FacilityCard";
 
-interface FacilityWithCoords extends FacilityCardData {
+interface FacilityWithCoords {
+  id: string;
+  slug: string;
+  name: string;
+  city: string;
+  province: string;
   lat: number | null;
   lng: number | null;
 }

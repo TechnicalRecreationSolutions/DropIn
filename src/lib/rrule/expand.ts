@@ -4,17 +4,30 @@ import type {
   WeekExpandParams,
 } from "@/types/schedule.types";
 import type { Database } from "@/types/database.types";
+import { zonedDateString, zonedTimeToUtc } from "@/lib/utils/timezone";
 
 type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
 type SessionExceptionRow =
   Database["public"]["Tables"]["session_exceptions"]["Row"];
-type ProgramRow = Database["public"]["Tables"]["programs"]["Row"];
+type ScheduleGroupRow = Database["public"]["Tables"]["schedule_groups"]["Row"];
 type FacilityRow = Database["public"]["Tables"]["facilities"]["Row"];
+type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
+type SpaceRow = Database["public"]["Tables"]["spaces"]["Row"];
+type SessionTemplateRow = Database["public"]["Tables"]["session_templates"]["Row"];
 
 export type SessionWithRelations = SessionRow & {
-  programs: ProgramRow & {
+  // Nullable: an embedded PostgREST filter (e.g. schedule_groups.department_id=eq...)
+  // that doesn't match still returns the session row with schedule_groups: null,
+  // rather than omitting the row entirely.
+  schedule_groups: (ScheduleGroupRow & {
     facilities: Pick<FacilityRow, "id" | "name">;
-  };
+    departments: Pick<DepartmentRow, "id" | "name"> | null;
+  }) | null;
+  // Empty array when the session has no spaces attached. PostgREST nests the
+  // join-table rows, each carrying its embedded `spaces` object.
+  session_spaces: { spaces: Pick<SpaceRow, "id" | "name" | "display_order"> }[];
+  // Null when the session has no template_id, or the template was archived/deleted.
+  session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
 };
 
 /**
@@ -43,8 +56,18 @@ export function expandSessions(
   }
 
   for (const session of sessions) {
-    const program = session.programs;
-    const facility = program.facilities;
+    const scheduleGroup = session.schedule_groups;
+    // An embedded PostgREST filter (e.g. schedule_groups.department_id=eq...)
+    // that doesn't match still returns the session row, but with
+    // schedule_groups: null — skip it rather than crash.
+    if (!scheduleGroup) continue;
+
+    const facility = scheduleGroup.facilities;
+    const department = scheduleGroup.departments;
+
+    const attachedSpaces = session.session_spaces
+      .map((row) => row.spaces)
+      .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
 
     // Parse the RRULE string
     let rule: RRule;
@@ -90,29 +113,34 @@ export function expandSessions(
         end = new Date(exception.modified_end);
       } else {
         start = occurrence;
-        end = buildEndTime(occurrence, session.dtend_time);
+        end = buildEndTime(occurrence, session.dtend_time, session.timezone);
       }
 
       results.push({
         key: `${session.id}_${dateKey}`,
         sessionId: session.id,
-        programId: program.id,
         orgId: session.org_id,
         start,
         end,
-        programName: program.name,
-        sportCategory: program.sport_category,
-        activityType: program.activity_type,
-        costCents: program.cost_cents,
-        costNotes: program.cost_notes,
-        ageGroup: program.age_group,
-        skillLevel: program.skill_level,
-        maxParticipants: program.max_participants,
+        scheduleGroupId: scheduleGroup.id,
+        scheduleGroupName: scheduleGroup.name,
+        sportCategory: scheduleGroup.sport_category,
+        activityType: scheduleGroup.activity_type,
+        costCents: scheduleGroup.cost_cents,
+        costNotes: scheduleGroup.cost_notes,
+        ageGroup: scheduleGroup.age_group,
+        skillLevel: scheduleGroup.skill_level,
+        maxParticipants: scheduleGroup.max_participants,
         facilityId: facility.id,
         facilityName: facility.name,
+        departmentId: department?.id ?? null,
+        departmentName: department?.name ?? null,
+        spaceIds: attachedSpaces.map((s) => s.id),
+        spaceNames: attachedSpaces.map((s) => s.name),
+        templateId: session.session_templates?.id ?? null,
+        templateName: session.session_templates?.name ?? null,
+        templateColor: session.session_templates?.color ?? null,
         locationDetail: session.location_detail,
-        source: session.source,
-        lastSyncedAt: session.last_synced_at,
         isModified: exception?.exception_type === "modified",
         modificationNote: exception?.note ?? null,
       });
@@ -131,14 +159,23 @@ function formatDtstart(dtstart: string): string {
     .replace(/\.\d{3}/, "");
 }
 
-/** Build the end Date for an occurrence using the session's dtend_time (HH:MM:SS) */
-function buildEndTime(occurrenceStart: Date, dtendTime: string): Date {
-  const [hours, minutes] = dtendTime.split(":").map(Number);
-  const end = new Date(occurrenceStart);
-  end.setUTCHours(hours, minutes, 0, 0);
+/**
+ * Build the end Date for an occurrence using the session's dtend_time
+ * (HH:MM, wall-clock in the session's timezone). occurrenceStart is a UTC
+ * instant, so dtend_time must be converted through the same timezone rather
+ * than assumed to already be UTC — otherwise the result drifts from the
+ * start time by the zone's UTC offset.
+ */
+function buildEndTime(occurrenceStart: Date, dtendTime: string, timeZone: string): Date {
+  // dtendTime comes from the `dtend_time` TIME column as "HH:MM:SS";
+  // zonedTimeToUtc expects "HH:MM".
+  const time = dtendTime.slice(0, 5);
+  const dateStr = zonedDateString(occurrenceStart, timeZone);
+  let end = zonedTimeToUtc(dateStr, time, timeZone);
   // Handle edge case: if end is before start, it rolled past midnight
   if (end < occurrenceStart) {
-    end.setUTCDate(end.getUTCDate() + 1);
+    const nextDay = new Date(occurrenceStart.getTime() + 24 * 60 * 60 * 1000);
+    end = zonedTimeToUtc(zonedDateString(nextDay, timeZone), time, timeZone);
   }
   return end;
 }

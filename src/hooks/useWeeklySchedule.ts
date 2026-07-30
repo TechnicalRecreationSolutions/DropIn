@@ -2,17 +2,18 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ExpandedSession, WeekExpandParams } from "@/types/schedule.types";
-import { getWeekStart, getWeekEnd } from "@/lib/utils/dates";
+import { getWeekEnd } from "@/lib/utils/dates";
 
 async function fetchExpandedSessions(params: WeekExpandParams): Promise<ExpandedSession[]> {
-  const { weekStart, weekEnd, orgId, facilityId, programId } = params;
+  const { weekStart, weekEnd, orgId, facilityId, departmentId, scheduleGroupId } = params;
 
   const url = new URL("/api/sessions/expand", window.location.origin);
   url.searchParams.set("weekStart", weekStart.toISOString());
   url.searchParams.set("weekEnd", weekEnd.toISOString());
   if (orgId) url.searchParams.set("orgId", orgId);
   if (facilityId) url.searchParams.set("facilityId", facilityId);
-  if (programId) url.searchParams.set("programId", programId);
+  if (departmentId) url.searchParams.set("departmentId", departmentId);
+  if (scheduleGroupId) url.searchParams.set("scheduleGroupId", scheduleGroupId);
 
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -20,17 +21,18 @@ async function fetchExpandedSessions(params: WeekExpandParams): Promise<Expanded
     throw new Error(body.error ?? `Failed to load schedule (${res.status})`);
   }
 
-  const data: Array<Omit<ExpandedSession, "start" | "end"> & { start: string; end: string }> =
+  const body: { data: Array<Omit<ExpandedSession, "start" | "end"> & { start: string; end: string }> } =
     await res.json();
 
   // Deserialize ISO strings back to Date objects
-  return data.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }));
+  return body.data.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }));
 }
 
 interface UseWeeklyScheduleOptions {
   orgId?: string;
   facilityId?: string;
-  programId?: string;
+  departmentId?: string;
+  scheduleGroupId?: string;
   weekStart: Date;
 }
 
@@ -44,16 +46,20 @@ interface UseWeeklyScheduleOptions {
 export function useWeeklySchedule({
   orgId,
   facilityId,
-  programId,
+  departmentId,
+  scheduleGroupId,
   weekStart,
 }: UseWeeklyScheduleOptions) {
   const weekEnd = getWeekEnd(weekStart);
 
   return useQuery({
-    queryKey: ["weekly-schedule", { orgId, facilityId, programId, weekStart: weekStart.toISOString() }],
+    queryKey: [
+      "weekly-schedule",
+      { orgId, facilityId, departmentId, scheduleGroupId, weekStart: weekStart.toISOString() },
+    ],
     queryFn: () =>
-      fetchExpandedSessions({ weekStart, weekEnd, orgId, facilityId, programId }),
+      fetchExpandedSessions({ weekStart, weekEnd, orgId, facilityId, departmentId, scheduleGroupId }),
     staleTime: 60_000,
-    enabled: !!(orgId || facilityId || programId),
+    enabled: !!(orgId || facilityId || scheduleGroupId),
   });
 }

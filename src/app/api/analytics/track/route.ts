@@ -34,7 +34,9 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   }
 
-  const { event, orgId, facilityId, referrer, pathname } = parsed.data;
+  // pathname is accepted for forward-compatibility with the embed script but
+  // analytics_events has no column for it yet — not stored.
+  const { event, orgId, facilityId, referrer } = parsed.data;
 
   // Hash IP with a daily salt — never store raw IPs
   const headersList = await headers();
@@ -58,6 +60,7 @@ export async function POST(request: Request) {
 
   try {
     const admin = createAdminClient();
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     await (admin as any).from("analytics_events").insert({
       event_type: event,
       org_id: orgId,

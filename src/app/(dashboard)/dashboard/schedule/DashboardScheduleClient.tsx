@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import { Trash2 } from "lucide-react";
 import WeeklyScheduleGrid from "@/components/schedule/WeeklyScheduleGrid";
 import { useWeeklySchedule } from "@/hooks/useWeeklySchedule";
@@ -13,14 +12,13 @@ interface DashboardScheduleClientProps {
 }
 
 export default function DashboardScheduleClient({ orgId }: DashboardScheduleClientProps) {
-  const router = useRouter();
   const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: sessions, isLoading, isError, refetch } = useWeeklySchedule({ orgId, weekStart });
 
   async function handleDeleteSession(session: ExpandedSession) {
-    if (!confirm(`Remove all "${session.programName}" sessions? This cannot be undone.`)) return;
+    if (!confirm(`Remove all "${session.scheduleGroupName}" sessions? This cannot be undone.`)) return;
 
     setDeletingId(session.sessionId);
     await fetch(`/api/sessions?sessionId=${session.sessionId}`, { method: "DELETE" });
@@ -65,7 +63,7 @@ export default function DashboardScheduleClient({ orgId }: DashboardScheduleClie
             className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
           >
             <Trash2 className="w-3 h-3" />
-            {deletingId === session.sessionId ? "Removing…" : `Remove "${session.programName}"`}
+            {deletingId === session.sessionId ? "Removing…" : `Remove "${session.scheduleGroupName}"`}
           </button>
         ))}
       </div>

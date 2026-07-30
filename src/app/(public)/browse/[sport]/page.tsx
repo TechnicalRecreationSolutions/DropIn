@@ -30,25 +30,25 @@ export default async function BrowseSportPage({ params }: PageProps) {
 
   const supabase = await createClient();
 
-  // Get facilities that have at least one published program in this sport
+  // Get facilities that have at least one published schedule in this sport
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const { data: raw } = await (supabase as any)
     .from("facilities")
-    .select("id, name, slug, city, province, description, programs(sport_category)")
+    .select("id, name, slug, city, province, description, schedule_groups(sport_category)")
     .eq("is_published", true)
-    .eq("programs.is_published", true)
-    .eq("programs.sport_category", sport)
+    .eq("schedule_groups.is_published", true)
+    .eq("schedule_groups.sport_category", sport)
     .order("name")
     .limit(100);
 
   type RawFacility = {
     id: string; name: string; slug: string; city: string;
     province: string; description: string | null;
-    programs: { sport_category: string }[];
+    schedule_groups: { sport_category: string }[];
   };
 
   const facilities = ((raw as RawFacility[]) ?? [])
-    .filter((f) => f.programs.length > 0)
+    .filter((f) => f.schedule_groups.length > 0)
     .map((f) => ({
       id: f.id,
       name: f.name,
@@ -56,8 +56,8 @@ export default async function BrowseSportPage({ params }: PageProps) {
       city: f.city,
       province: f.province,
       description: f.description,
-      sport_categories: [...new Set(f.programs.map((p) => p.sport_category))],
-      program_count: f.programs.length,
+      sport_categories: [...new Set(f.schedule_groups.map((sg) => sg.sport_category))],
+      schedule_count: f.schedule_groups.length,
     }));
 
   return (
