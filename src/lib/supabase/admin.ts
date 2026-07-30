@@ -7,7 +7,6 @@ import type { Database } from "@/types/database.types";
  * SECURITY: This client BYPASSES Row Level Security entirely.
  * It must only be used in trusted server-side contexts:
  *   - Stripe webhook handler (updating subscriptions)
- *   - Scraping webhook handler (writing scraped data)
  *   - Admin-only API routes
  *
  * Never import this in components, hooks, or any client-side code.
