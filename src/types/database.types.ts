@@ -226,10 +226,7 @@ export type Database = {
           is_published: boolean;
           schedule_type: "time_block" | "continuous";
           continuous_hours_note: string | null;
-          source: "manual" | "scraped" | "imported";
-          source_url: string | null;
-          external_id: string | null;
-          last_synced_at: string | null;
+          source: "manual" | "imported";
           created_at: string;
           updated_at: string;
         };
@@ -249,7 +246,6 @@ export type Database = {
           name: string;
           color: string | null;
           default_duration_minutes: number;
-          default_space_id: string | null;
           display_order: number;
           is_active: boolean;
           created_at: string;
@@ -261,6 +257,21 @@ export type Database = {
         >;
         Update: Partial<
           Database["public"]["Tables"]["session_templates"]["Insert"]
+        >;
+      };
+      session_template_spaces: {
+        Row: {
+          session_template_id: string;
+          space_id: string;
+          org_id: string;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_template_spaces"]["Row"],
+          "created_at"
+        >;
+        Update: Partial<
+          Database["public"]["Tables"]["session_template_spaces"]["Insert"]
         >;
       };
       sessions: {
@@ -276,11 +287,7 @@ export type Database = {
           valid_from: string;
           valid_until: string | null;
           location_detail: string | null;
-          space_id: string | null;
-          source: "manual" | "scraped" | "imported";
-          source_url: string | null;
-          external_id: string | null;
-          last_synced_at: string | null;
+          source: "manual" | "imported";
           is_active: boolean;
           created_at: string;
           updated_at: string;
@@ -290,6 +297,19 @@ export type Database = {
           "id" | "created_at" | "updated_at"
         >;
         Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
+      };
+      session_spaces: {
+        Row: {
+          session_id: string;
+          space_id: string;
+          org_id: string;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_spaces"]["Row"],
+          "created_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["session_spaces"]["Insert"]>;
       };
       session_exceptions: {
         Row: {
@@ -382,75 +402,6 @@ export type Database = {
           "id"
         >;
         Update: never;
-      };
-      scraping_configs: {
-        Row: {
-          id: string;
-          org_id: string;
-          facility_id: string | null;
-          source_url: string;
-          platform: "xplor" | "activenet" | "nextrec" | "generic";
-          schedule_cron: string;
-          is_active: boolean;
-          last_run_at: string | null;
-          next_run_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["scraping_configs"]["Row"],
-          "id" | "created_at" | "updated_at"
-        >;
-        Update: Partial<
-          Database["public"]["Tables"]["scraping_configs"]["Insert"]
-        >;
-      };
-      scraping_jobs: {
-        Row: {
-          id: string;
-          config_id: string;
-          org_id: string;
-          status: "pending" | "running" | "completed" | "failed";
-          triggered_by: "scheduler" | "manual";
-          started_at: string | null;
-          completed_at: string | null;
-          programs_found: number;
-          sessions_found: number;
-          conflicts_count: number;
-          error_message: string | null;
-          raw_data: Json | null;
-          created_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["scraping_jobs"]["Row"],
-          "id" | "created_at"
-        >;
-        Update: Partial<
-          Database["public"]["Tables"]["scraping_jobs"]["Insert"]
-        >;
-      };
-      scraping_conflicts: {
-        Row: {
-          id: string;
-          job_id: string;
-          org_id: string;
-          entity_type: "program" | "session";
-          entity_id: string | null;
-          field_name: string;
-          current_value: string | null;
-          scraped_value: string | null;
-          resolution: "accepted" | "rejected" | "ignored" | null;
-          resolved_by: string | null;
-          resolved_at: string | null;
-          created_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["scraping_conflicts"]["Row"],
-          "id" | "created_at"
-        >;
-        Update: Partial<
-          Database["public"]["Tables"]["scraping_conflicts"]["Insert"]
-        >;
       };
       staff_invitations: {
         Row: {

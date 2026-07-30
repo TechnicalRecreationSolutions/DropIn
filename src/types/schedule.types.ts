@@ -50,9 +50,9 @@ export type ExpandedSession = {
   departmentId: string | null;
   departmentName: string | null;
 
-  /** Structured space within the facility, if one is attached (e.g. "Lane 3") */
-  spaceId: string | null;
-  spaceName: string | null;
+  /** Structured spaces within the facility this session occupies, if any (e.g. all of Lanes 1-4 for a shared Lap Swim block) */
+  spaceIds: string[];
+  spaceNames: string[];
 
   /** Session template this occurrence was placed from, if any (see session_templates) */
   templateId: string | null;
@@ -61,10 +61,6 @@ export type ExpandedSession = {
 
   /** Free-text location note — shown alongside the space, e.g. entry instructions */
   locationDetail: string | null;
-
-  /** Data origin — used to show staleness warnings on scraped sessions */
-  source: Session["source"];
-  lastSyncedAt: string | null;
 
   /**
    * Set when this occurrence was modified by a session_exception.

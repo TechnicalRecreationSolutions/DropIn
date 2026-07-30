@@ -4,7 +4,9 @@ export type Organization = Database["public"]["Tables"]["organizations"]["Row"];
 export type OrgMembership =
   Database["public"]["Tables"]["org_memberships"]["Row"];
 export type Facility = Database["public"]["Tables"]["facilities"]["Row"];
-export type Program = Database["public"]["Tables"]["programs"]["Row"];
+export type Department = Database["public"]["Tables"]["departments"]["Row"];
+export type ScheduleGroup =
+  Database["public"]["Tables"]["schedule_groups"]["Row"];
 export type WidgetConfig =
   Database["public"]["Tables"]["widget_configs"]["Row"];
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
