@@ -58,11 +58,8 @@ export async function POST(request: Request) {
 
   const userId = authData.user.id;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adminAny = admin as any;
-
   // 2. Create organization
-  const { data: org, error: orgError } = await adminAny
+  const { data: org, error: orgError } = await admin
     .from("organizations")
     .insert({ name: orgName, slug, status: "active", country: "CA" })
     .select("id")
@@ -81,13 +78,13 @@ export async function POST(request: Request) {
   }
 
   // 3. Create owner membership
-  const { error: membershipError } = await adminAny
+  const { error: membershipError } = await admin
     .from("org_memberships")
     .insert({ org_id: org.id, user_id: userId, role: "owner" });
 
   if (membershipError) {
     // Roll back both
-    await adminAny.from("organizations").delete().eq("id", org.id);
+    await admin.from("organizations").delete().eq("id", org.id);
     await admin.auth.admin.deleteUser(userId);
     return NextResponse.json({ error: "Could not complete setup. Please try again." }, { status: 500 });
   }

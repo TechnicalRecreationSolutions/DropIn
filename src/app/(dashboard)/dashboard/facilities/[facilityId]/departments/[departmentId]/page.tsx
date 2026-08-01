@@ -13,20 +13,6 @@ interface DepartmentDetailPageProps {
   params: Promise<{ facilityId: string; departmentId: string }>;
 }
 
-type ScheduleGroupRow = {
-  id: string;
-  name: string;
-  sport_category: string;
-  is_published: boolean;
-};
-
-type SpaceRow = {
-  id: string;
-  name: string;
-  capacity: number | null;
-  is_published: boolean;
-};
-
 export default async function DepartmentDetailPage({ params }: DepartmentDetailPageProps) {
   const { facilityId, departmentId } = await params;
   const orgContext = await getOrgContext();
@@ -39,33 +25,30 @@ export default async function DepartmentDetailPage({ params }: DepartmentDetailP
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroups } = await (supabase as any)
+  const { data: scheduleGroups } = await supabase
     .from("schedule_groups")
     .select("id, name, sport_category, is_published")
     .eq("department_id", departmentId)
-    .order("display_order", { ascending: true }) as { data: ScheduleGroupRow[] | null };
+    .order("display_order", { ascending: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name, capacity, is_published")
     .eq("department_id", departmentId)
-    .order("display_order", { ascending: true }) as { data: SpaceRow[] | null };
+    .order("display_order", { ascending: true });
 
   return (
     <div className="max-w-4xl mx-auto space-y-6">

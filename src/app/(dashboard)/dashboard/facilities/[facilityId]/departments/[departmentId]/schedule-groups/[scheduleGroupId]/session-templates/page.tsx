@@ -30,37 +30,35 @@ export default async function SessionTemplatesPage({ params }: SessionTemplatesP
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name")
     .eq("id", scheduleGroupId)
     .eq("department_id", departmentId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: templates } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: templates } = await supabase
     .from("session_templates")
     .select("id, name, color, default_duration_minutes, session_template_spaces ( spaces ( name ) )")
     .eq("schedule_group_id", scheduleGroupId)
     .eq("is_active", true)
-    .order("display_order", { ascending: true }) as { data: SessionTemplateRow[] | null };
+    .order("display_order", { ascending: true }) as unknown as { data: SessionTemplateRow[] | null };
 
   const scheduleGroupHref = `/dashboard/facilities/${facilityId}/departments/${departmentId}/schedule-groups/${scheduleGroupId}`;
 

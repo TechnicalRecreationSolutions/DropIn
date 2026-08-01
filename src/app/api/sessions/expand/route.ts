@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { expandSessions } from "@/lib/rrule/expand";
+import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
 import { getWeekStart, getWeekEnd } from "@/lib/utils/dates";
 
 const QuerySchema = z.object({
@@ -89,8 +89,9 @@ export async function GET(request: Request) {
   if (departmentId) query = query.eq("schedule_groups.department_id", departmentId);
   if (scheduleGroupId) query = query.eq("schedule_group_id", scheduleGroupId);
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sessions, error: sessionsError } = await query as any;
+  const { data, error: sessionsError } = await query;
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const sessions = data as unknown as SessionWithRelations[] | null;
 
   if (sessionsError) {
     console.error("sessions fetch error:", sessionsError);
@@ -102,7 +103,7 @@ export async function GET(request: Request) {
   }
 
   // Fetch exceptions for all sessions in the week range
-  const sessionIds = (sessions as Array<{ id: string }>).map((s) => s.id);
+  const sessionIds = sessions.map((s) => s.id);
   const { data: exceptions, error: exceptionsError } = await supabase
     .from("session_exceptions")
     .select("*")
@@ -116,8 +117,7 @@ export async function GET(request: Request) {
   }
 
   // Expand recurring rules into concrete occurrences
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const expanded = expandSessions(sessions as any, exceptions ?? [], {
+  const expanded = expandSessions(sessions, exceptions ?? [], {
     weekStart,
     weekEnd,
     orgId,

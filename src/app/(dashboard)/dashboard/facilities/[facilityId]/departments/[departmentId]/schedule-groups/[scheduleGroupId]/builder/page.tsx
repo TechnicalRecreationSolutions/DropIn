@@ -9,12 +9,6 @@ interface BuilderPageProps {
   params: Promise<{ facilityId: string; departmentId: string; scheduleGroupId: string }>;
 }
 
-type ScheduleGroupRow = {
-  id: string;
-  name: string;
-  schedule_type: "time_block" | "continuous";
-};
-
 export default async function BuilderPage({ params }: BuilderPageProps) {
   const { facilityId, departmentId, scheduleGroupId } = await params;
   const orgContext = await getOrgContext();
@@ -27,44 +21,41 @@ export default async function BuilderPage({ params }: BuilderPageProps) {
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name, schedule_type")
     .eq("id", scheduleGroupId)
     .eq("department_id", departmentId)
-    .single() as { data: ScheduleGroupRow | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as { data: { id: string; name: string }[] | null };
+    .order("display_order", { ascending: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: templateRows } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: templateRows } = await supabase
     .from("session_templates")
     .select("id, name, color, default_duration_minutes, session_template_spaces ( space_id )")
     .eq("schedule_group_id", scheduleGroupId)
     .eq("is_active", true)
-    .order("display_order", { ascending: true }) as {
+    .order("display_order", { ascending: true }) as unknown as {
     data: {
       id: string; name: string; color: string | null; default_duration_minutes: number;
       session_template_spaces: { space_id: string }[];

@@ -26,7 +26,7 @@ export async function POST(request: Request) {
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
     .from("organizations")
     .select("id, name, stripe_customer_id")
     .eq("id", membership.org_id)
-    .single() as unknown as { data: { id: string; name: string; stripe_customer_id: string | null } | null };
+    .single();
 
   if (!org) return NextResponse.json({ error: "Organization not found" }, { status: 404 });
 
@@ -69,8 +69,7 @@ export async function POST(request: Request) {
     customerId = customer.id;
 
     // Persist customer ID (using service role would bypass RLS; use server client which has org access via RLS)
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (supabase as any)
+    await supabase
       .from("organizations")
       .update({ stripe_customer_id: customerId })
       .eq("id", org.id);

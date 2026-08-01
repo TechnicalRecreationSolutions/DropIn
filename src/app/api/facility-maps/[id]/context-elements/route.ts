@@ -24,7 +24,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -42,8 +42,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const membership = await getMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("map_context_elements")
     .select("*")
     .eq("facility_map_id", id)
@@ -72,8 +71,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const parsed = ReplaceContextElementsSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: map } = await (supabase as any)
+  const { data: map } = await supabase
     .from("facility_maps")
     .select("id")
     .eq("id", id)
@@ -82,8 +80,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   if (!map) return NextResponse.json({ error: "Facility map not found" }, { status: 404 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: deleteError } = await (supabase as any)
+  const { error: deleteError } = await supabase
     .from("map_context_elements")
     .delete()
     .eq("facility_map_id", id)
@@ -98,8 +95,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ contextElements: [] });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error: insertError } = await (supabase as any)
+  const { data, error: insertError } = await supabase
     .from("map_context_elements")
     .insert(
       parsed.data.contextElements.map((c) => ({

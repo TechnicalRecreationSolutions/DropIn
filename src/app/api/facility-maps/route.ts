@@ -1,6 +1,9 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database.types";
+
+type FacilityMapUpsert = Database["public"]["Tables"]["facility_maps"]["Insert"];
 
 const CreateFacilityMapSchema = z.object({
   facility_id: z.string().uuid(),
@@ -17,7 +20,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -35,8 +38,7 @@ export async function GET(request: Request) {
   const facilityId = searchParams.get("facilityId");
   if (!facilityId) return NextResponse.json({ error: "Missing facilityId" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("facility_maps")
     .select("*")
     .eq("org_id", membership.org_id)
@@ -67,8 +69,7 @@ export async function POST(request: Request) {
 
   // Verify the facility belongs to the caller's own org — facility_id has no
   // DB-level org boundary check, so this must be enforced here.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: facility } = await (supabase as any)
+  const { data: facility } = await supabase
     .from("facilities")
     .select("id")
     .eq("id", parsed.data.facility_id)
@@ -79,15 +80,14 @@ export async function POST(request: Request) {
 
   // v1: a facility has at most one map. Replace an existing (unpublished or
   // published) row rather than accumulating orphaned rows.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: existing } = await (supabase as any)
+  const { data: existing } = await supabase
     .from("facility_maps")
     .select("id")
     .eq("org_id", membership.org_id)
     .eq("facility_id", parsed.data.facility_id)
     .maybeSingle();
 
-  const payload: Record<string, unknown> = {
+  const payload: FacilityMapUpsert = {
     ...(existing ? { id: existing.id } : {}),
     org_id: membership.org_id,
     facility_id: parsed.data.facility_id,
@@ -101,8 +101,7 @@ export async function POST(request: Request) {
     payload.is_published = false;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("facility_maps")
     .upsert(payload, { onConflict: "id" })
     .select("*")

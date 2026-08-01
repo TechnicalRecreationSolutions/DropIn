@@ -153,8 +153,7 @@ export default function ScheduleGroupForm({
     };
 
     let dbError;
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const table = (supabase as any).from("schedule_groups");
+    const table = supabase.from("schedule_groups");
     if (isEditing) {
       ({ error: dbError } = await table.update(payload).eq("id", scheduleGroupId));
     } else {

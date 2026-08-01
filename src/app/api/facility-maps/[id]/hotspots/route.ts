@@ -34,7 +34,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -55,8 +55,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
   const membership = await getMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("space_hotspots")
     .select("*")
     .eq("facility_map_id", id)
@@ -85,8 +84,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const parsed = ReplaceHotspotsSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: map } = await (supabase as any)
+  const { data: map } = await supabase
     .from("facility_maps")
     .select("id, facility_id")
     .eq("id", id)
@@ -99,22 +97,20 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   // space_id has no DB-level check tying it to this specific map/facility.
   const spaceIds = [...new Set(parsed.data.hotspots.map((h) => h.space_id))];
   if (spaceIds.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: spaces } = await (supabase as any)
+    const { data: spaces } = await supabase
       .from("spaces")
       .select("id")
       .eq("facility_id", map.facility_id)
       .in("id", spaceIds);
 
-    const validIds = new Set((spaces ?? []).map((s: { id: string }) => s.id));
+    const validIds = new Set((spaces ?? []).map((s) => s.id));
     const invalid = spaceIds.filter((sid) => !validIds.has(sid));
     if (invalid.length > 0) {
       return NextResponse.json({ error: "One or more spaces do not belong to this facility" }, { status: 400 });
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: deleteError } = await (supabase as any)
+  const { error: deleteError } = await supabase
     .from("space_hotspots")
     .delete()
     .eq("facility_map_id", id)
@@ -129,8 +125,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
     return NextResponse.json({ hotspots: [] });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error: insertError } = await (supabase as any)
+  const { data, error: insertError } = await supabase
     .from("space_hotspots")
     .insert(
       parsed.data.hotspots.map((h) => ({

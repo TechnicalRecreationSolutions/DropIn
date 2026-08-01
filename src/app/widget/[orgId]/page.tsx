@@ -34,40 +34,37 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   const supabase = await createClient();
 
   // Verify org exists and is active
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: org } = await (supabase as any)
+  const { data: org } = await supabase
     .from("organizations")
     .select("id, name, slug")
     .eq("id", orgId)
     .eq("status", "active")
-    .single() as { data: { id: string; name: string; slug: string } | null };
+    .single();
 
   if (!org) notFound();
 
   // If facilityId provided, verify it belongs to this org
   let facility: { id: string; name: string } | null = null;
   if (facilityId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: f } = await (supabase as any)
+    const { data: f } = await supabase
       .from("facilities")
       .select("id, name")
       .eq("id", facilityId)
       .eq("org_id", orgId)
-      .single() as { data: { id: string; name: string } | null };
+      .single();
     facility = f;
   }
 
   // If departmentId provided, verify it belongs to this org (and facility, if both given)
   let department: { id: string; name: string } | null = null;
   if (departmentId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    let deptQuery = (supabase as any)
+    let deptQuery = supabase
       .from("departments")
       .select("id, name")
       .eq("id", departmentId)
       .eq("org_id", orgId);
     if (facilityId) deptQuery = deptQuery.eq("facility_id", facilityId);
-    const { data: d } = await deptQuery.single() as { data: { id: string; name: string } | null };
+    const { data: d } = await deptQuery.single();
     department = d;
   }
 
@@ -76,13 +73,10 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // unsaved preview passes ?preview=1&templates=grid,list to see a choice
   // before saving — a real embed never sends `preview`, so it always
   // renders the saved value regardless of what's in its query string.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let widgetConfigQuery = (supabase as any).from("widget_configs").select("allowed_templates, primary_color").eq("org_id", orgId);
+  let widgetConfigQuery = supabase.from("widget_configs").select("allowed_templates, primary_color").eq("org_id", orgId);
   widgetConfigQuery = facility ? widgetConfigQuery.eq("facility_id", facility.id) : widgetConfigQuery.is("facility_id", null);
   widgetConfigQuery = department ? widgetConfigQuery.eq("department_id", department.id) : widgetConfigQuery.is("department_id", null);
-  const { data: widgetConfig } = await widgetConfigQuery.maybeSingle() as {
-    data: { allowed_templates: ("grid" | "list" | "map" | "floorplan")[]; primary_color: string } | null;
-  };
+  const { data: widgetConfig } = await widgetConfigQuery.maybeSingle();
 
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
 

@@ -15,16 +15,15 @@ export default async function DataSourcesPage() {
   if (!orgContext) return null;
 
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
 
-  const { data: recentImports } = (await db
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: recentImports } = (await supabase
     .from("schedule_groups")
     .select("id, name, created_at, facilities(name)")
     .eq("org_id", orgContext.org.id)
     .eq("source", "imported")
     .order("created_at", { ascending: false })
-    .limit(20)) as { data: ImportedScheduleGroupRow[] | null };
+    .limit(20)) as unknown as { data: ImportedScheduleGroupRow[] | null };
 
   return (
     <div className="max-w-4xl mx-auto space-y-8">

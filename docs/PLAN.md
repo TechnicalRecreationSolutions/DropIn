@@ -1,6 +1,6 @@
 # Dropin — Plan and Current State
 
-Last reconciled against the codebase: 2026-07-29. This document is a snapshot, not a contract — re-verify anything load-bearing against the actual migrations/code before relying on it, especially the schema map below.
+Last reconciled against the codebase: 2026-08-01. This document is a snapshot, not a contract — re-verify anything load-bearing against the actual migrations/code before relying on it, especially the schema map below.
 
 ---
 
@@ -64,10 +64,10 @@ Grouped by concern, not by migration number — migration order tells you histor
 
 These are concrete, not vibes — worth fixing before they compound further. The refinement prompt in `docs/prompts/tech-debt-refinement.md` is built to work through this list plus a fresh audit.
 
-1. **`src/types/database.types.ts` is hand-maintained and already wrong.** It's missing the `stripe_events` table entirely despite it existing since migration `004`. This is the file meant to answer "what's actually set up between the app and Supabase," and it's already silently out of date.
-2. **`supabase as any` appears 113 times across 45 files** — almost every route/page that touches the database bypasses the type system rather than trusting it. That's a direct symptom of #1: if the types were trustworthy, this cast wouldn't be the path of least resistance.
-3. **Duplicated route trees.** Because a schedule group can live directly under a facility or nested under an optional department, most schedule-group/session-template/builder pages exist twice (e.g. `dashboard/facilities/[facilityId]/schedule-groups/...` and `dashboard/facilities/[facilityId]/departments/[departmentId]/schedule-groups/...`). Flagged previously as codebase-health, not user-facing, so deprioritized — but it's also what's driving a chunk of that 113-file count.
-4. **Stray empty route directories** left over from restructuring, with no `page.tsx`: `src/app/(public)/program/[programSlug]/` (leftover from the `programs` → `schedule_groups` collapse) and `src/app/(dashboard)/dashboard/org/onboarding/` (the real onboarding page now lives under `(auth)/dashboard/org/onboarding/` instead).
+1. ~~`src/types/database.types.ts` is hand-maintained and already wrong.~~ **Resolved.** Types were regenerated to match all 21 migrations, including the previously-missing `stripe_events` table. Two more drift bugs turned up and were fixed while removing the casts below: `subscriptions.updated_at` and `widget_configs.updated_at` were marked required in the `Insert` type despite both columns having `DEFAULT NOW()` at the DB level and being set explicitly by app code (Stripe webhook handler, widget config PATCH).
+2. ~~`supabase as any` appears 113 times across 45 files.~~ **Resolved.** All casts removed now that types are trustworthy; a handful of relational-select spots (`facility-maps/public`, `sessions/expand`) keep a narrow `as unknown as { data: ExplicitRowType[] | null }` cast with a comment, since PostgREST embedded joins (`table(...)` syntax) still return `SelectQueryError` — the generated types have empty `Relationships: []` for every table (no FK introspection). `tsc --noEmit` and lint are clean.
+3. **Duplicated route trees.** Because a schedule group can live directly under a facility or nested under an optional department, most schedule-group/session-template/builder pages exist twice (e.g. `dashboard/facilities/[facilityId]/schedule-groups/...` and `dashboard/facilities/[facilityId]/departments/[departmentId]/schedule-groups/...`). Flagged previously as codebase-health, not user-facing, so deprioritized.
+4. ~~Stray empty route directories~~ **Resolved** (already gone as of this reconciliation — `src/app/(public)/program/[programSlug]/` and `src/app/(dashboard)/dashboard/org/onboarding/` no longer exist).
 
 ---
 

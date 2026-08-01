@@ -11,8 +11,7 @@ export default async function SchedulePage() {
   const supabase = await createClient();
 
   // Check if they have any schedules to show context-appropriate empty state
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { count } = await (supabase as any)
+  const { count } = await supabase
     .from("schedule_groups")
     .select("id", { count: "exact", head: true })
     .eq("org_id", orgContext.org.id);

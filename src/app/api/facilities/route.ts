@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   if (!membership) {
     return NextResponse.json({ error: "No organization found" }, { status: 403 });
@@ -74,8 +74,7 @@ export async function POST(request: Request) {
     ...(coords ? { location: `POINT(${coords.lng} ${coords.lat})` } : {}),
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const table = (supabase as any).from("facilities");
+  const table = supabase.from("facilities");
 
   if (isEditing) {
     const { error } = await table
@@ -101,6 +100,5 @@ export async function POST(request: Request) {
     );
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  return NextResponse.json({ ok: true, facilityId: (facility as any).id });
+  return NextResponse.json({ ok: true, facilityId: facility.id });
 }

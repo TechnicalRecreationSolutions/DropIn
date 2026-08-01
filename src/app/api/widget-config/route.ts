@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database.types";
 
 const DEFAULT_CONFIG = {
   primary_color: "#0066CC",
@@ -41,8 +42,7 @@ export async function GET(request: Request) {
   if (!orgId) return NextResponse.json({ error: "Missing orgId" }, { status: 400 });
 
   const supabase = await createClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any).from("widget_configs").select("*").eq("org_id", orgId);
+  let query = supabase.from("widget_configs").select("*").eq("org_id", orgId);
   query = facilityId ? query.eq("facility_id", facilityId) : query.is("facility_id", null);
   query = departmentId ? query.eq("department_id", departmentId) : query.is("department_id", null);
 
@@ -78,7 +78,7 @@ export async function PATCH(request: Request) {
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {
@@ -99,8 +99,7 @@ export async function PATCH(request: Request) {
 
   // Verify facility/department belong to the caller's own org before scoping a config to them.
   if (facilityId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: facility } = await (supabase as any)
+    const { data: facility } = await supabase
       .from("facilities")
       .select("id")
       .eq("id", facilityId)
@@ -109,8 +108,7 @@ export async function PATCH(request: Request) {
     if (!facility) return NextResponse.json({ error: "Facility not found" }, { status: 404 });
   }
   if (departmentId) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: department } = await (supabase as any)
+    const { data: department } = await supabase
       .from("departments")
       .select("id")
       .eq("id", departmentId)
@@ -119,14 +117,13 @@ export async function PATCH(request: Request) {
     if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
   }
 
-  const fields: Record<string, unknown> = {};
+  const fields: Database["public"]["Tables"]["widget_configs"]["Update"] = {};
   if (allowedTemplates !== undefined) fields.allowed_templates = allowedTemplates;
   if (primaryColor !== undefined) fields.primary_color = primaryColor;
   if (secondaryColor !== undefined) fields.secondary_color = secondaryColor;
   if (customTitle !== undefined) fields.custom_title = customTitle;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("widget_configs")
     .upsert(
       {

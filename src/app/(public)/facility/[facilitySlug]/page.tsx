@@ -11,19 +11,6 @@ interface PageProps {
   params: Promise<{ facilitySlug: string }>;
 }
 
-type FacilityDetail = {
-  id: string; name: string; slug: string;
-  address_line1: string; city: string; province: string; postal_code: string;
-  description: string | null; website_url: string | null; phone: string | null;
-  is_published: boolean; org_id: string;
-};
-
-type ScheduleGroupSummary = {
-  id: string; name: string; sport_category: string;
-  activity_type: string; cost_cents: number;
-  age_group: string | null; skill_level: string | null;
-};
-
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { facilitySlug } = await params;
   const supabase = await createClient();
@@ -33,7 +20,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
     .select("name, city, province, description")
     .eq("slug", facilitySlug)
     .eq("is_published", true)
-    .single() as unknown as { data: Pick<FacilityDetail, "name" | "city" | "province" | "description"> | null };
+    .single();
 
   if (!facility) return { title: "Facility Not Found — Dropin" };
 
@@ -58,7 +45,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
     .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, org_id")
     .eq("slug", facilitySlug)
     .eq("is_published", true)
-    .single() as unknown as { data: FacilityDetail | null };
+    .single();
 
   if (!facility) notFound();
 
@@ -68,20 +55,19 @@ export default async function FacilityDetailPage({ params }: PageProps) {
     .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
     .eq("facility_id", facility.id)
     .eq("is_published", true)
-    .order("name") as unknown as { data: ScheduleGroupSummary[] | null };
+    .order("name");
 
   // Same allowed layouts/colors as the org's embeddable widget, for a
   // consistent look. Scoped to this facility's config row (falling back to
   // the org-wide default when a facility-specific row doesn't exist),
   // matching the scoping already applied in widget/[orgId]/page.tsx.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: widgetConfig } = await (supabase as any)
+  const { data: widgetConfig } = await supabase
     .from("widget_configs")
     .select("allowed_templates, primary_color")
     .eq("org_id", facility.org_id)
     .eq("facility_id", facility.id)
     .is("department_id", null)
-    .maybeSingle() as { data: { allowed_templates: ScheduleTemplate[]; primary_color: string } | null };
+    .maybeSingle();
   const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
 

@@ -11,7 +11,7 @@ export default async function WidgetPage() {
     .from("facilities")
     .select("id, name")
     .eq("org_id", orgContext.org.id)
-    .order("name") as unknown as { data: { id: string; name: string }[] | null };
+    .order("name");
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">

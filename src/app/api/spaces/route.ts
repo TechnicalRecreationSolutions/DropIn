@@ -19,7 +19,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -37,8 +37,7 @@ export async function GET(request: Request) {
   const facilityId = searchParams.get("facilityId");
   const departmentId = searchParams.get("departmentId");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = supabase
     .from("spaces")
     .select("*")
     .eq("org_id", membership.org_id)
@@ -72,8 +71,7 @@ export async function POST(request: Request) {
 
   // Verify the facility belongs to the caller's own org — facility_id has no
   // DB-level org boundary check, so this must be enforced here.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: facility } = await (supabase as any)
+  const { data: facility } = await supabase
     .from("facilities")
     .select("id")
     .eq("id", parsed.data.facility_id)
@@ -83,8 +81,7 @@ export async function POST(request: Request) {
   if (!facility) return NextResponse.json({ error: "Facility not found" }, { status: 404 });
 
   if (parsed.data.department_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: department } = await (supabase as any)
+    const { data: department } = await supabase
       .from("departments")
       .select("id")
       .eq("id", parsed.data.department_id)
@@ -94,8 +91,7 @@ export async function POST(request: Request) {
     if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("spaces")
     .insert({
       org_id: membership.org_id,

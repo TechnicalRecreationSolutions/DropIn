@@ -21,13 +21,6 @@ type DepartmentRow = {
   schedule_groups: { id: string }[];
 };
 
-type ScheduleGroupRow = {
-  id: string;
-  name: string;
-  sport_category: string;
-  is_published: boolean;
-};
-
 type SpaceRow = {
   id: string;
   name: string;
@@ -48,33 +41,31 @@ export default async function FacilityDetailPage({ params }: FacilityDetailPageP
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: departments } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: departments } = await supabase
     .from("departments")
     .select("id, name, is_published, schedule_groups(id)")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as { data: DepartmentRow[] | null };
+    .order("display_order", { ascending: true }) as unknown as { data: DepartmentRow[] | null };
 
   // Schedule groups at this facility with no department — the flexibility
   // fallback for orgs that don't use the department level at all.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: ungroupedScheduleGroups } = await (supabase as any)
+  const { data: ungroupedScheduleGroups } = await supabase
     .from("schedule_groups")
     .select("id, name, sport_category, is_published")
     .eq("facility_id", facilityId)
     .is("department_id", null)
-    .order("name") as { data: ScheduleGroupRow[] | null };
+    .order("name");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name, capacity, is_published, department_id")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as { data: SpaceRow[] | null };
+    .order("display_order", { ascending: true });
 
   // Group spaces by department so the tab reads as sections rather than one
   // long flat list — mirrors the department ordering already fetched above,

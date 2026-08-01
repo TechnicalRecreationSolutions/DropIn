@@ -22,7 +22,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
@@ -30,9 +30,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
     .from("departments")
     .select("id, name")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as unknown as {
-    data: { id: string; name: string }[] | null;
-  };
+    .order("display_order", { ascending: true });
 
   return (
     <div className="max-w-2xl mx-auto">

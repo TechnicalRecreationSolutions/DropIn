@@ -13,8 +13,8 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
 
   const supabase = await createClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allScheduleGroups } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: allScheduleGroups } = await supabase
     .from("schedule_groups")
     .select("id, name, facility_id, facilities(name)")
     .eq("org_id", orgContext.org.id)
@@ -33,14 +33,11 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
     ? scheduleGroupList.find((sg) => sg.id === scheduleGroupId)
     : undefined;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: allSpaces } = await (supabase as any)
+  const { data: allSpaces } = await supabase
     .from("spaces")
     .select("id, name, facility_id")
     .eq("org_id", orgContext.org.id)
-    .order("display_order", { ascending: true }) as unknown as {
-      data: { id: string; name: string; facility_id: string }[] | null
-    };
+    .order("display_order", { ascending: true });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">

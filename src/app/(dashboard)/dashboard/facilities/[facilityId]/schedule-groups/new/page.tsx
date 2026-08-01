@@ -20,7 +20,7 @@ export default async function NewFacilityScheduleGroupPage({ params }: NewFacili
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 

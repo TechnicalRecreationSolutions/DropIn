@@ -12,13 +12,6 @@ interface ScheduleGroupDetailPageProps {
   params: Promise<{ facilityId: string; departmentId: string; scheduleGroupId: string }>;
 }
 
-type ScheduleGroupRow = {
-  id: string;
-  name: string;
-  sport_category: string;
-  is_published: boolean;
-};
-
 export default async function ScheduleGroupDetailPage({ params }: ScheduleGroupDetailPageProps) {
   const { facilityId, departmentId, scheduleGroupId } = await params;
   const orgContext = await getOrgContext();
@@ -31,27 +24,25 @@ export default async function ScheduleGroupDetailPage({ params }: ScheduleGroupD
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name, sport_category, is_published")
     .eq("id", scheduleGroupId)
     .eq("department_id", departmentId)
-    .single() as { data: ScheduleGroupRow | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 

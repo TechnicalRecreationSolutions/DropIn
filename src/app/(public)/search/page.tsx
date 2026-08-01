@@ -16,9 +16,15 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   const { q, sport, city } = await searchParams;
   const supabase = await createClient();
 
+  type RawFacility = {
+    id: string; name: string; slug: string; city: string; province: string;
+    description: string | null; lat: number | null; lng: number | null;
+    schedule_groups: { sport_category: string }[];
+  };
+
   // Fetch published facilities with their published schedule sport categories
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  let query = supabase
     .from("facilities")
     .select("id, name, slug, city, province, description, lat, lng, schedule_groups(sport_category)")
     .eq("is_published", true)
@@ -27,15 +33,9 @@ export default async function SearchPage({ searchParams }: SearchPageProps) {
   if (city) query = query.ilike("city", `%${city}%`);
   if (q) query = query.ilike("name", `%${q}%`);
 
-  const { data: raw } = await query.order("name").limit(100);
+  const { data: raw } = await query.order("name").limit(100) as unknown as { data: RawFacility[] | null };
 
-  type RawFacility = {
-    id: string; name: string; slug: string; city: string; province: string;
-    description: string | null; lat: number | null; lng: number | null;
-    schedule_groups: { sport_category: string }[];
-  };
-
-  const facilities = ((raw as RawFacility[]) ?? [])
+  const facilities = (raw ?? [])
     .map((f) => {
       const sportCategories = [...new Set(f.schedule_groups.map((sg) => sg.sport_category))];
       return {

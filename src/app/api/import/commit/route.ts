@@ -27,7 +27,7 @@ export async function POST(request: Request) {
     .from("org_memberships")
     .select("org_id")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
@@ -37,9 +37,6 @@ export async function POST(request: Request) {
 
   const { rows, facilityId, departmentId } = parsed.data;
   const validRows = (rows as ImportPreviewRow[]).filter((r) => r._errors.length === 0);
-
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
 
   let scheduleGroupsCreated = 0;
   let sessionsCreated = 0;
@@ -51,7 +48,7 @@ export async function POST(request: Request) {
       const costCents = row.cost ? Math.round(parseFloat(row.cost) * 100) : 0;
 
       // Upsert schedule group by slug + facility
-      const { data: scheduleGroup, error: sgErr } = await db
+      const { data: scheduleGroup, error: sgErr } = await supabase
         .from("schedule_groups")
         .upsert({
           name: row.program_name,
@@ -60,7 +57,10 @@ export async function POST(request: Request) {
           department_id: departmentId ?? null,
           org_id: membership.org_id,
           sport_category: row.sport_category.toLowerCase().replace(/\s+/g, "_"),
-          activity_type: row.activity_type ?? "drop_in",
+          // Cast: an arbitrary spreadsheet value, not narrowed to the DB's
+          // CHECK-constrained union. An invalid value is already rejected at
+          // the DB level (sgErr below), same as before this cast existed.
+          activity_type: (row.activity_type ?? "drop_in") as "drop_in" | "registered" | "open_gym",
           cost_cents: isNaN(costCents) ? 0 : costCents,
           is_published: false,
           source: "imported",
@@ -78,7 +78,7 @@ export async function POST(request: Request) {
       // Build dtstart from season_start + start_time, wall-clock in the facility's timezone
       const dtstart = zonedTimeToUtc(row.season_start, row.start_time, "America/Edmonton").toISOString();
 
-      const { error: sErr } = await db.from("sessions").insert({
+      const { error: sErr } = await supabase.from("sessions").insert({
         schedule_group_id: scheduleGroup.id,
         org_id: membership.org_id,
         rrule: row._rrule,

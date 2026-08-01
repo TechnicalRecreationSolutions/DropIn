@@ -8,20 +8,6 @@ interface EditFacilityPageProps {
   params: Promise<{ facilityId: string }>;
 }
 
-type FacilityRow = {
-  id: string;
-  name: string;
-  address_line1: string;
-  city: string;
-  province: string;
-  postal_code: string;
-  phone: string | null;
-  email: string | null;
-  website_url: string | null;
-  description: string | null;
-  is_published: boolean;
-};
-
 export default async function EditFacilityPage({ params }: EditFacilityPageProps) {
   const { facilityId } = await params;
   const orgContext = await getOrgContext();
@@ -29,13 +15,12 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
 
   const supabase = await createClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: facility } = await (supabase as any)
+  const { data: facility } = await supabase
     .from("facilities")
     .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as { data: FacilityRow | null };
+    .single();
 
   if (!facility) notFound();
 

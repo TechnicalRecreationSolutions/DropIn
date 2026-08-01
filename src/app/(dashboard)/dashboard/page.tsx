@@ -96,19 +96,13 @@ export default async function DashboardPage() {
       .select("id, name, is_published, updated_at")
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
-      .limit(8) as unknown as Promise<{
-      data: Omit<RecentFacility, "kind">[] | null;
-      error: unknown;
-    }>,
+      .limit(8),
     supabase
       .from("schedule_groups")
       .select("id, name, is_published, updated_at, facility_id, department_id")
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
-      .limit(8) as unknown as Promise<{
-      data: Omit<RecentScheduleGroup, "kind">[] | null;
-      error: unknown;
-    }>,
+      .limit(8),
     // Needs attention: unpublished facilities
     supabase
       .from("facilities")
@@ -116,10 +110,7 @@ export default async function DashboardPage() {
       .eq("org_id", orgId)
       .eq("is_published", false)
       .order("updated_at", { ascending: false })
-      .limit(5) as unknown as Promise<{
-      data: { id: string; name: string; updated_at: string }[] | null;
-      error: unknown;
-    }>,
+      .limit(5),
     // Needs attention: unpublished (draft) schedules
     supabase
       .from("schedule_groups")
@@ -127,11 +118,9 @@ export default async function DashboardPage() {
       .eq("org_id", orgId)
       .eq("is_published", false)
       .order("updated_at", { ascending: false })
-      .limit(5) as unknown as Promise<{
-      data: { id: string; name: string; facility_id: string; department_id: string | null; updated_at: string }[] | null;
-      error: unknown;
-    }>,
+      .limit(5),
     // Needs attention: facilities with no departments and no schedule groups
+    // Relational select — cast needed until Supabase CLI generates types with FK relations
     supabase
       .from("facilities")
       .select("id, name, departments(id), schedule_groups(id)")
@@ -147,7 +136,8 @@ export default async function DashboardPage() {
 
   const thisWeekCount =
     thisWeekRes.status === "fulfilled" && !thisWeekRes.value.error && thisWeekRes.value.data
-      ? expandSessions(thisWeekRes.value.data as unknown as SessionWithRelations[], [], {
+      ? // Relational select — cast needed until Supabase CLI generates types with FK relations
+        expandSessions(thisWeekRes.value.data as unknown as SessionWithRelations[], [], {
           weekStart,
           weekEnd,
           orgId,

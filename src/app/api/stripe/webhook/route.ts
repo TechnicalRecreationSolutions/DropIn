@@ -4,6 +4,7 @@ import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlanTierFromPriceId } from "@/lib/stripe/plans";
+import type { Json } from "@/types/database.types";
 
 export const runtime = "nodejs";
 
@@ -46,11 +47,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid signature" }, { status: 400 });
   }
 
-  const admin = createAdminClient();
-  // stripe_events isn't in the generated Database types yet — cast once here
-  // rather than scattering `any` through every query below.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = admin as any;
+  const db = createAdminClient();
 
   // Idempotency: check if this event has already been processed
   const { data: existing } = await db
@@ -68,7 +65,7 @@ export async function POST(request: Request) {
   await db.from("stripe_events").insert({
     event_id: event.id,
     event_type: event.type,
-    payload: event as unknown as Record<string, unknown>,
+    payload: event as unknown as Json,
   });
 
   try {
@@ -83,8 +80,7 @@ export async function POST(request: Request) {
   return NextResponse.json({ ok: true });
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function handleEvent(event: Stripe.Event, db: any) {
+async function handleEvent(event: Stripe.Event, db: ReturnType<typeof createAdminClient>) {
   switch (event.type) {
     case "customer.subscription.created":
     case "customer.subscription.updated": {
@@ -112,8 +108,7 @@ async function handleEvent(event: Stripe.Event, db: any) {
   }
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
+async function upsertSubscription(subscription: Stripe.Subscription, db: ReturnType<typeof createAdminClient>) {
   const orgId = subscription.metadata?.org_id;
   if (!orgId) {
     console.error("Subscription missing org_id metadata:", subscription.id);
@@ -149,8 +144,7 @@ async function upsertSubscription(subscription: Stripe.Subscription, db: any) {
   );
 }
 
-// eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function cancelSubscription(subscription: Stripe.Subscription, db: any) {
+async function cancelSubscription(subscription: Stripe.Subscription, db: ReturnType<typeof createAdminClient>) {
   const orgId = subscription.metadata?.org_id;
   if (!orgId) return;
 

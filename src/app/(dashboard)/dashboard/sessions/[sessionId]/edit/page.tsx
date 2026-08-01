@@ -7,18 +7,6 @@ interface EditSessionPageProps {
   params: Promise<{ sessionId: string }>;
 }
 
-type SessionRow = {
-  id: string;
-  schedule_group_id: string;
-  rrule: string;
-  dtstart: string;
-  dtend_time: string;
-  timezone: string;
-  valid_from: string;
-  valid_until: string | null;
-  location_detail: string | null;
-};
-
 export default async function EditSessionPage({ params }: EditSessionPageProps) {
   const { sessionId } = await params;
   const orgContext = await getOrgContext();
@@ -26,22 +14,21 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const supabase = await createClient();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: session } = await (supabase as any)
+  const { data: session } = await supabase
     .from("sessions")
     .select("id, schedule_group_id, rrule, dtstart, dtend_time, timezone, valid_from, valid_until, location_detail")
     .eq("id", sessionId)
     .eq("org_id", orgContext.org.id)
-    .single() as { data: SessionRow | null };
+    .single();
 
   if (!session) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name, facility_id, department_id, facilities(name)")
     .eq("id", session.schedule_group_id)
-    .single() as {
+    .single() as unknown as {
     data: { id: string; name: string; facility_id: string; department_id: string | null; facilities: { name: string } | null } | null;
   };
 
@@ -51,18 +38,16 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
     ? `/dashboard/facilities/${scheduleGroup.facility_id}/departments/${scheduleGroup.department_id}/schedule-groups/${scheduleGroup.id}`
     : `/dashboard/facilities/${scheduleGroup.facility_id}/schedule-groups/${scheduleGroup.id}`;
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name, facility_id")
     .eq("org_id", orgContext.org.id)
-    .order("display_order", { ascending: true }) as { data: { id: string; name: string; facility_id: string }[] | null };
+    .order("display_order", { ascending: true });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: sessionSpaceRows } = await (supabase as any)
+  const { data: sessionSpaceRows } = await supabase
     .from("session_spaces")
     .select("space_id")
-    .eq("session_id", sessionId) as { data: { space_id: string }[] | null };
+    .eq("session_id", sessionId);
   const spaceIds = (sessionSpaceRows ?? []).map((r) => r.space_id);
 
   const dtstart = new Date(session.dtstart);

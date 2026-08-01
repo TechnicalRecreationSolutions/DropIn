@@ -53,16 +53,17 @@ export async function POST(request: Request) {
     .digest("hex");
 
   // Validate event_type against the DB CHECK constraint values
-  const allowedEvents = ["widget_view", "program_click", "facility_view", "schedule_view"];
-  if (!allowedEvents.includes(event)) {
+  const allowedEvents = ["widget_view", "program_click", "facility_view", "schedule_view"] as const;
+  if (!(allowedEvents as readonly string[]).includes(event)) {
     return NextResponse.json({ error: "Unknown event type" }, { status: 400 });
   }
 
   try {
     const admin = createAdminClient();
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    await (admin as any).from("analytics_events").insert({
-      event_type: event,
+    await admin.from("analytics_events").insert({
+      // Cast justified by the allowedEvents.includes() check above, which
+      // already guarantees `event` is one of the four literal values.
+      event_type: event as (typeof allowedEvents)[number],
       org_id: orgId,
       facility_id: facilityId ?? null,
       ip_hash: ipHash,

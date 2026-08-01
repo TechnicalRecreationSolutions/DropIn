@@ -19,7 +19,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -48,8 +48,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   if (parsed.data.department_id) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: space } = await (supabase as any)
+    const { data: space } = await supabase
       .from("spaces")
       .select("facility_id")
       .eq("id", id)
@@ -58,8 +57,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 404 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: department } = await (supabase as any)
+    const { data: department } = await supabase
       .from("departments")
       .select("id")
       .eq("id", parsed.data.department_id)
@@ -74,8 +72,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(parsed.data.name ? { slug: slugify(parsed.data.name) } : {}),
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("spaces")
     .update(payload)
     .eq("id", id)
@@ -103,8 +100,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("spaces")
     .delete()
     .eq("id", id)

@@ -38,7 +38,7 @@ export async function POST(request: Request) {
     .from("org_memberships")
     .select("org_id")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
 
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     .select("id, facility_id")
     .eq("id", fields.schedule_group_id)
     .eq("org_id", membership.org_id)
-    .single() as unknown as { data: { id: string; facility_id: string } | null };
+    .single();
 
   if (!scheduleGroup) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
 
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
       .select("id")
       .eq("id", fields.template_id)
       .eq("schedule_group_id", fields.schedule_group_id)
-      .single() as unknown as { data: { id: string } | null };
+      .single();
 
     if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
   }
@@ -86,8 +86,7 @@ export async function POST(request: Request) {
     is_active: true,
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const table = (supabase as any).from("sessions");
+  const table = supabase.from("sessions");
 
   let targetSessionId: string;
 
@@ -101,8 +100,7 @@ export async function POST(request: Request) {
     targetSessionId = session.id;
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error: deleteSpacesError } = await (supabase as any)
+  const { error: deleteSpacesError } = await supabase
     .from("session_spaces")
     .delete()
     .eq("session_id", targetSessionId);
@@ -112,8 +110,7 @@ export async function POST(request: Request) {
   }
 
   if (space_ids.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertSpacesError } = await (supabase as any)
+    const { error: insertSpacesError } = await supabase
       .from("session_spaces")
       .insert(space_ids.map((space_id) => ({ session_id: targetSessionId, space_id, org_id: membership.org_id })));
 
@@ -138,12 +135,11 @@ export async function DELETE(request: Request) {
     .from("org_memberships")
     .select("org_id")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("sessions")
     .update({ is_active: false })
     .eq("id", sessionId)

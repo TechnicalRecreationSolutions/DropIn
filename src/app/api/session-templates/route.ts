@@ -18,7 +18,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -35,8 +35,7 @@ export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const scheduleGroupId = searchParams.get("scheduleGroupId");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = supabase
     .from("session_templates")
     .select("*")
     .eq("org_id", membership.org_id)
@@ -69,8 +68,7 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   // Verify the schedule group belongs to the caller's own org.
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, facility_id")
     .eq("id", parsed.data.schedule_group_id)
@@ -81,8 +79,7 @@ export async function POST(request: Request) {
 
   // Every default space must belong to the same facility as the schedule group.
   if (parsed.data.default_space_ids.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: validSpaces } = await (supabase as any)
+    const { data: validSpaces } = await supabase
       .from("spaces")
       .select("id")
       .in("id", parsed.data.default_space_ids)
@@ -93,8 +90,7 @@ export async function POST(request: Request) {
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("session_templates")
     .insert({
       org_id: membership.org_id,
@@ -113,8 +109,7 @@ export async function POST(request: Request) {
   }
 
   if (parsed.data.default_space_ids.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: insertSpacesError } = await (supabase as any)
+    const { error: insertSpacesError } = await supabase
       .from("session_template_spaces")
       .insert(
         parsed.data.default_space_ids.map((space_id) => ({

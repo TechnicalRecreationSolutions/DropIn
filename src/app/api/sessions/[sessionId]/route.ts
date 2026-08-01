@@ -37,12 +37,11 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     .from("org_memberships")
     .select("org_id")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("sessions")
     .update(parsed.data)
     .eq("id", sessionId)

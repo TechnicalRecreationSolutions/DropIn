@@ -8,15 +8,6 @@ interface EditSpacePageProps {
   params: Promise<{ facilityId: string; spaceId: string }>;
 }
 
-type SpaceRow = {
-  id: string;
-  name: string;
-  department_id: string | null;
-  description: string | null;
-  capacity: number | null;
-  is_published: boolean;
-};
-
 export default async function EditSpacePage({ params }: EditSpacePageProps) {
   const { facilityId, spaceId } = await params;
   const orgContext = await getOrgContext();
@@ -29,7 +20,7 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
@@ -38,7 +29,7 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
     .select("id, name, department_id, description, capacity, is_published")
     .eq("id", spaceId)
     .eq("facility_id", facilityId)
-    .single() as unknown as { data: SpaceRow | null };
+    .single();
 
   if (!space) notFound();
 
@@ -46,9 +37,7 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
     .from("departments")
     .select("id, name")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as unknown as {
-    data: { id: string; name: string }[] | null;
-  };
+    .order("display_order", { ascending: true });
 
   return (
     <div className="max-w-2xl mx-auto">

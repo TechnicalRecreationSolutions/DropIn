@@ -8,13 +8,6 @@ interface EditDepartmentPageProps {
   params: Promise<{ facilityId: string; departmentId: string }>;
 }
 
-type DepartmentRow = {
-  id: string;
-  name: string;
-  description: string | null;
-  is_published: boolean;
-};
-
 export default async function EditDepartmentPage({ params }: EditDepartmentPageProps) {
   const { facilityId, departmentId } = await params;
   const orgContext = await getOrgContext();
@@ -27,17 +20,16 @@ export default async function EditDepartmentPage({ params }: EditDepartmentPageP
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name, description, is_published")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: DepartmentRow | null };
+    .single();
 
   if (!department) notFound();
 

@@ -20,17 +20,16 @@ export default async function NewScheduleGroupPage({ params }: NewScheduleGroupP
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 

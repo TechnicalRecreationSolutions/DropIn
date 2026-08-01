@@ -20,36 +20,33 @@ export default async function NewSessionTemplatePage({ params }: NewSessionTempl
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: department } = await (supabase as any)
+  const { data: department } = await supabase
     .from("departments")
     .select("id, name")
     .eq("id", departmentId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!department) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name")
     .eq("id", scheduleGroupId)
     .eq("department_id", departmentId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as { data: { id: string; name: string }[] | null };
+    .order("display_order", { ascending: true });
 
   const scheduleGroupHref = `/dashboard/facilities/${facilityId}/departments/${departmentId}/schedule-groups/${scheduleGroupId}`;
   const listHref = `${scheduleGroupHref}/session-templates`;

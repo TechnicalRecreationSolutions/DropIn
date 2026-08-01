@@ -9,7 +9,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -26,21 +26,18 @@ export async function GET() {
   const membership = await getMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const db = supabase as any;
-
   const [facilitiesRes, departmentsRes, scheduleGroupsRes] = await Promise.all([
-    db
+    supabase
       .from("facilities")
       .select("id, name, is_published")
       .eq("org_id", membership.org_id)
       .order("name"),
-    db
+    supabase
       .from("departments")
       .select("id, name, is_published, facility_id")
       .eq("org_id", membership.org_id)
       .order("display_order", { ascending: true }),
-    db
+    supabase
       .from("schedule_groups")
       .select("id, name, is_published, facility_id, department_id")
       .eq("org_id", membership.org_id)

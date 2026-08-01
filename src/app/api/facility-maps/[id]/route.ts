@@ -17,7 +17,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -45,8 +45,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = UpdateFacilityMapSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("facility_maps")
     .update(parsed.data)
     .eq("id", id)
@@ -71,8 +70,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: map } = await (supabase as any)
+  const { data: map } = await supabase
     .from("facility_maps")
     .select("id")
     .eq("id", id)
@@ -81,8 +79,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
 
   if (!map) return NextResponse.json({ error: "Facility map not found" }, { status: 404 });
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("facility_maps")
     .delete()
     .eq("id", id)

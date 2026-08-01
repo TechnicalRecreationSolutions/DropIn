@@ -9,7 +9,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -27,8 +27,7 @@ export async function GET(request: Request) {
 
   const departmentId = new URL(request.url).searchParams.get("departmentId");
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let query = (supabase as any)
+  let query = supabase
     .from("schedule_groups")
     .select("*")
     .eq("org_id", membership.org_id)

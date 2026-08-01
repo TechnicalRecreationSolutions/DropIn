@@ -8,20 +8,6 @@ interface EditFacilityScheduleGroupPageProps {
   params: Promise<{ facilityId: string; scheduleGroupId: string }>;
 }
 
-type ScheduleGroupRow = {
-  id: string;
-  name: string;
-  sport_category: string;
-  activity_type: string;
-  age_group: string | null;
-  skill_level: string | null;
-  cost_cents: number;
-  cost_notes: string | null;
-  description: string | null;
-  max_participants: number | null;
-  is_published: boolean;
-};
-
 export default async function EditFacilityScheduleGroupPage({ params }: EditFacilityScheduleGroupPageProps) {
   const { facilityId, scheduleGroupId } = await params;
   const orgContext = await getOrgContext();
@@ -34,17 +20,16 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, is_published")
     .eq("id", scheduleGroupId)
     .eq("facility_id", facilityId)
-    .single() as { data: ScheduleGroupRow | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 

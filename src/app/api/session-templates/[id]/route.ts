@@ -18,7 +18,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -50,8 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const { default_space_ids, ...templateFields } = parsed.data;
 
   if (default_space_ids && default_space_ids.length > 0) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: template } = await (supabase as any)
+    const { data: template } = await supabase
       .from("session_templates")
       .select("schedule_group_id")
       .eq("id", id)
@@ -60,15 +59,13 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: scheduleGroup } = await (supabase as any)
+    const { data: scheduleGroup } = await supabase
       .from("schedule_groups")
       .select("facility_id")
       .eq("id", template.schedule_group_id)
       .maybeSingle();
 
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { data: validSpaces } = await (supabase as any)
+    const { data: validSpaces } = await supabase
       .from("spaces")
       .select("id")
       .in("id", default_space_ids)
@@ -79,8 +76,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("session_templates")
     .update(templateFields)
     .eq("id", id)
@@ -92,8 +88,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (!data) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
 
   if (default_space_ids !== undefined) {
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const { error: deleteSpacesError } = await (supabase as any)
+    const { error: deleteSpacesError } = await supabase
       .from("session_template_spaces")
       .delete()
       .eq("session_template_id", id);
@@ -103,8 +98,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     }
 
     if (default_space_ids.length > 0) {
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      const { error: insertSpacesError } = await (supabase as any)
+      const { error: insertSpacesError } = await supabase
         .from("session_template_spaces")
         .insert(
           default_space_ids.map((space_id) => ({
@@ -132,8 +126,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Only org owners and admins can manage session templates" }, { status: 403 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("session_templates")
     .update({ is_active: false })
     .eq("id", id)

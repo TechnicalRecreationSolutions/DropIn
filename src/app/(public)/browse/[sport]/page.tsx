@@ -30,24 +30,24 @@ export default async function BrowseSportPage({ params }: PageProps) {
 
   const supabase = await createClient();
 
-  // Get facilities that have at least one published schedule in this sport
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: raw } = await (supabase as any)
-    .from("facilities")
-    .select("id, name, slug, city, province, description, schedule_groups(sport_category)")
-    .eq("is_published", true)
-    .eq("schedule_groups.is_published", true)
-    .eq("schedule_groups.sport_category", sport)
-    .order("name")
-    .limit(100);
-
   type RawFacility = {
     id: string; name: string; slug: string; city: string;
     province: string; description: string | null;
     schedule_groups: { sport_category: string }[];
   };
 
-  const facilities = ((raw as RawFacility[]) ?? [])
+  // Get facilities that have at least one published schedule in this sport
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: raw } = await supabase
+    .from("facilities")
+    .select("id, name, slug, city, province, description, schedule_groups(sport_category)")
+    .eq("is_published", true)
+    .eq("schedule_groups.is_published", true)
+    .eq("schedule_groups.sport_category", sport)
+    .order("name")
+    .limit(100) as unknown as { data: RawFacility[] | null };
+
+  const facilities = (raw ?? [])
     .filter((f) => f.schedule_groups.length > 0)
     .map((f) => ({
       id: f.id,

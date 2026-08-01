@@ -28,36 +28,34 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
     .select("id, name")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
-    .single() as unknown as { data: { id: string; name: string } | null };
+    .single();
 
   if (!facility) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: scheduleGroup } = await (supabase as any)
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
     .select("id, name")
     .eq("id", scheduleGroupId)
     .eq("facility_id", facilityId)
-    .single() as { data: { id: string; name: string } | null };
+    .single();
 
   if (!scheduleGroup) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: template } = await (supabase as any)
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: template } = await supabase
     .from("session_templates")
     .select("id, name, color, default_duration_minutes, session_template_spaces ( space_id )")
     .eq("id", templateId)
     .eq("schedule_group_id", scheduleGroupId)
-    .single() as { data: SessionTemplateRow | null };
+    .single() as unknown as { data: SessionTemplateRow | null };
 
   if (!template) notFound();
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data: spaces } = await (supabase as any)
+  const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name")
     .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true }) as { data: { id: string; name: string }[] | null };
+    .order("display_order", { ascending: true });
 
   const listHref = `/dashboard/facilities/${facilityId}/schedule-groups/${scheduleGroupId}/session-templates`;
 

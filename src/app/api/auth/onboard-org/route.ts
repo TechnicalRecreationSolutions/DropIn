@@ -49,10 +49,8 @@ export async function POST(request: Request) {
   // Service role — a fresh user has no org yet, so no RLS policy would allow
   // this insert under their own session.
   const admin = createAdminClient();
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const adminAny = admin as any;
 
-  const { data: org, error: orgError } = await adminAny
+  const { data: org, error: orgError } = await admin
     .from("organizations")
     .insert({ name: orgName, slug, status: "active", country: "CA" })
     .select("id")
@@ -68,13 +66,13 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Could not create organization. Please try again." }, { status: 500 });
   }
 
-  const { error: membershipError } = await adminAny
+  const { error: membershipError } = await admin
     .from("org_memberships")
     .insert({ org_id: org.id, user_id: user.id, role: "owner" });
 
   if (membershipError) {
     // Roll back the org so a retry doesn't collide on the slug.
-    await adminAny.from("organizations").delete().eq("id", org.id);
+    await admin.from("organizations").delete().eq("id", org.id);
     return NextResponse.json({ error: "Could not complete setup. Please try again." }, { status: 500 });
   }
 

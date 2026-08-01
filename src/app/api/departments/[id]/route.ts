@@ -17,7 +17,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
     .from("org_memberships")
     .select("org_id, role")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+    .single();
 
   return membership;
 }
@@ -50,8 +50,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
     ...(parsed.data.name ? { slug: slugify(parsed.data.name) } : {}),
   };
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { data, error } = await (supabase as any)
+  const { data, error } = await supabase
     .from("departments")
     .update(payload)
     .eq("id", id)
@@ -79,8 +78,7 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
     return NextResponse.json({ error: "Only org owners and admins can manage departments" }, { status: 403 });
   }
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  const { error } = await (supabase as any)
+  const { error } = await supabase
     .from("departments")
     .delete()
     .eq("id", id)

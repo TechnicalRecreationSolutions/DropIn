@@ -77,7 +77,7 @@ export async function POST(request: Request) {
     .from("org_memberships")
     .select("org_id")
     .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string } | null };
+    .single();
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
