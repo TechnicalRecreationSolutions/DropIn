@@ -3,8 +3,8 @@ import { type NextRequest, NextResponse } from "next/server";
 import type { Database } from "@/types/database.types";
 
 /**
- * Creates a Supabase client scoped to the middleware request/response cycle.
- * Must be used inside middleware.ts — not in Server Components or Route Handlers.
+ * Creates a Supabase client scoped to the proxy request/response cycle.
+ * Must be used inside proxy.ts — not in Server Components or Route Handlers.
  * Refreshes the session cookie on every request to prevent stale auth state.
  */
 export async function updateSession(request: NextRequest) {

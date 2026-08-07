@@ -1,5 +1,6 @@
 import Link from "next/link";
 import PublicNav from "@/components/layout/PublicNav";
+import CopyrightYear from "@/components/layout/CopyrightYear";
 import Providers from "@/components/layout/Providers";
 
 export default function PublicLayout({
@@ -39,7 +40,7 @@ export default function PublicLayout({
               </div>
             </div>
             <div className="mt-8 pt-6 border-t border-gray-800 text-xs">
-              © {new Date().getFullYear()} Dropin. All rights reserved.
+              © <CopyrightYear /> Dropin. All rights reserved.
             </div>
           </div>
         </footer>

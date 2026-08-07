@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildRRuleString } from "@/lib/rrule/validate";
 
-export const runtime = "nodejs"; // xlsx requires Node runtime
+// xlsx requires the Node runtime — which is the default for route handlers.
+// An explicit `runtime` export is rejected once cacheComponents is enabled.
 
 const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
 const MAX_ROWS = 500;

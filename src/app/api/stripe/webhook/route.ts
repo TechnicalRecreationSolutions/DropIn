@@ -6,10 +6,10 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { getPlanTierFromPriceId } from "@/lib/stripe/plans";
 import type { Json } from "@/types/database.types";
 
-export const runtime = "nodejs";
-
-// Raw body is required for Stripe signature verification — no body parsing middleware
-export const dynamic = "force-dynamic";
+// Raw body is required for Stripe signature verification — no body parsing
+// middleware. Route handlers already run on Node and are dynamic by default,
+// so the former `runtime`/`dynamic` exports were redundant, and both are
+// rejected once cacheComponents is enabled.
 
 /**
  * POST /api/stripe/webhook

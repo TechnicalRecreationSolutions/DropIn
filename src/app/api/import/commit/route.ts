@@ -5,8 +5,6 @@ import { slugify } from "@/lib/utils/slugify";
 import { zonedTimeToUtc } from "@/lib/utils/timezone";
 import type { ImportPreviewRow } from "../route";
 
-export const runtime = "nodejs";
-
 const CommitSchema = z.object({
   rows: z.array(z.any()),
   facilityId: z.string().uuid(),

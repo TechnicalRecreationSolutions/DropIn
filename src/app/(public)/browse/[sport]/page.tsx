@@ -1,7 +1,8 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/server";
+import { cacheLife } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import { getSportCategory, SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
 import FacilityCard from "@/components/discovery/FacilityCard";
 
@@ -23,20 +24,26 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function BrowseSportPage({ params }: PageProps) {
-  const { sport } = await params;
-  const category = getSportCategory(sport);
-  if (!category) notFound();
+type RawFacility = {
+  id: string; name: string; slug: string; city: string;
+  province: string; description: string | null;
+  schedule_groups: { sport_category: string }[];
+};
 
-  const supabase = await createClient();
+/**
+ * Published facilities offering a given sport.
+ *
+ * Identical for every visitor, so it is cached rather than re-queried per
+ * request — this is what lets the page prerender to a static shell. Uses the
+ * cookie-free public client because a cached function cannot read request
+ * data, and the anonymous RLS view is exactly the public view we want.
+ */
+async function getFacilitiesForSport(sport: string) {
+  "use cache";
+  cacheLife("hours");
 
-  type RawFacility = {
-    id: string; name: string; slug: string; city: string;
-    province: string; description: string | null;
-    schedule_groups: { sport_category: string }[];
-  };
+  const supabase = createPublicClient();
 
-  // Get facilities that have at least one published schedule in this sport
   // Relational select — cast needed until Supabase CLI generates types with FK relations
   const { data: raw } = await supabase
     .from("facilities")
@@ -47,7 +54,7 @@ export default async function BrowseSportPage({ params }: PageProps) {
     .order("name")
     .limit(100) as unknown as { data: RawFacility[] | null };
 
-  const facilities = (raw ?? [])
+  return (raw ?? [])
     .filter((f) => f.schedule_groups.length > 0)
     .map((f) => ({
       id: f.id,
@@ -59,6 +66,14 @@ export default async function BrowseSportPage({ params }: PageProps) {
       sport_categories: [...new Set(f.schedule_groups.map((sg) => sg.sport_category))],
       schedule_count: f.schedule_groups.length,
     }));
+}
+
+export default async function BrowseSportPage({ params }: PageProps) {
+  const { sport } = await params;
+  const category = getSportCategory(sport);
+  if (!category) notFound();
+
+  const facilities = await getFacilitiesForSport(sport);
 
   return (
     <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8 py-10">

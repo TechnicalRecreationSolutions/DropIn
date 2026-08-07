@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Globe, Phone, Clock } from "lucide-react";
-import { createClient } from "@/lib/supabase/server";
+import { cacheLife } from "next/cache";
+import { createPublicClient } from "@/lib/supabase/public";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import FacilityScheduleClient from "./FacilityScheduleClient";
 import type { ScheduleTemplate } from "@/types/schedule.types";
@@ -11,18 +12,63 @@ interface PageProps {
   params: Promise<{ facilitySlug: string }>;
 }
 
-export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
-  const { facilitySlug } = await params;
-  const supabase = await createClient();
+/**
+ * Everything the public facility page renders, in one cached unit.
+ *
+ * This page is identical for every visitor, so it is cached rather than
+ * re-queried per request — which is what lets the route prerender a static
+ * shell instead of blocking on three round trips. Uses the cookie-free public
+ * client: a cached function cannot read request data, and the anonymous RLS
+ * view is exactly the public view wanted here.
+ *
+ * generateMetadata calls this too. Both hit the same cache entry, so the page
+ * and its <head> cost one query set between them rather than two.
+ */
+async function getFacilityPageData(facilitySlug: string) {
+  "use cache";
+  cacheLife("hours");
+
+  const supabase = createPublicClient();
 
   const { data: facility } = await supabase
     .from("facilities")
-    .select("name, city, province, description")
+    .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, org_id")
     .eq("slug", facilitySlug)
     .eq("is_published", true)
-    .single();
+    .maybeSingle();
 
-  if (!facility) return { title: "Facility Not Found — Dropin" };
+  if (!facility) return null;
+
+  // Both depend only on the facility row, so they are issued together.
+  const [{ data: scheduleGroups }, { data: widgetConfig }] = await Promise.all([
+    supabase
+      .from("schedule_groups")
+      .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
+      .eq("facility_id", facility.id)
+      .eq("is_published", true)
+      .order("name"),
+    // Same allowed layouts/colors as the org's embeddable widget, for a
+    // consistent look. Scoped to this facility's config row (falling back to
+    // the org-wide default when a facility-specific row doesn't exist),
+    // matching the scoping already applied in widget/[orgId]/page.tsx.
+    supabase
+      .from("widget_configs")
+      .select("allowed_templates, primary_color")
+      .eq("org_id", facility.org_id)
+      .eq("facility_id", facility.id)
+      .is("department_id", null)
+      .maybeSingle(),
+  ]);
+
+  return { facility, scheduleGroups, widgetConfig };
+}
+
+export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
+  const { facilitySlug } = await params;
+  const data = await getFacilityPageData(facilitySlug);
+
+  if (!data) return { title: "Facility Not Found — Dropin" };
+  const { facility } = data;
 
   return {
     title: `${facility.name} — Dropin`,
@@ -38,36 +84,11 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
 export default async function FacilityDetailPage({ params }: PageProps) {
   const { facilitySlug } = await params;
-  const supabase = await createClient();
+  const data = await getFacilityPageData(facilitySlug);
 
-  const { data: facility } = await supabase
-    .from("facilities")
-    .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, org_id")
-    .eq("slug", facilitySlug)
-    .eq("is_published", true)
-    .single();
+  if (!data) notFound();
+  const { facility, scheduleGroups, widgetConfig } = data;
 
-  if (!facility) notFound();
-
-  // Fetch schedules for the sidebar (published only)
-  const { data: scheduleGroups } = await supabase
-    .from("schedule_groups")
-    .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
-    .eq("facility_id", facility.id)
-    .eq("is_published", true)
-    .order("name");
-
-  // Same allowed layouts/colors as the org's embeddable widget, for a
-  // consistent look. Scoped to this facility's config row (falling back to
-  // the org-wide default when a facility-specific row doesn't exist),
-  // matching the scoping already applied in widget/[orgId]/page.tsx.
-  const { data: widgetConfig } = await supabase
-    .from("widget_configs")
-    .select("allowed_templates, primary_color")
-    .eq("org_id", facility.org_id)
-    .eq("facility_id", facility.id)
-    .is("department_id", null)
-    .maybeSingle();
   const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
 

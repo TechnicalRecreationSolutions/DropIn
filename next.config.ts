@@ -1,6 +1,12 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  // Partial Prerendering by default: each route ships a prerendered static
+  // shell immediately, and per-user data streams in behind its Suspense
+  // boundaries. The dashboard's data is all cookie-scoped and cannot be shared
+  // between users, so the win here is the shell — not caching the data itself.
+  cacheComponents: true,
+
   images: {
     remotePatterns: [
       {

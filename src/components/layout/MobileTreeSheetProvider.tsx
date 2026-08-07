@@ -1,16 +1,21 @@
 "use client";
 
-import { createContext, useContext, useState } from "react";
-import Link from "next/link";
-import { usePathname } from "next/navigation";
-import { MapPin } from "lucide-react";
-import { Sheet, SheetContent, SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import TreeNavContent, { bottomLinks } from "./TreeNavContent";
-import TreeNavNode from "./TreeNavNode";
+import { createContext, useContext, useMemo, useState } from "react";
+import { Sheet, SheetContent } from "@/components/ui/sheet";
 
-const MobileTreeSheetContext = createContext<{ open: () => void } | null>(null);
+const MobileTreeSheetContext = createContext<{
+  open: () => void;
+  close: () => void;
+} | null>(null);
 
-/** Lets DashboardTopbar's hamburger and DashboardBottomNav's Browse tab open the same sheet instance. */
+/**
+ * Lets DashboardTopbar's hamburger and DashboardBottomNav's Browse tab open the
+ * same sheet instance, and lets the sheet's own contents close it.
+ *
+ * `close` is read from context rather than passed as a prop because the sheet
+ * body is rendered on the server (it needs the org context) and a server
+ * component cannot be handed a client callback.
+ */
 export function useMobileTreeSheet() {
   const ctx = useContext(MobileTreeSheetContext);
   if (!ctx) throw new Error("useMobileTreeSheet must be used within MobileTreeSheetProvider");
@@ -18,55 +23,41 @@ export function useMobileTreeSheet() {
 }
 
 interface MobileTreeSheetProviderProps {
-  orgId: string;
-  orgName: string;
+  /**
+   * The org-specific sheet body, rendered on the server and passed in already
+   * wrapped in its own Suspense boundary.
+   */
+  sheetContent: React.ReactNode;
   children: React.ReactNode;
 }
 
-export default function MobileTreeSheetProvider({ orgId, orgName, children }: MobileTreeSheetProviderProps) {
+/**
+ * This component wraps {children}, so it must never suspend or touch request
+ * data — either would block every page under the dashboard layout from
+ * rendering, and would keep the route from producing a static shell. It holds
+ * sheet state and nothing else; everything org-specific arrives via
+ * `sheetContent`.
+ */
+export default function MobileTreeSheetProvider({
+  sheetContent,
+  children,
+}: MobileTreeSheetProviderProps) {
   const [isOpen, setIsOpen] = useState(false);
-  const pathname = usePathname();
+
+  const value = useMemo(
+    () => ({ open: () => setIsOpen(true), close: () => setIsOpen(false) }),
+    []
+  );
 
   return (
-    <MobileTreeSheetContext.Provider value={{ open: () => setIsOpen(true) }}>
+    <MobileTreeSheetContext.Provider value={value}>
       {children}
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent
           side="left"
           className="w-3/4 max-w-xs bg-sidebar text-sidebar-foreground border-sidebar-border p-0 flex flex-col gap-0"
         >
-          <SheetHeader className="px-4 py-4 border-b border-sidebar-border shrink-0">
-            <SheetTitle asChild>
-              <Link
-                href="/"
-                className="flex items-center gap-2 text-sidebar-primary font-bold text-lg mb-1"
-                onClick={() => setIsOpen(false)}
-              >
-                <MapPin className="size-4" />
-                Dropin
-              </Link>
-            </SheetTitle>
-            <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
-          </SheetHeader>
-
-          <TreeNavContent orgId={orgId} onNavigate={() => setIsOpen(false)} />
-
-          <div className="px-2 py-3 border-t border-sidebar-border space-y-0.5 shrink-0">
-            {bottomLinks.map((item) => {
-              const isActive = pathname.startsWith(item.href);
-              return (
-                <div key={item.href} onClick={() => setIsOpen(false)}>
-                  <TreeNavNode
-                    href={item.href}
-                    label={item.label}
-                    icon={item.icon}
-                    depth={0}
-                    isActive={isActive}
-                  />
-                </div>
-              );
-            })}
-          </div>
+          {sheetContent}
         </SheetContent>
       </Sheet>
     </MobileTreeSheetContext.Provider>

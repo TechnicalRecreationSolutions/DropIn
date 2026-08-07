@@ -4,8 +4,6 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
 import crypto from "crypto";
 
-export const runtime = "nodejs";
-
 const TrackSchema = z.object({
   event: z.string().max(64),
   orgId: z.string().uuid(),
