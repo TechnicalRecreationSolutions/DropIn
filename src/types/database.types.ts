@@ -718,7 +718,21 @@ export type Database = {
       };
     };
     Functions: {
-      [_ in never]: never;
+      // Atomic fixed-window rate limiter (025_rate_limiting_and_analytics_lockdown.sql).
+      // Called only through the service-role client — see src/lib/rate-limit.ts.
+      check_rate_limit: {
+        Args: {
+          p_key: string;
+          p_limit: number;
+          p_window_seconds: number;
+        };
+        Returns: boolean;
+      };
+      // Housekeeping for the rate_limits table. Not called from app code.
+      sweep_rate_limits: {
+        Args: Record<string, never>;
+        Returns: number;
+      };
     };
     Enums: {
       [_ in never]: never;

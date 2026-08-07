@@ -1,0 +1,51 @@
+-- =============================================================================
+-- Migration 023: Fix staff-invitation token disclosure (SECURITY — CRITICAL)
+-- =============================================================================
+-- Migration 002 defined:
+--
+--   CREATE POLICY "invitations_public_read_by_token"
+--     ON staff_invitations FOR SELECT
+--     USING (accepted_at IS NULL AND expires_at > NOW());
+--
+-- The name says "by_token"; the predicate never mentions the token. An RLS
+-- USING clause cannot express "only if the caller supplied the secret" — it is
+-- evaluated per row against the session, not against the caller's WHERE clause.
+-- Filtering by token client-side narrows the *response*, not the *grant*.
+--
+-- So this policy allowed any anonymous holder of the publishable key to run
+-- `select * from staff_invitations` and receive every pending invitation on the
+-- platform, including the `token` column (a redemption secret) and `email`
+-- (staff PII). Redeeming a harvested token would place an attacker inside an
+-- arbitrary organization at the invitation's role.
+--
+-- The table currently has no send/accept flow in the application, so exposure
+-- to date is likely nil — but the policy is live and would become account
+-- takeover the moment that flow ships.
+--
+-- Fix: drop the policy. `invitations_admin_all` (owner/admin, own org) and
+-- `invitations_superadmin_all` remain, so staff management is unaffected.
+-- With RLS enabled and no matching policy, anonymous access is denied.
+--
+-- WHEN YOU BUILD THE ACCEPT FLOW, do not re-add a public SELECT policy. Look
+-- the invitation up by token inside a SECURITY DEFINER function, so the secret
+-- is a function argument that must be known up front rather than a row filter
+-- applied after the grant:
+--
+--   CREATE FUNCTION public.invitation_by_token(p_token TEXT)
+--   RETURNS TABLE (org_id UUID, org_name TEXT, role TEXT)
+--   LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $fn$
+--     SELECT i.org_id, o.name, i.role
+--       FROM staff_invitations i JOIN organizations o ON o.id = i.org_id
+--      WHERE i.token = p_token
+--        AND i.accepted_at IS NULL
+--        AND i.expires_at > NOW();
+--   $fn$;
+--
+-- Note that it returns no token and no email — only what the accept screen
+-- needs to render. Rate-limit the route that calls it, since it is an oracle
+-- for token guessing (tokens are 32 random bytes, so this is belt-and-braces).
+--
+-- Rollback: supabase/rollbacks/023_fix_invitation_token_disclosure.sql
+-- =============================================================================
+
+DROP POLICY IF EXISTS "invitations_public_read_by_token" ON staff_invitations;

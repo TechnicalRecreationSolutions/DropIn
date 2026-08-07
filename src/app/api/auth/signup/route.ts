@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils/slugify";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 const SignupSchema = z.object({
   orgName: z.string().min(2).max(100),
@@ -25,6 +26,14 @@ const SignupSchema = z.object({
  *   5. Sign the user in so they have a live session
  */
 export async function POST(request: Request) {
+  // Before any work: this route creates an auth user, an org and a membership
+  // with the service role, so an unthrottled loop is both a cost and a
+  // namespace-exhaustion attack (org slugs are unique).
+  const ip = await getClientIp();
+  if (!(await checkRateLimit("signup", ip))) {
+    return rateLimitResponse("signup");
+  }
+
   const body = await request.json().catch(() => null);
 
   const parsed = SignupSchema.safeParse(body);

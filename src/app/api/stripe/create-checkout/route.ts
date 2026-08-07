@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
 import { PLANS, type PlanTier } from "@/lib/stripe/plans";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const CreateCheckoutSchema = z.object({
   tier: z.enum(["pro", "enterprise"]),
@@ -21,6 +22,13 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Keyed on user id rather than IP: this route calls a paid API and creates
+  // Stripe customers, and the caller is authenticated so identity is the right
+  // scope — one abuser cannot then throttle everyone behind a shared NAT.
+  if (!(await checkRateLimit("checkout", user.id))) {
+    return rateLimitResponse("checkout");
+  }
 
   const { data: membership } = await supabase
     .from("org_memberships")

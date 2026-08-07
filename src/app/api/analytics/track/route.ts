@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
 import crypto from "crypto";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const TrackSchema = z.object({
   event: z.string().max(64),
@@ -17,9 +18,23 @@ const TrackSchema = z.object({
  *
  * Public endpoint — called by the embed script (widget.js) on widget load.
  * Stores only hashed IPs (SHA-256 of ip+daily_salt) — no raw PII.
- * Rate limiting is handled at the edge via Vercel middleware or upstash.
+ *
+ * Rate limited per IP (see lib/rate-limit.ts). This endpoint writes with the
+ * service role, so it is the only remaining path into analytics_events —
+ * migration 025 removed the anonymous INSERT policy that let callers bypass
+ * this route and write to PostgREST directly.
  */
 export async function POST(request: Request) {
+  const headersList = await headers();
+  const rawIp =
+    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
+    headersList.get("x-real-ip") ??
+    "unknown";
+
+  if (!(await checkRateLimit("analytics", rawIp))) {
+    return rateLimitResponse("analytics");
+  }
+
   let body: unknown;
   try {
     body = await request.json();
@@ -36,13 +51,8 @@ export async function POST(request: Request) {
   // analytics_events has no column for it yet — not stored.
   const { event, orgId, facilityId, referrer } = parsed.data;
 
-  // Hash IP with a daily salt — never store raw IPs
-  const headersList = await headers();
-  const rawIp =
-    headersList.get("x-forwarded-for")?.split(",")[0]?.trim() ??
-    headersList.get("x-real-ip") ??
-    "unknown";
-
+  // Hash IP with a daily salt — never store raw IPs. rawIp is resolved at the
+  // top of the handler, where it also keys the rate limit.
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
   const dailySalt = process.env.ANALYTICS_IP_SALT ?? "dropin-default-salt";
   const ipHash = crypto

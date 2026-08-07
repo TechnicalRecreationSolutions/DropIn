@@ -10,7 +10,7 @@ import { perf } from "@/lib/perf";
  *                 Org-membership is checked in (dashboard)/layout.tsx, which
  *                 redirects to /dashboard/org/onboarding when absent.
  *
- * /admin/*      — requires superadmin role (raw_user_meta_data->>'role' = 'superadmin').
+ * /admin/*      — requires superadmin role (raw_app_meta_data->>'role' = 'superadmin').
  *                 Returns 403 if authenticated but not superadmin.
  *
  * /widget/*     — public, no auth. CORS headers set in next.config.ts.
@@ -49,9 +49,11 @@ export async function proxy(request: NextRequest) {
       return NextResponse.redirect(new URL("/login", request.url));
     }
 
-    const isSuperAdmin =
-      user.user_metadata?.role === "superadmin" ||
-      user.app_metadata?.role === "superadmin";
+    // app_metadata ONLY. user_metadata is writable by the user themselves via
+    // auth.updateUser(), so trusting it here would let any account reach /admin
+    // by setting one field from the browser. Mirrors public.is_superadmin()
+    // in migration 022 — both layers must read the same service-role-only field.
+    const isSuperAdmin = user.app_metadata?.role === "superadmin";
 
     if (!isSuperAdmin) {
       return new NextResponse("Forbidden", { status: 403 });

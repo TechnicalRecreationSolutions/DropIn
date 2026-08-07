@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { buildRRuleString } from "@/lib/rrule/validate";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 // xlsx requires the Node runtime — which is the default for route handlers.
 // An explicit `runtime` export is rejected once cacheComponents is enabled.
@@ -73,6 +74,13 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Parsing a 10 MB spreadsheet is CPU-bound, and MAX_ROWS is only enforced
+  // after the parse — so the cost is paid before it can be rejected. Limit the
+  // rate at which that cost can be triggered.
+  if (!(await checkRateLimit("importFile", user.id))) {
+    return rateLimitResponse("importFile");
+  }
 
   const { data: membership } = await supabase
     .from("org_memberships")
