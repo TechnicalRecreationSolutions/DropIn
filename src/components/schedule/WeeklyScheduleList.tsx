@@ -1,12 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatTime, formatDayShort, formatDayFull } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
+import { DAYS } from "@/lib/schedule/weekGeometry";
+import { useScheduleEditing } from "./editing/ScheduleEditingContext";
+import SessionActionsMenu from "./editing/SessionActionsMenu";
 
 interface WeeklyScheduleListProps {
   sessions: ExpandedSession[];
@@ -17,9 +21,19 @@ interface WeeklyScheduleListProps {
 /**
  * Day-by-day list view — an alternative to the grid for schedules with
  * dense or overlapping sessions where a time-axis grid gets cramped.
+ *
+ * Like the other views, an enclosing ScheduleEditingProvider turns the same
+ * markup into an editor: each day heading gains an "Add session" action and
+ * each row a "⋯" menu. Without one it stays exactly the read-only list the
+ * widget embeds.
  */
 export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }: WeeklyScheduleListProps) {
+  const editing = useScheduleEditing();
   const [selectedSession, setSelectedSession] = useState<ExpandedSession | null>(null);
+
+  // A dead "Add session" on every day is worse than none — the command centre
+  // explains in the rail why placing is unavailable.
+  const canAdd = !!editing?.canCreate && editing.templates.length > 0;
   const [activeDayIndex, setActiveDayIndex] = useState<number>(() => {
     const d = new Date().getDay();
     return d === 0 ? 6 : d - 1; // 0=Mon ... 6=Sun
@@ -96,6 +110,21 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                     {daySessions.length} session{daySessions.length === 1 ? "" : "s"}
                   </span>
                 )}
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() =>
+                      editing.onAddSession({
+                        dayCode: DAYS[dayIndex].code,
+                        dayLabel: DAYS[dayIndex].label,
+                      })
+                    }
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add session
+                  </button>
+                )}
               </div>
 
               {daySessions.length === 0 ? (
@@ -107,11 +136,11 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                     const dotColor = session.templateColor ?? "var(--org-primary, #2563eb)";
 
                     return (
-                      <li key={session.key}>
+                      <li key={session.key} className="group flex items-center">
                         <button
                           onClick={() => setSelectedSession(session)}
                           className={cn(
-                            "w-full flex items-center gap-3 py-3 text-left hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors",
+                            "flex-1 min-w-0 flex items-center gap-3 py-3 text-left hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors",
                             isPast && "opacity-50"
                           )}
                         >
@@ -138,6 +167,9 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                             </span>
                           )}
                         </button>
+                        {editing && (
+                          <SessionActionsMenu session={session} editing={editing} variant="on-row" />
+                        )}
                       </li>
                     );
                   })}
@@ -149,7 +181,19 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
       </div>
 
       {selectedSession && (
-        <SessionModal session={selectedSession} onClose={() => setSelectedSession(null)} />
+        <SessionModal
+          session={selectedSession}
+          onClose={() => setSelectedSession(null)}
+          onDelete={
+            editing
+              ? (session) => {
+                  editing.onDelete(session);
+                  setSelectedSession(null);
+                }
+              : undefined
+          }
+          isDeleting={editing?.deletingSessionId === selectedSession.sessionId}
+        />
       )}
     </div>
   );

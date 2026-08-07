@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
@@ -56,8 +57,8 @@ export default async function SessionTemplatesPage({ params }: SessionTemplatesP
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
-          { label: scheduleGroup.name, href: `/dashboard/facilities/${facilityId}/schedule-groups/${scheduleGroupId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
+          { label: scheduleGroup.name, href: commandCentreHref({ facilityId, departmentId: NO_DEPARTMENT, scheduleGroupId }) },
           { label: "Session templates" },
         ]}
       />

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -47,7 +48,7 @@ export default async function EditScheduleGroupPage({ params }: EditScheduleGrou
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: department.name, href: `/dashboard/facilities/${facilityId}/departments/${departmentId}` },
           { label: scheduleGroup.name },
           { label: "Edit" },
@@ -74,7 +75,9 @@ export default async function EditScheduleGroupPage({ params }: EditScheduleGrou
           max_participants: scheduleGroup.max_participants,
           is_published: scheduleGroup.is_published,
         }}
-        redirectTo={`/dashboard/facilities/${facilityId}/departments/${departmentId}`}
+        // Settings are reached from the command centre, so saving returns there
+        // with this schedule still in scope.
+        redirectTo={commandCentreHref({ facilityId, departmentId, scheduleGroupId })}
       />
     </div>
   );

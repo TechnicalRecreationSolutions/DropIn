@@ -34,9 +34,10 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   if (!scheduleGroup) notFound();
 
-  const scheduleGroupHref = scheduleGroup.department_id
-    ? `/dashboard/facilities/${scheduleGroup.facility_id}/departments/${scheduleGroup.department_id}/schedule-groups/${scheduleGroup.id}`
-    : `/dashboard/facilities/${scheduleGroup.facility_id}/schedule-groups/${scheduleGroup.id}`;
+  // Saving returns to the command centre focused on this session's own
+  // schedule — that's where it was being edited from.
+  const commandCentreHref =
+    `/dashboard/schedule?facility=${scheduleGroup.facility_id}&schedule=${scheduleGroup.id}`;
 
   const { data: spaces } = await supabase
     .from("spaces")
@@ -82,7 +83,7 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
           spaceIds,
           locationDetail: session.location_detail ?? "",
         }}
-        redirectTo={`${scheduleGroupHref}/builder`}
+        redirectTo={commandCentreHref}
       />
     </div>
   );

@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -37,7 +38,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: "New space" },
         ]}
       />
@@ -53,7 +54,8 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
         facilityId={facilityId}
         departments={departments ?? []}
         defaultValues={departmentId ? { department_id: departmentId } : undefined}
-        redirectTo={`/dashboard/facilities/${facilityId}`}
+        // Back to the Spaces tab this was launched from.
+        redirectTo={commandCentreHref({ facilityId, tab: "spaces" })}
       />
     </div>
   );

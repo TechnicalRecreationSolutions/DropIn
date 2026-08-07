@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { Building2, Eye, EyeOff, Layers, Calendar } from "lucide-react";
 
 export interface FacilityGridItem {
@@ -22,7 +23,7 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
 
   return (
     <Link
-      href={`/dashboard/facilities/${facility.id}`}
+      href={commandCentreHref({ facilityId: facility.id })}
       className={`block rounded-xl border bg-white overflow-hidden transition-all ${
         highlighted
           ? "border-blue-400 shadow-md"

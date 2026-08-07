@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { ChevronRight, type LucideIcon } from "lucide-react";
+import { type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 
 interface TreeNavNodeProps {
@@ -11,11 +11,15 @@ interface TreeNavNodeProps {
   depth: number;
   isActive: boolean;
   isPublished?: boolean;
-  hasChildren?: boolean;
-  isExpanded?: boolean;
-  onToggle?: () => void;
+  /** Count shown at the end of the row, e.g. how many schedules a building has. */
+  badge?: number;
 }
 
+/**
+ * One row in the sidebar. `depth` is kept for the top-level links that
+ * render alongside facilities; the nav itself is flat now — the hierarchy
+ * below a building lives on the command centre, not here.
+ */
 export default function TreeNavNode({
   href,
   label,
@@ -23,9 +27,7 @@ export default function TreeNavNode({
   depth,
   isActive,
   isPublished,
-  hasChildren,
-  isExpanded,
-  onToggle,
+  badge,
 }: TreeNavNodeProps) {
   return (
     <div
@@ -35,36 +37,23 @@ export default function TreeNavNode({
           ? "bg-sidebar-accent text-sidebar-accent-foreground"
           : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
-      style={{ paddingLeft: `${depth * 14 + 4}px` }}
+      style={{ paddingLeft: `${depth * 14 + 8}px` }}
     >
-      {hasChildren ? (
-        <button
-          type="button"
-          onClick={onToggle}
-          aria-expanded={isExpanded}
-          aria-label={isExpanded ? `Collapse ${label}` : `Expand ${label}`}
-          className="shrink-0 p-1 rounded hover:bg-sidebar-accent/80"
-        >
-          <ChevronRight
-            className={cn("size-3.5 transition-transform", isExpanded && "rotate-90")}
-          />
-        </button>
-      ) : (
-        <span className="w-5 shrink-0" />
-      )}
-
-      <Link
-        href={href}
-        className="flex-1 flex items-center gap-2 py-1.5 pr-2 min-w-0"
-      >
+      <Link href={href} className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0">
         <Icon className="size-3.5 shrink-0 opacity-70" />
         <span className="truncate">{label}</span>
-        {isPublished === false && (
-          <span
-            className="ml-auto size-1.5 shrink-0 rounded-full bg-sidebar-foreground/30"
-            title="Draft — not published"
-          />
-        )}
+
+        <span className="ml-auto flex items-center gap-1.5 shrink-0">
+          {isPublished === false && (
+            <span
+              className="size-1.5 rounded-full bg-sidebar-foreground/30"
+              title="Draft — not published"
+            />
+          )}
+          {badge !== undefined && (
+            <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
+          )}
+        </span>
       </Link>
     </div>
   );

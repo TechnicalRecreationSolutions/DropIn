@@ -12,7 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { DAYS } from "./builderShared";
+import { DAYS } from "@/lib/schedule/weekGeometry";
 
 interface DuplicateSessionDialogProps {
   open: boolean;

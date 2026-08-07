@@ -12,15 +12,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
-import { DAYS, type DroppedTemplate } from "./builderShared";
-import type { BuilderTemplate } from "./TemplatePalette";
-
-export interface CreateSessionTarget {
-  dayCode: string;
-  dayLabel: string;
-  /** Set when creating from a space column (Space builder) — shown alongside the day. */
-  spaceName?: string;
-}
+import { DAYS } from "@/lib/schedule/weekGeometry";
+import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext";
 
 export interface CreateSessionValues {
   templateId: string;
@@ -35,90 +28,57 @@ export interface CreateSessionValues {
 }
 
 interface CreateSessionDialogProps {
-  open: boolean;
-  /** Pre-supplied when dragged from the palette (Grid); null when opened via a day's "+ Add session" button (List) — in that case pick one from `templates`. */
-  template: DroppedTemplate | null;
-  templates: BuilderTemplate[];
+  /** The pending placement — day always, plus space/time/template when the view supplied them. Null closes the dialog. */
+  target: AddSessionTarget | null;
+  templates: EditorTemplate[];
   spaces: { id: string; name: string }[];
-  target: CreateSessionTarget | null;
-  /** Pre-filled from the drop's vertical position on Grid; null on List, where start time has no default to infer. */
-  initialStartTime: string | null;
-  /** Pre-filled when dropped onto a specific space column (Space builder); undefined elsewhere. */
-  initialSpaceIds?: string[];
   onCancel: () => void;
   onConfirm: (values: CreateSessionValues) => void;
   submitting: boolean;
   error: string | null;
 }
 
-/** Resolves the template whose defaults should seed the form: the dragged one, or the currently-selected one from the picker. */
-function resolveTemplate(
-  template: DroppedTemplate | null,
-  templates: BuilderTemplate[],
-  selectedTemplateId: string
-): { durationMinutes: number; defaultSpaceIds: string[] } {
-  if (template) return { durationMinutes: template.defaultDurationMinutes, defaultSpaceIds: [] };
-  const picked = templates.find((t) => t.id === selectedTemplateId) ?? templates[0];
-  return { durationMinutes: picked?.default_duration_minutes ?? 60, defaultSpaceIds: picked?.default_space_ids ?? [] };
-}
-
 /**
- * Creates a new session — used by the Grid builder (template pre-supplied
- * by the drag, start time pre-filled from drop position but still
- * adjustable), the Space builder (same, plus a spaceName shown for
- * context and a space pre-selected from the drop target), and the List
- * builder (template chosen from a picker, start time entered from scratch,
- * no space pre-filled). Collects everything a session needs: template,
- * space, recurrence days, season start/end, and start/end time.
+ * Creates a new recurring session. One dialog for every entry point: a
+ * template dragged onto an exact space and time in Map (everything
+ * pre-filled but still adjustable), a day's "+" in Grid/List (template
+ * picked here, time entered from scratch), or a template clicked in the
+ * rail. Collects everything a session needs — template, spaces, recurrence
+ * days, season bounds, start/end time.
  */
 export default function CreateSessionDialog({
-  open,
-  template,
+  target,
   templates,
   spaces,
-  target,
-  initialStartTime,
-  initialSpaceIds,
   onCancel,
   onConfirm,
   submitting,
   error,
 }: CreateSessionDialogProps) {
-  const [selectedTemplateId, setSelectedTemplateId] = useState(template?.id ?? templates[0]?.id ?? "");
+  const [selectedTemplateId, setSelectedTemplateId] = useState("");
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
-  const [startTime, setStartTime] = useState(initialStartTime ?? "09:00");
+  const [startTime, setStartTime] = useState("09:00");
   const [endTime, setEndTime] = useState("10:00");
   const [validFrom, setValidFrom] = useState(localDateString());
   const [validUntil, setValidUntil] = useState("");
-  const [spaceIds, setSpaceIds] = useState<string[]>(initialSpaceIds ?? []);
+  const [spaceIds, setSpaceIds] = useState<string[]>([]);
 
-  useEffect(() => {
-    if (target) {
-      // eslint-disable-next-line react-hooks/set-state-in-effect
-      setSelectedDays([target.dayCode]);
-    }
-  }, [target]);
-
-  useEffect(() => {
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setSelectedTemplateId(template?.id ?? templates[0]?.id ?? "");
-  }, [template, templates]);
-
+  // Reseed every field when the dialog opens for a new placement; once open
+  // the form is free-form, so this deliberately keys on the target only.
   useEffect(() => {
     if (!target) return;
-    const start = initialStartTime ?? "09:00";
-    const { durationMinutes, defaultSpaceIds } = resolveTemplate(template, templates, selectedTemplateId);
+    const template = target.template ?? templates[0];
+    const start = target.startTime ?? "09:00";
     // eslint-disable-next-line react-hooks/set-state-in-effect
+    setSelectedTemplateId(template?.id ?? "");
+    setSelectedDays([target.dayCode]);
     setStartTime(start);
-    setEndTime(computeEndTime24(start, durationMinutes));
+    setEndTime(computeEndTime24(start, template?.default_duration_minutes ?? 60));
     setValidFrom(localDateString());
     setValidUntil("");
-    setSpaceIds(initialSpaceIds ?? defaultSpaceIds);
-    // Only re-run when the dialog is (re)opened for a new target — fields are free-form once open.
-    // Keyed on a joined string, not the array itself, since callers often pass
-    // a fresh array literal on every render (e.g. `[pendingCreate.spaceId]`).
+    setSpaceIds(target.spaceId ? [target.spaceId] : (template?.default_space_ids ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [target, initialStartTime, initialSpaceIds?.join(",")]);
+  }, [target]);
 
   if (!target) return null;
 
@@ -141,6 +101,7 @@ export default function CreateSessionDialog({
     }
   }
 
+  const draggedTemplate = target.template;
   const dayLabels = DAYS.filter((d) => selectedDays.includes(d.code)).map((d) => d.short).join(", ");
   const daysValid = selectedDays.length > 0;
   const timeValid = endTime > startTime;
@@ -148,16 +109,16 @@ export default function CreateSessionDialog({
   const canSubmit = daysValid && timeValid && datesValid && !!selectedTemplateId && !!validFrom;
 
   return (
-    <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
+    <Dialog open={!!target} onOpenChange={(next) => !next && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{template ? `Place "${template.name}"` : "Add session"}</DialogTitle>
+          <DialogTitle>{draggedTemplate ? `Place "${draggedTemplate.name}"` : "Add session"}</DialogTitle>
           <DialogDescription>
             {target.spaceName ? `${target.spaceName} · ${target.dayLabel}` : target.dayLabel}
           </DialogDescription>
         </DialogHeader>
 
-        {!template && (
+        {!draggedTemplate && (
           <div>
             <label htmlFor="create-session-template" className="block text-sm font-medium text-gray-700 mb-1">
               Session template

@@ -2,22 +2,32 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { useQueryClient } from "@tanstack/react-query";
 
+interface FacilityOption {
+  id: string;
+  name: string;
+}
+
 interface DepartmentFormProps {
-  facilityId: string;
+  /** Fixed when created from a facility's page; otherwise staff must pick one. */
+  facilityId?: string;
+  /** Required when facilityId is not fixed, so staff can choose which facility this department belongs to. */
+  facilities?: FacilityOption[];
   departmentId?: string;
   defaultValues?: {
     name?: string;
     description?: string;
     is_published?: boolean;
   };
-  /** Where to send staff after a successful save. */
-  redirectTo: string;
+  /** Where to send staff after a successful save. Defaults to the created department's facility page. */
+  redirectTo?: string;
 }
 
 export default function DepartmentForm({
-  facilityId,
+  facilityId: fixedFacilityId,
+  facilities,
   departmentId,
   defaultValues,
   redirectTo,
@@ -27,6 +37,7 @@ export default function DepartmentForm({
   const isEditing = !!departmentId;
 
   const [form, setForm] = useState({
+    facility_id: fixedFacilityId ?? "",
     name: defaultValues?.name ?? "",
     description: defaultValues?.description ?? "",
     is_published: defaultValues?.is_published ?? false,
@@ -35,7 +46,7 @@ export default function DepartmentForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) {
+  function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
     setForm((prev) => ({
       ...prev,
@@ -46,6 +57,13 @@ export default function DepartmentForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    const facilityId = fixedFacilityId ?? form.facility_id;
+    if (!facilityId) {
+      setError("Please select a facility.");
+      return;
+    }
+
     setLoading(true);
 
     const res = await fetch(
@@ -70,7 +88,7 @@ export default function DepartmentForm({
     }
 
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
-    router.push(redirectTo);
+    router.push(redirectTo ?? commandCentreHref({ facilityId }));
     router.refresh();
   }
 
@@ -79,6 +97,25 @@ export default function DepartmentForm({
 
   return (
     <form onSubmit={handleSubmit} className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+      {!fixedFacilityId && (
+        <div>
+          <label htmlFor="facility_id" className={labelClass}>Facility *</label>
+          <select
+            id="facility_id"
+            name="facility_id"
+            required
+            value={form.facility_id}
+            onChange={handleChange}
+            className={fieldClass}
+          >
+            <option value="" disabled>Select a facility…</option>
+            {(facilities ?? []).map((f) => (
+              <option key={f.id} value={f.id}>{f.name}</option>
+            ))}
+          </select>
+        </div>
+      )}
+
       <div>
         <label htmlFor="name" className={labelClass}>Department name *</label>
         <input

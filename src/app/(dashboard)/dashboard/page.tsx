@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
@@ -16,6 +17,30 @@ import {
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { DashboardPageSkeleton as DashboardOverviewSkeleton } from "@/components/layout/DashboardChromeSkeletons";
+import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
+
+/**
+ * Validated for instant client-side navigation: Next.js checks at build time
+ * that this route still produces a static shell from every entry point, so a
+ * future change that reintroduces blocking data access fails the build rather
+ * than quietly making navigation feel slow again.
+ *
+ * Nearly everything on the overview is org-specific — even the heading greets
+ * the org by name — so the whole body streams behind one boundary rather than
+ * being split further. The boundary has to live inside this page: see the note
+ * in dashboard/facilities/page.tsx.
+ */
+export const unstable_instant = { prefetch: "static" };
+
+export default function DashboardPage() {
+  return (
+    <Suspense fallback={<DashboardOverviewSkeleton />}>
+      <DashboardOverview />
+    </Suspense>
+  );
+}
+
 
 type RecentFacility = {
   id: string;
@@ -51,13 +76,12 @@ function settledCount(
   return result.value.count ?? 0;
 }
 
+/** Schedules open on the command centre, scoped and ready to edit — same as everywhere else. */
 function scheduleGroupHref(sg: { facility_id: string; department_id: string | null; id: string }) {
-  return sg.department_id
-    ? `/dashboard/facilities/${sg.facility_id}/departments/${sg.department_id}/schedule-groups/${sg.id}`
-    : `/dashboard/facilities/${sg.facility_id}/schedule-groups/${sg.id}`;
+  return commandCentreHref(scheduleGroupScope(sg));
 }
 
-export default async function DashboardPage() {
+async function DashboardOverview() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
@@ -180,7 +204,7 @@ export default async function DashboardPage() {
         key: `draft_facility_${f.id}`,
         label: f.name,
         detail: "Facility is unpublished",
-        href: `/dashboard/facilities/${f.id}`,
+        href: commandCentreHref({ facilityId: f.id }),
       });
     }
   }
@@ -203,30 +227,28 @@ export default async function DashboardPage() {
           key: `empty_facility_${f.id}`,
           label: f.name,
           detail: "No departments or schedules yet",
-          href: `/dashboard/facilities/${f.id}`,
+          href: commandCentreHref({ facilityId: f.id }),
         });
       }
     }
   }
 
   const isNew = facilityCount === 0;
-  // Departments/schedules are created within a facility, so quick-build routes
-  // there via whichever facility was touched most recently.
+  // Schedules are created within a facility, so quick-build routes there via
+  // whichever facility was touched most recently.
   const mostRecentFacilityId = recentFacilities[0]?.id ?? null;
 
   function itemHref(item: RecentItem) {
-    return item.kind === "facility" ? `/dashboard/facilities/${item.id}` : scheduleGroupHref(item);
+    return item.kind === "facility" ? commandCentreHref({ facilityId: item.id }) : scheduleGroupHref(item);
   }
 
   const quickBuildActions = [
     { label: "Add facility", icon: Building2, href: "/dashboard/facilities/new" },
+    // Departments always belong to a facility, so this route asks staff which
+    // one rather than silently guessing based on recent activity.
+    ...(facilityCount ? [{ label: "Add department", icon: Layers, href: "/dashboard/departments/new" }] : []),
     ...(mostRecentFacilityId
       ? [
-          {
-            label: "Add department",
-            icon: Layers,
-            href: `/dashboard/facilities/${mostRecentFacilityId}/departments/new`,
-          },
           {
             label: "Add schedule",
             icon: Calendar,

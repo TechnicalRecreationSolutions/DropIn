@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -38,7 +39,7 @@ export default async function NewScheduleGroupPage({ params }: NewScheduleGroupP
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: department.name, href: `/dashboard/facilities/${facilityId}/departments/${departmentId}` },
           { label: "New schedule" },
         ]}
@@ -54,7 +55,9 @@ export default async function NewScheduleGroupPage({ params }: NewScheduleGroupP
         orgId={orgContext.org.id}
         facilityId={facilityId}
         departmentId={departmentId}
-        redirectTo={`/dashboard/facilities/${facilityId}/departments/${departmentId}`}
+        // A brand-new schedule is empty, so land on the command centre where it
+        // can be built rather than on a list that just names it.
+        redirectTo={commandCentreHref({ facilityId, departmentId })}
       />
     </div>
   );

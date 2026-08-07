@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -29,7 +30,7 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: "Edit" },
         ]}
       />

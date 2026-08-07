@@ -2,6 +2,7 @@
 
 import { useCallback, useState } from "react";
 import { useRouter } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import dynamic from "next/dynamic";
 import { LayoutGrid, Map as MapIcon } from "lucide-react";
 import FacilityGridCard, { type FacilityGridItem } from "@/components/facilities/FacilityGridCard";
@@ -33,7 +34,7 @@ export default function FacilitiesGridClient({ facilities }: FacilitiesGridClien
   const handleFacilityClick = useCallback(
     (slug: string) => {
       const facility = facilities.find((f) => f.slug === slug);
-      if (facility) router.push(`/dashboard/facilities/${facility.id}`);
+      if (facility) router.push(commandCentreHref({ facilityId: facility.id }));
     },
     [facilities, router]
   );

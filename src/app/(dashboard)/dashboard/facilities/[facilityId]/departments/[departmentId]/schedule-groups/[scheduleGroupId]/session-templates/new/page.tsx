@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -48,7 +49,8 @@ export default async function NewSessionTemplatePage({ params }: NewSessionTempl
     .eq("facility_id", facilityId)
     .order("display_order", { ascending: true });
 
-  const scheduleGroupHref = `/dashboard/facilities/${facilityId}/departments/${departmentId}/schedule-groups/${scheduleGroupId}`;
+  // Back to where this schedule is actually worked on.
+  const scheduleGroupHref = commandCentreHref({ facilityId, departmentId, scheduleGroupId });
   const listHref = `${scheduleGroupHref}/session-templates`;
 
   return (
@@ -56,7 +58,7 @@ export default async function NewSessionTemplatePage({ params }: NewSessionTempl
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: department.name, href: `/dashboard/facilities/${facilityId}/departments/${departmentId}` },
           { label: scheduleGroup.name, href: scheduleGroupHref },
           { label: "Session templates", href: listHref },

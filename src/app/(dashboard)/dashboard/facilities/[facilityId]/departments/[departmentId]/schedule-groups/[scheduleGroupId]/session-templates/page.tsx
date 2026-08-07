@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
@@ -60,14 +61,15 @@ export default async function SessionTemplatesPage({ params }: SessionTemplatesP
     .eq("is_active", true)
     .order("display_order", { ascending: true }) as unknown as { data: SessionTemplateRow[] | null };
 
-  const scheduleGroupHref = `/dashboard/facilities/${facilityId}/departments/${departmentId}/schedule-groups/${scheduleGroupId}`;
+  // Back to where this schedule is actually worked on.
+  const scheduleGroupHref = commandCentreHref({ facilityId, departmentId, scheduleGroupId });
 
   return (
     <div className="max-w-3xl mx-auto space-y-6">
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: department.name, href: `/dashboard/facilities/${facilityId}/departments/${departmentId}` },
           { label: scheduleGroup.name, href: scheduleGroupHref },
           { label: "Session templates" },

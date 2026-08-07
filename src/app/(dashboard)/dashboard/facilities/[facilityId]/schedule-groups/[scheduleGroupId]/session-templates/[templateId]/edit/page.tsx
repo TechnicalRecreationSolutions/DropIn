@@ -1,4 +1,5 @@
 import { notFound } from "next/navigation";
+import { commandCentreHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -64,8 +65,8 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: `/dashboard/facilities/${facilityId}` },
-          { label: scheduleGroup.name, href: `/dashboard/facilities/${facilityId}/schedule-groups/${scheduleGroupId}` },
+          { label: facility.name, href: commandCentreHref({ facilityId }) },
+          { label: scheduleGroup.name, href: commandCentreHref({ facilityId, departmentId: NO_DEPARTMENT, scheduleGroupId }) },
           { label: "Session templates", href: listHref },
           { label: template.name },
         ]}
