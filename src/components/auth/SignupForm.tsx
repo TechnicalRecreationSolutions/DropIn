@@ -1,17 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 export default function SignupForm() {
-  const router = useRouter();
-
   const [orgName, setOrgName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
 
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -38,8 +36,44 @@ export default function SignupForm() {
       return;
     }
 
-    router.push(data.redirect ?? "/dashboard");
-    router.refresh();
+    // No redirect: the account is unconfirmed until the emailed link is
+    // followed, and this screen must look identical whether the address was new
+    // or already registered — that indistinguishability is the anti-enumeration
+    // property, so don't add a "welcome back" variant here.
+    setEmailSent(true);
+    setLoading(false);
+  }
+
+  if (emailSent) {
+    return (
+      <div className="space-y-4 text-center">
+        <div className="rounded-lg bg-blue-50 px-4 py-5">
+          <h2 className="text-sm font-semibold text-gray-900">Check your email</h2>
+          <p className="mt-2 text-sm text-gray-600">
+            If <span className="font-medium">{email}</span> can receive mail, we&apos;ve sent a
+            link to confirm your account. Open it to finish setting up{" "}
+            <span className="font-medium">{orgName}</span>.
+          </p>
+        </div>
+        <p className="text-sm text-gray-600">
+          Didn&apos;t get it? Check your spam folder, or{" "}
+          <button
+            type="button"
+            onClick={() => { setEmailSent(false); setError(null); }}
+            className="text-blue-600 font-medium hover:underline"
+          >
+            try a different address
+          </button>
+          .
+        </p>
+        <p className="text-center text-sm text-gray-600">
+          Already confirmed?{" "}
+          <Link href="/login" className="text-blue-600 font-medium hover:underline">
+            Sign in
+          </Link>
+        </p>
+      </div>
+    );
   }
 
   return (

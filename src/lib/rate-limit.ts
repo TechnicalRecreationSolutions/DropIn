@@ -20,9 +20,13 @@ import { createAdminClient } from "@/lib/supabase/admin";
 
 /** Tuned per endpoint by cost, not uniformly. */
 export const RATE_LIMITS = {
-  /** Creates an auth user + org + membership with the service role. Expensive
-   *  and irreversible-ish (org slugs are unique), so kept tight. */
+  /** Creates an unconfirmed auth user and sends an email. Tight, because the
+   *  outbound mail is both a cost and a sender-reputation risk. */
   signup: { limit: 5, windowSeconds: 600 },
+  /** Creates an org + owner membership with the service role. Since signup no
+   *  longer creates the org, this is where slug-namespace exhaustion would now
+   *  happen — it needs its own limit, not signup's. */
+  onboardOrg: { limit: 5, windowSeconds: 600 },
   /** Public, called once per widget load. Generous, but bounded. */
   analytics: { limit: 60, windowSeconds: 60 },
   /** Creates Stripe customers and checkout sessions — a paid API. */

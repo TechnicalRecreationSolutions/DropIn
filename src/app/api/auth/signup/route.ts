@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
-import { slugify } from "@/lib/utils/slugify";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 const SignupSchema = z.object({
@@ -11,24 +9,39 @@ const SignupSchema = z.object({
   password: z.string().min(8),
 });
 
+const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000";
+
+/**
+ * Messages that reveal an account already exists. Never surfaced to the caller.
+ *
+ * With the project's `mailer_autoconfirm` disabled, Supabase already obfuscates
+ * duplicate signups — it returns a user object with an empty `identities` array
+ * and no error. This list is a backstop in case that setting is ever flipped, so
+ * enumeration cannot come back silently through a config change.
+ */
+const EXISTENCE_LEAKING = [/already registered/i, /already exists/i, /user already/i];
+
 /**
  * POST /api/auth/signup
  *
- * Creates an auth user + organization + owner membership in one atomic
- * server-side operation. Uses the service role client for org/membership
- * writes because newly signed-up users have no RLS permissions yet.
+ * Creates an *unconfirmed* auth user and sends a confirmation email. The
+ * organization is NOT created here — that happens at /dashboard/org/onboarding
+ * once the user has proved they control the address (see
+ * /api/auth/onboard-org).
  *
- * Steps:
- *   1. Validate input
- *   2. Create Supabase auth user
- *   3. Insert organization row (service role — bypasses RLS)
- *   4. Insert owner membership row (service role)
- *   5. Sign the user in so they have a live session
+ * This route previously called `admin.auth.admin.createUser({ email_confirm:
+ * true })`, which overrode the project's own mailer_autoconfirm=false setting
+ * and marked every address confirmed without checking it — anyone could
+ * register an organization under someone else's email (finding M5). It also
+ * answered 409 "An account with that email already exists", making registered
+ * addresses enumerable (finding M4).
+ *
+ * Both are fixed by using the ordinary `auth.signUp()` flow and returning an
+ * identical response whatever happens.
  */
 export async function POST(request: Request) {
-  // Before any work: this route creates an auth user, an org and a membership
-  // with the service role, so an unthrottled loop is both a cost and a
-  // namespace-exhaustion attack (org slugs are unique).
+  // Before any work: this route triggers an outbound email and creates an auth
+  // user, so an unthrottled loop is both a cost and a mail-reputation attack.
   const ip = await getClientIp();
   if (!(await checkRateLimit("signup", ip))) {
     return rateLimitResponse("signup");
@@ -45,67 +58,47 @@ export async function POST(request: Request) {
   }
 
   const { orgName, email, password } = parsed.data;
-  const slug = slugify(orgName);
+  const supabase = await createClient();
 
-  const admin = createAdminClient();
-
-  // 1. Create auth user via admin client so we get the user id immediately
-  const { data: authData, error: authError } = await admin.auth.admin.createUser({
+  const { error } = await supabase.auth.signUp({
     email,
     password,
-    email_confirm: true, // skip email confirmation for now
-    user_metadata: { org_name: orgName },
+    options: {
+      // Carried so onboarding can prefill the name the user already typed.
+      // user_metadata is user-writable, so this is display-only — the actual
+      // org creation re-validates it server-side in /api/auth/onboard-org.
+      data: { org_name: orgName },
+      emailRedirectTo: `${APP_URL}/callback?next=/dashboard/org/onboarding`,
+    },
   });
 
-  if (authError || !authData.user) {
-    const msg = authError?.message ?? "";
-    if (msg.includes("already registered") || msg.includes("already exists")) {
-      return NextResponse.json({ error: "An account with that email already exists." }, { status: 409 });
-    }
-    return NextResponse.json({ error: "Could not create account. Please try again." }, { status: 500 });
+  // Every outcome below returns the identical body and status.
+  //
+  // Surfacing *any* Supabase-side error here reopens enumeration, in an
+  // inverted and more dangerous form. A signup for a NEW address sends a
+  // confirmation email; a signup for an EXISTING one does not. So when the
+  // mailer errors — "email rate limit exceeded" being the easy one, since an
+  // attacker can induce it just by signing up a few times — the new address
+  // fails while the existing address succeeds. Error means "this address is
+  // free", success means "this address is taken". Verified: that is exactly
+  // what an earlier version of this handler did.
+  //
+  // The cost is real and accepted: if the mailer is genuinely broken, users are
+  // told to check an inbox that receives nothing. That is a monitoring problem,
+  // not a response-body problem — hence the loud log. Configuring real SMTP
+  // (see docs/SECURITY.md, owner actions) removes the default project quota
+  // that makes this likely.
+  //
+  // Note the caller can still get a 429, from the rate limiter above. That one
+  // is keyed on IP and fires identically whether or not the address exists, so
+  // it is not an oracle.
+  if (error) {
+    const leaksExistence = EXISTENCE_LEAKING.some((re) => re.test(error.message));
+    console.error(
+      `Signup did not complete (caller told it succeeded): ${error.message}` +
+        (leaksExistence ? " [existing address]" : "")
+    );
   }
 
-  const userId = authData.user.id;
-
-  // 2. Create organization
-  const { data: org, error: orgError } = await admin
-    .from("organizations")
-    .insert({ name: orgName, slug, status: "active", country: "CA" })
-    .select("id")
-    .single();
-
-  if (orgError) {
-    // Roll back: delete the auth user we just created
-    await admin.auth.admin.deleteUser(userId);
-    if (orgError.code === "23505") {
-      return NextResponse.json(
-        { error: "An organization with that name already exists. Please choose a different name." },
-        { status: 409 }
-      );
-    }
-    return NextResponse.json({ error: "Could not create organization. Please try again." }, { status: 500 });
-  }
-
-  // 3. Create owner membership
-  const { error: membershipError } = await admin
-    .from("org_memberships")
-    .insert({ org_id: org.id, user_id: userId, role: "owner" });
-
-  if (membershipError) {
-    // Roll back both
-    await admin.from("organizations").delete().eq("id", org.id);
-    await admin.auth.admin.deleteUser(userId);
-    return NextResponse.json({ error: "Could not complete setup. Please try again." }, { status: 500 });
-  }
-
-  // 4. Sign the user in to establish a session cookie
-  const supabase = await createClient();
-  const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-
-  if (signInError) {
-    // Account exists but session failed — they can just log in manually
-    return NextResponse.json({ ok: true, redirect: "/login" });
-  }
-
-  return NextResponse.json({ ok: true, redirect: "/dashboard" });
+  return NextResponse.json({ ok: true, emailSent: true });
 }

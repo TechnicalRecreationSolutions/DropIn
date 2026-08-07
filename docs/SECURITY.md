@@ -39,7 +39,7 @@ secrets, headers and injection surfaces, repo-wide.
 |---|---|---|
 | Critical | 0 | 2 |
 | High | 1 | 3 |
-| Medium | 6 | 2 |
+| Medium | 4 | 4 |
 | Low | 4 | 0 |
 
 **Not covered by that audit:** server/client components outside `src/app/api`
@@ -77,19 +77,6 @@ feeds the other public endpoints. `GET /api/widget-config` already filters by
 columns**, including `email`, `phone`, `address_line1`, `postal_code` and
 `stripe_customer_id` (added in `007`). Public discovery needs name/slug/city, not
 the billing identifier. Needs a column-limited view or a narrowed policy.
-
-### M4 — Account enumeration on signup
-
-`src/app/api/auth/signup/route.ts` returns **409 "An account with that email
-already exists"** versus 500/200 otherwise, so registered emails are
-distinguishable. Org-name collisions leak the same way. Responses must be
-identical in body and status regardless of existence.
-
-### M5 — Email verification is disabled
-
-`src/app/api/auth/signup/route.ts:47` — `email_confirm: true` marks every address
-confirmed without checking it. Anyone can register an organization under someone
-else's email.
 
 ### M7 — No CSP, no HSTS
 
@@ -264,6 +251,67 @@ that a 200 is not evidence:
 > Same failure class as the API-version drift incident — see
 > `feedback_stripe_api_version_drift`.
 
+### M4 + M5 — Account enumeration, and signup with an address you don't own
+**Medium ×2 · closed 2026-08-06 · commit pending · no migration needed**
+
+Both lived in `src/app/api/auth/signup/route.ts` and shared one root cause: the
+route created accounts with `admin.auth.admin.createUser({ email_confirm: true })`.
+
+- **M5.** That call **overrode the project's own setting.** `/auth/v1/settings`
+  reports `mailer_autoconfirm: false` — Supabase was configured to require
+  verification all along, and the app was bypassing it, marking every address
+  confirmed without checking it. Anyone could register an organization under
+  someone else's email and get a working login.
+- **M4.** The admin path errors on duplicates, so the route answered
+  **409 "An account with that email already exists"**, making registered
+  addresses enumerable. Org-name collisions leaked identically.
+
+**Fixed by** switching to the ordinary `supabase.auth.signUp()` flow, which
+honours `mailer_autoconfirm` and sends a confirmation email. Organization
+creation moved out of signup to `/dashboard/org/onboarding` (existing screen,
+existing `/api/auth/onboard-org`), so nothing is created until the address is
+proven. The org name rides along in `user_metadata` purely to prefill that form —
+user-writable, so treated as untrusted and re-validated on submit.
+
+**The subtle part, and the reason a first attempt failed.** Surfacing *any*
+Supabase-side error reopens enumeration in inverted form. A new address triggers
+an email; an existing one does not. So when the mailer errors, the new address
+fails and the existing one succeeds — error means "free", success means "taken".
+An attacker induces it at will by exhausting the send quota. This was not
+theoretical: the first version of the fix was measured doing exactly that
+(`fresh=429`, `existing=200`). The handler now returns an **identical body and
+status in every case** and logs failures server-side instead. The 429 from our
+own IP-keyed rate limiter is fine — it fires regardless of whether the address
+exists, so it is not an oracle.
+
+Related hardening in the same path: `/api/auth/onboard-org` gained its own rate
+limit (org creation moved there, so signup's limit no longer covered it), and
+`/(auth)/callback` now rejects non-relative `next` values — that parameter is
+attacker-supplied and is now part of the emailed confirmation link.
+
+**Verified** against a running server and the live DB:
+
+| Check | Result |
+|---|---|
+| Existing address returns same **status** as fresh | `200` vs `200` (was `409` vs `200`) |
+| Existing address returns same **body** as fresh | byte-identical |
+| Response contains no existence wording | confirmed |
+| Duplicate **org name** no longer leaks | identical `200` |
+| No organization created pre-confirmation | 0 rows |
+| Unconfirmed account cannot sign in | `Email not confirmed`, no session |
+| Positive control: same account after confirming | signs in — proves the block is the confirmation state, not the credentials |
+
+**Not verified:** that `signUp` produces an unconfirmed *user row*, because the
+default Supabase mailer quota (~2/hour without custom SMTP) was exhausted and no
+user is created when the send fails. Inferred from `mailer_autoconfirm: false`
+plus the removal of every `createUser` call. Re-run after SMTP is configured.
+
+> ⚠️ **Operational consequence.** Signup now depends on email delivery. With the
+> built-in mailer that is roughly **two accounts per hour** — previously
+> invisible, because auto-confirm meant no mail was sent at all. **Custom SMTP is
+> now a launch blocker,** not a nice-to-have. See
+> [Owner-only actions](#owner-only-actions).
+
 ### M6 — Analytics IP salt fell back to a public constant
 **Medium · closed 2026-08-06 · commit pending · no migration needed**
 
@@ -374,6 +422,15 @@ violates one as a security regression.
 13. **`src/lib/stripe/plans.ts` stays free of secrets** — it is imported by a
     client component. Anything env-derived belongs in `src/lib/stripe/prices.ts`.
     *(M6)*
+14. **`/api/auth/signup` returns an identical status and body in every outcome.**
+    Never surface a Supabase-side error from it. A new address sends mail and an
+    existing one does not, so any error that reaches the caller is an inverted
+    existence oracle. Log server-side instead. *(M4)*
+15. **Signup never auto-confirms.** No `email_confirm: true`, no
+    `admin.createUser` on the signup path, and `mailer_autoconfirm` stays off.
+    Organizations are created only after confirmation. *(M5)*
+16. **`/(auth)/callback` only redirects to same-origin relative paths.** `next`
+    is attacker-supplied and now appears in emailed links.
 
 ---
 
@@ -381,8 +438,16 @@ violates one as a security regression.
 
 Not fixable from the codebase. Unticked items are outstanding.
 
+- [ ] **⚠️ Configure custom SMTP** (Supabase dashboard → Project Settings → Auth →
+      SMTP), e.g. Resend. **Launch blocker since M4/M5**: signup now sends a
+      confirmation email, and the built-in mailer allows only ~2 per hour, so
+      real signups will silently fail beyond that. Note `.env.example` references
+      `RESEND_FROM_EMAIL` but `resend` is not installed — Supabase-side SMTP
+      config needs no app dependency.
 - [ ] **Login rate limiting** — Supabase dashboard → Authentication → Rate Limits.
       Cannot be done in app code *(see H1)*.
+- [ ] Keep `mailer_autoconfirm` **disabled**. Turning it on re-opens M5 —
+      accounts would again be usable without proving address ownership.
 - [ ] Confirm hosting provider; enable WAF / DDoS protection in front of autoscaling
 - [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe, Mapbox
 - [ ] Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` to your domains in the Mapbox console
@@ -441,3 +506,4 @@ results* the first time:
 | 2026-08-06 | First full audit. C1, C2, H1, H2, H3 closed (migrations `022`–`025`, commit `aca0c3d`), verified live. 13 findings remain open. |
 | 2026-08-06 | M3 closed — Stripe webhook claim/commit semantics, plus three further silent-failure paths found while fixing it (unchecked `subscriptions` writes, unchecked event insert, `?? "free"` price fallback). Verified with signed payloads over HTTP. 12 open. |
 | 2026-08-06 | M6 closed — fail-fast env validation at server boot (`src/lib/env.ts`, `src/instrumentation.ts`), Stripe price IDs split into server-only `prices.ts`. Verified by blanking a variable and confirming the server refuses to start. 11 open. |
+| 2026-08-06 | M4 + M5 closed — signup moved to `auth.signUp()`, org creation deferred to post-confirmation onboarding, responses made uniform. A first attempt still leaked existence when the mailer errored; caught by measurement, then fixed. **Custom SMTP is now a launch blocker.** 9 open. |

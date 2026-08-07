@@ -22,6 +22,11 @@ export default async function OnboardingPage() {
 
   if (membership) redirect("/dashboard");
 
+  // Set at signup, before email confirmation. Untrusted (user_metadata is
+  // user-writable) — prefill only; the API re-validates on submit.
+  const suggestedName =
+    typeof user.user_metadata?.org_name === "string" ? user.user_metadata.org_name : "";
+
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
@@ -30,7 +35,7 @@ export default async function OnboardingPage() {
           You&apos;re signed in, but not yet part of an organization on Dropin. Create one to continue.
         </p>
       </div>
-      <OnboardOrgForm />
+      <OnboardOrgForm suggestedName={suggestedName} />
     </div>
   );
 }

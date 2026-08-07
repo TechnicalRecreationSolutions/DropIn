@@ -3,10 +3,16 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function OnboardOrgForm() {
+/**
+ * `suggestedName` comes from user_metadata.org_name, set at signup so the user
+ * doesn't retype what they already entered before confirming their email.
+ * It is user-writable and therefore untrusted — it only prefills the field, and
+ * /api/auth/onboard-org re-validates whatever is actually submitted.
+ */
+export default function OnboardOrgForm({ suggestedName = "" }: { suggestedName?: string }) {
   const router = useRouter();
 
-  const [orgName, setOrgName] = useState("");
+  const [orgName, setOrgName] = useState(suggestedName);
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 

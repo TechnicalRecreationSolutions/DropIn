@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { slugify } from "@/lib/utils/slugify";
+import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const OnboardSchema = z.object({
   orgName: z.string().min(2).max(100),
@@ -21,6 +22,14 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Org creation moved here from /api/auth/signup, and the limit has to move
+  // with it — otherwise a confirmed account could mint organizations freely.
+  // Keyed on user id: the caller is authenticated, and org slugs are a shared
+  // namespace worth protecting per-identity rather than per-IP.
+  if (!(await checkRateLimit("onboardOrg", user.id))) {
+    return rateLimitResponse("onboardOrg");
+  }
 
   const body = await request.json().catch(() => null);
   const parsed = OnboardSchema.safeParse(body);
