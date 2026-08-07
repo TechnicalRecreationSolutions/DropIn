@@ -4,6 +4,8 @@
 
 Dropin is a public discovery platform that lets consumers find drop-in recreation across organizations and municipalities, while giving organizations a modern way to publish and manage their schedules.
 
+**Picking up after a break? Start at [`docs/RESUME.md`](docs/RESUME.md)** — current state, blockers, and what to do next.
+
 For the delivery history, current schema map, and open work, see [`docs/PLAN.md`](docs/PLAN.md). This README covers what the app is and how to run it.
 
 **Before changing anything that touches auth, RLS policies, the service-role key, or a public endpoint, read [`docs/SECURITY.md`](docs/SECURITY.md)** — in particular its *Standing assumptions* section, which lists the invariants that closed security findings depend on.
@@ -23,7 +25,7 @@ For the delivery history, current schema map, and open work, see [`docs/PLAN.md`
 These are the product's actual differentiators, not incidental features — see `docs/PLAN.md` for status/roadmap of each:
 
 - **Facility map** (`src/components/facility-maps/`) — an illustrated SVG rendering engine shared by the admin builder and the public viewer. Pools render as water with lane ropes, courts get real markings, spaces glow when a session is live. Recipe and design principles: `docs/prompts/facility-map-flagship.md`.
-- **Schedule builder** (`src/components/schedule-builder/`, `src/components/session-template/`) — color-coded, reusable session templates that staff drag onto a visual builder instead of re-filling an 11-field form per session.
+- **Schedule command centre** (`src/components/schedule-command/`, `src/components/schedule/editing/`, `src/components/session-template/`) — `/dashboard/schedule` is the one page staff live on: building → department → schedule scope at the top, then Schedule/Spaces/Map/Widget tabs beneath. Color-coded, reusable session templates drag onto the schedule instead of re-filling an 11-field form per session. The editing views *are* the public widget views wrapped in a provider, so what staff build cannot drift from what visitors see.
 
 Ingestion into a schedule is **manual entry or Excel/CSV import only.** An earlier phase built an automated scraping pipeline (Xplor/ActiveNet/NextRec) end-to-end on the Dropin side, but the external scraper service was never built, and the feature was fully removed (`supabase/migrations/021_remove_scraping.sql`). It is not on the roadmap — don't reintroduce scraping-shaped code or docs without a deliberate decision to revisit it.
 
@@ -105,9 +107,10 @@ dropin/
 │   │   ├── ui/                 # shadcn/ui base components
 │   │   ├── layout/              # Nav, sidebar, providers
 │   │   ├── discovery/           # Search, map, facility cards
-│   │   ├── schedule/             # Weekly grid + floorplan view (public/read-only)
-│   │   ├── schedule-editor/       # Weekly grid (editable dashboard view)
-│   │   ├── schedule-builder/      # Drag-and-drop session template builder
+│   │   ├── schedule/             # Weekly grid + floorplan views (public AND editable)
+│   │   │   └── editing/           # Providers/dialogs that turn those views into editors
+│   │   ├── schedule-command/      # /dashboard/schedule — the staff command centre
+│   │   ├── schedule-editor/       # SessionForm + RRuleBuilder (the /sessions/* forms)
 │   │   ├── session-template/      # Session template CRUD
 │   │   ├── facility-maps/          # Illustrated SVG map engine + admin builder
 │   │   ├── department/, facility/, schedule-group/, space/  # Entity forms/lists
