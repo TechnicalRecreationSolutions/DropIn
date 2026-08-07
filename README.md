@@ -6,6 +6,8 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 
 For the delivery history, current schema map, and open work, see [`docs/PLAN.md`](docs/PLAN.md). This README covers what the app is and how to run it.
 
+**Before changing anything that touches auth, RLS policies, the service-role key, or a public endpoint, read [`docs/SECURITY.md`](docs/SECURITY.md)** — in particular its *Standing assumptions* section, which lists the invariants that closed security findings depend on.
+
 ---
 
 ## What problem does this solve?
