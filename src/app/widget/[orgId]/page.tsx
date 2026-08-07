@@ -33,12 +33,17 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
 
   const supabase = await createClient();
 
-  // Verify org exists and is active
+  // Verify org exists and is active.
+  //
+  // Reads the organizations_public view, not the table. The table is
+  // members-only since migration 026 — it carries email, phone, address and
+  // stripe_customer_id, and RLS cannot restrict columns. The view exposes only
+  // non-sensitive fields and already filters to status = 'active', so no status
+  // predicate is needed (and `status` is not a column on it).
   const { data: org } = await supabase
-    .from("organizations")
+    .from("organizations_public")
     .select("id, name, slug")
     .eq("id", orgId)
-    .eq("status", "active")
     .single();
 
   if (!org) notFound();

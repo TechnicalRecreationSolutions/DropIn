@@ -698,6 +698,24 @@ export type Database = {
       };
     };
     Views: {
+      // World-readable projection of active organizations
+      // (026_narrow_public_read_policies.sql). The base table is members-only
+      // because RLS cannot restrict columns and it holds contact and billing
+      // fields. Adding a column here makes it public — see the view's COMMENT.
+      organizations_public: {
+        Row: {
+          id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          logo_url: string | null;
+          website_url: string | null;
+          city: string | null;
+          province: string | null;
+          country: string;
+        };
+        Relationships: [];
+      };
       // Refreshed nightly via Edge Function (005_analytics_tables.sql,
       // 011_collapse_program_into_schedule_group.sql). Read-only, not
       // currently queried from application code.

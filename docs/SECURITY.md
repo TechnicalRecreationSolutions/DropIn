@@ -39,7 +39,7 @@ secrets, headers and injection surfaces, repo-wide.
 |---|---|---|
 | Critical | 0 | 2 |
 | High | 1 | 3 |
-| Medium | 4 | 4 |
+| Medium | 2 | 6 |
 | Low | 4 | 0 |
 
 **Not covered by that audit:** server/client components outside `src/app/api`
@@ -62,21 +62,6 @@ infrastructure — see [Owner-only actions](#owner-only-actions).
   reader, or restrict imports to CSV (papaparse) only.
 - **`postcss`** (4 high) and **`sharp`/libvips** (4 CVEs) — both transitive via
   `next`; resolved by `next@16.3.0`, which is outside the current range.
-
-### M1 — `widget_configs` is readable by anyone
-
-`005_analytics_tables.sql` — `USING (TRUE)`. Anonymous callers can enumerate
-every org's `org_id`, `facility_id` and `department_id`, **including unpublished
-ones**. Low-sensitivity data, but it is a cross-tenant enumeration primitive that
-feeds the other public endpoints. `GET /api/widget-config` already filters by
-`orgId`, so the policy is broader than any caller needs.
-
-### M2 — `organizations` exposes contact details and Stripe IDs to anon
-
-`002_rls_policies.sql:56-58` — `USING (status = 'active' OR ...)` grants **all
-columns**, including `email`, `phone`, `address_line1`, `postal_code` and
-`stripe_customer_id` (added in `007`). Public discovery needs name/slug/city, not
-the billing identifier. Needs a column-limited view or a narrowed policy.
 
 ### M7 — No CSP, no HSTS
 
@@ -250,6 +235,63 @@ that a 200 is not evidence:
 
 > Same failure class as the API-version drift incident — see
 > `feedback_stripe_api_version_drift`.
+
+### M1 + M2 — Two over-broad public read policies
+**Medium ×2 · closed 2026-08-06 · migration `026` · commit pending**
+
+**M2** — `orgs_public_read_active` was
+`USING (status = 'active' OR id = ANY(user_org_ids()) OR is_superadmin())`.
+RLS is row-level, never column-level, so "anyone may read active orgs" meant
+anyone may read *every column*: `email`, `phone`, `address_line1`,
+`postal_code`, and `stripe_customer_id`.
+
+Confirmed live before the fix — an anonymous client read a real
+`stripe_customer_id` straight out of the table.
+
+Column `GRANT`s cannot fix this: they are per database *role*, and an org member
+is the same `authenticated` role as any other logged-in user, so a grant wide
+enough for a member to read their own billing details is wide enough for a
+stranger to read everyone's. The fix is a **projection, not a policy tweak**.
+
+- Base table → members and superadmins only (`orgs_members_read`).
+- New `public.organizations_public` view exposing `id, name, slug, description,
+  logo_url, website_url, city, province, country` for active orgs, granted to
+  `anon` and `authenticated`.
+- `src/app/widget/[orgId]/page.tsx` — the *only* anonymous reader of
+  `organizations` in the app (verified by sweeping every call site) — now reads
+  the view.
+
+The view is deliberately a **definer** view (`security_invoker = false`): it
+intentionally bypasses the members-only policy, and its `WHERE` clause plus its
+column list *are* the access control. Anything added to that SELECT list becomes
+world-readable.
+
+**M1** — `widget_configs_public_read` was literally `USING (TRUE)`. Now split
+into a members-read policy (own org, any publish state — the dashboard editor
+needs drafts) and a public policy that only exposes configs whose facility and
+department are actually published. The colours were never the issue; the leak
+was `facility_id`/`department_id` for **unpublished** content. Bare `org_id` is
+not a leak — widget embeds are addressed as `/widget/[orgId]`.
+
+**Verified** against the live DB, before and after:
+
+| Check | Before | After |
+|---|---|---|
+| anon reads org contact/billing columns | **2 rows incl. `stripe_customer_id`** | 0 rows |
+| `organizations_public` serves id/name/slug | n/a | 1 row |
+| view exposes `email` / `stripe_customer_id` | n/a | rejected — column does not exist |
+| anon reads config for an **unpublished** facility | **1 row** | 0 rows |
+| anon reads config for a **published** facility | 1 row | 1 row (widget still works) |
+
+**Regression-checked**, because this policy is on the dashboard's hot path:
+
+| Check | Result |
+|---|---|
+| `getOrgContext()`'s `organizations!inner(*, subscriptions(*))` embed | works |
+| Member reads their **own** org's `email`/`phone` | works |
+| Member reads **another** org's row on the base table | 0 rows |
+| Member discovers other orgs via the view | works |
+| `/widget/[orgId]` renders for a real org | HTTP 200, org name present |
 
 ### M4 + M5 — Account enumeration, and signup with an address you don't own
 **Medium ×2 · closed 2026-08-06 · commit pending · no migration needed**
@@ -431,6 +473,13 @@ violates one as a security regression.
     Organizations are created only after confirmation. *(M5)*
 16. **`/(auth)/callback` only redirects to same-origin relative paths.** `next`
     is attacker-supplied and now appears in emailed links.
+17. **The `organizations` table is members-only; anonymous discovery goes through
+    `organizations_public`.** That view is a definer view with no row-level
+    protection beyond its own `WHERE status = 'active'`, so **every column added
+    to it becomes world-readable**. Never put contact or billing fields there.
+    *(M2)*
+18. **No RLS policy uses `USING (TRUE)`.** If a table needs public reads, tie
+    them to a publish flag or an owning row, not to nothing. *(M1)*
 
 ---
 
@@ -507,3 +556,4 @@ results* the first time:
 | 2026-08-06 | M3 closed — Stripe webhook claim/commit semantics, plus three further silent-failure paths found while fixing it (unchecked `subscriptions` writes, unchecked event insert, `?? "free"` price fallback). Verified with signed payloads over HTTP. 12 open. |
 | 2026-08-06 | M6 closed — fail-fast env validation at server boot (`src/lib/env.ts`, `src/instrumentation.ts`), Stripe price IDs split into server-only `prices.ts`. Verified by blanking a variable and confirming the server refuses to start. 11 open. |
 | 2026-08-06 | M4 + M5 closed — signup moved to `auth.signUp()`, org creation deferred to post-confirmation onboarding, responses made uniform. A first attempt still leaked existence when the mailer errored; caught by measurement, then fixed. **Custom SMTP is now a launch blocker.** 9 open. |
+| 2026-08-06 | M1 + M2 closed — migration `026`. `organizations` is members-only with a curated `organizations_public` view for discovery; `widget_configs` public reads tied to publish state. Live before/after confirmed a real `stripe_customer_id` was anon-readable and no longer is. 7 open. |
