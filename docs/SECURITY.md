@@ -39,7 +39,7 @@ secrets, headers and injection surfaces, repo-wide.
 |---|---|---|
 | Critical | 0 | 2 |
 | High | 1 | 3 |
-| Medium | 8 | 0 |
+| Medium | 7 | 1 |
 | Low | 4 | 0 |
 
 **Not covered by that audit:** server/client components outside `src/app/api`
@@ -77,22 +77,6 @@ feeds the other public endpoints. `GET /api/widget-config` already filters by
 columns**, including `email`, `phone`, `address_line1`, `postal_code` and
 `stripe_customer_id` (added in `007`). Public discovery needs name/slug/city, not
 the billing identifier. Needs a column-limited view or a narrowed policy.
-
-### M3 — Stripe webhook can silently drop a paid customer's entitlement
-
-`src/app/api/stripe/webhook/route.ts:65-80`. The event is recorded in
-`stripe_events` **before** `handleEvent` runs; if the handler throws, the error is
-swallowed and the route returns 200. Stripe sees success and never retries, but
-the idempotency guard now blocks reprocessing. A customer pays and gets nothing,
-with no retry and no alert.
-
-Fix direction: record the event as *received*, mark `processed = true` only after
-the handler succeeds, and return non-2xx on failure so Stripe retries. The
-`processed` column already exists in `004_stripe_tables.sql:44` and is unused.
-
-> Same failure class as the API-version drift incident — see
-> `feedback_stripe_api_version_drift`. Verify against a real event payload and a
-> DB query, never a 200.
 
 ### M4 — Account enumeration on signup
 
@@ -243,6 +227,50 @@ inserted analytics as anon.
 **Verified** live: anonymous insert now returns
 `42501 new row violates row-level security policy`.
 
+### M3 — Stripe webhook silently dropped paid customers' entitlements
+**Medium · closed 2026-08-06 · commit pending · no migration needed**
+
+Four separate silent-failure paths in `src/app/api/stripe/webhook/route.ts`, all
+ending the same way: HTTP 200 with no entitlement written.
+
+1. **Receipt was conflated with success.** The `stripe_events` row was inserted
+   *before* `handleEvent` ran, and a throwing handler was caught, logged and
+   answered with 200. Stripe saw success and never retried — while the
+   idempotency check now matched the existing row, so any redelivery returned
+   `{skipped:true}`. The entitlement was unrecoverable without manual repair.
+2. **`getPlanTierFromPriceId(priceId) ?? "free"`** silently downgraded a paying
+   customer whenever a price ID was unrecognised. Not hypothetical: `PLANS`
+   reads `stripePriceId` from `STRIPE_PRICE_PRO_MONTHLY` /
+   `STRIPE_PRICE_ENTERPRISE_MONTHLY`, so a missing env var in any environment
+   maps *every* paid subscription to `null` → `"free"`.
+3. **`subscriptions.upsert()` and `.update()` were unchecked.** A failed write
+   returned 200 having written nothing.
+4. **The `stripe_events` insert was unchecked**, so two concurrent deliveries
+   could both pass the pre-check and both process.
+
+**Fixed by** treating the insert as a *claim*: `processed` stays false until the
+handler succeeds. On conflict the handler skips only if `processed = true`,
+otherwise it falls through and retries. Handler failure returns 500 so Stripe
+retries with backoff. Unknown prices and failed writes now throw instead of
+degrading. The `processed` column (`004_stripe_tables.sql:44`) was already there
+and unused.
+
+**Verified** end-to-end against the live DB with genuinely HMAC-signed payloads
+posted over HTTP — every assertion reads the database back, per the standing rule
+that a 200 is not evidence:
+
+| Check | Result |
+|---|---|
+| Valid event writes entitlement and marks processed | `plan_tier=pro`, `processed=true` |
+| Replay of a completed event | `200 {skipped:true}` |
+| Unknown price | `500`, `processed=false`, `plan_tier` stays `pro` (old code wrote `free`) |
+| **Retry of a failed event** | `500`, reprocessed — **old code returned `200 skipped` here** |
+| Failed event succeeds on later redelivery | `200`, `processed=true` |
+| Forged signature | `400`, never recorded |
+
+> Same failure class as the API-version drift incident — see
+> `feedback_stripe_api_version_drift`.
+
 ### H3 — The `member` role had full CRUD on every structural table
 **High · closed 2026-08-06 · migration `024` · commit `aca0c3d`**
 
@@ -295,7 +323,11 @@ violates one as a security regression.
    any processing.
 9. **Prices and plan tiers come from `src/lib/stripe/plans.ts`**, never from client
    input.
-10. **`.env.local` stays gitignored.** Only `.env.example`, with placeholders.
+10. **The `stripe_events` insert is a claim, not a completion.** `processed` flips
+    to true only after the handler succeeds; a failed handler returns non-2xx so
+    Stripe retries. Every webhook handler must therefore stay idempotent, and no
+    handler may degrade to a default on unrecognised input — throw instead. *(M3)*
+11. **`.env.local` stays gitignored.** Only `.env.example`, with placeholders.
 
 ---
 
@@ -355,3 +387,4 @@ results* the first time:
 | Date | Change |
 |---|---|
 | 2026-08-06 | First full audit. C1, C2, H1, H2, H3 closed (migrations `022`–`025`, commit `aca0c3d`), verified live. 13 findings remain open. |
+| 2026-08-06 | M3 closed — Stripe webhook claim/commit semantics, plus three further silent-failure paths found while fixing it (unchecked `subscriptions` writes, unchecked event insert, `?? "free"` price fallback). Verified with signed payloads over HTTP. 12 open. |
