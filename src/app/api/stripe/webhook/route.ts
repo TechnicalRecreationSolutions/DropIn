@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlanTierFromPriceId } from "@/lib/stripe/plans";
+import { getPlanTierFromPriceId } from "@/lib/stripe/prices";
 import type { Json } from "@/types/database.types";
 
 // Raw body is required for Stripe signature verification — no body parsing

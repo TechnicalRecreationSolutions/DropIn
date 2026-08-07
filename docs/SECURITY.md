@@ -39,7 +39,7 @@ secrets, headers and injection surfaces, repo-wide.
 |---|---|---|
 | Critical | 0 | 2 |
 | High | 1 | 3 |
-| Medium | 7 | 1 |
+| Medium | 6 | 2 |
 | Low | 4 | 0 |
 
 **Not covered by that audit:** server/client components outside `src/app/api`
@@ -90,13 +90,6 @@ identical in body and status regardless of existence.
 `src/app/api/auth/signup/route.ts:47` — `email_confirm: true` marks every address
 confirmed without checking it. Anyone can register an organization under someone
 else's email.
-
-### M6 — Analytics IP salt falls back to a public constant
-
-`src/app/api/analytics/track/route.ts` — `process.env.ANALYTICS_IP_SALT ??
-"dropin-default-salt"`. If the env var is missing in production, IP hashes become
-brute-forceable across the whole IPv4 space in minutes and the "no raw PII" claim
-fails silently. Should throw at startup rather than degrade.
 
 ### M7 — No CSP, no HSTS
 
@@ -271,6 +264,52 @@ that a 200 is not evidence:
 > Same failure class as the API-version drift incident — see
 > `feedback_stripe_api_version_drift`.
 
+### M6 — Analytics IP salt fell back to a public constant
+**Medium · closed 2026-08-06 · commit pending · no migration needed**
+
+`src/app/api/analytics/track/route.ts` read
+`process.env.ANALYTICS_IP_SALT ?? "dropin-default-salt"`. The date component of
+the hash is public, so that env var *is* the entire secret. Missing in an
+environment, every visitor IP hash became reproducible across the whole IPv4
+space in minutes — the "we store no raw PII" guarantee failing with no symptom.
+
+**Fixed as part of a wider fail-fast pass** on environment configuration, since
+this was the same shape as M3: degrade quietly rather than fail loudly.
+
+- **`src/lib/env.ts`** — `requireEnv()` throws instead of defaulting;
+  `validateServerEnv()` checks all eight required server variables and reports
+  *every* missing one in a single error. Reporting them one at a time is how
+  people end up setting a variable in Preview and missing Production.
+- **`src/instrumentation.ts`** — Next calls `register()` once per server
+  instance, before any request is served, so a misconfigured deployment refuses
+  to boot. Deliberately **not** validated at module load: that would make
+  `next build` require production secrets, breaking contributors and CI for no
+  security gain. A failed boot is the loud signal; a build that needs live Stripe
+  keys is not.
+- Guarded to `NEXT_RUNTIME === "nodejs"` — the Proxy runs on Edge, where these
+  secrets are neither present nor needed.
+
+**Also hardened alongside it** (the config half of M3): Stripe price IDs moved
+out of `plans.ts` into server-only `src/lib/stripe/prices.ts`. `plans.ts` is
+imported by `BillingClient.tsx`, a **client component**, so it ships to the
+browser where non-`NEXT_PUBLIC_` vars are `undefined` — the price IDs were
+silently `null` in the bundle, harmless only because nothing client-side read
+them. The split makes that structural rather than incidental. `create-checkout`
+now throws (500) instead of returning 400 *"This plan is not available for
+checkout"*, which made a broken deployment look like a deliberate product state.
+
+**Verified:**
+- Unit: complete env passes; a missing var is rejected; a whitespace-only value
+  is rejected; three missing vars are reported in one error; `requireEnv` names
+  what breaks.
+- **Boot:** with `ANALYTICS_IP_SALT` blanked, `next dev` logged
+  `An error occurred while loading instrumentation hook: Server startup aborted…`
+  and the port **actively refused connections**. Restored and re-verified
+  byte-identical afterwards.
+- Live Stripe API: both price IDs resolve to active prices at 49.00 / 199.00 CAD
+  monthly, matching `plans.ts`. (Test mode — **production needs live price IDs,
+  which are different strings.** See [Owner-only actions](#owner-only-actions).)
+
 ### H3 — The `member` role had full CRUD on every structural table
 **High · closed 2026-08-06 · migration `024` · commit `aca0c3d`**
 
@@ -328,6 +367,13 @@ violates one as a security regression.
     Stripe retries. Every webhook handler must therefore stay idempotent, and no
     handler may degrade to a default on unrecognised input — throw instead. *(M3)*
 11. **`.env.local` stays gitignored.** Only `.env.example`, with placeholders.
+12. **No `process.env.X ?? fallback` for anything security-relevant.** A default
+    that is merely *plausible* produces a wrong app rather than a stopped one.
+    Add the variable to `REQUIRED_SERVER_ENV` in `src/lib/env.ts` and read it via
+    `requireEnv()`. *(M6)*
+13. **`src/lib/stripe/plans.ts` stays free of secrets** — it is imported by a
+    client component. Anything env-derived belongs in `src/lib/stripe/prices.ts`.
+    *(M6)*
 
 ---
 
@@ -340,7 +386,13 @@ Not fixable from the codebase. Unticked items are outstanding.
 - [ ] Confirm hosting provider; enable WAF / DDoS protection in front of autoscaling
 - [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe, Mapbox
 - [ ] Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` to your domains in the Mapbox console
-- [ ] Confirm `ANALYTICS_IP_SALT` is set in production *(see M6)*
+- [ ] **Confirm all eight required vars are set in Production**, not just Preview.
+      Since M6 the server refuses to boot without them, so a missing one is now a
+      failed deployment rather than a silent defect — check before deploying.
+- [ ] **Set *live-mode* `STRIPE_PRICE_PRO_MONTHLY` / `STRIPE_PRICE_ENTERPRISE_MONTHLY`
+      in production.** The local values are test-mode price IDs; live mode uses
+      different strings. Verify with Stripe dashboard in Live mode, or by clicking
+      Upgrade on the deployed site.
 - [ ] Verify Supabase PITR/backups are on, and run a restore test
 - [ ] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`)
 - [ ] Review Supabase auth logs for any `updateUser` call setting a `role` field
@@ -388,3 +440,4 @@ results* the first time:
 |---|---|
 | 2026-08-06 | First full audit. C1, C2, H1, H2, H3 closed (migrations `022`–`025`, commit `aca0c3d`), verified live. 13 findings remain open. |
 | 2026-08-06 | M3 closed — Stripe webhook claim/commit semantics, plus three further silent-failure paths found while fixing it (unchecked `subscriptions` writes, unchecked event insert, `?? "free"` price fallback). Verified with signed payloads over HTTP. 12 open. |
+| 2026-08-06 | M6 closed — fail-fast env validation at server boot (`src/lib/env.ts`, `src/instrumentation.ts`), Stripe price IDs split into server-only `prices.ts`. Verified by blanking a variable and confirming the server refuses to start. 11 open. |

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { stripe } from "@/lib/stripe/client";
-import { PLANS, type PlanTier } from "@/lib/stripe/plans";
+import { getStripePriceId, type PaidPlanTier } from "@/lib/stripe/prices";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const CreateCheckoutSchema = z.object({
@@ -51,12 +51,13 @@ export async function POST(request: Request) {
   const parsed = CreateCheckoutSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
 
-  const { tier } = parsed.data as { tier: PlanTier };
-  const plan = PLANS[tier];
+  const { tier } = parsed.data as { tier: PaidPlanTier };
 
-  if (!plan.stripePriceId) {
-    return NextResponse.json({ error: "This plan is not available for checkout" }, { status: 400 });
-  }
+  // Throws if the price env var is unset — a 500 is correct here. This used to
+  // return 400 "This plan is not available for checkout", which made a broken
+  // deployment look like a deliberate product decision. The schema above
+  // restricts tier to pro|enterprise, so `free` never reaches this.
+  const stripePriceId = getStripePriceId(tier);
 
   // Fetch or create Stripe customer
   const { data: org } = await supabase
@@ -86,7 +87,7 @@ export async function POST(request: Request) {
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
-    line_items: [{ price: plan.stripePriceId, quantity: 1 }],
+    line_items: [{ price: stripePriceId, quantity: 1 }],
     success_url: `${APP_URL}/dashboard/billing?success=1`,
     cancel_url: `${APP_URL}/dashboard/billing?cancelled=1`,
     metadata: { org_id: org.id, tier },

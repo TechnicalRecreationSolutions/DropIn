@@ -4,6 +4,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { headers } from "next/headers";
 import crypto from "crypto";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
+import { requireEnv } from "@/lib/env";
 
 const TrackSchema = z.object({
   event: z.string().max(64),
@@ -53,8 +54,15 @@ export async function POST(request: Request) {
 
   // Hash IP with a daily salt — never store raw IPs. rawIp is resolved at the
   // top of the handler, where it also keys the rate limit.
+  //
+  // The date component only rotates the hash; it is public, so ANALYTICS_IP_SALT
+  // is the entire secret. This previously fell back to a hardcoded
+  // "dropin-default-salt", which meant a missing env var silently reduced the
+  // hash to something anyone could rebuild across the whole IPv4 space —
+  // breaking the "no raw PII" guarantee without any visible symptom.
+  // requireEnv throws instead; startup validation should have caught it first.
   const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
-  const dailySalt = process.env.ANALYTICS_IP_SALT ?? "dropin-default-salt";
+  const dailySalt = requireEnv("ANALYTICS_IP_SALT");
   const ipHash = crypto
     .createHash("sha256")
     .update(rawIp + today + dailySalt)
