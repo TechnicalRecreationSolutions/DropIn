@@ -27,7 +27,7 @@ These are the product's actual differentiators, not incidental features — see 
 - **Facility map** (`src/components/facility-maps/`) — an illustrated SVG rendering engine shared by the admin builder and the public viewer. Pools render as water with lane ropes, courts get real markings, spaces glow when a session is live. Recipe and design principles: `docs/prompts/facility-map-flagship.md`.
 - **Schedule command centre** (`src/components/schedule-command/`, `src/components/schedule/editing/`, `src/components/session-template/`) — `/dashboard/schedule` is the one page staff live on: building → department → schedule scope at the top, then Schedule/Spaces/Map/Widget tabs beneath. Color-coded, reusable session templates drag onto the schedule instead of re-filling an 11-field form per session. The editing views *are* the public widget views wrapped in a provider, so what staff build cannot drift from what visitors see.
 
-Ingestion into a schedule is **manual entry or Excel/CSV import only.** An earlier phase built an automated scraping pipeline (Xplor/ActiveNet/NextRec) end-to-end on the Dropin side, but the external scraper service was never built, and the feature was fully removed (`supabase/migrations/021_remove_scraping.sql`). It is not on the roadmap — don't reintroduce scraping-shaped code or docs without a deliberate decision to revisit it.
+Ingestion into a schedule is **manual entry or CSV import only.** An earlier phase built an automated scraping pipeline (Xplor/ActiveNet/NextRec) end-to-end on the Dropin side, but the external scraper service was never built, and the feature was fully removed (`supabase/migrations/021_remove_scraping.sql`). It is not on the roadmap — don't reintroduce scraping-shaped code or docs without a deliberate decision to revisit it.
 
 ---
 
@@ -59,7 +59,7 @@ Ingestion into a schedule is **manual entry or Excel/CSV import only.** An earli
 
 ### Data flow for schedules
 
-1. Organization staff add sessions via one of two ingestion paths: **manual** (built directly in the dashboard, optionally via the drag-and-drop session-template builder) or **import** (Excel/CSV upload of existing paper schedules).
+1. Organization staff add sessions via one of two ingestion paths: **manual** (built directly in the dashboard, optionally via the drag-and-drop session-template builder) or **import** (CSV upload of existing paper schedules; spreadsheet users export to CSV first — see below).
 
 2. Sessions are stored as **RRULE recurrence rules** (not individual events). "Lap Swim runs Mon/Wed/Fri 6–8am" is one database row.
 
@@ -85,7 +85,7 @@ Ingestion into a schedule is **manual entry or Excel/CSV import only.** An earli
 | Maps (discovery) | Mapbox GL JS |
 | Facility map rendering | Hand-rolled SVG (`src/components/facility-maps/renderer/`) |
 | Email | Resend |
-| Import parsing | xlsx, papaparse |
+| Import parsing | papaparse (CSV only — `xlsx` removed, see SECURITY.md → H4) |
 | Recurrence | rrule (RFC 5545) |
 
 ---
@@ -125,7 +125,7 @@ dropin/
 │   │   ├── schedule/              # Live-status logic (`sessionStatus.ts`), shared across views
 │   │   ├── facility-shapes/        # Facility map preset taxonomy (pools, courts, rooms)
 │   │   ├── maps/                    # Facility map geometry helpers
-│   │   ├── import/                   # Excel/CSV parsing and validation
+│   │   ├── import/                   # CSV parsing, row validation (shared by both import routes)
 │   │   ├── stripe/                    # Plans, client
 │   │   ├── auth/                       # Session helpers, role checking
 │   │   └── utils/                       # cn, dates, slugify, sport-categories

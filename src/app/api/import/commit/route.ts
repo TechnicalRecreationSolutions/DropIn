@@ -1,12 +1,17 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 import { slugify } from "@/lib/utils/slugify";
 import { zonedTimeToUtc } from "@/lib/utils/timezone";
-import type { ImportPreviewRow } from "../route";
+import { MAX_ROWS, validateRow, type ImportRow } from "@/lib/import/rows";
 
 const CommitSchema = z.object({
-  rows: z.array(z.any()),
+  // Capped here as well as in /api/import. The cap there bounds what the
+  // *parser* produces; this endpoint takes JSON straight from the client and
+  // never sees the file, so without its own limit the cap is trivially skipped
+  // by posting rows directly.
+  rows: z.array(z.any()).max(MAX_ROWS),
   facilityId: z.string().uuid(),
   departmentId: z.string().uuid().nullish(),
 });
@@ -15,17 +20,18 @@ const CommitSchema = z.object({
  * POST /api/import/commit
  * Inserts validated import rows into schedule_groups + sessions tables.
  * Skips rows with validation errors.
+ *
+ * Rows arrive from the browser carrying the `_errors` and `_rrule` that
+ * /api/import computed, but those round-tripped through the client, so they are
+ * recomputed here rather than believed — otherwise posting `_errors: []` writes
+ * an unvalidated row.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
@@ -34,7 +40,9 @@ export async function POST(request: Request) {
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
   const { rows, facilityId, departmentId } = parsed.data;
-  const validRows = (rows as ImportPreviewRow[]).filter((r) => r._errors.length === 0);
+  const validRows = (rows as ImportRow[])
+    .map((row, i) => validateRow(row, i))
+    .filter((r) => r._errors.length === 0);
 
   let scheduleGroupsCreated = 0;
   let sessionsCreated = 0;

@@ -1,92 +1,41 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { buildRRuleString } from "@/lib/rrule/validate";
+import { getRouteMembership } from "@/lib/auth/membership";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
-
-// xlsx requires the Node runtime — which is the default for route handlers.
-// An explicit `runtime` export is rejected once cacheComponents is enabled.
-
-const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB
-const MAX_ROWS = 500;
-
-export interface ImportRow {
-  program_name: string;
-  sport_category: string;
-  activity_type?: string;
-  days: string;         // comma-separated: Mon,Wed,Fri
-  start_time: string;   // HH:MM
-  end_time: string;
-  season_start: string; // YYYY-MM-DD
-  season_end?: string;
-  cost?: string;        // dollars, e.g. "5.00"
-  location_detail?: string;
-}
-
-export interface ImportPreviewRow extends ImportRow {
-  _index: number;
-  _errors: string[];
-  _rrule: string;
-}
-
-const DAY_MAP: Record<string, string> = {
-  mon: "MO", tue: "TU", wed: "WE", thu: "TH",
-  fri: "FR", sat: "SA", sun: "SU",
-  monday: "MO", tuesday: "TU", wednesday: "WE", thursday: "TH",
-  friday: "FR", saturday: "SA", sunday: "SU",
-};
-
-function parseDays(raw: string): string[] {
-  return raw.split(/[,\s]+/)
-    .map((d) => DAY_MAP[d.toLowerCase().trim()])
-    .filter(Boolean);
-}
-
-function validateRow(row: ImportRow, index: number): ImportPreviewRow {
-  const errors: string[] = [];
-
-  if (!row.program_name?.trim()) errors.push("program_name is required");
-  if (!row.sport_category?.trim()) errors.push("sport_category is required");
-  if (!row.days?.trim()) errors.push("days is required (e.g. Mon,Wed,Fri)");
-  if (!row.start_time?.match(/^\d{2}:\d{2}$/)) errors.push("start_time must be HH:MM");
-  if (!row.end_time?.match(/^\d{2}:\d{2}$/)) errors.push("end_time must be HH:MM");
-  if (!row.season_start?.match(/^\d{4}-\d{2}-\d{2}$/)) errors.push("season_start must be YYYY-MM-DD");
-
-  const days = parseDays(row.days ?? "");
-  if (days.length === 0 && row.days) errors.push("Could not parse days — use Mon,Tue,Wed etc.");
-
-  const rrule = days.length > 0
-    ? buildRRuleString({ frequency: "weekly", days })
-    : "";
-
-  return { ...row, _index: index, _errors: errors, _rrule: rrule };
-}
+import { MAX_FILE_SIZE, MAX_ROWS, validateRow, type ImportRow } from "@/lib/import/rows";
 
 /**
  * POST /api/import
  *
- * Accepts multipart/form-data with a file (xlsx or csv) + facilityId.
- * Returns preview rows with validation errors for the client to review
- * before committing. Actual commit happens via POST /api/import/commit.
+ * Accepts multipart/form-data with a CSV file + facilityId. Returns preview
+ * rows with validation errors for the client to review before committing.
+ * Actual commit happens via POST /api/import/commit.
  *
- * Security: MIME type check, size limit, row limit, no exec of file content.
+ * CSV only, deliberately. This route used to accept .xlsx/.xls through SheetJS
+ * (`xlsx`), which carries an unfixed prototype-pollution advisory
+ * (GHSA-4r6h-8v6p-xvw6) and a ReDoS (GHSA-5pgg-2g8v-p4x9) — the maintainers
+ * moved distribution off npm, so the published package is stale and no patched
+ * version is installable from there. Parsing untrusted spreadsheets with it was
+ * the single highest-risk dependency in the app, so the format was dropped
+ * rather than the vulnerability accepted. Staff export to CSV first; papaparse
+ * has no equivalent advisory and was already a dependency. See SECURITY.md → H4.
+ *
+ * Security: extension/MIME check, size limit, row limit enforced during parse
+ * (not after it), no exec of file content.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  // Parsing a 10 MB spreadsheet is CPU-bound, and MAX_ROWS is only enforced
-  // after the parse — so the cost is paid before it can be rejected. Limit the
-  // rate at which that cost can be triggered.
+  // Parsing a 10 MB file is CPU-bound. The reader below stops at MAX_ROWS
+  // rather than consuming the whole file first, so a single request is
+  // bounded — but rate limiting still bounds how often that work is requested.
   if (!(await checkRateLimit("importFile", user.id))) {
     return rateLimitResponse("importFile");
   }
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
 
@@ -98,39 +47,32 @@ export async function POST(request: Request) {
   if (!facilityId) return NextResponse.json({ error: "facilityId is required" }, { status: 400 });
   if (file.size > MAX_FILE_SIZE) return NextResponse.json({ error: "File too large (max 10 MB)" }, { status: 400 });
 
-  const allowed = ["text/csv", "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
-    "application/vnd.ms-excel", "text/plain"];
-  if (!allowed.includes(file.type) && !file.name.match(/\.(csv|xlsx|xls)$/i)) {
-    return NextResponse.json({ error: "Only CSV and Excel files are supported" }, { status: 400 });
+  // Checked by extension as well as MIME: browsers report CSV inconsistently
+  // (text/csv, application/vnd.ms-excel, or text/plain depending on what Excel
+  // has registered on the machine), so MIME alone rejects legitimate files.
+  const allowed = ["text/csv", "application/vnd.ms-excel", "text/plain"];
+  if (!allowed.includes(file.type) && !file.name.match(/\.csv$/i)) {
+    return NextResponse.json(
+      { error: "Only CSV files are supported. In Excel, use File → Save As → CSV." },
+      { status: 400 }
+    );
   }
 
   let rows: ImportRow[] = [];
 
   try {
-    if (file.name.endsWith(".csv") || file.type === "text/csv") {
-      const text = await file.text();
-      const Papa = await import("papaparse");
-      const result = Papa.default.parse<ImportRow>(text, {
-        header: true, skipEmptyLines: true, transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
-      });
-      rows = result.data;
-    } else {
-      const buffer = await file.arrayBuffer();
-      const XLSX = await import("xlsx");
-      const wb = XLSX.read(buffer, { type: "array" });
-      const ws = wb.Sheets[wb.SheetNames[0]];
-      rows = XLSX.utils.sheet_to_json<ImportRow>(ws, { defval: "" });
-      // Normalize headers
-      rows = rows.map((r) => {
-        const normalized: Record<string, string> = {};
-        for (const [k, v] of Object.entries(r)) {
-          normalized[k.trim().toLowerCase().replace(/\s+/g, "_")] = String(v ?? "");
-        }
-        return normalized as unknown as ImportRow;
-      });
-    }
+    const text = await file.text();
+    const Papa = await import("papaparse");
+    const result = Papa.default.parse<ImportRow>(text, {
+      header: true, skipEmptyLines: true, transformHeader: (h) => h.trim().toLowerCase().replace(/\s+/g, "_"),
+      // Stop at one past the cap rather than parsing the whole file and
+      // rejecting afterwards — the extra row is what makes the check below
+      // able to tell "exactly at the cap" from "over it".
+      preview: MAX_ROWS + 1,
+    });
+    rows = result.data;
   } catch {
-    return NextResponse.json({ error: "Could not parse file. Ensure it is a valid CSV or Excel file." }, { status: 400 });
+    return NextResponse.json({ error: "Could not parse file. Ensure it is a valid CSV file." }, { status: 400 });
   }
 
   if (rows.length > MAX_ROWS) {

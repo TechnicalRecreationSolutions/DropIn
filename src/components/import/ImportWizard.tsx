@@ -4,7 +4,7 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, CheckCircle, AlertCircle, FileText, X } from "lucide-react";
-import type { ImportPreviewRow } from "@/app/api/import/route";
+import type { ImportPreviewRow } from "@/lib/import/rows";
 
 interface ImportWizardProps {
   facilities: { id: string; name: string }[];
@@ -129,14 +129,16 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
               </div>
             ) : (
               <>
-                <p className="text-sm font-medium text-gray-700">Click to upload CSV or Excel</p>
-                <p className="text-xs text-gray-400 mt-1">Max 10 MB · 500 rows</p>
+                <p className="text-sm font-medium text-gray-700">Click to upload a CSV</p>
+                <p className="text-xs text-gray-400 mt-1">
+                  Max 10 MB · 500 rows · in Excel, File → Save As → CSV
+                </p>
               </>
             )}
             <input
               ref={fileRef}
               type="file"
-              accept=".csv,.xlsx,.xls"
+              accept=".csv"
               className="hidden"
               onChange={(e) => setFile(e.target.files?.[0] ?? null)}
             />

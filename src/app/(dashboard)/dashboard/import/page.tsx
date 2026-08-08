@@ -18,7 +18,7 @@ export default async function ImportPage() {
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Import schedule</h1>
         <p className="text-gray-500 mt-1">
-          Upload a CSV or Excel file to bulk-import schedules and sessions.
+          Upload a CSV file to bulk-import schedules and sessions.
         </p>
       </div>
       <ImportWizard facilities={facilities ?? []} />
