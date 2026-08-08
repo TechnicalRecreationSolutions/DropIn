@@ -8,6 +8,8 @@ Dropin is a public discovery platform that lets consumers find drop-in recreatio
 
 For the delivery history, current schema map, and open work, see [`docs/PLAN.md`](docs/PLAN.md). This README covers what the app is and how to run it.
 
+**Deploying, or changing environment variables? [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md)** — the Vercel + Supabase checklist in dependency order. The app refuses to boot with a required variable missing, so a misconfiguration presents as a failed deploy rather than a broken feature.
+
 **Before changing anything that touches auth, RLS policies, the service-role key, or a public endpoint, read [`docs/SECURITY.md`](docs/SECURITY.md)** — in particular its *Standing assumptions* section, which lists the invariants that closed security findings depend on.
 
 ---

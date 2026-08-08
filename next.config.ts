@@ -3,6 +3,30 @@ import type { NextConfig } from "next";
 const isDev = process.env.NODE_ENV === "development";
 
 /**
+ * HSTS lifetime, in seconds.
+ *
+ * **Currently set to the rollout value (1 hour), not the production value.**
+ *
+ * HSTS is close to irreversible by design: once a browser sees this header for
+ * a host, it refuses plain HTTP for that host — and with `includeSubDomains`,
+ * for every subdomain — until the max-age expires. There is no way to recall
+ * that instruction from browsers that already have it. A two-year policy
+ * published against a domain whose subdomains are not all HTTPS yet takes two
+ * years to age out, per visitor.
+ *
+ * So the long value is deliberately withheld until the domain is settled. One
+ * hour is long enough to be a real policy and short enough that a mistake ages
+ * out over lunch.
+ *
+ * **Raise this to 63072000 (two years) once:** the production domain is
+ * attached, and every subdomain you intend to use — including any marketing,
+ * docs or staging host — serves HTTPS. Only consider `preload` after that has
+ * been true and stable for a while; preloading bakes the domain into browser
+ * binaries and removal takes months.
+ */
+const HSTS_MAX_AGE = 3600;
+
+/**
  * Content-Security-Policy.
  *
  * `script-src` carries 'unsafe-inline' rather than a nonce, and that is a
@@ -86,16 +110,15 @@ const nextConfig: NextConfig = {
       // header twice, and browsers enforce the *intersection* of duplicates,
       // which silently produces a policy nobody wrote.
       //
-      // No `preload`. Preloading is a hard commitment — it bakes the domain
-      // into browser binaries and is slow to undo, so it should be a
-      // deliberate decision once every subdomain is known-HTTPS, not a default.
+      // `max-age` is currently the short rollout value — see HSTS_MAX_AGE above
+      // for what it is and when to raise it. No `preload`.
       // ---------------------------------------------------------------
       {
         source: "/(.*)",
         headers: [
           {
             key: "Strict-Transport-Security",
-            value: "max-age=63072000; includeSubDomains",
+            value: `max-age=${HSTS_MAX_AGE}; includeSubDomains`,
           },
         ],
       },

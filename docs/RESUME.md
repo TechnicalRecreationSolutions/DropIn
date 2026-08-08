@@ -161,6 +161,7 @@ change violates a line in it, the fix above it is silently undone.
 
 | Doc | What it's for |
 |---|---|
+| [`DEPLOYMENT.md`](DEPLOYMENT.md) | **Vercel + Supabase go-live checklist, in dependency order** |
 | [`SECURITY.md`](SECURITY.md) | Findings register, standing assumptions, owner actions |
 | [`PLAN.md`](PLAN.md) | Delivery history and schema map |
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Cache Components / PPR work |
