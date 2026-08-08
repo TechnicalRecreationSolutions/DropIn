@@ -37,6 +37,13 @@ export default function PublicLayout({
                     <li><Link href="/login" className="hover:text-white transition-colors">Sign In</Link></li>
                   </ul>
                 </div>
+                <div>
+                  <p className="text-white font-medium mb-2">Legal</p>
+                  <ul className="space-y-1">
+                    <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
+                    <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
+                  </ul>
+                </div>
               </div>
             </div>
             <div className="mt-8 pt-6 border-t border-gray-800 text-xs">

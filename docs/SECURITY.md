@@ -35,12 +35,23 @@ unbounded cost is possible *right now* with no special access.
 Last full audit: **2026-08-06**. Scope: all 27 route handlers, all 20 migrations,
 secrets, headers and injection surfaces, repo-wide.
 
+Remediation pass **2026-08-07** closed the seven findings that remained. Every
+open item from the audit is now closed; `npm audit` reports **0 vulnerabilities**.
+
 | Severity | Open | Closed |
 |---|---|---|
 | Critical | 0 | 2 |
-| High | 1 | 3 |
-| Medium | 2 | 6 |
-| Low | 4 | 0 |
+| High | 0 | 4 |
+| Medium | 0 | 8 |
+| Low | 0 | 4 |
+
+Two caveats on "0 open", because the number is easy to over-read:
+
+- **These are code findings.** [Owner-only actions](#owner-only-actions) are
+  still outstanding and one of them — custom SMTP — is a launch blocker.
+- **M7's CSP was verified by curl, not by a browser.** The policy is correct by
+  construction for every origin the app uses, but nobody has yet loaded the map
+  or the embedded widget with it enforced. See the note under M7.
 
 **Not covered by that audit:** server/client components outside `src/app/api`
 (swept for injection sinks, not individually audited for data access), and all
@@ -50,61 +61,195 @@ infrastructure — see [Owner-only actions](#owner-only-actions).
 
 ## Open findings
 
-### H4 — Dependency vulnerabilities (11, 8 high)
-
-`npm audit --omit=dev`. The one needing a decision rather than an upgrade:
-
-- **`xlsx` (SheetJS)** — prototype pollution (GHSA-4r6h-8v6p-xvw6) and ReDoS
-  (GHSA-5pgg-2g8v-p4x9). **No fix available on npm**; the maintainers moved
-  distribution to their own registry, so the published package is stale. It
-  parses attacker-supplied files at `src/app/api/import/route.ts:111`.
-  Options: pin the vendor build from `cdn.sheetjs.com`, swap to a maintained
-  reader, or restrict imports to CSV (papaparse) only.
-- **`postcss`** (4 high) and **`sharp`/libvips** (4 CVEs) — both transitive via
-  `next`; resolved by `next@16.3.0`, which is outside the current range.
-
-### M7 — No CSP, no HSTS
-
-`next.config.ts:54-69` sets `X-Frame-Options`, `nosniff`, `Referrer-Policy` and
-`Permissions-Policy`, but no `Content-Security-Policy` and no
-`Strict-Transport-Security` on the main route group. Also `X-Frame-Options:
-ALLOWALL` (line 30) is not a valid header value and browsers ignore it — the
-`frame-ancestors *` CSP beside it does carry the intent, so this is cosmetic.
-
-### M8 — No privacy policy, terms, or cookie consent
-
-No `privacy`, `terms`, `legal` or `cookie` route exists anywhere in `src/app`.
-The app collects emails, hashed IPs and user agents. Required before launch in
-both GDPR and CCPA terms, and the footer should link them.
-
-### L1 — Raw Postgres errors returned to clients
-
-`src/app/api/facility-maps/[id]/hotspots/route.ts:121,155` interpolate
-`error.message` into the response body, leaking schema detail.
-
-### L2 — `PATCH /api/sessions/[sessionId]` omits the role check its siblings have
-
-`route.ts:36-42` verifies membership but not `owner|admin`. Intentional if
-rescheduling counts as member-level schedule editing — but it is currently
-undocumented and inconsistent with every neighbouring route. Decide and write it
-down either way.
-
-### L3 — Import row cap is enforced after parsing
-
-`src/app/api/import/route.ts:128` checks `MAX_ROWS` only once the file is fully
-parsed, so a 10 MB compressed spreadsheet pays its full expansion cost before
-rejection. Rate limiting (H1) bounds how often this can be triggered but does not
-bound the single-request cost.
-
-### L4 — `.single()` on `org_memberships` breaks multi-org users
-
-Every route uses `.single()`, which errors when a user belongs to more than one
-org and surfaces as a 403. A correctness bug today, a support problem the first
-time someone joins two organizations.
+None. The seven that remained after the 2026-08-06 audit were closed on
+2026-08-07 — see [Closed findings](#closed-findings) for each, and the caveats
+under [Status at a glance](#status-at-a-glance) for what "none" does *not* mean.
 
 ---
 
 ## Closed findings
+
+### H4 — Dependency vulnerabilities (12 → 0)
+**High · closed 2026-08-07 · no migration**
+
+`npm audit --omit=dev` reported 12 (9 high). Three separate causes, three fixes:
+
+- **`xlsx` (SheetJS)** — prototype pollution (GHSA-4r6h-8v6p-xvw6) and ReDoS
+  (GHSA-5pgg-2g8v-p4x9), parsing attacker-supplied files in the import route.
+  **No fix exists on npm**: the maintainers moved distribution to their own
+  registry, so the published package is permanently stale. **Resolved by
+  dropping the format** — `/api/import` is CSV-only via papaparse (already a
+  dependency) and `xlsx` is uninstalled. Considered and rejected: pinning the
+  vendor tarball from `cdn.sheetjs.com` (makes CI depend on a non-npm URL and
+  takes the package out of `npm audit`'s view entirely) and swapping to
+  `read-excel-file` (maintained, but keeps a spreadsheet parser on the untrusted
+  path for a format staff can trivially export away from).
+  **Product consequence:** staff with .xlsx schedules must Save As → CSV first.
+  The uploader, the import page copy and the API error message all say so.
+- **`shadcn`** — a dev-time scaffolding CLI sitting in `dependencies`, dragging
+  `@modelcontextprotocol/sdk`, `hono`, `@hono/node-server`, `ts-morph`,
+  `fast-uri` and `brace-expansion` into the production tree and contributing 4
+  advisories. Nothing imports it (`components.json` is config, not a runtime
+  dep). Moved to `devDependencies`, along with the type-only `@types/mapbox-gl`
+  and `@types/papaparse`.
+- **`postcss`** (4 high) and **`sharp`/libvips** (4 CVEs) — transitive via
+  `next`. Resolved by `next` 16.2.10 → **16.3.0** (and `eslint-config-next` to
+  match). A trailing `nanoid` advisory under the new postcss cleared with
+  `npm audit fix`.
+
+**Verified:** `npm audit` and `npm audit --omit=dev` both report **0
+vulnerabilities**. `tsc --noEmit`, `eslint src` and `next build` all pass on
+16.3.0, and the build output still shows `◐` (Partial Prerender) on every
+dashboard route — the Next bump did not silently cost the PPR work in `aad5c3f`.
+
+### M7 — No CSP, no HSTS
+**Medium · closed 2026-08-07 · no migration**
+
+`next.config.ts` set `X-Frame-Options`, `nosniff`, `Referrer-Policy` and
+`Permissions-Policy` but no `Content-Security-Policy` and no
+`Strict-Transport-Security`.
+
+**Fixed by** a `contentSecurityPolicy(frameAncestors)` helper in
+`next.config.ts`, applied twice: `'self'` for the app, `*` for `/widget/:path*`
+so embedding still works. HSTS (`max-age=63072000; includeSubDomains`, no
+`preload`) goes on a separate `/(.*)` block. `X-Frame-Options: ALLOWALL` was
+deleted rather than corrected — it is not a value in the spec, browsers ignored
+it, and omitting the header is what actually permits framing.
+
+**The `script-src` compromise is deliberate and is the main thing to know here.**
+It carries `'unsafe-inline'` rather than a nonce because nonces require
+per-request rendering, and Next's own docs state PPR is incompatible with
+nonce-based CSP — adopting them would undo `aad5c3f` wholesale. The policy still
+blocks unlisted script origins, plugin embeds (`object-src 'none'`), base-tag
+injection (`base-uri 'self'`) and form exfiltration (`form-action 'self'`).
+Tightening further means experimental `sri` or giving up PPR.
+
+**Verified** against `next start`: the app group returns `frame-ancestors
+'self'`, `/widget/*` returns `frame-ancestors *`, HSTS appears on all three route
+groups including `/embed`, and exactly **one** `Content-Security-Policy` header
+is emitted (two matching blocks would make browsers enforce the *intersection*
+of duplicates — a policy nobody wrote). Mapbox compatibility was verified by
+inspecting `mapbox-gl`: it builds its tile worker via
+`URL.createObjectURL(new Blob(...))`, which `worker-src blob:` covers, and the
+only origins in its bundle are `api.mapbox.com` and `events.mapbox.com`, both
+allowlisted.
+
+> **Still to do:** load `/search` (Mapbox) and an embedded widget in a real
+> browser with the policy enforced and confirm a clean console. curl proves the
+> headers; only a browser proves nothing is blocked. This was attempted but the
+> Chrome extension was not connected.
+
+**Deployment trap:** `frame-src 'self'` assumes `NEXT_PUBLIC_APP_URL` matches the
+origin serving the page. On a preview deployment pointed at the production
+domain it does not, and the widget preview pane in `/dashboard/widget` silently
+goes blank.
+
+### M8 — No privacy policy, terms, or cookie consent
+**Medium · closed 2026-08-07 · no migration**
+
+**Fixed by** `/privacy` and `/terms` under `src/app/(public)/`, sharing
+`src/components/legal/LegalDocument.tsx`. Linked from a new Legal column in the
+public footer and from the signup form, whose "you agree to our Terms of Service
+and Privacy Policy" line was previously plain text pointing nowhere.
+
+Both were drafted **from the schema, not from a template** — the data inventory
+matches `001_initial_schema.sql` and `005_analytics_tables.sql`, and the
+processor table matches the origins allowlisted in the CSP. If either changes,
+these pages are wrong until updated.
+
+**Finding corrected while fixing it:** the audit called for cookie consent. The
+app sets *only* Supabase auth session cookies and uses no `localStorage` or
+`sessionStorage` anywhere (verified by grep) — no analytics, advertising or
+profiling cookies exist. Strictly-necessary cookies do not require consent under
+GDPR, so **no banner is needed**; the policy discloses them instead. Adding a
+banner would have been cargo-culting.
+
+**Verified:** both routes return 200 and prerender as static, titles resolve
+through the root `%s | Dropin` template, and the footer links appear in the
+served HTML.
+
+> **Not launch-ready without you.** Both documents need review by a qualified
+> lawyer, and the facts only you can supply — legal entity name, jurisdiction,
+> contact address, retention periods — render as visible amber
+> `[placeholders]` so an unreviewed document cannot quietly go live looking
+> finished. Search for `<Placeholder>` in both files.
+
+### L1 — Raw Postgres errors returned to clients
+**Low · closed 2026-08-07 · no migration**
+
+`facility-maps/[id]/hotspots/route.ts` interpolated `error.message` into two
+response bodies. Both already logged the real error server-side, so the
+interpolation was pure leak and was simply removed.
+
+**Scope was larger than the audit recorded:**
+`facility-maps/[id]/context-elements/route.ts` had the identical pattern in two
+more places. Fixed there too. A repo-wide grep now finds no remaining
+`error.message` in any response body; the surviving matches are a server-side
+log, a regex test in the signup route, and thrown `Error`s in the Stripe webhook
+whose only caller is Stripe.
+
+### L2 — `PATCH /api/sessions/[sessionId]` role check
+**Low · closed 2026-08-07 · no code change**
+
+Resolved as **working as intended — no check should be added.** The audit read
+this as inconsistent with sibling routes, but the inconsistency runs the other
+way: `POST /api/sessions` has the same membership-only check, and `001_initial_
+schema.sql:60` defines `member` as "read + schedule editing only". Migration
+`024` (H3) deliberately left `sessions`, `session_exceptions` and
+`session_spaces` member-writable at the RLS layer for exactly that reason while
+narrowing every *structural* table to `org_can_manage()`.
+
+Drag-to-reschedule is schedule editing. Adding `owner|admin` here would have
+contradicted both the role model and the RLS layer, and would have broken
+members' documented ability to edit schedules. The gap was documentation, so the
+route now carries a comment saying this and pointing here.
+
+### L3 — Import row cap enforced after parsing
+**Low · closed 2026-08-07 · no migration**
+
+`MAX_ROWS` was checked only after the file was fully parsed, so a compressed
+spreadsheet paid its whole expansion cost before rejection.
+
+**Fixed by** stopping the reader early instead: papaparse gets
+`preview: MAX_ROWS + 1` (one past the cap, so "exactly at the cap" is still
+distinguishable from "over it"). The xlsx branch that motivated the finding —
+compressed input was the whole concern — no longer exists (H4).
+
+**Second hole found while fixing it:** `POST /api/import/commit` took
+`rows: z.array(z.any())` with **no cap at all**, so the limit could be skipped
+entirely by posting JSON directly, and it *trusted the client's own `_errors`
+array* — posting `_errors: []` wrote a row that had never been validated. The
+schema now caps at `MAX_ROWS`, and validation is recomputed server-side via the
+shared `validateRow` rather than believed. `validateRow` and the row types moved
+to `src/lib/import/rows.ts` so both routes share one implementation without a
+route file exporting runtime code.
+
+### L4 — `.single()` on `org_memberships` breaks multi-org users
+**Low · closed 2026-08-07 · no migration**
+
+18 call sites across 17 route files used `.single()`, which returns PGRST116
+rather than a row for *any* user in more than one org — surfacing as a 403 to a
+legitimate member.
+
+**Fixed by** `src/lib/auth/membership.ts` (`getRouteMembership`,
+`getAuthedMembership`), which orders by `joined_at` and takes the first — the
+same "active org" rule `getOrgContext()` already used for Server Components.
+Twelve files carried a byte-identical local `getMembership` helper (confirmed by
+hashing each block) and now import the shared one; the rest were inline. A
+leftover `as unknown as` cast in `stripe/create-portal` disappeared with it,
+since the helper is typed.
+
+**Standing requirement:** `getRouteMembership` and `getOrgContext` must keep the
+same ordering. If a page renders org A's data while its own mutation routes
+resolve to org B, saves land silently in the wrong org. Recorded in
+[Standing assumptions](#standing-assumptions).
+
+**Not an org switcher.** A real one needs the active org held in the session
+rather than derived. This makes multi-org users work instead of 403, and puts
+the choice in one place for when a switcher does land.
+
+**Verified:** a repo-wide grep finds no remaining `.single()` on
+`org_memberships`; `tsc`, `eslint` and `next build` pass.
 
 ### C1 — Any authenticated user could become platform superadmin
 **Critical · closed 2026-08-06 · migration `022` · commit `aca0c3d`**
@@ -480,6 +625,23 @@ violates one as a security regression.
     *(M2)*
 18. **No RLS policy uses `USING (TRUE)`.** If a table needs public reads, tie
     them to a publish flag or an owning row, not to nothing. *(M1)*
+19. **`getRouteMembership()` and `getOrgContext()` resolve to the same org.**
+    Both take the earliest membership by `joined_at`. If they ever disagree, a
+    page renders one org's data while its own mutation routes write to another,
+    and saves land silently in the wrong tenant. Change both or neither. *(L4)*
+20. **Route handlers do not query `org_memberships` directly.** Use the helpers
+    in `src/lib/auth/membership.ts`. A new inline `.single()` re-introduces the
+    403-for-multi-org-users bug one route at a time. *(L4)*
+21. **The import path never gains a spreadsheet parser again** without a
+    deliberate decision. `xlsx` was removed because it parses untrusted input
+    and has no patched npm release; CSV via papaparse is the whole supported
+    surface. *(H4)*
+22. **Exactly one `Content-Security-Policy` header is emitted per response.**
+    Browsers enforce the intersection of duplicate CSP headers, which silently
+    produces a policy nobody wrote. Only `/widget/:path*` and the catch-all app
+    block may set it, and they must stay disjoint. *(M7)*
+23. **`shadcn` stays in `devDependencies`.** It is a scaffolding CLI; in
+    `dependencies` it pulls an MCP SDK and an HTTP server into production. *(H4)*
 
 ---
 
@@ -512,6 +674,12 @@ Not fixable from the codebase. Unticked items are outstanding.
 - [ ] Review Supabase auth logs for any `updateUser` call setting a `role` field
       *(retroactive check for C1 exploitation)*
 - [ ] Set up alerting: repeated auth failures, 4xx/5xx spikes, unusual per-user spend
+- [ ] **Have `/privacy` and `/terms` reviewed by a lawyer, and fill in the
+      `<Placeholder>` values** — legal entity name, jurisdiction, contact
+      address, retention periods, liability cap. They render as visible amber
+      highlights, so the pages are launch-blocking by construction *(M8)*.
+- [ ] **Load `/search` and an embedded widget in a browser with the CSP live**
+      and confirm a clean console. Headers are verified; runtime is not *(M7)*.
 
 ---
 
@@ -557,3 +725,7 @@ results* the first time:
 | 2026-08-06 | M6 closed — fail-fast env validation at server boot (`src/lib/env.ts`, `src/instrumentation.ts`), Stripe price IDs split into server-only `prices.ts`. Verified by blanking a variable and confirming the server refuses to start. 11 open. |
 | 2026-08-06 | M4 + M5 closed — signup moved to `auth.signUp()`, org creation deferred to post-confirmation onboarding, responses made uniform. A first attempt still leaked existence when the mailer errored; caught by measurement, then fixed. **Custom SMTP is now a launch blocker.** 9 open. |
 | 2026-08-06 | M1 + M2 closed — migration `026`. `organizations` is members-only with a curated `organizations_public` view for discovery; `widget_configs` public reads tied to publish state. Live before/after confirmed a real `stripe_customer_id` was anon-readable and no longer is. 7 open. |
+| 2026-08-07 | L1–L4 closed. Each turned out slightly different from its write-up: L1's leak also existed in `context-elements`; L2 was correct as written and needed documenting, not a role check; L3 revealed `/api/import/commit` had **no** row cap and trusted client-supplied `_errors`; L4 replaced 18 `.single()` sites with a shared helper. 3 open. |
+| 2026-08-07 | M7 closed — CSP + HSTS in `next.config.ts`, invalid `X-Frame-Options: ALLOWALL` removed. `script-src` keeps `'unsafe-inline'` because nonces are incompatible with PPR; recorded as a deliberate ceiling. Verified by curl on all three route groups; browser verification still outstanding. 2 open. |
+| 2026-08-07 | M8 closed — `/privacy` and `/terms` drafted from the schema, linked from footer and signup. Cookie-consent element of the finding dismissed: only strictly-necessary auth cookies exist, so no banner is required. Both documents need legal review before launch. 1 open. |
+| 2026-08-07 | H4 closed — **`npm audit` now reports 0 vulnerabilities** (from 12). `xlsx` removed and imports restricted to CSV; `shadcn` moved out of `dependencies`, taking 4 advisories with it; `next` 16.2.10 → 16.3.0 cleared `postcss` and `sharp`. PPR confirmed intact after the bump. **0 open.** |
