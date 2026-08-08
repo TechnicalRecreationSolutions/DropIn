@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 import type { Database } from "@/types/database.types";
 
 const DEFAULT_CONFIG = {
@@ -74,11 +75,7 @@ export async function PATCH(request: Request) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {

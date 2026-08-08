@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthedMembership } from "@/lib/auth/membership";
 
 const HotspotSchema = z.object({
   space_id: z.string().uuid(),
@@ -26,19 +27,6 @@ const ReplaceHotspotsSchema = z.object({
   hotspots: z.array(HotspotSchema),
 });
 
-async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
-
-  return membership;
-}
-
 /**
  * GET /api/facility-maps/[id]/hotspots — list hotspots for a map (staff view, unfiltered by publish state).
  * PUT /api/facility-maps/[id]/hotspots — replace the full hotspot set for a map in one batch.
@@ -52,7 +40,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data, error } = await supabase
@@ -68,7 +56,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
@@ -118,7 +106,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   if (deleteError) {
     console.error("PUT /api/facility-maps/[id]/hotspots delete failed:", deleteError);
-    return NextResponse.json({ error: `Could not save hotspots: ${deleteError.message}` }, { status: 500 });
+    return NextResponse.json({ error: "Could not save hotspots" }, { status: 500 });
   }
 
   if (parsed.data.hotspots.length === 0) {
@@ -152,7 +140,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
         error:
           insertError.code === "23505"
             ? "Each space can only have one hotspot on this map."
-            : `Could not save hotspots: ${insertError.message}`,
+            : "Could not save hotspots",
       },
       { status: 500 }
     );

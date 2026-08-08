@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthedMembership } from "@/lib/auth/membership";
 
 const ContextElementSchema = z.object({
   kind: z.enum(["zone", "entrance"]),
@@ -16,19 +17,6 @@ const ReplaceContextElementsSchema = z.object({
   contextElements: z.array(ContextElementSchema),
 });
 
-async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
-
-  return membership;
-}
-
 /**
  * GET /api/facility-maps/[id]/context-elements — list a map's non-interactive
  * scenery (zones, entrance marker) for the editor, unfiltered by publish state.
@@ -39,7 +27,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
 export async function GET(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { data, error } = await supabase
@@ -55,7 +43,7 @@ export async function GET(request: Request, { params }: { params: Promise<{ id: 
 export async function PUT(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
@@ -88,7 +76,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   if (deleteError) {
     console.error("PUT /api/facility-maps/[id]/context-elements delete failed:", deleteError);
-    return NextResponse.json({ error: `Could not save context elements: ${deleteError.message}` }, { status: 500 });
+    return NextResponse.json({ error: "Could not save context elements" }, { status: 500 });
   }
 
   if (parsed.data.contextElements.length === 0) {
@@ -114,7 +102,7 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   if (insertError) {
     console.error("PUT /api/facility-maps/[id]/context-elements insert failed:", insertError);
-    return NextResponse.json({ error: `Could not save context elements: ${insertError.message}` }, { status: 500 });
+    return NextResponse.json({ error: "Could not save context elements" }, { status: 500 });
   }
 
   return NextResponse.json({ contextElements: data ?? [] });

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthedMembership } from "@/lib/auth/membership";
 import { slugify } from "@/lib/utils/slugify";
 
 const CreateSpaceSchema = z.object({
@@ -11,26 +12,13 @@ const CreateSpaceSchema = z.object({
   capacity: z.number().int().positive().nullish(),
 });
 
-async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
-
-  return membership;
-}
-
 /**
  * GET /api/spaces?facilityId=...&departmentId=... — list spaces (optionally scoped).
  * POST /api/spaces — create a space under a facility owned by the caller's org.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
@@ -53,7 +41,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });

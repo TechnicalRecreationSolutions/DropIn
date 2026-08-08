@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 
 const PatchSessionSchema = z.object({
   rrule: z.string().min(1).optional(),
@@ -17,6 +18,14 @@ const PatchSessionSchema = z.object({
  * membership never changes through this route: a multi-space session's
  * blocks all move together on drag, and which spaces it occupies is only
  * ever changed through the create/duplicate/edit dialogs.
+ *
+ * Deliberately membership-only — no `owner|admin` check. Rescheduling is
+ * "schedule editing", which the role model grants every member
+ * (`001_initial_schema.sql:60`), and migration 024 left `sessions`,
+ * `session_exceptions` and `session_spaces` member-writable at the RLS layer
+ * for that same reason while narrowing every *structural* table to
+ * `org_can_manage()`. Adding a role check here would contradict both.
+ * See SECURITY.md → L2.
  */
 export async function PATCH(request: Request, { params }: { params: Promise<{ sessionId: string }> }) {
   const { sessionId } = await params;
@@ -33,11 +42,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     );
   }
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
 

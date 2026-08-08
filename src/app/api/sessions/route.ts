@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 
 const SessionSchema = z.object({
   schedule_group_id: z.string().uuid(),
@@ -34,11 +35,7 @@ export async function POST(request: Request) {
   const { sessionId, ...fields } = parsed.data;
 
   // Verify org membership and that program belongs to user's org
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
 
@@ -131,11 +128,7 @@ export async function DELETE(request: Request) {
   const sessionId = new URL(request.url).searchParams.get("sessionId");
   if (!sessionId) return NextResponse.json({ error: "sessionId required" }, { status: 400 });
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
 

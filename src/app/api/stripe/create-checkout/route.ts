@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 import { stripe } from "@/lib/stripe/client";
 import { getStripePriceId, type PaidPlanTier } from "@/lib/stripe/prices";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
@@ -30,11 +31,7 @@ export async function POST(request: Request) {
     return rateLimitResponse("checkout");
   }
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {

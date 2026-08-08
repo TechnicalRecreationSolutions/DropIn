@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 import { geocodeAddress } from "@/lib/maps/geocode";
 import { slugify } from "@/lib/utils/slugify";
 
@@ -46,11 +47,7 @@ export async function POST(request: Request) {
   const isEditing = !!facilityId;
 
   // Verify org membership
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) {
     return NextResponse.json({ error: "No organization found" }, { status: 403 });

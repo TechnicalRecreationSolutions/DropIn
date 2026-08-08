@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { getRouteMembership } from "@/lib/auth/membership";
 import { stripe } from "@/lib/stripe/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
@@ -15,11 +16,7 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single() as unknown as { data: { org_id: string; role: string } | null };
+  const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
   if (!["owner", "admin"].includes(membership.role)) {

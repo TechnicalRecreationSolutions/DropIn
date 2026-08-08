@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
+import { getAuthedMembership } from "@/lib/auth/membership";
 
 const UpdateFacilityMapSchema = z.object({
   name: z.string().min(1).optional(),
@@ -9,19 +10,6 @@ const UpdateFacilityMapSchema = z.object({
   is_published: z.boolean().optional(),
 });
 
-async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>) {
-  const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
-
-  const { data: membership } = await supabase
-    .from("org_memberships")
-    .select("org_id, role")
-    .eq("user_id", user.id)
-    .single();
-
-  return membership;
-}
-
 /**
  * PATCH /api/facility-maps/[id] — resize the canvas and/or toggle publish state.
  * DELETE /api/facility-maps/[id] — remove the map (cascades its shapes).
@@ -29,7 +17,7 @@ async function getMembership(supabase: Awaited<ReturnType<typeof createClient>>)
 export async function PATCH(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
@@ -64,7 +52,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 export async function DELETE(request: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params;
   const supabase = await createClient();
-  const membership = await getMembership(supabase);
+  const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   if (!["owner", "admin"].includes(membership.role)) {
     return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
