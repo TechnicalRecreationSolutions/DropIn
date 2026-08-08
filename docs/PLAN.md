@@ -38,6 +38,9 @@ Grouped by concern, not by migration number — migration order tells you histor
 **Facility structure** (nesting: facility → department (optional) → schedule_group → session)
 - `facilities`, `departments`, `spaces` — physical bookable spaces (pools, courts, rooms)
 
+**Planning**
+- `seasons` — org-level named date ranges ("Fall 2026", Sep 8 – Dec 20), migration `027`. Overlapping is legal and deliberate, so "the current season" is not derivable from `now()` alone — the rule lives only in `src/lib/seasons/current.ts`. Three states (`planning`/`active`/`archived`) rather than `is_published`, so archived seasons keep resolving for links printed in old brochures. `sessions.season_id` is nullable, explicit (never inferred from `valid_from`/`valid_until`), and `ON DELETE SET NULL`.
+
 **Scheduling**
 - `schedule_groups` — the public-facing "class"/"program" entity (formerly two entities, `programs` + `schedule_groups`, collapsed in migration `011`)
 - `sessions` — recurring sessions stored as RRULEs, not individual events
@@ -70,6 +73,44 @@ These are concrete, not vibes — worth fixing before they compound further. The
 4. ~~Stray empty route directories~~ **Resolved** (already gone as of this reconciliation — `src/app/(public)/program/[programSlug]/` and `src/app/(dashboard)/dashboard/org/onboarding/` no longer exist).
 
 ---
+
+## 3a. In flight: seasons → event calendar → brochure → control centre
+
+A five-phase track, specified in full in `docs/prompts/seasons-events-brochure.md`. The
+motivating observation: a month-at-a-glance events sheet was being typed into Word and
+printed for a facility wall, even though every event on it was already in Dropin as a
+session. One entry, many surfaces.
+
+| Phase | Scope | State |
+|---|---|---|
+| A | `seasons` + `sessions.season_id`, CRUD at `/dashboard/seasons`, season picker in the command centre | **Done** — `027` applied and verified |
+| B | Range-based expansion (replacing the week-bound API/hook), `is_event` + `session_features`, one-time RRULE mode, an `events` schedule template, print stylesheet, the public org surface | **Migrations applied; data + route layers verified end-to-end. Rendering/print unverified** |
+| C | Supabase Storage + image upload — **no file upload exists anywhere in this codebase today** | Not started |
+| D | Brochure: schema, editor, candidacy→pull→tombstone flow, public + print output | Not started |
+| E | Control centre: season milestones, tasks, derived readiness signals | Not started |
+
+Phase B contained the one genuinely risky refactor — `/api/sessions/expand`,
+`useWeeklySchedule`, and `getWeekStart/getWeekEnd` were hard-bound to a Monday–Sunday week,
+and every schedule surface depended on that hook. It landed as an arbitrary
+`rangeStart`/`rangeEnd` on the endpoint, with `useWeeklySchedule` kept as a thin wrapper so
+the four existing call sites changed only their imports.
+
+Two things worth knowing before touching Phase B code:
+
+- **`useScheduleAnchor` holds one date, not a week and a month.** Deriving the week from an
+  anchor is safe; deriving a month back out of a stored week is not —
+  `getWeekStart(getMonthStart(october))` is in September, so a month derived from the week
+  renders the wrong month whenever the 1st isn't a Monday.
+- **`useTemplateSchedule` picks the range from the template.** Handing a week's sessions to
+  the events calendar produces a calendar that looks fine and is empty after the first row,
+  which reads as missing data rather than as a wrong fetch.
+- **A layout under Cache Components must not `await params`.** It sits above the Suspense
+  boundary `loading.tsx` creates, so awaiting request data there blocks the segment from
+  prerendering and fails the build outright. See
+  `src/app/(public)/org/[orgSlug]/README.md`.
+
+Phase B also added the app's first org-level public route, `(public)/org/[orgSlug]`, which
+the brochure (Phase D) will extend with `/brochure/[seasonSlug]`.
 
 ## 4. Open threads, in priority order (per prior discussion, not re-litigated here)
 

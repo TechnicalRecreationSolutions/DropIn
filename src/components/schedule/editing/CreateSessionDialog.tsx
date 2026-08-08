@@ -13,6 +13,7 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
 import { DAYS } from "@/lib/schedule/weekGeometry";
+import type { SeasonSummary } from "@/lib/seasons/current";
 import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext";
 
 export interface CreateSessionValues {
@@ -32,6 +33,8 @@ interface CreateSessionDialogProps {
   target: AddSessionTarget | null;
   templates: EditorTemplate[];
   spaces: { id: string; name: string }[];
+  /** The season being planned, when one is selected. Supplies the date defaults; null means today with no end date. */
+  season?: SeasonSummary | null;
   onCancel: () => void;
   onConfirm: (values: CreateSessionValues) => void;
   submitting: boolean;
@@ -50,6 +53,7 @@ export default function CreateSessionDialog({
   target,
   templates,
   spaces,
+  season,
   onCancel,
   onConfirm,
   submitting,
@@ -74,8 +78,8 @@ export default function CreateSessionDialog({
     setSelectedDays([target.dayCode]);
     setStartTime(start);
     setEndTime(computeEndTime24(start, template?.default_duration_minutes ?? 60));
-    setValidFrom(localDateString());
-    setValidUntil("");
+    setValidFrom(defaultValidFrom(season));
+    setValidUntil(season?.ends_on ?? "");
     setSpaceIds(target.spaceId ? [target.spaceId] : (template?.default_space_ids ?? []));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
@@ -256,6 +260,7 @@ export default function CreateSessionDialog({
         <p className="text-xs text-gray-500">
           Creates one recurring session, every {dayLabels || "…"}, {formatTime12(startTime)}–{formatTime12(endTime)},
           starting {validFrom}{validUntil ? ` through ${validUntil}` : " with no end date"}.
+          {season && ` Assigned to ${season.name}.`}
         </p>
 
         {error && (
@@ -284,6 +289,20 @@ export default function CreateSessionDialog({
       </DialogContent>
     </Dialog>
   );
+}
+
+/**
+ * The start date a new session gets when a season is selected.
+ *
+ * Not simply the season's start: mid-way through Fall, dating a brand-new class
+ * back to September would make it appear retroactively in weeks that have
+ * already happened, since expansion clamps to valid_from. The later of today
+ * and the season start is the honest default, and it's still editable below.
+ */
+function defaultValidFrom(season: SeasonSummary | null | undefined): string {
+  const today = localDateString();
+  if (!season) return today;
+  return season.starts_on > today ? season.starts_on : today;
 }
 
 function computeEndTime24(startTime: string, durationMinutes: number): string {

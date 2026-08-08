@@ -5,6 +5,7 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import { NO_DEPARTMENT, isWorkspaceTab } from "@/lib/schedule/commandCentreHref";
+import { resolveCurrentSeason } from "@/lib/seasons/current";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
 import type { CommandFacility, CommandScheduleGroup } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
@@ -37,6 +38,7 @@ interface SchedulePageProps {
     facility?: string;
     department?: string;
     schedule?: string;
+    season?: string;
     tab?: string;
   }>;
 }
@@ -78,6 +80,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     facility: facilityParam,
     department: departmentParam,
     schedule: scheduleParam,
+    season: seasonParam,
     tab: tabParam,
   } = await searchParams;
 
@@ -91,6 +94,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     { data: templateRows },
     { data: mapRows },
     { data: widgetConfig },
+    { data: seasonRows },
   ] = await Promise.all([
     supabase
       .from("facilities")
@@ -143,6 +147,13 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
       .is("facility_id", null)
       .is("department_id", null)
       .maybeSingle(),
+    // Seasons are org-level, so this list is the same whichever building is
+    // selected — fetched once here with everything else structural.
+    supabase
+      .from("seasons")
+      .select("id, name, slug, starts_on, ends_on, status")
+      .eq("org_id", orgId)
+      .order("starts_on", { ascending: false }),
   ]);
 
   if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
@@ -225,16 +236,25 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     "map",
   ];
 
+  // An explicit ?season= wins; otherwise the shared rule picks the period the
+  // org is most likely working in. Resolving on the server means the first
+  // paint already has the right dates, and it keeps the definition of "current
+  // season" in one module rather than in every surface that needs one.
+  const seasons = seasonRows ?? [];
+  const initialSeasonId = resolveCurrentSeason(seasons, seasonParam)?.id ?? null;
+
   return (
     <ScheduleCommandCentre
       orgId={orgId}
       orgSlug={orgContext.org.slug}
       orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
       widgetTemplates={widgetTemplates}
+      seasons={seasons}
       facilities={facilities}
       initialFacilityId={initialFacilityId}
       initialDepartmentId={initialDepartmentId}
       initialScheduleGroupId={initialScheduleGroupId}
+      initialSeasonId={initialSeasonId}
       initialTab={isWorkspaceTab(tabParam) ? tabParam : "schedule"}
     />
   );

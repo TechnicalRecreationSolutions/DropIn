@@ -55,6 +55,8 @@ export interface ScheduleEditingApi {
   onDuplicate: (session: ExpandedSession) => void;
   onReschedule: (request: RescheduleRequest) => void;
   onDelete: (session: ExpandedSession) => void;
+  /** Opens the event/brochure toggles and the copy behind them (session_features). */
+  onFeature: (session: ExpandedSession) => void;
   deletingSessionId: string | null;
 }
 

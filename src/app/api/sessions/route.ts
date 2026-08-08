@@ -14,6 +14,7 @@ const SessionSchema = z.object({
   space_ids: z.array(z.string().uuid()).optional().default([]),
   location_detail: z.string().nullable().optional(),
   template_id: z.string().uuid().nullable().optional(),
+  season_id: z.string().uuid().nullable().optional(),
   sessionId: z.string().uuid().optional(),
 });
 
@@ -73,6 +74,20 @@ export async function POST(request: Request) {
       .single();
 
     if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
+  }
+
+  // Seasons are org-level, so the only boundary to enforce is that the season
+  // belongs to the caller's own org (migration 027 leaves this to the route
+  // layer, as with facility/department ownership elsewhere in this directory).
+  if (fields.season_id) {
+    const { data: season } = await supabase
+      .from("seasons")
+      .select("id")
+      .eq("id", fields.season_id)
+      .eq("org_id", membership.org_id)
+      .maybeSingle();
+
+    if (!season) return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }
 
   const { space_ids, ...sessionFields } = fields;

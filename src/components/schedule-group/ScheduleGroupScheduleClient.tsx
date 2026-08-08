@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import WeeklyScheduleGrid from "@/components/schedule/WeeklyScheduleGrid";
-import { useWeeklySchedule } from "@/hooks/useWeeklySchedule";
+import { useWeeklySchedule } from "@/hooks/useScheduleRange";
 import { getWeekStart } from "@/lib/utils/dates";
 import type { ExpandedSession } from "@/types/schedule.types";
 

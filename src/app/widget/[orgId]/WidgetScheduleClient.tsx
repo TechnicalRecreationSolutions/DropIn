@@ -2,10 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
-import { useWeeklySchedule } from "@/hooks/useWeeklySchedule";
+import { useTemplateSchedule } from "@/hooks/useScheduleRange";
+import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
-import { getWeekStart } from "@/lib/utils/dates";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
 const queryClient = new QueryClient();
@@ -19,9 +19,16 @@ interface WidgetScheduleClientProps {
 }
 
 function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplates }: WidgetScheduleClientProps) {
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
-  const { data: sessions, isLoading, isError } = useWeeklySchedule({ orgId, facilityId, departmentId, weekStart });
+  const { data: sessions, isLoading, isError } = useTemplateSchedule({
+    template: view,
+    orgId,
+    facilityId,
+    departmentId,
+    weekStart,
+    month,
+  });
 
   // Notify parent frame of height changes for auto-resize
   useEffect(() => {
@@ -40,7 +47,12 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
 
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200">
-      <ScheduleHeaderBar title="Schedule" view={view} onChange={setView} allowedViews={allowedTemplates} />
+      <ScheduleHeaderBar
+        title={view === "events" ? "Events" : "Schedule"}
+        view={view}
+        onChange={setView}
+        allowedViews={allowedTemplates}
+      />
 
       {isLoading ? (
         <div className={`flex items-center justify-center py-12 text-sm ${mutedClass}`}>
@@ -50,7 +62,9 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
         <div className="flex items-center justify-center py-12 text-sm text-red-400">
           Could not load schedule. Please try again.
         </div>
-      ) : !sessions || sessions.length === 0 ? (
+      ) : view !== "events" && (!sessions || sessions.length === 0) ? (
+        // Events keeps its own in-view empty state so its month navigator
+        // survives a quiet month — see FacilityScheduleClient for the reasoning.
         <div className={`text-center py-12 text-sm ${mutedClass}`}>
           No drop-in sessions scheduled this week.
         </div>
@@ -58,9 +72,11 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
         <div className="p-3 sm:p-4">
           <ScheduleView
             template={view}
-            sessions={sessions}
+            sessions={sessions ?? []}
             weekStart={weekStart}
             onWeekChange={setWeekStart}
+            month={month}
+            onMonthChange={setMonth}
             facilityId={facilityId}
           />
         </div>

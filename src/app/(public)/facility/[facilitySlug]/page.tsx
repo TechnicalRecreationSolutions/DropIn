@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Globe, Phone, Clock } from "lucide-react";
+import { MapPin, Globe, Phone, Clock, CalendarDays } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -40,7 +40,7 @@ async function getFacilityPageData(facilitySlug: string) {
   if (!facility) return null;
 
   // Both depend only on the facility row, so they are issued together.
-  const [{ data: scheduleGroups }, { data: widgetConfig }] = await Promise.all([
+  const [{ data: scheduleGroups }, { data: widgetConfig }, { data: org }] = await Promise.all([
     supabase
       .from("schedule_groups")
       .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
@@ -58,9 +58,17 @@ async function getFacilityPageData(facilitySlug: string) {
       .eq("facility_id", facility.id)
       .is("department_id", null)
       .maybeSingle(),
+    // The owning org, so this page can point at the org-wide event calendar.
+    // A facility page is one building; the events sheet spans all of them, and
+    // this link is the only route a visitor has to discover that.
+    supabase
+      .from("organizations_public")
+      .select("name, slug")
+      .eq("id", facility.org_id)
+      .maybeSingle(),
   ]);
 
-  return { facility, scheduleGroups, widgetConfig };
+  return { facility, scheduleGroups, widgetConfig, org };
 }
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -87,7 +95,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
   const data = await getFacilityPageData(facilitySlug);
 
   if (!data) notFound();
-  const { facility, scheduleGroups, widgetConfig } = data;
+  const { facility, scheduleGroups, widgetConfig, org } = data;
 
   const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
@@ -177,6 +185,23 @@ export default async function FacilityDetailPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
+            </div>
+          )}
+
+          {/* Org-wide events — the only way from a building to the whole org */}
+          {org && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h2 className="font-semibold text-gray-900 mb-1">What&rsquo;s happening</h2>
+              <p className="text-xs text-gray-500 mb-3">
+                Events across every {org.name} location, month by month.
+              </p>
+              <Link
+                href={`/org/${org.slug}/events`}
+                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
+              >
+                <CalendarDays className="w-4 h-4" />
+                View event calendar
+              </Link>
             </div>
           )}
 

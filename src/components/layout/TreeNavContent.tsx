@@ -3,13 +3,26 @@
 import { useMemo } from "react";
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
-import { Building2, LayoutDashboard, Database, CreditCard, Plus } from "lucide-react";
+import {
+  Building2,
+  LayoutDashboard,
+  Database,
+  CreditCard,
+  CalendarRange,
+  Plus,
+} from "lucide-react";
 import { useNavTree } from "@/hooks/useNavTree";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import TreeNavNode from "./TreeNavNode";
 
 export const topLinks = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
+  // Sits above the building list rather than with Data Sources/Billing below:
+  // seasons are what the buildings are scheduled *into*, not a back-office
+  // utility. Deliberately not added to the mobile bottom bar — that's at its
+  // four-item limit, and seasons are reachable there from the command centre's
+  // own picker.
+  { href: "/dashboard/seasons", label: "Seasons", icon: CalendarRange, exact: false },
 ];
 
 export const bottomLinks = [

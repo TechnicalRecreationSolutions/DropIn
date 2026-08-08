@@ -6,8 +6,9 @@ import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { CalendarPlus, ExternalLink, Info } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
-import { useWeeklySchedule } from "@/hooks/useWeeklySchedule";
-import { getWeekStart, localDateString } from "@/lib/utils/dates";
+import { useTemplateSchedule, SCHEDULE_RANGE_KEY } from "@/hooks/useScheduleRange";
+import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
+import { localDateString } from "@/lib/utils/dates";
 import { buildRRuleString } from "@/lib/rrule/validate";
 import { DEFAULT_APP_TIMEZONE, zonedTimeToUtc } from "@/lib/utils/timezone";
 import { DAYS, timeStringToMinutes, minutesToTimeString } from "@/lib/schedule/weekGeometry";
@@ -31,10 +32,15 @@ import RescheduleConfirmDialog, {
   type RescheduleTarget,
 } from "@/components/schedule/editing/RescheduleConfirmDialog";
 import DeleteSessionDialog from "@/components/schedule/editing/DeleteSessionDialog";
+import FeatureSessionDialog, {
+  type FeatureSubmitValues,
+} from "@/components/schedule/editing/FeatureSessionDialog";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
 import WidgetConfigurator from "@/components/widget/WidgetConfigurator";
 import { NO_DEPARTMENT, isWorkspaceTab, type WorkspaceTab } from "@/lib/schedule/commandCentreHref";
+import { seasonStartAsDate, type SeasonSummary } from "@/lib/seasons/current";
 import FacilityBoxes from "./FacilityBoxes";
+import SeasonPicker from "./SeasonPicker";
 import ScopePicker from "./ScopePicker";
 import SpacesPanel from "./SpacesPanel";
 import WorkspaceTabs from "./WorkspaceTabs";
@@ -47,14 +53,18 @@ interface ScheduleCommandCentreProps {
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
   facilities: CommandFacility[];
+  /** The org's planning periods, newest first. Empty until an org creates one — seasons are optional everywhere. */
+  seasons: SeasonSummary[];
   initialFacilityId: string | null;
   /** A real department id, NO_DEPARTMENT, or null. */
   initialDepartmentId: string | null;
   initialScheduleGroupId: string | null;
+  /** From ?season=, else resolved by lib/seasons/current.ts. Null is a valid, supported state. */
+  initialSeasonId: string | null;
   initialTab: WorkspaceTab;
 }
 
-const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
+const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan", "events"];
 
 /**
  * The schedule command centre — the one place a schedule is viewed and
@@ -70,18 +80,20 @@ const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
  * editing is, by construction, what visitors will see.
  *
  * Every mutation goes through the same `/api/sessions` endpoints the old
- * builder used and then invalidates the shared `weekly-schedule` query, so
- * all four views reflect a change immediately without refetching per view.
+ * builder used and then invalidates the shared schedule-range query, so every
+ * view reflects a change immediately without refetching per view.
  */
 export default function ScheduleCommandCentre({
   orgId,
   orgSlug,
   orgPrimaryColor,
   widgetTemplates,
+  seasons,
   facilities,
   initialFacilityId,
   initialDepartmentId,
   initialScheduleGroupId,
+  initialSeasonId,
   initialTab,
 }: ScheduleCommandCentreProps) {
   const queryClient = useQueryClient();
@@ -91,9 +103,13 @@ export default function ScheduleCommandCentre({
   );
   const [departmentId, setDepartmentId] = useState<string | null>(initialDepartmentId);
   const [scheduleGroupId, setScheduleGroupId] = useState<string | null>(initialScheduleGroupId);
+  const [seasonId, setSeasonId] = useState<string | null>(initialSeasonId);
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const [view, setView] = useState<ScheduleTemplate>(widgetTemplates[0] ?? "grid");
-  const [weekStart, setWeekStart] = useState<Date>(() => getWeekStart(new Date()));
+  // One anchor date, two derived views of it. The events calendar is a month
+  // and the other four are a week, and holding both independently lets them
+  // drift — see the header of useScheduleAnchor for the trap this avoids.
+  const { weekStart, month, setWeekStart, setMonth, setAnchor } = useScheduleAnchor();
 
   const [createTarget, setCreateTarget] = useState<AddSessionTarget | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -109,6 +125,10 @@ export default function ScheduleCommandCentre({
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
+  const [featuring, setFeaturing] = useState<ExpandedSession | null>(null);
+  const [featureSubmitting, setFeatureSubmitting] = useState(false);
+  const [featureError, setFeatureError] = useState<string | null>(null);
+
   const [deleting, setDeleting] = useState<ExpandedSession | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -120,6 +140,13 @@ export default function ScheduleCommandCentre({
   const scheduleGroup = useMemo(
     () => facility?.scheduleGroups.find((g) => g.id === scheduleGroupId) ?? null,
     [facility, scheduleGroupId]
+  );
+  // Explicit selection only — resolveCurrentSeason already ran on the server to
+  // produce initialSeasonId, so re-resolving here would override a deliberate
+  // "No season" back to the current one on every render.
+  const season = useMemo(
+    () => seasons.find((s) => s.id === seasonId) ?? null,
+    [seasons, seasonId]
   );
 
   // Schedules offered by the schedule tier, narrowed by the department tier.
@@ -149,6 +176,7 @@ export default function ScheduleCommandCentre({
     searchParams.get("facility"),
     searchParams.get("department"),
     searchParams.get("schedule"),
+    searchParams.get("season"),
     searchParams.get("tab"),
   ].join("|");
   const appliedScopeRef = useRef(urlScope);
@@ -157,7 +185,7 @@ export default function ScheduleCommandCentre({
     if (urlScope === appliedScopeRef.current) return;
     appliedScopeRef.current = urlScope;
 
-    const [nextFacility, nextDepartment, nextSchedule, nextTab] = urlScope.split("|");
+    const [nextFacility, nextDepartment, nextSchedule, nextSeason, nextTab] = urlScope.split("|");
     // Validated the same way the server does, so a hand-edited or stale URL
     // can't put the editor into a scope this org doesn't have.
     const target = facilities.find((f) => f.id === nextFacility) ?? null;
@@ -172,8 +200,11 @@ export default function ScheduleCommandCentre({
     setScheduleGroupId(
       target?.scheduleGroups.some((g) => g.id === nextSchedule) ? nextSchedule : null
     );
+    // Seasons are org-level, so unlike the tiers above there is nothing to
+    // re-validate against the facility — only that the org owns the season.
+    setSeasonId(seasons.some((s) => s.id === nextSeason) ? nextSeason : null);
     setTab(isWorkspaceTab(nextTab) ? nextTab : "schedule");
-  }, [urlScope, facilities]);
+  }, [urlScope, facilities, seasons]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -181,6 +212,7 @@ export default function ScheduleCommandCentre({
       ["facility", facilityId],
       ["department", departmentId],
       ["schedule", scheduleGroupId],
+      ["season", seasonId],
       // Schedule is the default, so it stays out of the URL.
       ["tab", tab === "schedule" ? null : tab],
     ] as const) {
@@ -192,18 +224,35 @@ export default function ScheduleCommandCentre({
       facilityId,
       departmentId,
       scheduleGroupId,
+      seasonId,
       tab === "schedule" ? null : tab,
     ].join("|");
-  }, [facilityId, departmentId, scheduleGroupId, tab]);
+  }, [facilityId, departmentId, scheduleGroupId, seasonId, tab]);
+
+  // Which view is actually on screen has to be settled before the fetch, not
+  // after it: the events calendar asks for a different range and a different
+  // filter, so a `view` that silently fell back (floorplan without a published
+  // map) would otherwise fetch for the view the user *asked* for rather than
+  // the one they get.
+  //
+  // Floorplan needs a single facility with a published map behind it. Events is
+  // deliberately not gated here the way it is in the widget configurator —
+  // staff need to reach an empty calendar to learn the toggle exists.
+  const availableViews = ALL_VIEWS.filter(
+    (v) => v !== "floorplan" || !!facility?.hasPublishedMap
+  );
+  const activeView = availableViews.includes(view) ? view : availableViews[0];
 
   // Narrowest scope wins. "No department" has no id to filter on server-side,
   // so it fetches the facility and drops the departmented sessions here.
   const isUndepartmented = departmentId === NO_DEPARTMENT;
-  const { data: fetched, isLoading, isError } = useWeeklySchedule({
+  const { data: fetched, isLoading, isError } = useTemplateSchedule({
+    template: activeView,
     facilityId: facilityId ?? undefined,
     departmentId: isUndepartmented ? undefined : (departmentId ?? undefined),
     scheduleGroupId: scheduleGroupId ?? undefined,
     weekStart,
+    month,
   });
 
   const sessions = useMemo(
@@ -215,7 +264,7 @@ export default function ScheduleCommandCentre({
   );
 
   function refresh() {
-    queryClient.invalidateQueries({ queryKey: ["weekly-schedule"] });
+    queryClient.invalidateQueries({ queryKey: [SCHEDULE_RANGE_KEY] });
   }
 
   function handleFacilitySelect(nextFacilityId: string) {
@@ -236,6 +285,20 @@ export default function ScheduleCommandCentre({
         ? !scheduleGroup?.departmentId
         : scheduleGroup?.departmentId === nextDepartmentId);
     if (!stillVisible) setScheduleGroupId(null);
+  }
+
+  function handleSeasonSelect(nextSeasonId: string | null) {
+    setSeasonId(nextSeasonId);
+    // Deliberately does not move the week. Picking a season is a statement
+    // about what you're planning, not a request to navigate — and yanking the
+    // grid to September while someone reads this week's schedule is
+    // disorienting. SeasonPicker offers the jump instead, when the two disagree.
+  }
+
+  function handleJumpToSeason() {
+    // Moves the anchor itself rather than just the week, so the events calendar
+    // lands on the season's opening month instead of staying where it was.
+    if (season) setAnchor(seasonStartAsDate(season));
   }
 
   function handleScheduleSelect(nextScheduleGroupId: string | null) {
@@ -292,6 +355,10 @@ export default function ScheduleCommandCentre({
         setDeleteError(null);
         setDeleting(session);
       },
+      onFeature: (session) => {
+        setFeatureError(null);
+        setFeaturing(session);
+      },
       deletingSessionId: deletingId,
     }),
     [scheduleGroup, facility, canCreate, deletingId, handleAddSession, handleReschedule]
@@ -316,6 +383,9 @@ export default function ScheduleCommandCentre({
         valid_from: values.validFrom,
         valid_until: values.validUntil,
         space_ids: values.spaceIds,
+        // The picked season is the whole reason it's picked — anything placed
+        // while it's selected belongs to it, so nothing needs backfilling later.
+        season_id: seasonId,
       }),
     });
 
@@ -354,6 +424,10 @@ export default function ScheduleCommandCentre({
         dtend_time: endTime,
         valid_from: validFrom,
         space_ids: spaceIds,
+        // A duplicate inherits the source session's season, not the picker's.
+        // "Same session, different lane" should land in the same period as the
+        // original even when the picker has moved on to next term.
+        season_id: duplicating.seasonId,
       }),
     });
 
@@ -403,6 +477,40 @@ export default function ScheduleCommandCentre({
     refresh();
   }
 
+  async function handleConfirmFeature(values: FeatureSubmitValues) {
+    if (!featuring) return;
+    setFeatureSubmitting(true);
+    setFeatureError(null);
+
+    const res = await fetch("/api/sessions/features", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        session_id: featuring.sessionId,
+        is_event: values.isEvent,
+        in_brochure: values.inBrochure,
+        title: values.title,
+        summary: values.summary,
+        description: values.description,
+        image_url: values.imageUrl,
+        link_url: values.linkUrl,
+        link_label: values.linkLabel,
+        event_category: values.eventCategory,
+        accent_color: values.accentColor,
+      }),
+    });
+
+    setFeatureSubmitting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setFeatureError(data.error ?? "Could not save these details.");
+      return;
+    }
+
+    setFeaturing(null);
+    refresh();
+  }
+
   async function handleConfirmDelete() {
     if (!deleting) return;
     setDeletingId(deleting.sessionId);
@@ -430,11 +538,6 @@ export default function ScheduleCommandCentre({
 
   if (facilities.length === 0) return null;
 
-  // Floorplan needs a single facility with a published map behind it.
-  const availableViews = ALL_VIEWS.filter(
-    (v) => v !== "floorplan" || !!facility?.hasPublishedMap
-  );
-  const activeView = availableViews.includes(view) ? view : availableViews[0];
   const viewIsOffInWidget = !widgetTemplates.includes(activeView);
   // Map is the only view with a position to drop onto, and there's nothing
   // to drag until the scope narrows to one schedule with templates in it.
@@ -474,6 +577,19 @@ export default function ScheduleCommandCentre({
         selectedFacilityId={facilityId}
         onSelect={handleFacilitySelect}
       />
+
+      {/* Only where the org has actually defined seasons — an org that never
+          creates one never sees an extra control, the same way the department
+          tier hides itself for orgs that keep their schedules flat. */}
+      {seasons.length > 0 && (
+        <SeasonPicker
+          seasons={seasons}
+          selectedSeasonId={seasonId}
+          onChange={handleSeasonSelect}
+          weekStart={weekStart}
+          onJumpToSeason={handleJumpToSeason}
+        />
+      )}
 
       {facility && (
         <ScopePicker
@@ -603,6 +719,8 @@ export default function ScheduleCommandCentre({
                   sessions={sessions ?? []}
                   weekStart={weekStart}
                   onWeekChange={setWeekStart}
+                  month={month}
+                  onMonthChange={setMonth}
                   facilityId={facilityId ?? undefined}
                 />
               </ScheduleEditingProvider>
@@ -633,6 +751,7 @@ export default function ScheduleCommandCentre({
         target={createTarget}
         templates={editing.templates}
         spaces={editing.spaces}
+        season={season}
         onCancel={() => {
           setCreateTarget(null);
           setCreateError(null);
@@ -665,6 +784,17 @@ export default function ScheduleCommandCentre({
         onConfirm={handleConfirmReschedule}
         submitting={rescheduleSubmitting}
         error={rescheduleError}
+      />
+
+      <FeatureSessionDialog
+        session={featuring}
+        onCancel={() => {
+          setFeaturing(null);
+          setFeatureError(null);
+        }}
+        onConfirm={handleConfirmFeature}
+        submitting={featureSubmitting}
+        error={featureError}
       />
 
       <DeleteSessionDialog

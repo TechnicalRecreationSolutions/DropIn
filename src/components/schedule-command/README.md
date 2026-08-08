@@ -28,6 +28,7 @@ what "open this thing" means.
 ```
 Manage
 [ Panorama ] [ Test Rec Centre ] [ + Add facility ]      ← buildings (sidebar picks these too)
+Season  [ Fall 2026 ▾ ]  Sep 8 – Dec 20 …                [ Manage ]  ← only if the org has seasons
 DEPARTMENTS   [ All ] [ Aquatics 1 ] [ No department 1 ] [ + New department ]
 SCHEDULES     [ All ] [ Lap Swim ] [ + New schedule ]                        [⚙ Settings]
 ─────────────────────────────────────────────────────────────
@@ -74,6 +75,28 @@ no longer belongs, rather than silently editing something the chips no longer sh
 `NO_DEPARTMENT` is a sentinel, not an id: there's nothing to filter on server-side, so that
 one scope fetches the facility and drops departmented sessions client-side.
 
+## Season is not part of that scope
+
+The season row above the tiers looks like a fourth scope and is not one. Building → department
+→ schedule narrows *which sessions you are looking at*; the season sets *what you are
+planning*. Concretely, selecting a season:
+
+- assigns new sessions to it and dates them to its range (`season_id`, `valid_from`,
+  `valid_until` in `CreateSessionDialog`), and
+- **does not filter the grid.**
+
+That second point is deliberate and easy to "fix" into a bug. Every session created before
+seasons existed has `season_id NULL`, so filtering on it would blank the schedule for every
+existing org the instant they created their first season. An empty grid reads as data loss.
+See `components/seasons/README.md`.
+
+Duplicating a session inherits the **source session's** season, not the picker's — "same
+session, different lane" belongs to the same period as the original even when the picker has
+moved on. That's why `ExpandedSession` carries `seasonId`.
+
+The picker hides itself entirely for orgs with no seasons, the same way the department tier
+does for orgs that keep their schedules flat.
+
 ## The Schedule tab
 
 ```
@@ -107,13 +130,28 @@ colors) is fetched **once, server-side** in `page.tsx` and passed down, because 
 are small and bounded per org. Switching building or schedule is therefore instant local
 state, not a round trip.
 
-Only the week's sessions are client-fetched, via the shared `useWeeklySchedule` /
+Only the sessions in view are client-fetched, via the shared `useTemplateSchedule` /
 `/api/sessions/expand` pipeline the widget uses. Every mutation posts to the same
-`/api/sessions` endpoints and then invalidates the `weekly-schedule` query key, so all four
+`/api/sessions` endpoints and then invalidates the `schedule-range` query key, so all five
 layouts reflect a change immediately without refetching per layout.
 
-Editor state is mirrored into `?facility=&schedule=` with `history.replaceState` — linkable
-and refresh-safe, without a navigation that would remount the page.
+"The sessions in view" is template-dependent, which is why `activeView` is resolved
+*above* the fetch rather than at render time: four layouts want a Monday–Sunday week, and
+`events` wants a month grid filtered to `is_event`. Resolving it late would fetch for the
+view the user clicked rather than the one they actually get when a view falls back
+(floorplan without a published map).
+
+Week and month are two derivations of a single anchor date (`useScheduleAnchor`), so
+switching layouts never jumps the viewer somewhere else in the calendar, and "jump to
+season" moves both.
+
+Editor state is mirrored into `?facility=&schedule=&season=` with `history.replaceState` —
+linkable and refresh-safe, without a navigation that would remount the page. The adopt and
+mirror effects both enumerate that param list; **adding a param means editing both**, or the
+two effects fight and the URL flickers back to the old value.
+
+Seasons are fetched here too, and `?season=` is resolved server-side through
+`resolveCurrentSeason()` so the first paint already has the right dates.
 
 ## Files
 
@@ -121,6 +159,7 @@ and refresh-safe, without a navigation that would remount the page.
 |---|---|
 | `ScheduleCommandCentre.tsx` | Owns all state, all mutations, and the editing API handed to the views. |
 | `FacilityBoxes.tsx` | The large building boxes. |
+| `SeasonPicker.tsx` | The planning period. Sets creation defaults, never filters. |
 | `ScopePicker.tsx` | The department and schedule chip tiers. |
 | `WorkspaceTabs.tsx` | The Schedule/Spaces/Map/Widget strip. |
 | `SpacesPanel.tsx` | Scope-filtered space list (was the facility and department pages' Spaces tab). |

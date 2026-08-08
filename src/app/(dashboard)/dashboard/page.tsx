@@ -162,8 +162,8 @@ async function DashboardOverview() {
     thisWeekRes.status === "fulfilled" && !thisWeekRes.value.error && thisWeekRes.value.data
       ? // Relational select — cast needed until Supabase CLI generates types with FK relations
         expandSessions(thisWeekRes.value.data as unknown as SessionWithRelations[], [], {
-          weekStart,
-          weekEnd,
+          rangeStart: weekStart,
+          rangeEnd: weekEnd,
           orgId,
         }).length
       : null;

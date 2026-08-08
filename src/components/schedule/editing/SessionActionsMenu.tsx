@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Pencil, Copy, Trash2 } from "lucide-react";
+import { MoreVertical, Pencil, Copy, Trash2, Star } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -63,6 +63,12 @@ export default function SessionActionsMenu({
             <Pencil />
             Edit details
           </Link>
+        </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => editing.onFeature(session)}>
+          <Star />
+          {/* Named for the state it leads to, not the verb: once a session is
+              featured, "Feature…" would invite staff to do it twice. */}
+          {session.isEvent || session.inBrochure ? "Featured…" : "Feature…"}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => editing.onDuplicate(session)}>
           <Copy />

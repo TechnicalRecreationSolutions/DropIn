@@ -398,6 +398,38 @@ export type Database = {
         >;
         Relationships: [];
       };
+      // Added in 027_seasons.sql — the org-level named date range that the
+      // event calendar, brochure, and planning tools all hang off.
+      seasons: {
+        Row: {
+          id: string;
+          org_id: string;
+          name: string;
+          slug: string;
+          description: string | null;
+          starts_on: string;
+          ends_on: string;
+          status: "planning" | "active" | "archived";
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["seasons"]["Row"],
+          "id" | "created_at" | "updated_at" | "description" | "status" | "display_order"
+        > & {
+          description?: string | null;
+          status?: "planning" | "active" | "archived";
+          display_order?: number;
+          // DEFAULT NOW() at the DB level, but writable — there is no
+          // updated_at trigger anywhere in this schema, so a route that wants
+          // the column to mean anything has to set it (as PATCH
+          // /api/seasons/[id] does). Same shape as widget_configs.
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["seasons"]["Insert"]>;
+        Relationships: [];
+      };
       session_templates: {
         Row: {
           id: string;
@@ -446,6 +478,13 @@ export type Database = {
           schedule_group_id: string;
           org_id: string;
           template_id: string | null;
+          // Added in 027_seasons.sql. Nullable and explicit — season membership
+          // is never inferred from valid_from/valid_until.
+          season_id: string | null;
+          // Added in 028_session_features.sql. Two independent publishing
+          // decisions; the copy behind both lives in session_features.
+          is_event: boolean;
+          in_brochure: boolean;
           rrule: string;
           dtstart: string;
           dtend_time: string;
@@ -464,6 +503,9 @@ export type Database = {
           | "created_at"
           | "updated_at"
           | "template_id"
+          | "season_id"
+          | "is_event"
+          | "in_brochure"
           | "timezone"
           | "valid_until"
           | "location_detail"
@@ -471,6 +513,9 @@ export type Database = {
           | "is_active"
         > & {
           template_id?: string | null;
+          season_id?: string | null;
+          is_event?: boolean;
+          in_brochure?: boolean;
           timezone?: string;
           valid_until?: string | null;
           location_detail?: string | null;
@@ -478,6 +523,54 @@ export type Database = {
           is_active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
+        Relationships: [];
+      };
+      // Added in 028_session_features.sql — the shared copy behind both the
+      // event calendar and the brochure. 1:1 with sessions; the toggles that
+      // decide where it appears live on sessions itself.
+      session_features: {
+        Row: {
+          id: string;
+          session_id: string;
+          org_id: string;
+          title: string | null;
+          summary: string | null;
+          description: string | null;
+          image_url: string | null;
+          link_url: string | null;
+          link_label: string | null;
+          event_category: string | null;
+          accent_color: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_features"]["Row"],
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "title"
+          | "summary"
+          | "description"
+          | "image_url"
+          | "link_url"
+          | "link_label"
+          | "event_category"
+          | "accent_color"
+        > & {
+          title?: string | null;
+          summary?: string | null;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          link_label?: string | null;
+          event_category?: string | null;
+          accent_color?: string | null;
+          // Writable for the same reason as seasons/widget_configs — there is
+          // no updated_at trigger anywhere in this schema.
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["session_features"]["Insert"]>;
         Relationships: [];
       };
       session_spaces: {
@@ -535,7 +628,7 @@ export type Database = {
           time_range_end: string;
           program_ids: string[] | null;
           custom_title: string | null;
-          allowed_templates: ("grid" | "list" | "map" | "floorplan")[];
+          allowed_templates: ("grid" | "list" | "map" | "floorplan" | "events")[];
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -568,7 +661,7 @@ export type Database = {
           time_range_end?: string;
           program_ids?: string[] | null;
           custom_title?: string | null;
-          allowed_templates?: ("grid" | "list" | "map" | "floorplan")[];
+          allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "events")[];
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;

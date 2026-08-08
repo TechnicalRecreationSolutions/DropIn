@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { buildRRuleString } from "@/lib/rrule/validate";
+import { buildRRuleString, isOneTimeRRule, type RRuleFrequency } from "@/lib/rrule/validate";
 import { formatRRule } from "@/lib/rrule/format";
 
 const DAYS = [
@@ -50,15 +50,20 @@ export default function RRuleBuilder({
   onValidFromChange,
   onValidUntilChange,
 }: RRuleBuilderProps) {
-  const [frequency, setFrequency] = useState<"daily" | "weekly">("weekly");
+  const [frequency, setFrequency] = useState<RRuleFrequency>("weekly");
   const [selectedDays, setSelectedDays] = useState<string[]>(["MO", "WE", "FR"]);
 
   // Parse initial value once on mount, seeding editable local state from the
   // parent's RRULE string — not a derived value kept in sync on every change,
   // the two effects below own frequency/selectedDays from here on.
   useEffect(() => {
-    if (value.includes("FREQ=DAILY")) {
+    // COUNT=1 is checked before FREQ=DAILY: a one-off is *stored* as a capped
+    // daily rule (see ONCE_RRULE), so testing for FREQ=DAILY first would read
+    // every one-time event back as a repeating daily session.
+    if (isOneTimeRRule(value)) {
       // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFrequency("once");
+    } else if (value.includes("FREQ=DAILY")) {
       setFrequency("daily");
     } else if (value.includes("BYDAY=")) {
       const match = value.match(/BYDAY=([^;]+)/);
@@ -66,11 +71,21 @@ export default function RRuleBuilder({
     }
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
+  const isOnce = frequency === "once";
+
   // Rebuild RRULE whenever frequency or days change
   useEffect(() => {
     const rrule = buildRRuleString({ frequency, days: selectedDays });
     onRRuleChange(rrule);
   }, [frequency, selectedDays]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // A one-off ends the day it happens. COUNT=1 already caps the recurrence, so
+  // this is belt-and-braces — but valid_until is what the season-overlap query
+  // and the brochure candidacy check read, and an open-ended one-off would show
+  // up as "ongoing" in both.
+  useEffect(() => {
+    if (isOnce && validFrom && validUntil !== validFrom) onValidUntilChange(validFrom);
+  }, [isOnce, validFrom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   function toggleDay(code: string) {
     setSelectedDays((prev) =>
@@ -82,7 +97,13 @@ export default function RRuleBuilder({
   const dtstart = validFrom
     ? new Date(validFrom + "T" + (startTime || "00:00") + ":00Z").toISOString()
     : new Date().toISOString();
-  const summary = value ? formatRRule(value, dtstart) : "No days selected";
+  // rrule's toText() renders COUNT=1 as "every day for 1 time", which is
+  // technically true and useless to read. A one-off gets its own wording.
+  const summary = isOnce
+    ? "Once only"
+    : value
+      ? formatRRule(value, dtstart)
+      : "No days selected";
 
   return (
     <div className="space-y-5">
@@ -91,13 +112,14 @@ export default function RRuleBuilder({
         <p className="text-sm font-medium text-gray-700 mb-2">Repeats</p>
         <div className="flex gap-2">
           {[
+            { value: "once", label: "Just once" },
             { value: "weekly", label: "Weekly" },
             { value: "daily", label: "Every day" },
           ].map((opt) => (
             <button
               key={opt.value}
               type="button"
-              onClick={() => setFrequency(opt.value as "weekly" | "daily")}
+              onClick={() => setFrequency(opt.value as RRuleFrequency)}
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 frequency === opt.value
                   ? "bg-blue-600 border-blue-600 text-white"
@@ -170,33 +192,48 @@ export default function RRuleBuilder({
         </div>
       </div>
 
-      {/* Season dates */}
-      <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Season</p>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Starts</label>
-            <input
-              type="date"
-              value={validFrom}
-              onChange={(e) => onValidFromChange(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <span className="text-gray-400 mt-5">→</span>
-          <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Ends (optional)</label>
-            <input
-              type="date"
-              value={validUntil}
-              onChange={(e) => onValidUntilChange(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              placeholder="Leave blank to run indefinitely"
-            />
+      {/* Dates. A one-off has a date, not a season — showing "starts/ends" for
+          something that happens once invites an open-ended range around a
+          single occurrence, which then reads as ongoing everywhere else. */}
+      {isOnce ? (
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-2">Date *</p>
+          <input
+            type="date"
+            value={validFrom}
+            onChange={(e) => onValidFromChange(e.target.value)}
+            required
+            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          />
+        </div>
+      ) : (
+        <div>
+          <p className="text-sm font-medium text-gray-700 mb-2">Season</p>
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">Starts</label>
+              <input
+                type="date"
+                value={validFrom}
+                onChange={(e) => onValidFromChange(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <span className="text-gray-400 mt-5">→</span>
+            <div className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">Ends (optional)</label>
+              <input
+                type="date"
+                value={validUntil}
+                onChange={(e) => onValidUntilChange(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                placeholder="Leave blank to run indefinitely"
+              />
+            </div>
           </div>
         </div>
-      </div>
+      )}
 
       {/* Human-readable summary */}
       <div className="p-3 bg-blue-50 rounded-lg">
@@ -205,9 +242,15 @@ export default function RRuleBuilder({
         {startTime && endTime && (
           <p className="text-sm text-blue-800">
             {startTime} – {endTime}
-            {validFrom && ` · Starting ${validFrom}`}
-            {validUntil && ` until ${validUntil}`}
-            {!validUntil && validFrom && " · Ongoing"}
+            {isOnce
+              ? validFrom && ` · On ${validFrom}`
+              : (
+                  <>
+                    {validFrom && ` · Starting ${validFrom}`}
+                    {validUntil && ` until ${validUntil}`}
+                    {!validUntil && validFrom && " · Ongoing"}
+                  </>
+                )}
           </p>
         )}
       </div>

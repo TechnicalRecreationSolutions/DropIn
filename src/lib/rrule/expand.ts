@@ -1,7 +1,8 @@
 import { RRule, RRuleSet } from "rrule";
 import type {
   ExpandedSession,
-  WeekExpandParams,
+  RangeExpandParams,
+  SessionFeatureContent,
 } from "@/types/schedule.types";
 import type { Database } from "@/types/database.types";
 import { zonedDateString, zonedTimeToUtc } from "@/lib/utils/timezone";
@@ -14,6 +15,7 @@ type FacilityRow = Database["public"]["Tables"]["facilities"]["Row"];
 type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
 type SpaceRow = Database["public"]["Tables"]["spaces"]["Row"];
 type SessionTemplateRow = Database["public"]["Tables"]["session_templates"]["Row"];
+type SessionFeatureRow = Database["public"]["Tables"]["session_features"]["Row"];
 
 export type SessionWithRelations = SessionRow & {
   // Nullable: an embedded PostgREST filter (e.g. schedule_groups.department_id=eq...)
@@ -28,11 +30,17 @@ export type SessionWithRelations = SessionRow & {
   session_spaces: { spaces: Pick<SpaceRow, "id" | "name" | "display_order"> }[];
   // Null when the session has no template_id, or the template was archived/deleted.
   session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
+  // session_features is 1:1 (UNIQUE session_id), so PostgREST *should* detect a
+  // to-one relationship and embed an object. It falls back to an array when it
+  // can't — which is exactly the kind of difference that shows up only against
+  // the live database, so both shapes are accepted and normalized below rather
+  // than trusted. Absent entirely when the session has never been featured.
+  session_features: SessionFeatureRow | SessionFeatureRow[] | null;
 };
 
 /**
- * Expands an array of recurring sessions into concrete occurrences
- * for the given week range, applying exceptions (cancellations/modifications).
+ * Expands an array of recurring sessions into concrete occurrences for the
+ * given date range, applying exceptions (cancellations/modifications).
  *
  * Sessions store an iCal RRULE string. This function:
  *   1. Parses the RRULE with the rrule package
@@ -44,9 +52,9 @@ export type SessionWithRelations = SessionRow & {
 export function expandSessions(
   sessions: SessionWithRelations[],
   exceptions: SessionExceptionRow[],
-  params: WeekExpandParams
+  params: RangeExpandParams
 ): ExpandedSession[] {
-  const { weekStart, weekEnd } = params;
+  const { rangeStart, rangeEnd } = params;
   const results: ExpandedSession[] = [];
 
   // Index exceptions by session_id + date for O(1) lookup
@@ -69,6 +77,11 @@ export function expandSessions(
       .map((row) => row.spaces)
       .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
 
+    // Built once per session rather than per occurrence — a month of a daily
+    // session is ~30 occurrences that would otherwise each allocate an
+    // identical object.
+    const feature = toFeatureContent(session.session_features);
+
     // Parse the RRULE string
     let rule: RRule;
     try {
@@ -87,13 +100,13 @@ export function expandSessions(
       ? new Date(session.valid_until + "T23:59:59Z")
       : null;
 
-    const expandFrom = weekStart > seasonStart ? weekStart : seasonStart;
+    const expandFrom = rangeStart > seasonStart ? rangeStart : seasonStart;
     const expandTo =
-      seasonEnd && weekEnd > seasonEnd ? seasonEnd : weekEnd;
+      seasonEnd && rangeEnd > seasonEnd ? seasonEnd : rangeEnd;
 
     if (expandFrom > expandTo) continue;
 
-    // Get all occurrences in the week range
+    // Get all occurrences in the requested range
     const occurrences = rule.between(expandFrom, expandTo, true);
 
     for (const occurrence of occurrences) {
@@ -140,6 +153,13 @@ export function expandSessions(
         templateId: session.session_templates?.id ?? null,
         templateName: session.session_templates?.name ?? null,
         templateColor: session.session_templates?.color ?? null,
+        // Read straight off the session row rather than through a join — the
+        // occurrence only needs the id, so that a duplicate keeps the source
+        // session's season instead of inheriting whatever is selected now.
+        seasonId: session.season_id,
+        isEvent: session.is_event,
+        inBrochure: session.in_brochure,
+        feature,
         locationDetail: session.location_detail,
         isModified: exception?.exception_type === "modified",
         modificationNote: exception?.note ?? null,
@@ -149,6 +169,28 @@ export function expandSessions(
 
   // Sort chronologically
   return results.sort((a, b) => a.start.getTime() - b.start.getTime());
+}
+
+/**
+ * Normalizes the embedded session_features row into the camelCase shape the
+ * views consume, accepting either an object or a single-element array (see the
+ * note on SessionWithRelations.session_features).
+ */
+function toFeatureContent(
+  embedded: SessionFeatureRow | SessionFeatureRow[] | null | undefined
+): SessionFeatureContent | null {
+  const row = Array.isArray(embedded) ? (embedded[0] ?? null) : (embedded ?? null);
+  if (!row) return null;
+  return {
+    title: row.title,
+    summary: row.summary,
+    description: row.description,
+    imageUrl: row.image_url,
+    linkUrl: row.link_url,
+    linkLabel: row.link_label,
+    eventCategory: row.event_category,
+    accentColor: row.accent_color,
+  };
 }
 
 /** Format a TIMESTAMPTZ string to the DTSTART format rrule expects: YYYYMMDDTHHmmssZ */

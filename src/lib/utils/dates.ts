@@ -1,4 +1,15 @@
-import { format, parseISO, startOfWeek, endOfWeek, addWeeks, subWeeks } from "date-fns";
+import {
+  format,
+  parseISO,
+  startOfWeek,
+  endOfWeek,
+  addWeeks,
+  subWeeks,
+  startOfMonth,
+  endOfMonth,
+  addMonths,
+  subMonths,
+} from "date-fns";
 
 export function formatTime(date: Date): string {
   return format(date, "h:mm a");
@@ -30,6 +41,41 @@ export function nextWeek(date: Date): Date {
 
 export function prevWeek(date: Date): Date {
   return subWeeks(date, 1);
+}
+
+export function getMonthStart(date: Date): Date {
+  return startOfMonth(date);
+}
+
+export function getMonthEnd(date: Date): Date {
+  return endOfMonth(date);
+}
+
+export function nextMonth(date: Date): Date {
+  return addMonths(date, 1);
+}
+
+export function prevMonth(date: Date): Date {
+  return subMonths(date, 1);
+}
+
+/**
+ * The range a month *grid* actually displays: the calendar cells run from the
+ * Monday on or before the 1st to the Sunday on or after the last day, so a
+ * grid fetching only `getMonthStart`–`getMonthEnd` renders its leading and
+ * trailing cells empty even when sessions exist on those days.
+ *
+ * Weeks start Monday here, matching getWeekStart and the weekly grid.
+ */
+export function getMonthGridRange(date: Date): { start: Date; end: Date } {
+  return {
+    start: getWeekStart(startOfMonth(date)),
+    end: getWeekEnd(endOfMonth(date)),
+  };
+}
+
+export function formatMonthLabel(date: Date): string {
+  return format(date, "MMMM yyyy");
 }
 
 export function parseDate(iso: string): Date {

@@ -172,3 +172,76 @@
 .org-theme .today-btn:hover {
   background-color: var(--org-card-bg);
 }
+
+/* =============================================================================
+   Print — the event calendar as a wall sheet.
+
+   This whole track exists because a recreation org prints the month, tapes it
+   to the wall behind the front desk, and points at it. So the calendar has to
+   come off a printer as one clean page, not as a screenshot of an app with a
+   sidebar down the left.
+
+   The "hide everything, then reveal one subtree" pattern is used deliberately
+   over a print-specific route. The calendar is mounted inside four different
+   shells (command centre, widget, facility page, schedule-group page), and a
+   dedicated print route would be a fifth copy of the view that drifts from the
+   other four — exactly the failure mode the shared ScheduleView exists to
+   prevent. `visibility` rather than `display` because it leaves the ancestor
+   chain intact: the calendar keeps its grid layout without having to re-declare
+   the layout of every wrapper above it.
+   ============================================================================= */
+@media print {
+  @page {
+    size: landscape;
+    margin: 12mm;
+  }
+
+  body * {
+    visibility: hidden;
+  }
+
+  .event-calendar,
+  .event-calendar * {
+    visibility: visible;
+  }
+
+  .event-calendar {
+    position: absolute;
+    inset: 0 auto auto 0;
+    width: 100%;
+  }
+
+  /* Chrome that only makes sense on screen: the month stepper, the "⋯" menus,
+     and anything explicitly opted out. A printed sheet cannot be navigated. */
+  .event-calendar .no-print,
+  .event-calendar [data-slot="dropdown-menu-trigger"] {
+    display: none !important;
+  }
+
+  /* Print media is wider than the `sm` breakpoint, so the desktop grid is what
+     renders — but state that outright rather than relying on it, since a narrow
+     paper size would otherwise print the mobile agenda and lose the month shape
+     that is the entire point of the sheet. */
+  .event-calendar > .hidden.sm\:block {
+    display: block !important;
+  }
+  .event-calendar > .sm\:hidden {
+    display: none !important;
+  }
+
+  /* Tinted chips and the accent stripe carry the categories; the masthead rule
+     carries the org's brand colour. Without this, browsers strip every
+     background and border colour and the sheet prints as grey text. */
+  .event-calendar .event-chip,
+  .event-calendar [class*="print:flex"] {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+    break-inside: avoid;
+  }
+
+  /* One page: a month is at most six rows, and a row split across a page break
+     is worse than a slightly tighter row. */
+  .event-calendar .grid > * {
+    break-inside: avoid;
+  }
+}
