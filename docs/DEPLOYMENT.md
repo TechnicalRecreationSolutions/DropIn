@@ -7,6 +7,69 @@ testing signup before the app boots, or Stripe before signup works.
 
 ---
 
+## Status — 2026-08-07
+
+**The app is live and healthy at `https://drop-in-ten.vercel.app`.** Remaining
+work was deliberately deferred: there are no users yet, so feature work takes
+priority over launch configuration. Nothing here degrades by waiting.
+
+| Step | State |
+|---|---|
+| 1. Environment variables | **Done.** All 11 set for Production. |
+| 2. Supabase auth URLs | **Done.** Site URL and Redirect URLs point at `drop-in-ten.vercel.app`. |
+| 3. Custom SMTP | **Deferred** until the real Dropin domain exists — see below. |
+| 4. Stripe webhook | **Not started.** Independent of everything else. |
+| 5. Browser-verify CSP | **Headers verified in production**; in-browser render check still outstanding. |
+| 6. Custom domain + raise HSTS | **Not started.** |
+
+### Verified in production
+
+Headers were checked live with `curl` against the deployed site:
+
+- `/`, `/privacy`, `/terms`, `/login` — CSP with `frame-ancestors 'self'`,
+  `X-Frame-Options: SAMEORIGIN`, HSTS, `nosniff`, `Referrer-Policy`
+- `/widget/*` — `frame-ancestors *` and no `X-Frame-Options`, so embedding works
+- `/embed/widget.js` — `nosniff`, cached, CORS open
+- `/dashboard` — 307 to `/login`, so auth is enforced
+- Exactly one CSP header per response
+- No `localhost` or protected-alias URL baked into the built HTML
+
+`Access-Control-Allow-Origin: *` appears on every route in production but is
+**added by Vercel's CDN, not this app** — locally `/login` carries no such header
+while `/widget` does, matching `next.config.ts` exactly, and there is no
+`vercel.json`. Harmless: the CORS spec forbids pairing `*` with credentials, so
+no cookie-bearing response can be read cross-origin.
+
+### Three URLs exist. Only one is public.
+
+| URL | Public? |
+|---|---|
+| `drop-in-ten.vercel.app` | **Yes — this is the one to use everywhere** |
+| `drop-in-technical-recreation-solutions.vercel.app` | No — redirects to Vercel SSO |
+| `drop-in-git-main-technical-recreation-solutions.vercel.app` | No — redirects to Vercel SSO |
+
+The protected two are Vercel's team and git-branch aliases. Pointing anything at
+them — `NEXT_PUBLIC_APP_URL`, a Supabase redirect, a Stripe webhook — produces a
+login wall for users and machines alike. The Supabase Site URL was initially set
+to the team alias for exactly this reason.
+
+### The domain decision is now the bottleneck
+
+Five separate things all point at the same address and change together:
+`NEXT_PUBLIC_APP_URL`, the two Supabase auth URLs, the Stripe webhook endpoint,
+the Resend sending domain, and raising `HSTS_MAX_AGE`. Deferring SMTP until the
+domain exists avoids verifying a throwaway sending domain and replacing it later.
+
+### Testing signup before SMTP
+
+Supabase's built-in mailer allows ~2 sends/hour and generally only delivers to
+addresses belonging to your Supabase organization. That is enough for a
+one-off end-to-end test — sign up with the email tied to the Supabase account,
+not an arbitrary address, or nothing arrives and a correct configuration looks
+broken.
+
+---
+
 ## Why this order
 
 The app **refuses to start** if a required environment variable is missing
