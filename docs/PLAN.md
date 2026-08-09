@@ -47,6 +47,16 @@ Grouped by concern, not by migration number — migration order tells you histor
 - `session_exceptions` — one-off cancellations/modifications to a recurring session
 - `session_templates` — reusable, color-coded presentation+defaults for the drag-and-drop builder (schedule-specific fields like cost/age/skill stay on `schedule_groups` to avoid drift between template and instance)
 - `session_spaces`, `session_template_spaces` — many-to-many joins for sessions/templates that occupy multiple physical spaces at once (e.g., a multi-lane swim session)
+- `session_features` — migration `028`. The presentation payload behind two flags, `sessions.is_event` and `sessions.in_brochure`: title, summary, description, image, link, category, accent. One record per session (`session_id` is UNIQUE), because both channels need identical copy and duplicating it per channel is how a brochure ends up disagreeing with a calendar. **Turning a flag off does not delete the copy** — that is the point of the sidecar.
+
+**Publishing**
+- `brochures` — migration `031`. A seasonal publication: title, slug (UNIQUE per org), cover, intro, accent, `status` (`draft`/`published`/`archived`), optional `season_id` and `facility_id` (NULL = org-wide). Owner/admin writable; publish-gated public read.
+- `brochure_sections` — ordered groupings inside a brochure, with a fixed `layout` set (`list`/`grid`/`feature`) because each value is a real template in the renderer.
+- `brochure_entries` — **materialized** membership. Copy is snapshotted at pull time and then owned by the entry, so editing a session never rewrites a printed brochure. `status = 'dismissed'` is a **tombstone**, not a deletion — it stops a re-pull resurrecting what a human removed. `brochure_id` is denormalized (both invariants are brochure-wide), `section_id` is `SET NULL` (a deleted section must not take tombstones with it), and the source FKs are `SET NULL` too, which migration `032` had to relax the CHECK constraint to permit.
+- `schedule_groups.in_brochure` — migration `031`. Candidacy for a brochure, since a brochure lists *programs* as often as one-off events.
+
+**Storage** (migration `030`, not a table)
+- One public bucket, `org-media`, every object under `{orgId}/{kind}/…`. The first path segment scopes ownership; the second (`events`/`brochure`/`facilities`/`schedules`/`org`) decides whether a write is member- or manager-scoped. Size and MIME limits are on the bucket, not the client. See `src/components/media/README.md`.
 
 **Facility map**
 - `facility_maps` — one published illustrated map per facility
@@ -84,7 +94,7 @@ session. One entry, many surfaces.
 | Phase | Scope | State |
 |---|---|---|
 | A | `seasons` + `sessions.season_id`, CRUD at `/dashboard/seasons`, season picker in the command centre | **Done** — `027` applied and verified |
-| B | Range-based expansion (replacing the week-bound API/hook), `is_event` + `session_features`, one-time RRULE mode, an `events` schedule template, print stylesheet, the public org surface | **Migrations applied; data + route layers verified end-to-end. Rendering/print unverified** |
+| B | Range-based expansion (replacing the week-bound API/hook), `is_event` + `session_features`, one-time RRULE mode, an `events` schedule template, print stylesheet, the public org surface | **Done** — `028`+`029` applied, 64 assertions green |
 | C | Supabase Storage + image upload | **Done** — migration `030` applied, 19 assertions green |
 | D | Brochure: schema, editor, candidacy→pull→tombstone flow, public + print output | **Done** — migrations `031`+`032` applied, 40 assertions green |
 | E | Control centre: season milestones, tasks, derived readiness signals | Not started |
@@ -110,7 +120,20 @@ Two things worth knowing before touching Phase B code:
   `src/app/(public)/org/[orgSlug]/README.md`.
 
 Phase B also added the app's first org-level public route, `(public)/org/[orgSlug]`, which
-the brochure (Phase D) will extend with `/brochure/[seasonSlug]`.
+Phase D extended with `/brochure/[brochureSlug]`.
+
+Two more worth knowing, from C and D:
+
+- **`org-media` is a public bucket.** Objects are readable by anyone holding the URL,
+  including before the owning facility is published. Unguessable, not authorized — nothing
+  sensitive belongs there. Full reasoning in `030`'s header and `docs/SECURITY.md`.
+- **The public brochure page is the one public route without `"use cache"`.** Its result
+  depends on `status`, and caching it meant unpublishing did not take effect. A publish gate
+  is the last thing a cache should sit in front of.
+
+**Verification for this whole track lives at [`scripts/verify/`](../scripts/verify/README.md)** —
+123 assertions against a running app and the live database. Not a test suite; run them by
+hand after touching what they cover. Read that README before adding to them.
 
 ## 4. Open threads, in priority order (per prior discussion, not re-litigated here)
 

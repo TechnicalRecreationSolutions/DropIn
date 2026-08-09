@@ -1,7 +1,16 @@
 # Resume here
 
-Written 2026-08-07 at the end of a security-remediation session. Open this
-first; it points at everything else.
+Open this first; it points at everything else.
+
+> **Newer work exists.** This file was written 2026-08-07 at the end of a
+> **security-remediation** session and is still the authority on security,
+> deployment and launch blockers. Feature work has moved on since: the
+> seasons → events → storage → brochure track (phases A–D) shipped on
+> 2026-08-08/09.
+>
+> **For where feature work stopped, read
+> [`docs/RESUME-events.md`](RESUME-events.md) instead.** Migrations are now at
+> `032`, all applied. The remaining phase is E, the control centre.
 
 ---
 
@@ -10,6 +19,8 @@ first; it points at everything else.
 - Working tree **clean**, `main` **level with `origin/main`**.
 - Migrations **022–026 applied** to the hosted database and verified against it.
   No new migrations this session — every fix was application-level.
+  *(Since superseded: `027`–`032` have been applied by later sessions. See
+  RESUME-events.md.)*
 - `npx tsc --noEmit`, `npx eslint src` and `npx next build` all pass.
 - `npm audit` reports **0 vulnerabilities**, down from 12.
 - Running on **Next 16.3.0** (up from 16.2.10). PPR confirmed intact after the

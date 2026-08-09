@@ -1,243 +1,194 @@
 # Resume here — Seasons / Events / Brochure track
 
-Last session ended 2026-08-08. Nothing is committed; everything below is in the
-working tree.
+Last session ended **2026-08-09**. Working tree **clean**, `main` **level with
+`origin/main`**, everything committed and pushed.
 
-Full design brief for the whole track: [`docs/prompts/seasons-events-brochure.md`](prompts/seasons-events-brochure.md).
+Full design brief: [`docs/prompts/seasons-events-brochure.md`](prompts/seasons-events-brochure.md).
 Phase table: [`docs/PLAN.md` §3a](PLAN.md).
 
 ---
 
-## Migrations are applied ✅
+## The one thing to do first
 
-`027`, `028` and `029` are all live as of 2026-08-08, confirmed by probing
-PostgREST with the service role (`sessions.is_event` and `session_features`
-both resolve). The section below is kept as the record of what was applied and
-how it was checked — **you do not need to do it again.**
+**Nothing is blocking.** No migrations are pending, nothing is half-applied, the
+app builds and runs.
 
-Phase B's data and route layers are verified end-to-end; see
+The one outstanding gap is that **none of this track's UI has been opened in a
+browser.** Four sessions of interface — the events calendar, the Events tab, the
+feature dialogs, the brochure editor, the published brochure, and *both* print
+stylesheets — are verified only at the data and route layer. See
 [What is and isn't verified](#what-is-and-isnt-verified).
 
-<details>
-<summary>Original instructions (already done)</summary>
+If you can get the Chrome extension connected, do that before starting Phase E.
+The print output in particular is the deliverable the brief cares most about and
+has no automated coverage at all.
 
-**Run migrations `028` and `029` in the Supabase SQL editor, in that order.**
+---
+
+## Where the track stands
+
+| Phase | State |
+|---|---|
+| **A — Seasons** | ✅ Shipped. `027` applied. |
+| **B — Event calendar** | ✅ Shipped. `028`, `029` applied. All five gaps against the brief closed. |
+| **C — Storage + uploads** | ✅ Shipped. `030` applied. |
+| **D — Brochure** | ✅ Shipped. `031`, `032` applied. |
+| **E — Control centre** | ⬜ Not started. The last phase. |
+
+Migrations `027`–`032` are **all applied to the hosted database** and verified
+against it.
+
+Commits, newest first:
 
 ```
-supabase/migrations/028_session_features.sql
-supabase/migrations/029_widget_config_events_template.sql
+687f948  brochure: editor, public route, print output
+f579d84  brochure: schema, candidacy, schedule-group flag
+fded82c  storage: the org-media bucket and every image field
+c01aa27  events: add-on-a-day, defaulting to a one-off
+2c5e810  events: the org-wide Events workspace tab
+198b775  events: SessionForm toggles + one-click event action
+c922cdf  seasons + the event calendar + the public org surface
 ```
-
-Until you do, **the app is broken at runtime** — every schedule surface will 500.
-`/api/sessions/expand` selects `session_features(...)` and reads
-`sessions.is_event` / `sessions.in_brochure`, and PostgREST errors on a column
-that doesn't exist. This is not a graceful degradation; it's a hard break.
-
-Verified unapplied as of 2026-08-08 by probing PostgREST with the service role:
-`sessions.is_event` → `42703 column does not exist`, `session_features` →
-`PGRST205 table not found in schema cache`. `027_seasons.sql` **is** applied
-("Fall 2026" exists).
-
-Note that 029 only swaps a CHECK constraint, so it leaves no column behind to
-probe for. Confirm it by trying to save a widget config with `events` enabled —
-before 029, that's a constraint violation.
-
-After applying, sanity-check with:
-
-```sql
-select column_name from information_schema.columns
- where table_name = 'sessions' and column_name in ('season_id','is_event','in_brochure');
--- expect 3 rows
-
-select count(*) from session_features;  -- expect 0, but the table must exist
-```
-
-Then start the app and open `/dashboard/schedule` — if the weekly grid renders,
-the join is good.
-
-</details>
 
 ---
 
 ## What is and isn't verified
 
-**Verified**, by `verify-b.mjs` (session scratchpad — rebuild it, don't treat it
-as a test suite): a throwaway org + admin user + facility + schedule group + two
-sessions, driving the real HTTP routes as that signed-in user over `@supabase/ssr`
-cookies, torn down in a `finally`. **64 assertions, 0 failures**, with a positive
-control first and a confirmed-clean sweep afterwards.
+### Verified — 123 assertions, 0 failures
 
-It covers: expansion carrying `isEvent`/`feature`; the widget gate opening and
-closing; the month-grid + `eventsOnly` fetch returning exactly the flagged
-occurrence with its summary, accent and title; a one-off (`FREQ=DAILY;COUNT=1`)
-expanding to exactly one occurrence *and* being featured — the first time B3 and
-B5 have met; un-featuring clearing the flags while the copy survives (028 #3);
-`javascript:` links and non-hex colours rejected with 400; another org's session
-404; anonymous read and write 401; blank strings normalized to null so the
-display-name fallback fires.
+The harnesses now live in the repo at
+[`scripts/verify/`](../scripts/verify/README.md) (they used to be throwaway
+scratchpad scripts; they were moved because three phases depend on them). Run
+them against a running dev server:
 
-Sections 7 and 8 cover the two later additions: that a flag-only POST leaves
-every content field intact while an explicit `null` still clears one, and that
-`SessionForm`'s two-request save works on both create and update — including
-that editing a session's time leaves its featuring alone.
+```bash
+npm run dev
+node scripts/verify/verify-b.mjs   # 64
+node scripts/verify/verify-c.mjs   # 19
+node scripts/verify/verify-d.mjs   # 40
+```
 
-Section 10 covers the month grid's `+`: a dated placement expands to exactly one
-occurrence, on the day clicked, **over a quarter rather than a month** — a rule
-that silently repeated would still look correct inside a single month.
+Each builds a throwaway org, drives the real HTTP routes as a genuinely
+signed-in user over `@supabase/ssr` cookies, and tears everything down in a
+`finally`. Read that directory's README before adding to them — it records the
+four rules that stop these producing false green results.
 
-Section 9 builds a **second facility** in the temp org to prove the Events tab
-earns its existence: the org-wide fetch spans both buildings, the
-facility-scoped fetch sees one, and the second building's event is exactly what
-the scoped view misses. Without that second facility the assertion would pass
-vacuously — the failure mode this repo keeps hitting.
+### Not verified — anything visual
 
-**Not verified — needs a browser.** The Chrome extension is not connected (the
-same blocker `RESUME.md` records against the CSP check). Outstanding:
+The Chrome extension is not connected (`list_connected_browsers` returns `[]` —
+the extension must be signed into claude.ai with the *same* account as Claude
+Code, and Chrome restarted after install). Outstanding:
 
-1. The rendered month grid and the mobile agenda.
-2. Print preview — one landscape page, no chrome, org masthead and chip colours intact.
-3. The `⋯ → Feature…` dialog as an actual interaction.
+1. The month event calendar, its hover `+`, and the mobile agenda.
+2. **Print preview of the event calendar** — one landscape page, no chrome, org
+   masthead, chip colours intact, and *only one calendar* (the schedule panel
+   stays mounted-but-hidden behind the Events tab; the rules say it can't print,
+   but nobody has looked).
+3. The `⋯ → Add to event calendar` one-click action and the Feature dialog.
+4. `SessionForm`'s "Feature this session" disclosure, including that it does
+   **not** rewrite the recurrence on an existing session.
+5. The brochure editor: pulling, dragging between sections, the Removed tray.
+6. **Print preview of a published brochure** — multi-page portrait, headings not
+   stranded at page feet, entries not split, URLs printed beside link labels.
+7. Image upload actually picking, uploading and previewing a file.
 
-The data behind all three is proven; what's unproven is React and CSS.
-
----
-
-## Where the work stopped
-
-Phase A shipped. **Phase B is code complete** and unverified against a running
-app, because the migrations above are still unapplied.
-
-| | Status |
-|---|---|
-| **A — Seasons** | ✅ Done. Migration applied, verified against the live DB. |
-| **B1 — Range-based expansion** | ✅ Done and verified against real data (see below). |
-| **B2 — Event/brochure toggles + `session_features`** | ✅ Code + migration written. **Migration not applied.** |
-| **B3 — One-time RRULE mode** | ✅ Done. Not yet exercised in the running app. |
-| **B4 — The `events` calendar view** | ✅ Built and wired into all three `ScheduleView` surfaces. Not yet exercised. |
-| **B5 — Toggle UI + print stylesheet** | ✅ Built. Write path verified; print unverified. |
-| **B6 — Public org surface** | ✅ `(public)/org/[orgSlug]` + `/events`. Routes serve; prerender as `◐`. |
-
-`tsc --noEmit`, `eslint src`, and `next build` are all clean as of the end of
-the session.
-
-### What "verified" means for B1
-
-The week→range refactor touched every schedule surface, so it was checked
-against real rows rather than just compiled:
-
-- Org `2b55b947…` (Technical Recreation Solutions), 11 active session rows.
-- A week expanded to **44 occurrences across 7 days**; the enclosing month grid
-  to **219 across 35 days**.
-- Asserted: the month grid starts Monday and ends Sunday, covers every day the
-  week showed, returns strictly more occurrences, emits nothing outside its own
-  range, sorts chronologically, and carries `seasonId`. All pass.
-- Route guards checked over HTTP: inverted range → 400, >120 days → 400,
-  no scope → 400, legacy `weekStart` → 200 and still snaps to Mon–Sun.
-
-**One trap this repo already documents, worth repeating:** an empty result
-proves nothing. The first HTTP probes returned `{"data":[]}` and looked fine —
-they were empty because every published schedule group's sessions are
-`is_active = false`, and everything with active sessions is unpublished. Any
-verification here needs a positive control.
+Everything behind all seven is proven. What is unproven is React and CSS.
 
 ---
 
-## What B4 + B5 added
+## Phase E, when you start it
 
-New files:
+Season **milestones** and **tasks**, plus derived readiness signals. The brief's
+§ "Layer 3" has the schema. Two things it insists on, and both are the point:
 
-| File | What |
-|---|---|
-| `src/hooks/useScheduleAnchor.ts` | One anchor date; week and month derived from it |
-| `src/components/schedule/MonthNavigator.tsx` | Month stepper, sibling to `WeekNavigator` |
-| `src/components/schedule/EventCalendarView.tsx` | Month grid (desktop) / agenda (mobile) |
-| `src/components/schedule/editing/FeatureSessionDialog.tsx` | The two toggles + the shared payload |
-| `src/app/api/sessions/features/route.ts` | POST — writes flags on `sessions` + copy in `session_features` |
-| `src/app/api/sessions/events/route.ts` | GET — "does this org have any events", for the widget gate |
-| `src/components/schedule/README.md` | The view map, ranges, print, colour chains |
-| `src/app/(public)/org/[orgSlug]/` | The org public surface: layout, landing, events, `orgPublicData.ts`, README |
+- **Derived readiness, not just checkboxes** — "12 of 15 schedule groups have
+  sessions inside Fall 2026", "4 featured events have no image", "the Fall
+  brochure has 0 entries and prints in 11 days". These all now compute from
+  tables that exist. Put every one in `src/lib/seasons/readiness.ts` so the
+  dashboard, the control centre and any future digest share definitions.
+- **Deep links into the work** — every signal links to the thing.
+  `commandCentreHref()` for schedules, `/dashboard/brochures/[id]` for brochures.
 
-`useTemplateSchedule` in `useScheduleRange.ts` is the new fetch entry point:
-give it the template and both anchors, it picks a week or a month-grid range and
-forces `eventsOnly` for `events`. All three `ScheduleView` call sites use it.
+Routing needs a deliberate decision: `/dashboard/schedule` is already called
+"the command centre" internally and "Manage" in the nav. **Do not ship two
+things both called a command centre.** The mobile bottom bar is at its four-item
+limit; Seasons and Brochures were both deliberately left out of it.
 
-Print rules are at the bottom of `src/app/globals.css`, keyed on
-`.event-calendar`.
-
----
-
-## Next task
-
-**Connect the Chrome extension and do the three visual checks above**, then
-commit Phase B. After that, the open decisions from the brief that were
-knowingly not built:
-
-| Gap vs. the brief | Status |
-|---|---|
-| Toggles in `SessionForm.tsx` behind progressive disclosure | ✅ Built |
-| A genuine *one-click* feature action in `SessionActionsMenu` | ✅ Built |
-| An **Events workspace tab** in the command centre | ✅ Built — org-wide, distinct from the scoped events layout |
-| One-time mode defaulting on when the event toggle is on | ✅ Built — in both `SessionForm` and `CreateSessionDialog` |
-| "Add event on a day" affordance inside the calendar | ✅ Built — per-cell `+` on desktop, an explicit button on mobile |
-
-**All five gaps against the brief are now closed.** What remains is browser
-verification, below.
-
-Then Phase C (Supabase Storage for `image_url`, which is currently a URL field
-staff have to paste into).
-
-### Also worth a decision
-
-`/facility/[slug]` and `/org/[slug]` both return **HTTP 200 with a 404 body** for
-a bad slug — the streamed shell commits the status before the cached lookup
-resolves. Pre-existing on the facility route, now inherited by the org route.
-It's a soft-404 for crawlers and should be fixed once, for both.
+Assignment notifications are **in-app only** — SMTP is still not configured.
 
 ---
 
 ## Decisions already made, so you don't relitigate them
 
-- **The season picker sets creation defaults; it never filters the grid.** Every
-  pre-seasons session has `season_id NULL`, so filtering would blank the
-  schedule for an existing org the moment they made a season. An empty grid
-  reads as data loss.
-- **`is_event` and `in_brochure` are two flags over one payload**
+**Seasons**
+- The season picker sets creation defaults; it never filters the grid. Every
+  pre-seasons session has `season_id NULL`, so filtering would blank an existing
+  org's schedule the moment they made a season.
+
+**Events**
+- `is_event` and `in_brochure` are two flags over one payload
   (`session_features`). Turning a toggle off deliberately keeps the copy.
-- **A one-off is `FREQ=DAILY;COUNT=1`**, not a second representation for
-  "non-recurring" — see `ONCE_RRULE` in `lib/rrule/validate.ts`. `isOneTimeRRule`
-  must be checked *before* `FREQ=DAILY` when parsing, or every one-off reads
-  back as a daily series.
-- **One query key for all schedule fetches** (`SCHEDULE_RANGE_KEY`). A view that
-  fetches under its own key silently stops refreshing after a mutation.
-- **Featuring is its own dialog, not a section of the session edit form.** The
-  edit form owns *when and where* a session happens and is the only writer of
-  the `sessions` row proper; featuring is presentation, writes a different
-  table, and is reached from the calendar you're already looking at. One write
-  path for feature content beats two that can disagree.
-- **The events calendar renders its own empty state, inside the view.** Callers
-  must not short-circuit it the way they do the week views, or a visitor landing
-  on a quiet month has no control to page out of it.
-- **`/api/sessions/features` is a PATCH: absent means unchanged, `null` means
-  clear.** Do not "simplify" it back to defaulting omitted fields to null. The
-  one-click toggle sends only a flag; under PUT semantics that single click
-  erases every piece of copy on the session. Covered by section 7 of the
-  harness.
-- **`SessionForm` writes features in a second request**, not through
-  `/api/sessions`. One writer for `session_features`, and the id for a
-  newly-created session only exists after the first request returns.
-- **No dedicated print route.** The calendar is mounted in four shells; a
-  print-only copy would be a fifth rendering that drifts.
+- A one-off is `FREQ=DAILY;COUNT=1`. `isOneTimeRRule` must be checked *before*
+  `FREQ=DAILY` when parsing, or every one-off reads back as a daily series.
+- One query key for all schedule fetches (`SCHEDULE_RANGE_KEY`).
+- `useScheduleAnchor` holds **one date**; the week and month are both derived.
+  You cannot store the week and derive the month —
+  `getWeekStart(getMonthStart(october))` is Mon Sep 28.
+- `useTemplateSchedule` picks the range from the template. A week's sessions in a
+  month view looks fine and is empty after row one.
+- The events calendar renders its own empty state *inside* the view, so an empty
+  month is still one you can page out of. Callers must not short-circuit it.
+- `/api/sessions/features` is a **PATCH**: absent means unchanged, `null` means
+  clear. Do not "simplify" it — the one-click toggle sends only a flag, and under
+  PUT semantics that single click erases every piece of copy on the session.
+- The Events **tab** is org-wide; the Schedule tab's events **layout** is scoped.
+  Different questions, which is why both exist.
+
+**Storage**
+- One public bucket, path-scoped `{orgId}/{kind}/…`. Objects are readable by
+  anyone holding the URL — unguessability, not authorization. Nothing sensitive
+  belongs there.
+- SVG is excluded from `allowed_mime_types` deliberately; it is script-bearing
+  and Storage sits on a host the CSP trusts for images.
+- Writes are folder-scoped: `events`/`brochure` member-writable, everything else
+  `org_can_manage()`.
+
+**Brochure**
+- Candidacy is computed, membership is stored, publication is frozen. Read the
+  header of `031`.
+- Dismissed entries are **tombstones**, never deletions. Deleting one would let
+  the next pull resurrect what a human removed.
+- Source FKs are `ON DELETE SET NULL`. `032` exists because `031`'s CHECK
+  contradicted that and made a session in any brochure undeletable.
+- **The public brochure page is deliberately not cached**, unlike every sibling
+  public route. Its result depends on `status`; caching it meant unpublishing
+  didn't take effect. See `src/components/brochure/README.md`.
+
+**Cross-cutting**
+- A layout under Cache Components must not `await params` — it sits above the
+  Suspense boundary `loading.tsx` creates, and awaiting request data there fails
+  the build.
+- No print-only routes anywhere. A second rendering of the same content drifts.
+
+---
+
+## Known gaps and debt, all deliberate
+
+| | |
+|---|---|
+| **No org settings page** | `organizations.logo_url` has a storage folder, a policy, and two render sites (the public org page, the printed event sheet) — but nothing sets it. There is no org settings surface in this app at all. |
+| **Orphaned uploads** | Removing a *saved* image clears the field without deleting the object, because that URL may be on another record via "Duplicate to…". Replacing one *before* saving does delete the superseded file. A sweep is owed — best written once, now that Phase D added the fifth column referencing these URLs. |
+| **No drag-sorting** | `@dnd-kit/sortable` is not a dependency. Dragging moves entries between brochure sections; arrows order within one. Also the better mobile call. Add the package if true drag-sorting is wanted. |
+| **Soft-404s** | `/facility/[slug]` and `/org/[slug]` return **HTTP 200 with a 404 body** for a bad slug — the streamed shell commits the status before the lookup resolves. Pre-existing on the facility route, inherited by the org route. Should be fixed once, for both. |
+| **SMTP** | Still not configured. Still a launch blocker. Anything notification-shaped stays in-app. |
 
 ---
 
 ## Housekeeping
 
-- Dev server was not started this session.
-- Nothing committed. `git status` shows ~25 modified and ~20 new files across
-  Phase A and B1–B5.
-- `src/hooks/useWeeklySchedule.ts` was **deleted**; it's now
-  `src/hooks/useScheduleRange.ts`, which still exports `useWeeklySchedule` as a
-  thin wrapper. Only `ScheduleGroupScheduleClient` still uses that wrapper — it
-  renders `WeeklyScheduleGrid` directly and is week-only by design.
-- READMEs written: `src/components/seasons/`, `src/components/schedule/`.
-  Updated: `src/components/schedule-command/`.
+- Dev server was left running on `localhost:3000`.
+- `tsc --noEmit`, `eslint src`, `next build` all clean.
+- READMEs written this track: `components/seasons/`, `components/schedule/`,
+  `components/media/`, `components/brochure/`, `app/(public)/org/[orgSlug]/`,
+  `scripts/verify/`. Updated: `components/schedule-command/`.
+- `docs/SECURITY.md` gained a Storage section and standing assumptions 24–26.
