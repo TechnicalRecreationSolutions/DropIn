@@ -9,6 +9,7 @@ import {
   Database,
   CreditCard,
   CalendarRange,
+  BookOpen,
   Plus,
 } from "lucide-react";
 import { useNavTree } from "@/hooks/useNavTree";
@@ -23,6 +24,10 @@ export const topLinks = [
   // four-item limit, and seasons are reachable there from the command centre's
   // own picker.
   { href: "/dashboard/seasons", label: "Seasons", icon: CalendarRange, exact: false },
+  // Directly under Seasons because a brochure is *of* a season — that adjacency
+  // is the relationship. Same reasoning as above for the mobile bottom bar:
+  // still four items there, and building a brochure is desk work.
+  { href: "/dashboard/brochures", label: "Brochures", icon: BookOpen, exact: false },
 ];
 
 export const bottomLinks = [

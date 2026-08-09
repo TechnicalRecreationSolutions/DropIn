@@ -85,8 +85,8 @@ session. One entry, many surfaces.
 |---|---|---|
 | A | `seasons` + `sessions.season_id`, CRUD at `/dashboard/seasons`, season picker in the command centre | **Done** — `027` applied and verified |
 | B | Range-based expansion (replacing the week-bound API/hook), `is_event` + `session_features`, one-time RRULE mode, an `events` schedule template, print stylesheet, the public org surface | **Migrations applied; data + route layers verified end-to-end. Rendering/print unverified** |
-| C | Supabase Storage + image upload — **no file upload exists anywhere in this codebase today** | Not started |
-| D | Brochure: schema, editor, candidacy→pull→tombstone flow, public + print output | Not started |
+| C | Supabase Storage + image upload | **Done** — migration `030` applied, 19 assertions green |
+| D | Brochure: schema, editor, candidacy→pull→tombstone flow, public + print output | **Done** — migrations `031`+`032` applied, 40 assertions green |
 | E | Control centre: season milestones, tasks, derived readiness signals | Not started |
 
 Phase B contained the one genuinely risky refactor — `/api/sessions/expand`,

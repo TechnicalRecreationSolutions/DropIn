@@ -245,3 +245,83 @@
     break-inside: avoid;
   }
 }
+
+
+/* =============================================================================
+   Print — a published brochure.
+
+   Separate from the event-calendar block above because the two want opposite
+   things. The calendar is ONE landscape page and reveals a single subtree out
+   of a dashboard; a brochure is a multi-page portrait document that IS the
+   whole page, so here the job is pagination rather than extraction.
+
+   No print-only route and no server-side PDF library. The same markup a reader
+   sees is what prints, so the two cannot drift, and browser "Save as PDF" over
+   rules this tight produces a genuinely usable artifact — which is the bar the
+   brief set.
+   ============================================================================= */
+@media print {
+  .brochure {
+    /* The document owns the page; the public nav and footer are chrome. */
+    max-width: none;
+    padding: 0;
+  }
+
+  /* Everything outside the brochure. Uses display rather than the calendar's
+     visibility trick because here the article is the whole document and there
+     is no surrounding layout worth preserving space for. */
+  body:has(.brochure) > *:not(:has(.brochure)) {
+    display: none !important;
+  }
+
+  .brochure .no-print {
+    display: none !important;
+  }
+
+  /* A heading stranded at the foot of a page with its content overleaf is the
+     single most common way a printed document looks broken. */
+  .brochure-section {
+    break-inside: auto;
+  }
+  .brochure-section > h2 {
+    break-after: avoid;
+    break-inside: avoid;
+  }
+
+  /* An entry splitting mid-description is worse than a slightly short page. */
+  .brochure-entry {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+
+  .brochure-cover {
+    break-after: avoid;
+  }
+
+  .brochure-footer {
+    break-before: avoid;
+  }
+
+  /* A hyperlink is a dead end on paper, so the URL is printed beside its label.
+     Hidden on screen, where the link works and the raw URL is only noise. */
+  .brochure .print-only-url {
+    display: inline !important;
+  }
+
+  /* Accent rules and cover images carry the org's identity; without this,
+     browsers strip every background and border colour. */
+  .brochure * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+
+  /* Cover art at full bleed wastes a third of the first page on paper. */
+  .brochure-cover img {
+    max-height: 7cm;
+  }
+
+  @page {
+    size: portrait;
+    margin: 16mm;
+  }
+}
