@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, CalendarDays, BookOpen } from "lucide-react";
 import RRuleBuilder from "./RRuleBuilder";
+import { ONCE_RRULE, isOneTimeRRule } from "@/lib/rrule/validate";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { zonedTimeToUtc } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
@@ -34,6 +35,9 @@ interface SessionFormProps {
   redirectTo?: string;
 }
 
+/** What a brand-new session starts as, and the marker for "nobody has chosen a recurrence yet". */
+const DEFAULT_RRULE = "FREQ=WEEKLY;BYDAY=MO,WE,FR";
+
 const TIMEZONES = [
   "America/Vancouver",
   "America/Edmonton",
@@ -56,7 +60,11 @@ export default function SessionForm({
   const isEditing = !!sessionId;
 
   const [scheduleGroupId, setScheduleGroupId] = useState(defaultScheduleGroupId ?? scheduleGroups[0]?.id ?? "");
-  const [rrule, setRrule] = useState(initialValues?.rrule ?? "FREQ=WEEKLY;BYDAY=MO,WE,FR");
+  const [rrule, setRrule] = useState(initialValues?.rrule ?? DEFAULT_RRULE);
+  // Bumped to force RRuleBuilder to remount. It parses its RRULE once on mount
+  // and owns frequency/day state from then on, so changing `rrule` from out
+  // here is invisible to it without this.
+  const [rruleSeed, setRruleSeed] = useState(0);
   const [startTime, setStartTime] = useState(initialValues?.startTime ?? "09:00");
   const [endTime, setEndTime] = useState(initialValues?.endTime ?? "10:00");
   const [validFrom, setValidFrom] = useState(initialValues?.validFrom ?? "");
@@ -78,6 +86,27 @@ export default function SessionForm({
   const [featureOpen, setFeatureOpen] = useState(
     !!(initialValues?.isEvent || initialValues?.inBrochure)
   );
+
+  /**
+   * Turning the event toggle on defaults a *new* session to a one-off.
+   *
+   * The brief asks for this because the thing being put on an events calendar
+   * is usually a Halloween Howl, not a recurring class — and until B3 there was
+   * no first-class way to say "once".
+   *
+   * Two guards make it a default rather than a silent rewrite. It never touches
+   * an existing session, where the recurrence is established fact and flipping
+   * a presentation toggle must not rewrite when it happens. And it only fires
+   * while the rule is still untouched, so someone who has already built a
+   * weekly pattern and *then* decides to feature it keeps what they built.
+   */
+  function handleEventToggle(next: boolean) {
+    setIsEvent(next);
+    if (next && !isEditing && rrule === DEFAULT_RRULE) {
+      setRrule(ONCE_RRULE);
+      setRruleSeed((seed) => seed + 1);
+    }
+  }
 
   // What the form would be writing if submitted now. Used to skip the second
   // request entirely for the overwhelmingly common case: a session nobody has
@@ -228,6 +257,7 @@ export default function SessionForm({
       <div className="border-t border-gray-100 pt-5">
         <h3 className="text-sm font-semibold text-gray-900 mb-4">Recurrence</h3>
         <RRuleBuilder
+          key={rruleSeed}
           value={rrule}
           startTime={startTime}
           endTime={endTime}
@@ -298,7 +328,7 @@ export default function SessionForm({
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
               type="button"
-              onClick={() => setIsEvent(!isEvent)}
+              onClick={() => handleEventToggle(!isEvent)}
               aria-pressed={isEvent}
               className={cn(
                 "text-left rounded-lg border-2 p-3 transition-colors",
@@ -332,6 +362,15 @@ export default function SessionForm({
               </span>
             </button>
           </div>
+
+          {/* The toggle moved the recurrence, so say so. A form that silently
+              rewrote a field above it would be a bug report. */}
+          {isEvent && !isEditing && isOneTimeRRule(rrule) && (
+            <p className="text-xs text-blue-700 bg-blue-50 border border-blue-100 rounded-lg px-3 py-2">
+              Set to happen <span className="font-medium">just once</span> — the usual shape for
+              an event. Change &ldquo;Repeats&rdquo; above if it runs weekly.
+            </p>
+          )}
 
           <div>
             <label htmlFor="feature_summary" className={labelClass}>Calendar summary</label>

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { CalendarDays } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -18,6 +19,13 @@ import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext"
 
 export interface CreateSessionValues {
   templateId: string;
+  /**
+   * True when this is a single-occurrence session (`FREQ=DAILY;COUNT=1`).
+   * `dayCodes` is then irrelevant — the date is `validFrom`.
+   */
+  once: boolean;
+  /** Flip `is_event` on straight after creating, so an event is one step, not two. */
+  isEvent: boolean;
   dayCodes: string[];
   startTime: string;
   endTime: string;
@@ -66,6 +74,8 @@ export default function CreateSessionDialog({
   const [validFrom, setValidFrom] = useState(localDateString());
   const [validUntil, setValidUntil] = useState("");
   const [spaceIds, setSpaceIds] = useState<string[]>([]);
+  const [once, setOnce] = useState(false);
+  const [isEvent, setIsEvent] = useState(false);
 
   // Reseed every field when the dialog opens for a new placement; once open
   // the form is free-form, so this deliberately keys on the target only.
@@ -73,14 +83,21 @@ export default function CreateSessionDialog({
     if (!target) return;
     const template = target.template ?? templates[0];
     const start = target.startTime ?? "09:00";
+    // A dated target came from a month cell, which means one specific day. The
+    // season's range is the right default for a recurring placement and exactly
+    // the wrong one here — it would turn "an event on the 31st" into a series
+    // running to the end of the season.
+    const dated = !!target.date;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTemplateId(template?.id ?? "");
     setSelectedDays([target.dayCode]);
     setStartTime(start);
     setEndTime(computeEndTime24(start, template?.default_duration_minutes ?? 60));
-    setValidFrom(defaultValidFrom(season));
-    setValidUntil(season?.ends_on ?? "");
+    setValidFrom(dated ? target.date! : defaultValidFrom(season));
+    setValidUntil(dated ? target.date! : (season?.ends_on ?? ""));
     setSpaceIds(target.spaceId ? [target.spaceId] : (template?.default_space_ids ?? []));
+    setOnce(dated);
+    setIsEvent(dated);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
@@ -107,9 +124,10 @@ export default function CreateSessionDialog({
 
   const draggedTemplate = target.template;
   const dayLabels = DAYS.filter((d) => selectedDays.includes(d.code)).map((d) => d.short).join(", ");
-  const daysValid = selectedDays.length > 0;
+  // A one-off has no weekday pattern to validate — its day is the date field.
+  const daysValid = once || selectedDays.length > 0;
   const timeValid = endTime > startTime;
-  const datesValid = !validUntil || validUntil >= validFrom;
+  const datesValid = once || !validUntil || validUntil >= validFrom;
   const canSubmit = daysValid && timeValid && datesValid && !!selectedTemplateId && !!validFrom;
 
   return (
@@ -169,6 +187,37 @@ export default function CreateSessionDialog({
         )}
 
         <div>
+          <label className="block text-sm font-medium text-gray-700 mb-1.5">Repeats</label>
+          <div className="flex gap-1.5 mb-2">
+            <button
+              type="button"
+              onClick={() => setOnce(false)}
+              aria-pressed={!once}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                !once ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-blue-300"
+              )}
+            >
+              Weekly
+            </button>
+            <button
+              type="button"
+              onClick={() => setOnce(true)}
+              aria-pressed={once}
+              className={cn(
+                "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                once ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-blue-300"
+              )}
+            >
+              Just once
+            </button>
+          </div>
+        </div>
+
+        {/* Day chips are meaningless for a one-off — the day it happens on is
+            the date below, not a weekday pattern. */}
+        {!once && (
+        <div>
           <label className="block text-sm font-medium text-gray-700 mb-1.5">Repeats on</label>
           <div className="flex gap-1.5 flex-wrap">
             {DAYS.map((day) => {
@@ -195,6 +244,7 @@ export default function CreateSessionDialog({
             <p className="text-xs text-red-500 mt-1">Select at least one day.</p>
           )}
         </div>
+        )}
 
         <div className="grid grid-cols-2 gap-3">
           <div>
@@ -226,40 +276,87 @@ export default function CreateSessionDialog({
           )}
         </div>
 
-        <div className="grid grid-cols-2 gap-3">
+        {once ? (
           <div>
             <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-gray-700 mb-1">
-              Start date
+              Date
             </label>
             <input
               id="create-session-valid-from"
               type="date"
               value={validFrom}
-              onChange={(e) => setValidFrom(e.target.value)}
+              // A one-off's window is the single day it happens on, so the two
+              // dates move together and only one is shown.
+              onChange={(e) => {
+                setValidFrom(e.target.value);
+                setValidUntil(e.target.value);
+              }}
               className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
-          <div>
-            <label htmlFor="create-session-valid-until" className="block text-sm font-medium text-gray-700 mb-1">
-              End date <span className="font-normal text-gray-400">(optional)</span>
-            </label>
-            <input
-              id="create-session-valid-until"
-              type="date"
-              value={validUntil}
-              min={validFrom}
-              onChange={(e) => setValidUntil(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
-            />
+        ) : (
+          <div className="grid grid-cols-2 gap-3">
+            <div>
+              <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-gray-700 mb-1">
+                Start date
+              </label>
+              <input
+                id="create-session-valid-from"
+                type="date"
+                value={validFrom}
+                onChange={(e) => setValidFrom(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            <div>
+              <label htmlFor="create-session-valid-until" className="block text-sm font-medium text-gray-700 mb-1">
+                End date <span className="font-normal text-gray-400">(optional)</span>
+              </label>
+              <input
+                id="create-session-valid-until"
+                type="date"
+                value={validUntil}
+                min={validFrom}
+                onChange={(e) => setValidUntil(e.target.value)}
+                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+            {!datesValid && (
+              <p className="text-xs text-red-500 col-span-2 -mt-2">End date must be on or after the start date.</p>
+            )}
           </div>
-          {!datesValid && (
-            <p className="text-xs text-red-500 col-span-2 -mt-2">End date must be on or after the start date.</p>
+        )}
+
+        {/* Ticking this is what the brief means by the event toggle defaulting
+            to one-off: a genuine one-off is the overwhelmingly common shape for
+            something worth putting on an events calendar. It only *defaults* —
+            "Weekly" above stays one click away for a featured recurring class. */}
+        <button
+          type="button"
+          onClick={() => {
+            const next = !isEvent;
+            setIsEvent(next);
+            if (next) setOnce(true);
+          }}
+          aria-pressed={isEvent}
+          className={cn(
+            "flex items-center gap-2 text-left rounded-lg border-2 p-3 transition-colors",
+            isEvent ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
           )}
-        </div>
+        >
+          <CalendarDays className={cn("w-4 h-4 shrink-0", isEvent ? "text-blue-600" : "text-gray-400")} />
+          <span>
+            <span className="block text-sm font-medium text-gray-900">Add to the event calendar</span>
+            <span className="block text-xs text-gray-500">
+              Shows on the month calendar. Write the blurb afterwards from the ⋯ menu.
+            </span>
+          </span>
+        </button>
 
         <p className="text-xs text-gray-500">
-          Creates one recurring session, every {dayLabels || "…"}, {formatTime12(startTime)}–{formatTime12(endTime)},
-          starting {validFrom}{validUntil ? ` through ${validUntil}` : " with no end date"}.
+          {once
+            ? `Creates a single session on ${validFrom || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}.`
+            : `Creates one recurring session, every ${dayLabels || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}, starting ${validFrom}${validUntil ? ` through ${validUntil}` : " with no end date"}.`}
           {season && ` Assigned to ${season.name}.`}
         </p>
 
@@ -274,11 +371,15 @@ export default function CreateSessionDialog({
           <Button
             onClick={() => onConfirm({
               templateId: selectedTemplateId,
+              once,
+              isEvent,
               dayCodes: selectedDays,
               startTime,
               endTime,
               validFrom,
-              validUntil: validUntil || null,
+              // A one-off's window is exactly its own day, so it never carries
+              // the season's end date the way a recurring placement does.
+              validUntil: once ? validFrom : (validUntil || null),
               spaceIds,
             })}
             disabled={submitting || !canSubmit}

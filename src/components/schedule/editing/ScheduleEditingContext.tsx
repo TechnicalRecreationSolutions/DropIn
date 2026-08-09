@@ -16,6 +16,16 @@ export interface EditorTemplate {
 export interface AddSessionTarget {
   dayCode: string;
   dayLabel: string;
+  /**
+   * The concrete calendar day clicked (YYYY-MM-DD), set only by surfaces with a
+   * date axis — today that means the month event calendar.
+   *
+   * The week views can only say "a Tuesday", which is why `dayCode` exists and
+   * why placing from them builds a weekly rule. A month cell says "the 31st of
+   * October", and a recurring rule is almost never what someone means by
+   * clicking one, so its presence is what flips the dialog to a one-off.
+   */
+  date?: string;
   /** Set from Map, whose columns are real spaces. */
   spaceId?: string;
   spaceName?: string;

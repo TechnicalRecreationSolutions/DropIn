@@ -85,6 +85,31 @@ colour as a rule across the top. Only surfaces that know which org they belong
 to pass it — the public org calendar does; the dashboard doesn't, because it
 already sits under the org's own chrome on screen.
 
+## Adding from a month cell
+
+`AddSessionTarget` carries an optional `date`. The week views can only say "a
+Tuesday" — hence `dayCode`, and hence placing from them builds a *weekly* rule.
+A month cell says "the 31st of October", and a recurring series is almost never
+what clicking one day means.
+
+So a dated target flips `CreateSessionDialog` to a one-off (`FREQ=DAILY;COUNT=1`),
+seeds both date fields to that day, and pre-ticks "Add to the event calendar".
+Ticking that toggle by hand does the same thing, which is the brief's "one-time
+mode is the default when the event toggle is on".
+
+The silent failure this shape prevents: sending a weekly rule for a dated
+placement creates an every-Thursday series that looks correct on the day you
+clicked and wrong on four other days of the month. Section 10 of the
+verification harness asserts a dated placement expands to exactly one
+occurrence — over a quarter, not just the month, since a rule that repeats
+yearly would still look fine in one month.
+
+The "+" is revealed on hover per cell rather than always shown: 35 permanent
+buttons turn the month into a grid of controls and bury the events it exists to
+display. The mobile agenda lists only days that already have something on them,
+so it gets one explicit "Add an event" button instead — otherwise adding to a
+quiet day would be desktop-only.
+
 ## Featuring: three entry points, one writer
 
 | Where | What it does |

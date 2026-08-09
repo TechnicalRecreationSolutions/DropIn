@@ -64,7 +64,7 @@ the join is good.
 **Verified**, by `verify-b.mjs` (session scratchpad — rebuild it, don't treat it
 as a test suite): a throwaway org + admin user + facility + schedule group + two
 sessions, driving the real HTTP routes as that signed-in user over `@supabase/ssr`
-cookies, torn down in a `finally`. **60 assertions, 0 failures**, with a positive
+cookies, torn down in a `finally`. **64 assertions, 0 failures**, with a positive
 control first and a confirmed-clean sweep afterwards.
 
 It covers: expansion carrying `isEvent`/`feature`; the widget gate opening and
@@ -80,6 +80,10 @@ Sections 7 and 8 cover the two later additions: that a flag-only POST leaves
 every content field intact while an explicit `null` still clears one, and that
 `SessionForm`'s two-request save works on both create and update — including
 that editing a session's time leaves its featuring alone.
+
+Section 10 covers the month grid's `+`: a dated placement expands to exactly one
+occurrence, on the day clicked, **over a quarter rather than a month** — a rule
+that silently repeated would still look correct inside a single month.
 
 Section 9 builds a **second facility** in the temp org to prove the Events tab
 earns its existence: the org-wide fetch spans both buildings, the
@@ -173,8 +177,11 @@ knowingly not built:
 | Toggles in `SessionForm.tsx` behind progressive disclosure | ✅ Built |
 | A genuine *one-click* feature action in `SessionActionsMenu` | ✅ Built |
 | An **Events workspace tab** in the command centre | ✅ Built — org-wide, distinct from the scoped events layout |
-| One-time mode defaulting on when the event toggle is on | Not wired — `RRuleBuilder` has the mode, nothing links them |
-| "Add event on a day" affordance inside the calendar | Not built — the `⋯` menu is there, the per-day `+` isn't |
+| One-time mode defaulting on when the event toggle is on | ✅ Built — in both `SessionForm` and `CreateSessionDialog` |
+| "Add event on a day" affordance inside the calendar | ✅ Built — per-cell `+` on desktop, an explicit button on mobile |
+
+**All five gaps against the brief are now closed.** What remains is browser
+verification, below.
 
 Then Phase C (Supabase Storage for `image_url`, which is currently a URL field
 staff have to paste into).

@@ -2,7 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { isSameMonth } from "date-fns";
-import { Printer } from "lucide-react";
+import { Printer, Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { eventDisplayTitle } from "@/types/schedule.types";
 import {
@@ -10,10 +10,11 @@ import {
   formatDayFull,
   formatMonthLabel,
   getMonthGridRange,
+  getMonthStart,
   localDateString,
 } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
-import { DAYS } from "@/lib/schedule/weekGeometry";
+import { DAYS, dayIndexFromDate } from "@/lib/schedule/weekGeometry";
 import SessionModal from "./SessionModal";
 import MonthNavigator from "./MonthNavigator";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
@@ -93,6 +94,23 @@ export default function EventCalendarView({
 
   const todayKey = localDateString();
 
+  // A dead "+" on thirty-odd cells is worse than none — the command centre
+  // explains in the rail why placing is unavailable. False on the org-wide
+  // Events tab, where there is no single schedule to place into.
+  const canAdd = !!editing?.canCreate && editing.templates.length > 0;
+
+  function addOn(day: Date) {
+    if (!editing) return;
+    const index = dayIndexFromDate(day);
+    editing.onAddSession({
+      dayCode: DAYS[index].code,
+      dayLabel: formatDayFull(day),
+      // The month grid knows the actual date, unlike the week views. This is
+      // what makes the dialog offer a one-off rather than a weekly series.
+      date: localDateString(day),
+    });
+  }
+
   // Days carrying something, in order — the mobile agenda, and the answer to
   // "is this month actually empty".
   const agendaDays = useMemo(
@@ -162,21 +180,37 @@ export default function EventCalendarView({
               <div
                 key={key}
                 className={cn(
-                  "bg-white min-h-[7rem] p-1.5 flex flex-col gap-1",
+                  "group/cell bg-white min-h-[7rem] p-1.5 flex flex-col gap-1",
                   !inMonth && "bg-gray-50/70"
                 )}
               >
-                <span
-                  className={cn(
-                    "self-start text-xs font-semibold leading-none rounded-full px-1.5 py-1",
-                    !inMonth && "text-gray-300",
-                    inMonth && !isToday && "text-gray-500",
-                    isToday && "text-white"
+                <div className="flex items-start justify-between gap-1">
+                  <span
+                    className={cn(
+                      "text-xs font-semibold leading-none rounded-full px-1.5 py-1",
+                      !inMonth && "text-gray-300",
+                      inMonth && !isToday && "text-gray-500",
+                      isToday && "text-white"
+                    )}
+                    style={isToday ? { backgroundColor: "var(--org-accent, #2563eb)" } : undefined}
+                  >
+                    {day.getDate()}
+                  </span>
+
+                  {/* Revealed on hover/focus rather than always shown: a "+" in
+                      all 35 cells at once turns the month into a grid of
+                      buttons and buries the events it exists to display. */}
+                  {canAdd && (
+                    <button
+                      type="button"
+                      onClick={() => addOn(day)}
+                      aria-label={`Add an event on ${formatDayFull(day)}`}
+                      className="no-print opacity-0 group-hover/cell:opacity-100 focus-visible:opacity-100 p-0.5 rounded text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-opacity"
+                    >
+                      <Plus className="w-3.5 h-3.5" />
+                    </button>
                   )}
-                  style={isToday ? { backgroundColor: "var(--org-accent, #2563eb)" } : undefined}
-                >
-                  {day.getDate()}
-                </span>
+                </div>
 
                 {dayEvents.map((session) => (
                   <EventChip
@@ -201,15 +235,30 @@ export default function EventCalendarView({
 
           return (
             <div key={key}>
-              <h3
+              <div
                 className={cn(
-                  "text-sm font-bold pb-1.5 border-b-2",
-                  isToday ? "border-transparent" : "border-gray-200 text-gray-900"
+                  "flex items-center gap-2 pb-1.5 border-b-2",
+                  isToday ? "border-transparent" : "border-gray-200"
                 )}
-                style={isToday ? { color: "var(--org-accent, #2563eb)", borderColor: "var(--org-accent, #2563eb)" } : undefined}
+                style={isToday ? { borderColor: "var(--org-accent, #2563eb)" } : undefined}
               >
-                {formatDayFull(day)}
-              </h3>
+                <h3
+                  className={cn("text-sm font-bold", !isToday && "text-gray-900")}
+                  style={isToday ? { color: "var(--org-accent, #2563eb)" } : undefined}
+                >
+                  {formatDayFull(day)}
+                </h3>
+                {canAdd && (
+                  <button
+                    type="button"
+                    onClick={() => addOn(day)}
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                  >
+                    <Plus className="w-3.5 h-3.5" />
+                    Add
+                  </button>
+                )}
+              </div>
               <ul className="divide-y divide-gray-100">
                 {dayEvents.map((session) => (
                   <li key={session.key} className="group flex items-center">
@@ -243,6 +292,23 @@ export default function EventCalendarView({
           );
         })}
       </div>
+
+      {/* The agenda lists only days that already have something on them, so on
+          mobile there is no empty cell to press. Without this, adding an event
+          to a quiet day would be desktop-only. Defaults to today when the month
+          in view contains it, else the 1st. */}
+      {canAdd && (
+        <div className="sm:hidden mt-4">
+          <button
+            type="button"
+            onClick={() => addOn(isSameMonth(new Date(), month) ? new Date() : getMonthStart(month))}
+            className="w-full inline-flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium text-blue-600 border border-blue-200 rounded-lg hover:bg-blue-50 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add an event
+          </button>
+        </div>
+      )}
 
       {/* One empty state for both layouts. It sits *below* the navigator rather
           than replacing the view, so an empty month is still a month you can

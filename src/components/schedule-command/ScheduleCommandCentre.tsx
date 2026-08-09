@@ -415,7 +415,10 @@ export default function ScheduleCommandCentre({
   );
 
   async function handleConfirmCreate(values: CreateSessionValues) {
-    if (!scheduleGroup || values.dayCodes.length === 0 || !values.templateId) return;
+    // A one-off has no day codes to check — its day is `validFrom`. Keeping the
+    // old guard would have made "Just once" silently do nothing.
+    if (!scheduleGroup || !values.templateId) return;
+    if (!values.once && values.dayCodes.length === 0) return;
     setCreateSubmitting(true);
     setCreateError(null);
 
@@ -427,7 +430,9 @@ export default function ScheduleCommandCentre({
       body: JSON.stringify({
         schedule_group_id: scheduleGroup.id,
         template_id: values.templateId,
-        rrule: buildRRuleString({ frequency: "weekly", days: values.dayCodes }),
+        rrule: values.once
+          ? buildRRuleString({ frequency: "once" })
+          : buildRRuleString({ frequency: "weekly", days: values.dayCodes }),
         dtstart,
         dtend_time: values.endTime,
         valid_from: values.validFrom,
@@ -439,11 +444,33 @@ export default function ScheduleCommandCentre({
       }),
     });
 
+    const created = await res.json().catch(() => ({}));
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setCreateError(data.error ?? "Could not place this session.");
+      setCreateError(created.error ?? "Could not place this session.");
       setCreateSubmitting(false);
       return;
+    }
+
+    // Placing from a month cell means "put an event here", so the flag is set
+    // in the same gesture rather than leaving staff to find the ⋯ menu on a
+    // session that isn't on the calendar they just placed it into.
+    if (values.isEvent && created.sessionId) {
+      const featureRes = await fetch("/api/sessions/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: created.sessionId, is_event: true }),
+      });
+
+      if (!featureRes.ok) {
+        const data = await featureRes.json().catch(() => ({}));
+        // The session exists either way; say which half failed.
+        setCreateError(
+          `${data.error ?? "Could not add it to the event calendar."} The session itself was placed.`
+        );
+        setCreateSubmitting(false);
+        refresh();
+        return;
+      }
     }
 
     setCreateSubmitting(false);
