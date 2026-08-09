@@ -355,6 +355,9 @@ export type Database = {
           tags: string[];
           display_order: number;
           is_published: boolean;
+          // Added in 031_brochures.sql. Candidacy for a season brochure, not
+          // membership — the editor pulls candidates explicitly.
+          in_brochure: boolean;
           schedule_type: "time_block" | "continuous";
           continuous_hours_note: string | null;
           source: "manual" | "imported";
@@ -375,6 +378,7 @@ export type Database = {
           | "skill_level"
           | "max_participants"
           | "cost_notes"
+          | "in_brochure"
           | "photo_urls"
           | "tags"
           | "display_order"
@@ -387,6 +391,7 @@ export type Database = {
           skill_level?: string | null;
           max_participants?: number | null;
           cost_notes?: string | null;
+          in_brochure?: boolean;
           photo_urls?: string[];
           tags?: string[];
           display_order?: number;
@@ -787,6 +792,131 @@ export type Database = {
         Update: Partial<
           Database["public"]["Tables"]["staff_invitations"]["Insert"]
         >;
+        Relationships: [];
+      };
+      // Added in 031_brochures.sql.
+      brochures: {
+        Row: {
+          id: string;
+          org_id: string;
+          // SET NULL on season delete — the artifact outlives its planning period.
+          season_id: string | null;
+          // NULL = org-wide, matching widget_configs' scoping convention.
+          facility_id: string | null;
+          title: string;
+          subtitle: string | null;
+          slug: string;
+          cover_image_url: string | null;
+          intro_copy: string | null;
+          accent_color: string | null;
+          status: "draft" | "published" | "archived";
+          published_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["brochures"]["Row"],
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "season_id"
+          | "facility_id"
+          | "subtitle"
+          | "cover_image_url"
+          | "intro_copy"
+          | "accent_color"
+          | "status"
+          | "published_at"
+        > & {
+          season_id?: string | null;
+          facility_id?: string | null;
+          subtitle?: string | null;
+          cover_image_url?: string | null;
+          intro_copy?: string | null;
+          accent_color?: string | null;
+          status?: "draft" | "published" | "archived";
+          published_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["brochures"]["Insert"]>;
+        Relationships: [];
+      };
+      brochure_sections: {
+        Row: {
+          id: string;
+          brochure_id: string;
+          org_id: string;
+          title: string;
+          blurb: string | null;
+          display_order: number;
+          layout: "list" | "grid" | "feature";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["brochure_sections"]["Row"],
+          "id" | "created_at" | "updated_at" | "blurb" | "display_order" | "layout"
+        > & {
+          blurb?: string | null;
+          display_order?: number;
+          layout?: "list" | "grid" | "feature";
+        };
+        Update: Partial<Database["public"]["Tables"]["brochure_sections"]["Insert"]>;
+        Relationships: [];
+      };
+      brochure_entries: {
+        Row: {
+          id: string;
+          // Denormalized: both invariants that matter (one entry per source,
+          // tombstone lookup) are brochure-wide, not section-wide.
+          brochure_id: string;
+          // NULL when unfiled — a deleted section must not take tombstones with it.
+          section_id: string | null;
+          org_id: string;
+          source_type: "session" | "schedule_group" | "custom";
+          session_id: string | null;
+          schedule_group_id: string | null;
+          // Snapshot at pull time, then owned by the entry.
+          title: string;
+          description: string | null;
+          image_url: string | null;
+          link_url: string | null;
+          link_label: string | null;
+          // 'dismissed' is a tombstone, not a deletion — it stops a re-pull
+          // resurrecting something a human removed.
+          status: "included" | "dismissed";
+          display_order: number;
+          source_pulled_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["brochure_entries"]["Row"],
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "section_id"
+          | "session_id"
+          | "schedule_group_id"
+          | "description"
+          | "image_url"
+          | "link_url"
+          | "link_label"
+          | "status"
+          | "display_order"
+          | "source_pulled_at"
+        > & {
+          section_id?: string | null;
+          session_id?: string | null;
+          schedule_group_id?: string | null;
+          description?: string | null;
+          image_url?: string | null;
+          link_url?: string | null;
+          link_label?: string | null;
+          status?: "included" | "dismissed";
+          display_order?: number;
+          source_pulled_at?: string | null;
+        };
+        Update: Partial<Database["public"]["Tables"]["brochure_entries"]["Insert"]>;
         Relationships: [];
       };
     };

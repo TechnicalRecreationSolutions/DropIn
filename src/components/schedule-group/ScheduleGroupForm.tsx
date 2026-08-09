@@ -28,6 +28,7 @@ interface ScheduleGroupFormProps {
     max_participants?: number | null;
     is_published?: boolean;
     photo_urls?: string[];
+    in_brochure?: boolean;
   };
   /** Where to send staff after a successful save. */
   redirectTo: string;
@@ -83,6 +84,7 @@ export default function ScheduleGroupForm({
     description: defaultValues?.description ?? "",
     max_participants: defaultValues?.max_participants ? String(defaultValues.max_participants) : "",
     is_published: defaultValues?.is_published ?? false,
+    in_brochure: defaultValues?.in_brochure ?? false,
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -154,6 +156,7 @@ export default function ScheduleGroupForm({
       description: form.description || null,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
       is_published: form.is_published,
+      in_brochure: form.in_brochure,
       photo_urls: photoUrls,
       source: "manual" as const,
     };
@@ -277,6 +280,28 @@ export default function ScheduleGroupForm({
             label="Photo"
             hint="Used where this schedule is presented as a program, including the brochure."
           />
+
+          {/* Candidacy, not membership: this offers the program to brochure
+              editors, it does not put it in one. See migration 031. */}
+          <label className="flex items-start gap-3 cursor-pointer">
+            <input
+              id="in_brochure"
+              name="in_brochure"
+              type="checkbox"
+              checked={form.in_brochure}
+              onChange={handleChange}
+              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            />
+            <span>
+              <span className="block text-sm font-medium text-gray-700">
+                Offer for season brochures
+              </span>
+              <span className="block text-xs text-gray-500">
+                Suggests this program when someone builds a brochure. They still choose what
+                goes in, and removing it from one brochure won&rsquo;t affect the others.
+              </span>
+            </span>
+          </label>
         </CollapsibleContent>
       </Collapsible>
 
