@@ -27,7 +27,7 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
 
   const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, is_published")
+    .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, is_published, photo_urls")
     .eq("id", scheduleGroupId)
     .eq("facility_id", facilityId)
     .single();
@@ -63,6 +63,7 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
           description: scheduleGroup.description ?? "",
           max_participants: scheduleGroup.max_participants,
           is_published: scheduleGroup.is_published,
+          photo_urls: scheduleGroup.photo_urls ?? [],
         }}
         // Settings are reached from the command centre, so saving returns there
         // with this schedule still in scope.

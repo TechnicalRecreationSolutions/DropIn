@@ -12,6 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
+import ImageUpload from "@/components/media/ImageUpload";
 import type { ExpandedSession, SessionFeatureContent } from "@/types/schedule.types";
 
 export interface FeatureSubmitValues extends SessionFeatureContent {
@@ -197,15 +198,14 @@ export default function FeatureSessionDialog({
           </Field>
         </div>
 
-        <Field label="Image URL">
-          <input
-            type="url"
-            value={content.imageUrl ?? ""}
-            onChange={(e) => set("imageUrl", e.target.value)}
-            placeholder="https://"
-            className={inputClass}
-          />
-        </Field>
+        <ImageUpload
+          value={content.imageUrl}
+          onChange={(url) => setContent((prev) => ({ ...prev, imageUrl: url }))}
+          orgId={session.orgId}
+          kind="events"
+          label="Image"
+          hint="Shown on the event detail and carried into a brochure entry."
+        />
 
         {error && (
           <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">

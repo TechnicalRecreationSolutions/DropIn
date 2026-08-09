@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { Building2, Eye, EyeOff, Layers, Calendar } from "lucide-react";
+import OrgImage from "@/components/media/OrgImage";
 
 export interface FacilityGridItem {
   id: string;
@@ -30,10 +31,9 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
           : "border-gray-200 hover:border-blue-300 hover:shadow-sm"
       }`}
     >
-      <div className="h-28 bg-blue-50 flex items-center justify-center overflow-hidden">
+      <div className="relative h-28 bg-blue-50 flex items-center justify-center overflow-hidden">
         {coverPhoto ? (
-          // eslint-disable-next-line @next/next/no-img-element
-          <img src={coverPhoto} alt="" className="w-full h-full object-cover" />
+          <OrgImage src={coverPhoto} alt="" sizes="(max-width: 640px) 100vw, 320px" className="object-cover" />
         ) : (
           <Building2 className="w-8 h-8 text-blue-300" />
         )}

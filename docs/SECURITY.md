@@ -642,6 +642,55 @@ violates one as a security regression.
     block may set it, and they must stay disjoint. *(M7)*
 23. **`shadcn` stays in `devDependencies`.** It is a scaffolding CLI; in
     `dependencies` it pulls an MCP SDK and an HTTP server into production. *(H4)*
+24. **`org-media` keeps its `allowed_mime_types` raster-only — never `image/svg+xml`.**
+    SVG is a script-bearing document format, and Storage is served from
+    `*.supabase.co`, which this app's own CSP trusts in `img-src`. An uploaded
+    SVG opened directly executes against the Storage origin. *(Storage, 030)*
+25. **Every `org-media` write policy keys off `public.org_media_org_id(name)`,
+    which returns NULL rather than raising on a malformed path.** A bare
+    `::UUID` cast inside a policy turns a junk path into a 500 instead of a
+    denial, and lets a caller distinguish "rejected" from "malformed". *(Storage, 030)*
+26. **`org-media` writes stay folder-scoped: `events`/`brochure` member-writable,
+    `facilities`/`schedules`/`org` via `org_can_manage()`.** This is assumption 3
+    applied to images; widening it to one role for the whole bucket reopens H3
+    for uploads. *(Storage, 030)*
+
+---
+
+## Storage: what the `org-media` bucket does and does not protect
+
+Added by migration `030`. Recorded here because it is the first place this app
+serves user-supplied files, and because one property of it is a deliberate
+accepted risk rather than a control.
+
+**The bucket is public-read.** Any object in it is readable by anyone holding
+its URL — including an image attached to a facility or schedule group that has
+not been published. Paths carry a random UUID filename and no listing is
+exposed, so objects are not enumerable, but that is unguessability, not
+authorization.
+
+This was chosen over private-plus-signed-URLs because these assets are facility
+photos, event pictures and brochure covers whose purpose is to be shown to the
+public, and because signed URLs expire — a widget embedded on a third-party page
+would serve images that rot, and every render would need a round trip to
+re-sign. `next.config.ts` and the CSP were already written for the public shape.
+
+**Consequences to hold in mind:**
+
+- Nothing sensitive belongs in this bucket. There is no per-object publish gate.
+- Deleting a record does not delete its images. See the orphan-sweep note in
+  `src/components/media/README.md`.
+- Uploading is authorized entirely by storage RLS, because the browser uploads
+  directly. There is no route handler in the path to add a check to — if a new
+  folder kind is introduced, it needs a policy in a migration or it silently
+  denies (safe) or falls under an existing predicate (not necessarily safe).
+
+**Verified** against the live bucket with two real users, an admin and a member:
+member can write `events/` and `brochure/` but not `facilities/`; admin can;
+neither can write into another org's folder; anonymous cannot write at all; SVG,
+`text/plain` and a 6 MB file are all rejected for an authorized user; malformed
+and unknown-kind paths deny without a database error; public read returns the
+actual bytes with the right content type. 19 assertions, 0 failures.
 
 ---
 

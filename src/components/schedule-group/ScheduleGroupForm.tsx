@@ -8,6 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { slugify } from "@/lib/utils/slugify";
 import { SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import ImageUpload from "@/components/media/ImageUpload";
 
 interface ScheduleGroupFormProps {
   orgId: string;
@@ -26,6 +27,7 @@ interface ScheduleGroupFormProps {
     description?: string;
     max_participants?: number | null;
     is_published?: boolean;
+    photo_urls?: string[];
   };
   /** Where to send staff after a successful save. */
   redirectTo: string;
@@ -86,6 +88,9 @@ export default function ScheduleGroupForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+  // Separate from `form` for the same reason as FacilityForm's: the upload
+  // control sets a URL directly rather than emitting an input change event.
+  const [photoUrls, setPhotoUrls] = useState<string[]>(defaultValues?.photo_urls ?? []);
 
   // Auto-expand advanced options when editing a schedule that already has
   // non-default values set, so staff don't lose sight of their own data.
@@ -149,6 +154,7 @@ export default function ScheduleGroupForm({
       description: form.description || null,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
       is_published: form.is_published,
+      photo_urls: photoUrls,
       source: "manual" as const,
     };
 
@@ -259,6 +265,18 @@ export default function ScheduleGroupForm({
             <textarea id="description" name="description" rows={3} value={form.description} onChange={handleChange}
               className={fieldClass} placeholder="Brief description of this schedule..." />
           </div>
+
+          {/* Element 0 is the cover, matching facilities. A schedule group is
+              what a brochure lists as a *program*, so this image is what
+              Phase D pulls in alongside the description above. */}
+          <ImageUpload
+            value={photoUrls[0] ?? null}
+            onChange={(url) => setPhotoUrls(url ? [url, ...photoUrls.slice(1)] : photoUrls.slice(1))}
+            orgId={orgId}
+            kind="schedules"
+            label="Photo"
+            hint="Used where this schedule is presented as a program, including the brochure."
+          />
         </CollapsibleContent>
       </Collapsible>
 

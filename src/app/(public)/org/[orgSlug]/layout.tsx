@@ -2,6 +2,7 @@ import { Suspense } from "react";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { Globe, MapPin } from "lucide-react";
+import OrgImage from "@/components/media/OrgImage";
 import { getOrgPublicData } from "./orgPublicData";
 
 /**
@@ -62,16 +63,12 @@ async function OrgMasthead({ params }: { params: Promise<{ orgSlug: string }> })
       <header className="mb-6">
         <div className="flex items-start gap-4">
           {org.logo_url && (
-            // Plain <img>: logo_url is an arbitrary org-supplied URL on an
-            // unknown host, which next/image cannot optimize without every
-            // such host being allowlisted in next.config. Revisit in Phase C,
-            // when Storage gives these a known origin.
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={org.logo_url}
-              alt=""
-              className="w-14 h-14 rounded-lg object-contain bg-white border border-gray-200 shrink-0"
-            />
+            // OrgImage optimizes uploaded logos and falls back to a plain <img>
+            // for URLs pasted before Storage existed — handing one of those to
+            // next/image is a 400, not a graceful degradation.
+            <span className="relative w-14 h-14 rounded-lg overflow-hidden bg-white border border-gray-200 shrink-0 block">
+              <OrgImage src={org.logo_url} alt="" sizes="56px" className="object-contain" />
+            </span>
           )}
           <div className="min-w-0">
             <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{org.name}</h1>

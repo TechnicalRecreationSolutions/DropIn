@@ -18,7 +18,7 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
 
   const { data: facility } = await supabase
     .from("facilities")
-    .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published")
+    .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published, photo_urls")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
     .single();
@@ -41,7 +41,9 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
 
       <FacilityForm
         facilityId={facilityId}
+        orgId={orgContext.org.id}
         defaultValues={{
+          photo_urls: facility.photo_urls ?? [],
           name: facility.name,
           address_line1: facility.address_line1,
           city: facility.city,

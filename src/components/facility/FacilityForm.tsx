@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import ImageUpload from "@/components/media/ImageUpload";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -14,7 +15,10 @@ const CANADIAN_PROVINCES = [
 
 interface FacilityFormProps {
   facilityId?: string;
+  /** Owning org — decides the storage folder uploads land in. */
+  orgId: string;
   defaultValues?: {
+    photo_urls?: string[];
     name?: string;
     address_line1?: string;
     city?: string;
@@ -28,7 +32,7 @@ interface FacilityFormProps {
   };
 }
 
-export default function FacilityForm({ facilityId, defaultValues }: FacilityFormProps) {
+export default function FacilityForm({ facilityId, orgId, defaultValues }: FacilityFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = !!facilityId;
@@ -45,6 +49,11 @@ export default function FacilityForm({ facilityId, defaultValues }: FacilityForm
     description: defaultValues?.description ?? "",
     is_published: defaultValues?.is_published ?? false,
   });
+
+  // Kept out of `form` because it isn't an input event — the upload control
+  // sets a URL directly, and folding it in would mean widening handleChange's
+  // event type for a field no <input> ever emits.
+  const [photoUrls, setPhotoUrls] = useState<string[]>(defaultValues?.photo_urls ?? []);
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
@@ -69,6 +78,7 @@ export default function FacilityForm({ facilityId, defaultValues }: FacilityForm
         ...form,
         email: form.email || null,
         website_url: form.website_url || null,
+        photo_urls: photoUrls,
         facilityId,
       }),
     });
@@ -102,6 +112,19 @@ export default function FacilityForm({ facilityId, defaultValues }: FacilityForm
         <textarea id="description" name="description" rows={3} value={form.description} onChange={handleChange}
           className={fieldClass} placeholder="Brief description of the facility and what it offers..." />
       </div>
+
+      {/* Element 0 of photo_urls is the cover — the one FacilityGridCard and
+          the public facility page render. Only that one is editable here;
+          a gallery is not a thing this app shows anywhere yet, and a field
+          that stores images nothing displays is worse than no field. */}
+      <ImageUpload
+        value={photoUrls[0] ?? null}
+        onChange={(url) => setPhotoUrls(url ? [url, ...photoUrls.slice(1)] : photoUrls.slice(1))}
+        orgId={orgId}
+        kind="facilities"
+        label="Cover photo"
+        hint="Shown on the facilities list and the public facility page."
+      />
 
       <div>
         <label htmlFor="address_line1" className={labelClass}>Street address *</label>

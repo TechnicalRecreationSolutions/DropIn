@@ -17,6 +17,15 @@ const FacilitySchema = z.object({
   website_url: z.string().url().optional().nullable(),
   description: z.string().optional().nullable(),
   is_published: z.boolean().default(false),
+  /**
+   * Public URLs into the org-media bucket (migration 030). Element 0 is the
+   * cover photo — that is what FacilityGridCard and the public page render.
+   *
+   * Not validated as belonging to this org's folder: storage RLS already
+   * decided who could write there, and a URL is only a pointer. Re-deriving
+   * ownership from a string here would be a second, weaker check that drifts.
+   */
+  photo_urls: z.array(z.string().url()).max(8).default([]),
   facilityId: z.string().uuid().optional(), // present on edit
 });
 
