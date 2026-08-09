@@ -85,6 +85,31 @@ colour as a rule across the top. Only surfaces that know which org they belong
 to pass it — the public org calendar does; the dashboard doesn't, because it
 already sits under the org's own chrome on screen.
 
+## Featuring: three entry points, one writer
+
+| Where | What it does |
+|---|---|
+| `⋯ → Add to / Remove from event calendar` | One click, no dialog. Sends **only** `is_event`. |
+| `⋯ → Feature…` | The full payload: both toggles, title, summary, description, image, link, category, accent. |
+| `SessionForm` → "Feature this session" | Both toggles + the summary, behind progressive disclosure. |
+
+All three POST to `/api/sessions/features`, which is the single writer of
+`session_features`. `SessionForm` reaches it as a *second* request after saving
+the session itself — the flags live on `sessions` but the copy doesn't, and
+teaching `/api/sessions` about feature content would duplicate its validation and
+give the payload two writers that can disagree.
+
+**That endpoint is a PATCH, and it has to be.** An omitted field is left alone;
+an explicit `null` clears it. If omitted fields defaulted to null, the one-click
+toggle — which sends nothing but a flag — would erase every piece of copy an org
+had written, which is precisely the loss migration 028 decision 3 exists to
+prevent, delivered by the action meant to be the safe shortcut.
+
+The same asymmetry is why the session edit page loads `is_event`, `in_brochure`
+and the stored summary before rendering the form. The form posts what is on
+screen, so a form that rendered its toggles off by default would silently
+un-feature an event the moment someone edited its start time.
+
 ## Colour
 
 One fallback chain, in this order:

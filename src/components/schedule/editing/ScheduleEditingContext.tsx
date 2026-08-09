@@ -57,6 +57,14 @@ export interface ScheduleEditingApi {
   onDelete: (session: ExpandedSession) => void;
   /** Opens the event/brochure toggles and the copy behind them (session_features). */
   onFeature: (session: ExpandedSession) => void;
+  /**
+   * Flips `is_event` in place, with no dialog — the realistic flow is "I already
+   * built the schedule, now make three of these events". Writes only the flag,
+   * so any copy the session already carries is left untouched.
+   */
+  onToggleEvent: (session: ExpandedSession) => void;
+  /** Session currently mid-toggle, so the menu item can show progress. */
+  togglingSessionId: string | null;
   deletingSessionId: string | null;
 }
 

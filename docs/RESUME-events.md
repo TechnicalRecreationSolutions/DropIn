@@ -64,7 +64,7 @@ the join is good.
 **Verified**, by `verify-b.mjs` (session scratchpad — rebuild it, don't treat it
 as a test suite): a throwaway org + admin user + facility + schedule group + two
 sessions, driving the real HTTP routes as that signed-in user over `@supabase/ssr`
-cookies, torn down in a `finally`. **32 assertions, 0 failures**, with a positive
+cookies, torn down in a `finally`. **54 assertions, 0 failures**, with a positive
 control first and a confirmed-clean sweep afterwards.
 
 It covers: expansion carrying `isEvent`/`feature`; the widget gate opening and
@@ -75,6 +75,11 @@ B5 have met; un-featuring clearing the flags while the copy survives (028 #3);
 `javascript:` links and non-hex colours rejected with 400; another org's session
 404; anonymous read and write 401; blank strings normalized to null so the
 display-name fallback fires.
+
+Sections 7 and 8 cover the two later additions: that a flag-only POST leaves
+every content field intact while an explicit `null` still clears one, and that
+`SessionForm`'s two-request save works on both create and update — including
+that editing a session's time leaves its featuring alone.
 
 **Not verified — needs a browser.** The Chrome extension is not connected (the
 same blocker `RESUME.md` records against the CSP check). Outstanding:
@@ -159,8 +164,8 @@ knowingly not built:
 
 | Gap vs. the brief | Status |
 |---|---|
-| Toggles in `SessionForm.tsx` behind progressive disclosure | Not built — deliberate, one write path (see decisions below) |
-| A genuine *one-click* feature action in `SessionActionsMenu` | Not built — currently opens the dialog |
+| Toggles in `SessionForm.tsx` behind progressive disclosure | ✅ Built |
+| A genuine *one-click* feature action in `SessionActionsMenu` | ✅ Built |
 | An **Events workspace tab** in the command centre | Built as a fifth *view* instead |
 | One-time mode defaulting on when the event toggle is on | Not wired — `RRuleBuilder` has the mode, nothing links them |
 | "Add event on a day" affordance inside the calendar | Not built — the `⋯` menu is there, the per-day `+` isn't |
@@ -199,6 +204,14 @@ It's a soft-404 for crawlers and should be fixed once, for both.
 - **The events calendar renders its own empty state, inside the view.** Callers
   must not short-circuit it the way they do the week views, or a visitor landing
   on a quiet month has no control to page out of it.
+- **`/api/sessions/features` is a PATCH: absent means unchanged, `null` means
+  clear.** Do not "simplify" it back to defaulting omitted fields to null. The
+  one-click toggle sends only a flag; under PUT semantics that single click
+  erases every piece of copy on the session. Covered by section 7 of the
+  harness.
+- **`SessionForm` writes features in a second request**, not through
+  `/api/sessions`. One writer for `session_features`, and the id for a
+  newly-created session only exists after the first request returns.
 - **No dedicated print route.** The calendar is mounted in four shells; a
   print-only copy would be a fifth rendering that drifts.
 

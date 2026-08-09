@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Pencil, Copy, Trash2, Star } from "lucide-react";
+import { MoreVertical, Pencil, Copy, Trash2, Star, CalendarPlus, CalendarMinus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -63,6 +63,20 @@ export default function SessionActionsMenu({
             <Pencil />
             Edit details
           </Link>
+        </DropdownMenuItem>
+        {/* One click, no dialog. Separate from "Feature…" below because the
+            common case is flipping the flag on a session whose name and details
+            are already right — writing the blurb is the rarer, deliberate act. */}
+        <DropdownMenuItem
+          onSelect={() => editing.onToggleEvent(session)}
+          disabled={editing.togglingSessionId === session.sessionId}
+        >
+          {session.isEvent ? <CalendarMinus /> : <CalendarPlus />}
+          {editing.togglingSessionId === session.sessionId
+            ? "Saving…"
+            : session.isEvent
+              ? "Remove from event calendar"
+              : "Add to event calendar"}
         </DropdownMenuItem>
         <DropdownMenuItem onSelect={() => editing.onFeature(session)}>
           <Star />

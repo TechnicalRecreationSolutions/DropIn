@@ -128,6 +128,8 @@ export default function ScheduleCommandCentre({
   const [featuring, setFeaturing] = useState<ExpandedSession | null>(null);
   const [featureSubmitting, setFeatureSubmitting] = useState(false);
   const [featureError, setFeatureError] = useState<string | null>(null);
+  const [togglingId, setTogglingId] = useState<string | null>(null);
+  const [toggleError, setToggleError] = useState<string | null>(null);
 
   const [deleting, setDeleting] = useState<ExpandedSession | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
@@ -322,6 +324,34 @@ export default function ScheduleCommandCentre({
     setCreateTarget(target);
   }, []);
 
+  /**
+   * The one-click event toggle. Sends only `is_event`, so the endpoint's partial
+   * semantics leave any existing blurb, image and link untouched — the whole
+   * reason that endpoint is a PATCH rather than a PUT.
+   */
+  const handleToggleEvent = useCallback(
+    async (session: ExpandedSession) => {
+      setToggleError(null);
+      setTogglingId(session.sessionId);
+
+      const res = await fetch("/api/sessions/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ session_id: session.sessionId, is_event: !session.isEvent }),
+      });
+
+      setTogglingId(null);
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        setToggleError(data.error ?? "Could not update this session.");
+        return;
+      }
+
+      queryClient.invalidateQueries({ queryKey: [SCHEDULE_RANGE_KEY] });
+    },
+    [queryClient]
+  );
+
   const handleReschedule = useCallback(({ session, dayCode, dayLabel, startTime }: RescheduleRequest) => {
     const durationMinutes = (session.end.getTime() - session.start.getTime()) / 60000;
     const endMinutes = timeStringToMinutes(startTime) + durationMinutes;
@@ -359,9 +389,20 @@ export default function ScheduleCommandCentre({
         setFeatureError(null);
         setFeaturing(session);
       },
+      onToggleEvent: handleToggleEvent,
+      togglingSessionId: togglingId,
       deletingSessionId: deletingId,
     }),
-    [scheduleGroup, facility, canCreate, deletingId, handleAddSession, handleReschedule]
+    [
+      scheduleGroup,
+      facility,
+      canCreate,
+      deletingId,
+      togglingId,
+      handleAddSession,
+      handleReschedule,
+      handleToggleEvent,
+    ]
   );
 
   async function handleConfirmCreate(values: CreateSessionValues) {
@@ -700,6 +741,24 @@ export default function ScheduleCommandCentre({
               >
                 Turn on <ExternalLink className="w-3 h-3" />
               </Link>
+            </p>
+          )}
+
+          {/* The one-click toggle has no dialog to fail inside, so its error
+              surfaces here rather than vanishing into a console. */}
+          {toggleError && (
+            <p
+              role="alert"
+              className="flex items-center gap-2 px-4 py-2 text-xs text-red-700 bg-red-50 border-b border-red-100"
+            >
+              <span className="flex-1">{toggleError}</span>
+              <button
+                type="button"
+                onClick={() => setToggleError(null)}
+                className="font-medium underline underline-offset-2 shrink-0"
+              >
+                Dismiss
+              </button>
             </p>
           )}
 

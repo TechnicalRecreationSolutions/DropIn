@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronDown } from "lucide-react";
+import { ChevronDown, CalendarDays, BookOpen } from "lucide-react";
 import RRuleBuilder from "./RRuleBuilder";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import { zonedTimeToUtc } from "@/lib/utils/timezone";
@@ -24,6 +24,11 @@ interface SessionFormProps {
     timezone: string;
     spaceIds: string[];
     locationDetail: string;
+    /** From sessions.is_event / .in_brochure — the two publishing toggles. */
+    isEvent?: boolean;
+    inBrochure?: boolean;
+    /** One line for a calendar cell, from session_features.summary. */
+    featureSummary?: string | null;
   };
   /** Where to send staff after a successful save/delete. Defaults to /dashboard/schedule. */
   redirectTo?: string;
@@ -63,6 +68,24 @@ export default function SessionForm({
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
   const [advancedOpen, setAdvancedOpen] = useState(!!(initialValues?.timezone || initialValues?.locationDetail));
+
+  const [isEvent, setIsEvent] = useState(initialValues?.isEvent ?? false);
+  const [inBrochure, setInBrochure] = useState(initialValues?.inBrochure ?? false);
+  const [featureSummary, setFeatureSummary] = useState(initialValues?.featureSummary ?? "");
+  // Opens itself when the session is already featured, so an editor never has
+  // to discover that a collapsed section is where the state they can see on the
+  // calendar actually lives.
+  const [featureOpen, setFeatureOpen] = useState(
+    !!(initialValues?.isEvent || initialValues?.inBrochure)
+  );
+
+  // What the form would be writing if submitted now. Used to skip the second
+  // request entirely for the overwhelmingly common case: a session nobody has
+  // ever featured, saved without opening this section.
+  const featureTouched =
+    isEvent !== (initialValues?.isEvent ?? false) ||
+    inBrochure !== (initialValues?.inBrochure ?? false) ||
+    featureSummary !== (initialValues?.featureSummary ?? "");
 
   const selectedFacilityId = scheduleGroups.find((sg) => sg.id === scheduleGroupId)?.facility_id;
   const facilitySpaces = spaces.filter((s) => s.facility_id === selectedFacilityId);
@@ -107,6 +130,39 @@ export default function SessionForm({
       setError(data.error ?? "Something went wrong.");
       setLoading(false);
       return;
+    }
+
+    // Featuring is a second request on purpose. The flags live on `sessions`
+    // but the copy lives in `session_features`, and /api/sessions/features is
+    // the single writer of that table — the Feature dialog on the schedule
+    // views posts to the same place. Teaching /api/sessions about feature
+    // content would duplicate its validation and give the payload two writers
+    // that could disagree.
+    //
+    // It runs after the session save because a new session has no id until
+    // then; `data.sessionId` covers both create and update.
+    if (featureTouched) {
+      const featureRes = await fetch("/api/sessions/features", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          session_id: data.sessionId,
+          is_event: isEvent,
+          in_brochure: inBrochure,
+          summary: featureSummary,
+        }),
+      });
+
+      if (!featureRes.ok) {
+        const featureData = await featureRes.json().catch(() => ({}));
+        // The session itself saved. Say so, rather than letting a failure here
+        // read as though the whole edit was lost.
+        setError(
+          `${featureData.error ?? "Could not save the feature details."} The session itself was saved.`
+        );
+        setLoading(false);
+        return;
+      }
     }
 
     router.push(redirectTo);
@@ -219,6 +275,83 @@ export default function SessionForm({
           </>
         )}
       </div>
+
+      {/* Progressive disclosure, like Advanced options below: a small minority
+          of sessions are ever featured, so this stays out of the way until
+          someone wants it — but it opens itself when the session already is. */}
+      <Collapsible
+        open={featureOpen}
+        onOpenChange={setFeatureOpen}
+        className="border-t border-gray-100 pt-5"
+      >
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
+          <ChevronDown className={`w-4 h-4 transition-transform ${featureOpen ? "rotate-180" : ""}`} />
+          Feature this session
+          <span className="font-normal text-gray-400">(event calendar, brochure)</span>
+          {(isEvent || inBrochure) && (
+            <span className="ml-1 px-1.5 py-0.5 rounded-full bg-blue-50 text-blue-700 text-[10px] font-semibold">
+              {[isEvent && "Event", inBrochure && "Brochure"].filter(Boolean).join(" · ")}
+            </span>
+          )}
+        </CollapsibleTrigger>
+        <CollapsibleContent className="space-y-4 pt-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <button
+              type="button"
+              onClick={() => setIsEvent(!isEvent)}
+              aria-pressed={isEvent}
+              className={cn(
+                "text-left rounded-lg border-2 p-3 transition-colors",
+                isEvent ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
+              )}
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                <CalendarDays className={cn("w-4 h-4", isEvent ? "text-blue-600" : "text-gray-400")} />
+                Event calendar
+              </span>
+              <span className="block text-xs text-gray-500 mt-1">
+                Shows on the month-at-a-glance calendar.
+              </span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setInBrochure(!inBrochure)}
+              aria-pressed={inBrochure}
+              className={cn(
+                "text-left rounded-lg border-2 p-3 transition-colors",
+                inBrochure ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
+              )}
+            >
+              <span className="flex items-center gap-2 text-sm font-medium text-gray-900">
+                <BookOpen className={cn("w-4 h-4", inBrochure ? "text-blue-600" : "text-gray-400")} />
+                Brochure
+              </span>
+              <span className="block text-xs text-gray-500 mt-1">
+                Offered as a candidate for a season&rsquo;s brochure.
+              </span>
+            </button>
+          </div>
+
+          <div>
+            <label htmlFor="feature_summary" className={labelClass}>Calendar summary</label>
+            <input
+              id="feature_summary"
+              type="text"
+              value={featureSummary}
+              onChange={(e) => setFeatureSummary(e.target.value)}
+              maxLength={200}
+              className={fieldClass}
+              placeholder="e.g. Costumes encouraged"
+            />
+            <p className="text-xs text-gray-500 mt-1">
+              One line, shown in the calendar cell. Titles, images, links and colours live in
+              the fuller <span className="font-medium">Feature</span> editor on the schedule
+              views — this is the field you almost always want.
+            </p>
+          </div>
+        </CollapsibleContent>
+      </Collapsible>
 
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-gray-100 pt-5">
         <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
