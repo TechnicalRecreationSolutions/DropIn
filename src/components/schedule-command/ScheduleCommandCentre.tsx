@@ -43,12 +43,16 @@ import FacilityBoxes from "./FacilityBoxes";
 import SeasonPicker from "./SeasonPicker";
 import ScopePicker from "./ScopePicker";
 import SpacesPanel from "./SpacesPanel";
+import EventsPanel from "./EventsPanel";
 import WorkspaceTabs from "./WorkspaceTabs";
 import type { CommandFacility } from "./types";
 
 interface ScheduleCommandCentreProps {
   orgId: string;
   orgSlug: string;
+  /** Name and logo for the printed event sheet — the Events tab is where staff print it. */
+  orgName: string;
+  orgLogoUrl: string | null;
   orgPrimaryColor: string;
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
@@ -86,6 +90,8 @@ const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan", "even
 export default function ScheduleCommandCentre({
   orgId,
   orgSlug,
+  orgName,
+  orgLogoUrl,
   orgPrimaryColor,
   widgetTemplates,
   seasons,
@@ -375,6 +381,9 @@ export default function ScheduleCommandCentre({
       templates: scheduleGroup?.templates ?? [],
       spaces: facility?.spaces ?? [],
       canCreate,
+      // Every schedule-tab layout is scoped to one facility, so its space list
+      // is the right one. EventsPanel narrows this to false.
+      canDuplicate: true,
       onAddSession: handleAddSession,
       onDuplicate: (session) => {
         setDuplicateError(null);
@@ -651,6 +660,18 @@ export default function ScheduleCommandCentre({
           onChange={setTab}
           scopeLabel={departmentLabel ?? facility.name}
           facilityName={facility.name}
+        />
+      )}
+
+      {facility && tab === "events" && (
+        <EventsPanel
+          orgId={orgId}
+          orgSlug={orgSlug}
+          orgName={orgName}
+          orgLogoUrl={orgLogoUrl}
+          month={month}
+          onMonthChange={setMonth}
+          editing={editing}
         />
       )}
 

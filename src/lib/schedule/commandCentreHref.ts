@@ -18,9 +18,9 @@ export const NO_DEPARTMENT = "none";
  * arrives there as a client-reference stub, not a real array, and calling
  * `.includes` on it throws at request time.
  */
-export type WorkspaceTab = "schedule" | "spaces" | "map" | "widget";
+export type WorkspaceTab = "schedule" | "events" | "spaces" | "map" | "widget";
 
-export const WORKSPACE_TABS: WorkspaceTab[] = ["schedule", "spaces", "map", "widget"];
+export const WORKSPACE_TABS: WorkspaceTab[] = ["schedule", "events", "spaces", "map", "widget"];
 
 export function isWorkspaceTab(value: string | undefined): value is WorkspaceTab {
   return !!value && (WORKSPACE_TABS as string[]).includes(value);

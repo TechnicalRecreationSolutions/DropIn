@@ -51,6 +51,13 @@ export interface ScheduleEditingApi {
   spaces: { id: string; name: string }[];
   /** False when the scope spans more than one schedule, since a new session needs exactly one. */
   canCreate: boolean;
+  /**
+   * False where the surface spans more than one facility. Duplicating offers
+   * `spaces`, which is one facility's list — on an org-wide calendar that list
+   * is wrong for most of the sessions on screen, so the action is withdrawn
+   * rather than silently offered against the wrong building.
+   */
+  canDuplicate: boolean;
   onAddSession: (target: AddSessionTarget) => void;
   onDuplicate: (session: ExpandedSession) => void;
   onReschedule: (request: RescheduleRequest) => void;

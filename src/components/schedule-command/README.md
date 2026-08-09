@@ -119,9 +119,38 @@ render — wrapped in a `ScheduleEditingProvider`. See
 and no separate editor markup, so a layout can't look right while building and wrong when
 embedded.
 
-All four widget layouts are offered here even when an org has switched some off for
+All five widget layouts are offered here even when an org has switched some off for
 visitors; a switched-off one shows an amber notice linking to widget settings. Staff should
 be able to *check* a layout before enabling it.
+
+## The Events tab, and why it isn't the same thing as the events layout
+
+Both show a month calendar of `is_event` sessions. They answer different questions, and the
+difference is the scope:
+
+| | Scope | Question it answers |
+|---|---|---|
+| Schedule tab → **Events layout** | the facility/department picked above | what will visitors to *this building* see? |
+| **Events tab** | the whole org | what is happening across *all* our buildings? |
+
+The second is the sheet that gets printed and taped to a wall, and the command centre could
+not previously show it at all: its scope is always one facility, so a scoped view
+structurally cannot produce an org-wide calendar. That's the justification for a second
+surface rather than duplication — verified rather than assumed, by asserting that an
+org-wide fetch spans two buildings where the facility-scoped fetch sees one.
+
+**Events is the only tab that ignores the scope pickers above it.** That's why its tooltip
+omits the scope label, and why the panel says so in prose — a tab that silently disregarded
+the facility chips would otherwise read as a bug.
+
+Editing is *narrowed*, not removed. Featuring, un-featuring, editing copy and removing a
+series are valid on any session from any building. **Duplicating is not** — it offers
+`spaces`, which is one facility's list, and on an org-wide calendar that list is wrong for
+most of what's on screen. Hence `canDuplicate: false`, and the menu item withdraws itself
+rather than being offered against the wrong building.
+
+The Events tab is also the surface that prints with `printBranding`, since it's where staff
+actually produce the wall sheet.
 
 ## Data flow
 
@@ -140,6 +169,8 @@ layouts reflect a change immediately without refetching per layout.
 `events` wants a month grid filtered to `is_event`. Resolving it late would fetch for the
 view the user clicked rather than the one they actually get when a view falls back
 (floorplan without a published map).
+
+The **Events tab** fetches separately, org-wide — see below.
 
 Week and month are two derivations of a single anchor date (`useScheduleAnchor`), so
 switching layouts never jumps the viewer somewhere else in the calendar, and "jump to
@@ -161,7 +192,8 @@ Seasons are fetched here too, and `?season=` is resolved server-side through
 | `FacilityBoxes.tsx` | The large building boxes. |
 | `SeasonPicker.tsx` | The planning period. Sets creation defaults, never filters. |
 | `ScopePicker.tsx` | The department and schedule chip tiers. |
-| `WorkspaceTabs.tsx` | The Schedule/Spaces/Map/Widget strip. |
+| `WorkspaceTabs.tsx` | The Schedule/Events/Spaces/Map/Widget strip. |
+| `EventsPanel.tsx` | The org-wide event calendar. The one panel that ignores the scope pickers. |
 | `SpacesPanel.tsx` | Scope-filtered space list (was the facility and department pages' Spaces tab). |
 | `types.ts` | The shape `page.tsx` assembles server-side. |
 

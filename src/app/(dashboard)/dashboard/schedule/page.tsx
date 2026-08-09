@@ -247,6 +247,8 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     <ScheduleCommandCentre
       orgId={orgId}
       orgSlug={orgContext.org.slug}
+      orgName={orgContext.org.name}
+      orgLogoUrl={orgContext.org.logo_url}
       orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
       widgetTemplates={widgetTemplates}
       seasons={seasons}

@@ -84,10 +84,12 @@ export default function SessionActionsMenu({
               featured, "Feature…" would invite staff to do it twice. */}
           {session.isEvent || session.inBrochure ? "Featured…" : "Feature…"}
         </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => editing.onDuplicate(session)}>
-          <Copy />
-          Duplicate to…
-        </DropdownMenuItem>
+        {editing.canDuplicate && (
+          <DropdownMenuItem onSelect={() => editing.onDuplicate(session)}>
+            <Copy />
+            Duplicate to…
+          </DropdownMenuItem>
+        )}
         <DropdownMenuItem variant="destructive" onSelect={() => editing.onDelete(session)}>
           <Trash2 />
           Remove series
