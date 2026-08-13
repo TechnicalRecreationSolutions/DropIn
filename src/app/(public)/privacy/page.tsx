@@ -132,11 +132,6 @@ export default function PrivacyPage() {
             <td>Billing contact and card details, held by Stripe</td>
           </tr>
           <tr>
-            <td>Mapbox</td>
-            <td>Maps and address lookup</td>
-            <td>Facility addresses; map tile requests from your browser</td>
-          </tr>
-          <tr>
             <td>Vercel</td>
             <td>Application hosting</td>
             <td>Request logs</td>

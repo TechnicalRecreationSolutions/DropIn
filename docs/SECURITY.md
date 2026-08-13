@@ -128,16 +128,22 @@ Tightening further means experimental `sri` or giving up PPR.
 'self'`, `/widget/*` returns `frame-ancestors *`, HSTS appears on all three route
 groups including `/embed`, and exactly **one** `Content-Security-Policy` header
 is emitted (two matching blocks would make browsers enforce the *intersection*
-of duplicates — a policy nobody wrote). Mapbox compatibility was verified by
-inspecting `mapbox-gl`: it builds its tile worker via
-`URL.createObjectURL(new Blob(...))`, which `worker-src blob:` covers, and the
-only origins in its bundle are `api.mapbox.com` and `events.mapbox.com`, both
-allowlisted.
+of duplicates — a policy nobody wrote). Mapbox compatibility used to be the
+delicate part of this policy: `mapbox-gl` builds its tile worker via
+`URL.createObjectURL(new Blob(...))`, which is why `worker-src blob:` was
+allowed, and `api.mapbox.com` / `events.mapbox.com` were allowlisted for it.
 
-> **Still to do:** load `/search` (Mapbox) and an embedded widget in a real
-> browser with the policy enforced and confirm a clean console. curl proves the
-> headers; only a browser proves nothing is blocked. This was attempted but the
-> Chrome extension was not connected.
+> **Updated 2026-08-12.** Mapbox was removed with the cross-org search page, and
+> the policy tightened accordingly: no `*.mapbox.com` origins, and no `blob:` in
+> `img-src`/`worker-src`/`child-src` — mapbox-gl's worker was its only user, and
+> nothing else in the app creates a worker or an object URL (`ImageUpload`
+> uploads first and previews from the returned Supabase URL). **The policy now
+> allows no third-party origin at all.**
+>
+> Verified in a browser under enforcement against `/`, a facility page, an org
+> page and the dashboard — clean console. **Still to do:** the same check in
+> *production*, and against a widget framed on a different origin, which is the
+> case `frame-ancestors *` exists for.
 
 **Deployment trap:** `frame-src 'self'` assumes `NEXT_PUBLIC_APP_URL` matches the
 origin serving the page. On a preview deployment pointed at the production

@@ -232,9 +232,12 @@ removal takes months.
 Infrastructure items from `SECURITY.md` → Owner-only actions that only become
 possible once deployed:
 
-- [ ] Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` to your domains in the Mapbox console.
-      It ships to the browser, so an unrestricted token is billable by anyone.
-- [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe, Mapbox.
+- [ ] **Delete the Mapbox token at source**, in the Mapbox console — do not
+      restrict it. Nothing reads it any more, but it shipped to every browser
+      that loaded the site while it existed and was never domain-restricted, so
+      it remains billable by anyone holding it until it is revoked. Removing it
+      from Vercel is tidiness; revoking it at Mapbox is the actual fix.
+- [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe.
 - [ ] Login rate limiting: Supabase → Authentication → Rate Limits. Cannot be
       done in app code — `LoginForm` calls `signInWithPassword()` straight from
       the browser, so the request never reaches this app.
