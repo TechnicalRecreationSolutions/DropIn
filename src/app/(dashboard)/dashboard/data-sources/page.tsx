@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { DEFAULT_APP_TIMEZONE } from "@/lib/utils/timezone";
 import { Upload, ArrowRight } from "lucide-react";
 
 type ImportedScheduleGroupRow = {
@@ -60,7 +61,16 @@ export default async function DataSourcesPage() {
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-gray-900 truncate">{sg.name}</p>
                   <p className="text-xs text-gray-500">
-                    {sg.facilities?.name ?? "Unknown facility"} · {new Date(sg.created_at).toLocaleString()}
+                    {/* Explicit zone: this is a server component, so an
+                        unqualified toLocaleString() formats in the server's
+                        zone — UTC in production — and showed staff import
+                        timestamps hours off from when they actually imported. */}
+                    {sg.facilities?.name ?? "Unknown facility"} ·{" "}
+                    {new Intl.DateTimeFormat("en-US", {
+                      timeZone: DEFAULT_APP_TIMEZONE,
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }).format(new Date(sg.created_at))}
                   </p>
                 </div>
               </li>

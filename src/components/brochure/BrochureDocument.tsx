@@ -1,5 +1,6 @@
 import OrgImage from "@/components/media/OrgImage";
 import { cn } from "@/lib/utils/cn";
+import { DEFAULT_APP_TIMEZONE } from "@/lib/utils/timezone";
 import type { Database } from "@/types/database.types";
 import PrintButton from "./PrintButton";
 
@@ -189,12 +190,25 @@ export default function BrochureDocument({
 
       <footer className="brochure-footer text-xs text-gray-400 border-t border-gray-200 pt-3 mt-8">
         {orgName}
+        {/* Formatted in an explicit zone. `published_at` is an instant and this
+            document renders on the server, which is UTC in production — so
+            `toLocaleDateString(undefined, …)` printed the UTC date. Anything
+            published after 6pm local then claimed to be published *tomorrow*,
+            on a document whose whole purpose is to be printed and handed out.
+            Measured, not assumed: a brochure published 2026-08-12 at 23:23
+            local printed "August 13, 2026".
+
+            DEFAULT_APP_TIMEZONE rather than a new column — it is the same
+            assumption `sessions.timezone` already defaults to at the database
+            level. An org genuinely spanning zones needs its own timezone
+            column, and that is the point at which this should read it. */}
         {brochure.published_at
-          ? ` · published ${new Date(brochure.published_at).toLocaleDateString(undefined, {
+          ? ` · published ${new Intl.DateTimeFormat("en-US", {
+              timeZone: DEFAULT_APP_TIMEZONE,
               year: "numeric",
               month: "long",
               day: "numeric",
-            })}`
+            }).format(new Date(brochure.published_at))}`
           : ""}
       </footer>
     </article>
