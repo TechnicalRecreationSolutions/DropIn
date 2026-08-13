@@ -104,11 +104,21 @@ export default async function FacilityDetailPage({ params }: PageProps) {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
+      {/* The middle crumb used to be "Facilities", pointing at the cross-org
+          search index. With that gone the owning organization is the real
+          parent of a building — and the crumb is dropped entirely rather than
+          left dangling when the org can't be resolved. */}
       <nav className="text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
         <span className="mx-2">›</span>
-        <Link href="/search" className="hover:text-gray-700 transition-colors">Facilities</Link>
-        <span className="mx-2">›</span>
+        {org && (
+          <>
+            <Link href={`/org/${org.slug}`} className="hover:text-gray-700 transition-colors">
+              {org.name}
+            </Link>
+            <span className="mx-2">›</span>
+          </>
+        )}
         <span className="text-gray-900">{facility.name}</span>
       </nav>
 

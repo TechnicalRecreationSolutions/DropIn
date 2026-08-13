@@ -709,8 +709,11 @@ Not fixable from the codebase. Unticked items are outstanding.
 - [ ] Keep `mailer_autoconfirm` **disabled**. Turning it on re-opens M5 —
       accounts would again be usable without proving address ownership.
 - [ ] Confirm hosting provider; enable WAF / DDoS protection in front of autoscaling
-- [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe, Mapbox
-- [ ] Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` to your domains in the Mapbox console
+- [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe
+- [x] ~~Restrict `NEXT_PUBLIC_MAPBOX_TOKEN` to your domains in the Mapbox
+      console~~ **Void as of 2026-08-12.** Mapbox was removed with the cross-org
+      search page. Delete the token from every environment rather than
+      restricting it; it is no longer read.
 - [ ] **Confirm all eight required vars are set in Production**, not just Preview.
       Since M6 the server refuses to boot without them, so a missing one is now a
       failed deployment rather than a silent defect — check before deploying.
@@ -727,8 +730,12 @@ Not fixable from the codebase. Unticked items are outstanding.
       `<Placeholder>` values** — legal entity name, jurisdiction, contact
       address, retention periods, liability cap. They render as visible amber
       highlights, so the pages are launch-blocking by construction *(M8)*.
-- [ ] **Load `/search` and an embedded widget in a browser with the CSP live**
-      and confirm a clean console. Headers are verified; runtime is not *(M7)*.
+- [ ] **Load `/`, a facility page and an embedded widget in a browser with the
+      CSP live** and confirm a clean console. Headers are verified; runtime in
+      production is not *(M7)*. The policy tightened on 2026-08-12: with Mapbox
+      gone it allows **no third-party origin at all**, and `blob:` was dropped
+      from `img-src`/`worker-src`/`child-src` because mapbox-gl's tile worker was
+      its only user. Verified clean locally against the new policy.
 
 ---
 

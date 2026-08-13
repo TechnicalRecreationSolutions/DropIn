@@ -4,7 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
-import FacilitiesGridClient from "./FacilitiesGridClient";
+import FacilityGridCard from "@/components/facilities/FacilityGridCard";
 
 /**
  * Validated for instant client-side navigation: Next.js checks at build time
@@ -27,8 +27,6 @@ type FacilityRow = {
   province: string;
   is_published: boolean;
   photo_urls: string[];
-  lat: number | null;
-  lng: number | null;
   departments: { id: string }[];
   schedule_groups: { id: string }[];
 };
@@ -67,21 +65,18 @@ async function FacilitiesGrid() {
   const { data: facilities } = await supabase
     .from("facilities")
     .select(
-      "id, slug, name, city, province, is_published, photo_urls, lat, lng, departments(id), schedule_groups(id)"
+      "id, slug, name, city, province, is_published, photo_urls, departments(id), schedule_groups(id)"
     )
     .eq("org_id", orgContext.org.id)
     .order("created_at", { ascending: false }) as unknown as { data: FacilityRow[] | null };
 
   const gridFacilities = (facilities ?? []).map((f) => ({
     id: f.id,
-    slug: f.slug,
     name: f.name,
     city: f.city,
     province: f.province,
     is_published: f.is_published,
     photo_urls: f.photo_urls,
-    lat: f.lat,
-    lng: f.lng,
     department_count: f.departments.length,
     schedule_count: f.schedule_groups.length,
   }));
@@ -105,7 +100,20 @@ async function FacilitiesGrid() {
     );
   }
 
-  return <FacilitiesGridClient facilities={gridFacilities} />;
+  // Rendered here rather than in a client component. This used to be a
+  // grid/map toggle, and the map half plotted the org's own buildings with
+  // mapbox-gl — the same library the cross-org search page used. A centre with
+  // a handful of sites does not need them plotted geographically, and keeping
+  // that view meant keeping a paid dependency, its token, address geocoding on
+  // every save, and two extra origins in the CSP. With the toggle gone there is
+  // no client state left to hold: FacilityGridCard is a plain link.
+  return (
+    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+      {gridFacilities.map((facility) => (
+        <FacilityGridCard key={facility.id} facility={facility} />
+      ))}
+    </div>
+  );
 }
 
 function FacilitiesGridSkeleton() {

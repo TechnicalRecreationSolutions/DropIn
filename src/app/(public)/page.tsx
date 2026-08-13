@@ -1,23 +1,72 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { Search, MapPin, Calendar, Building2 } from "lucide-react";
+import { CalendarDays, MonitorSmartphone, Printer, Layers, Check } from "lucide-react";
+import { PLANS, type PlanTier } from "@/lib/stripe/plans";
 
+/**
+ * No `title` here on purpose. The root layout's template is "%s | Dropin", so a
+ * title set on this page renders as "Dropin — … | Dropin". Omitting it falls
+ * through to the layout's `default`, which the template does not wrap.
+ */
 export const metadata: Metadata = {
-  title: "Dropin — Find Drop-In Recreation Near You",
   description:
-    "Discover drop-in sports and recreation across your city. Find lap swim, hockey, pickleball, open gym, and more — all in one place.",
+    "Build your drop-in schedule once and publish it everywhere: your own website, a printable month calendar, and a seasonal program guide. Built for pools, arenas and community centres.",
 };
 
-const sportCategories = [
-  { id: "swimming", label: "Swimming", emoji: "🏊" },
-  { id: "hockey", label: "Hockey", emoji: "🏒" },
-  { id: "basketball", label: "Basketball", emoji: "🏀" },
-  { id: "pickleball", label: "Pickleball", emoji: "🏓" },
-  { id: "skating", label: "Skating", emoji: "⛸️" },
-  { id: "fitness", label: "Fitness", emoji: "🏋️" },
-  { id: "volleyball", label: "Volleyball", emoji: "🏐" },
-  { id: "yoga", label: "Yoga", emoji: "🧘" },
+/**
+ * The front door for the product Dropin actually is: a tool a recreation centre
+ * uses to publish its own schedule.
+ *
+ * It used to be a consumer search page — a city/postal-code box over a
+ * cross-organization index. That was the aggregator product, and this page was
+ * its entry point. Nothing here sells discovery any more, because the customer
+ * reading it is the centre, not a resident looking for a swim.
+ */
+
+const features = [
+  {
+    icon: CalendarDays,
+    title: "Enter it once",
+    desc: "Recurring sessions, seasons, departments and rooms — described once, not retyped every term. Change a time and every place it appears changes with it.",
+  },
+  {
+    icon: MonitorSmartphone,
+    title: "Embed it in your own site",
+    desc: "A schedule widget that drops into the website you already have, styled to your colours. No redirect, no second place for residents to look.",
+  },
+  {
+    icon: Printer,
+    title: "Print what you already print",
+    desc: "A month-at-a-glance event calendar for the wall and a seasonal program guide, generated from the same schedule instead of retyped into Word.",
+  },
+  {
+    icon: Layers,
+    title: "One building or twenty",
+    desc: "Departments, spaces and multiple facilities under one organization, with staff accounts for the people who keep them current.",
+  },
 ];
+
+/** Plan tiers in display order. Prices come from the same catalogue billing uses. */
+const TIER_ORDER: PlanTier[] = ["free", "pro", "enterprise"];
+
+const planBlurb: Record<PlanTier, string> = {
+  free: "One facility, to see whether it fits.",
+  pro: "For a centre running several buildings.",
+  enterprise: "For a city or a large operator.",
+};
+
+function planLines(tier: PlanTier): string[] {
+  const { limits } = PLANS[tier];
+  const n = (v: number, one: string, many: string) =>
+    v === -1 ? `Unlimited ${many}` : `${v} ${v === 1 ? one : many}`;
+  return [
+    n(limits.facilities, "facility", "facilities"),
+    limits.programsPerFacility === -1
+      ? "Unlimited schedules per facility"
+      : `${limits.programsPerFacility} schedules per facility`,
+    n(limits.staffMembers, "staff account", "staff accounts"),
+  ];
+}
 
 export default function HomePage() {
   return (
@@ -26,112 +75,133 @@ export default function HomePage() {
       <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
         <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 text-center">
           <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
-            Find drop-in recreation near you
+            Your drop-in schedule, everywhere at once
           </h1>
           <p className="text-lg sm:text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-            Lap swim, open hockey, pickleball, yoga — see every available
-            session across all local facilities in one place.
+            Pools, arenas and community centres use Dropin to keep one schedule
+            up to date — and publish it to their website, their wall and their
+            program guide from the same place.
           </p>
 
-          {/* Search bar */}
-          <div className="flex flex-col sm:flex-row gap-3 max-w-xl mx-auto">
-            <div className="flex-1 relative">
-              <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
-              <input
-                type="text"
-                placeholder="Your city or postal code"
-                className="w-full pl-10 pr-4 py-3.5 rounded-xl text-gray-900 text-sm placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-white"
-              />
-            </div>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
             <Link
-              href="/search"
-              className="inline-flex items-center justify-center gap-2 px-6 py-3.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition-colors shrink-0"
+              href="/signup"
+              className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition-colors"
             >
-              <Search className="w-4 h-4" />
-              Search
+              Start free
+            </Link>
+            <Link
+              href="/login"
+              className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border border-white/40 font-semibold hover:bg-white/10 transition-colors"
+            >
+              Sign in
             </Link>
           </div>
         </div>
       </section>
 
-      {/* ── Browse by Sport ───────────────────────────────────────────────── */}
-      <section className="py-16 sm:py-20 bg-white">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+      {/* ── What it does ──────────────────────────────────────────────────── */}
+      <section id="features" className="py-16 sm:py-20 bg-white scroll-mt-16">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
-            Browse by sport
+            Built for the people who keep the schedule current
           </h2>
-          <p className="text-gray-600 mb-8">
-            Pick an activity and see what&apos;s available this week.
+          <p className="text-gray-600 mb-10 max-w-2xl">
+            Most centres keep the same schedule in three places — a website, a
+            printed sheet and a seasonal guide — and change it in each one by
+            hand. Dropin keeps one and produces the rest.
           </p>
 
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-8 gap-3">
-            {sportCategories.map((sport) => (
-              <Link
-                key={sport.id}
-                href={`/browse/${sport.id}`}
-                className="flex flex-col items-center gap-2 p-4 rounded-xl border border-gray-100 bg-gray-50 hover:bg-blue-50 hover:border-blue-200 transition-colors group"
+          <div className="grid sm:grid-cols-2 gap-6">
+            {features.map((item) => (
+              <div
+                key={item.title}
+                className="flex gap-4 p-5 rounded-xl border border-gray-100 bg-gray-50"
               >
-                <span className="text-3xl">{sport.emoji}</span>
-                <span className="text-xs font-medium text-gray-700 group-hover:text-blue-700 text-center">
-                  {sport.label}
-                </span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* ── How it works ──────────────────────────────────────────────────── */}
-      <section className="py-16 sm:py-20 bg-gray-50">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-12">
-            One place for all drop-in recreation
-          </h2>
-          <div className="grid sm:grid-cols-3 gap-8">
-            {[
-              {
-                icon: Search,
-                title: "Search your city",
-                desc: "Find every available drop-in session across all local rec centres and facilities.",
-              },
-              {
-                icon: Calendar,
-                title: "See the week at a glance",
-                desc: "Visual weekly schedules — no more hunting through long lists or PDF timetables.",
-              },
-              {
-                icon: Building2,
-                title: "All organizations, one place",
-                desc: "City facilities, private clubs, and community centres all in one searchable platform.",
-              },
-            ].map((item) => (
-              <div key={item.title} className="flex flex-col items-center gap-3">
-                <div className="w-12 h-12 rounded-xl bg-blue-100 flex items-center justify-center">
-                  <item.icon className="w-6 h-6 text-blue-600" />
+                <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                  <item.icon className="w-5 h-5 text-blue-600" />
                 </div>
-                <h3 className="font-semibold text-gray-900">{item.title}</h3>
-                <p className="text-sm text-gray-600">{item.desc}</p>
+                <div>
+                  <h3 className="font-semibold text-gray-900 mb-1">{item.title}</h3>
+                  <p className="text-sm text-gray-600">{item.desc}</p>
+                </div>
               </div>
             ))}
           </div>
         </div>
       </section>
 
-      {/* ── Org CTA ───────────────────────────────────────────────────────── */}
+      {/* ── Pricing ───────────────────────────────────────────────────────── */}
+      <section id="pricing" className="py-16 sm:py-20 bg-gray-50 scroll-mt-16">
+        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Pricing</h2>
+          <p className="text-gray-600 mb-10">
+            Start free with one facility. Prices in CAD, per month.
+          </p>
+
+          <div className="grid sm:grid-cols-3 gap-5">
+            {TIER_ORDER.map((tier) => {
+              const plan = PLANS[tier];
+              const featured = tier === "pro";
+              return (
+                <div
+                  key={tier}
+                  className={
+                    featured
+                      ? "rounded-xl border-2 border-blue-600 bg-white p-6 shadow-sm"
+                      : "rounded-xl border border-gray-200 bg-white p-6"
+                  }
+                >
+                  <p className="font-semibold text-gray-900">{plan.name}</p>
+                  <p className="mt-2 text-3xl font-extrabold text-gray-900">
+                    {plan.priceMonthly === 0 ? "Free" : `$${plan.priceMonthly / 100}`}
+                    {plan.priceMonthly > 0 && (
+                      <span className="text-sm font-medium text-gray-500">/mo</span>
+                    )}
+                  </p>
+                  <p className="mt-1 text-sm text-gray-500">{planBlurb[tier]}</p>
+
+                  <ul className="mt-5 space-y-2">
+                    {planLines(tier).map((line) => (
+                      <li key={line} className="flex items-start gap-2 text-sm text-gray-700">
+                        <Check className="w-4 h-4 text-blue-600 shrink-0 mt-0.5" />
+                        {line}
+                      </li>
+                    ))}
+                  </ul>
+
+                  <Link
+                    href="/signup"
+                    className={
+                      featured
+                        ? "mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                        : "mt-6 block text-center px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    }
+                  >
+                    {tier === "free" ? "Start free" : `Choose ${plan.name}`}
+                  </Link>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ── Closing CTA ───────────────────────────────────────────────────── */}
       <section className="py-16 sm:py-20 bg-gray-950 text-white">
         <div className="max-w-3xl mx-auto px-4 sm:px-6 lg:px-8 text-center">
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
-            Are you a recreation organization?
+            Stop retyping the same schedule
           </h2>
           <p className="text-gray-400 mb-8">
-            Publish a beautiful visual schedule in minutes. Embed it on your
-            existing website. Let Dropin handle the discovery.
+            Set up one facility and publish a schedule in an afternoon. No card
+            required to start.
           </p>
           <Link
             href="/signup"
             className="inline-flex items-center px-8 py-3.5 bg-blue-600 text-white font-semibold rounded-xl hover:bg-blue-500 transition-colors"
           >
-            List your facility — it&apos;s free
+            Create your organization
           </Link>
         </div>
       </section>

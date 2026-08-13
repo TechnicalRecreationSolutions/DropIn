@@ -16,11 +16,11 @@ const publicSans = Public_Sans({
 
 export const metadata: Metadata = {
   title: {
-    default: "Dropin — Find Drop-In Recreation Near You",
+    default: "Dropin — Drop-In Schedules for Recreation Centres",
     template: "%s | Dropin",
   },
   description:
-    "Discover drop-in sports and recreation across your city. Find lap swim, hockey, pickleball, open gym, and more — all in one place.",
+    "Build your drop-in schedule once and publish it everywhere: your own website, a printable month calendar, and a seasonal program guide.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   ),

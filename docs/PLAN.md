@@ -1,5 +1,26 @@
 # Dropin — Plan and Current State
 
+> ## Scope change — 2026-08-12: Dropin is not a marketplace
+>
+> **Dropin is the tool a sport and recreation centre uses to update and publish
+> its own schedule.** It is no longer a consumer-facing aggregator, and the
+> cross-organization discovery surface has been deleted: the city-search home
+> page, `/search`, `/browse/[sport]`, the Mapbox facility map and its address
+> geocoding, along with the `mapbox-gl` dependency and `NEXT_PUBLIC_MAPBOX_TOKEN`.
+> The dashboard's facilities grid/map toggle went with them.
+>
+> The rationale is delivery, not distaste for the idea: one product, done well,
+> shipped to production. A marketplace may follow later. It is explicitly not
+> what is being built now, so **treat anything below that assumes cross-org
+> discovery as history rather than as a roadmap** — including the phase 3 row in
+> the table, which shipped and has since been removed.
+>
+> What this makes central instead: the schedule command centre, the embeddable
+> widget, the printed event calendar and the seasonal brochure — the ways a
+> single centre publishes what it runs. The public `/facility/[slug]` and
+> `/org/[slug]` pages stay, because they are that centre's own pages rather than
+> an index of other people's.
+
 Last reconciled against the codebase: 2026-08-01. This document is a snapshot, not a contract — re-verify anything load-bearing against the actual migrations/code before relying on it, especially the schema map below.
 
 ---

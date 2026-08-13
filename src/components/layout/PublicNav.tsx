@@ -12,9 +12,13 @@ import { Menu, X, MapPin } from "lucide-react";
 export default function PublicNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
+  // Aimed at a recreation centre evaluating the product, not a resident looking
+  // for a swim. The consumer entries here ("Find Activities", "Browse Sports")
+  // pointed at the cross-org search and sport-browse pages, which went with the
+  // aggregator.
   const navLinks = [
-    { href: "/search", label: "Find Activities" },
-    { href: "/browse", label: "Browse Sports" },
+    { href: "/#features", label: "Features" },
+    { href: "/#pricing", label: "Pricing" },
   ];
 
   return (

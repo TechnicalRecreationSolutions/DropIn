@@ -1,8 +1,10 @@
 # Dropin
 
-**The centralized marketplace for discovering drop-in sport and recreation.**
+**Drop-in schedules for sport and recreation centres.**
 
-Dropin is a public discovery platform that lets consumers find drop-in recreation across organizations and municipalities, while giving organizations a modern way to publish and manage their schedules.
+Dropin is the tool a pool, arena or community centre uses to keep one drop-in schedule up to date and publish it everywhere it needs to appear: an embeddable widget on the centre's own website, a printable month-at-a-glance event calendar, and a seasonal program guide.
+
+> **Scope, as of 2026-08-12.** Dropin was previously built as a consumer-facing *marketplace* — a cross-organization index with city search, sport browse pages and a Mapbox facility map. **That is no longer the product.** Those surfaces were removed so the tool could get to production as one thing done well. The customer is the centre, not the resident. A marketplace may happen later; it is explicitly not what is being built now, so don't reintroduce cross-org discovery without a deliberate decision to revisit it.
 
 **Picking up after a break? Start at [`docs/RESUME.md`](docs/RESUME.md)** — current state, blockers, and what to do next.
 
@@ -16,9 +18,11 @@ For the delivery history, current schema map, and open work, see [`docs/PLAN.md`
 
 ## What problem does this solve?
 
-**For consumers:** Recreation information is siloed across dozens of municipal and private websites, each with a different UX. Finding "where can I lap swim this week?" requires visiting multiple sites. Dropin's **facility map** turns that into a visual, recognition-first experience — see a picture of the building, tap the pool, know what's happening there right now.
+A centre's drop-in schedule usually lives in three places at once — its website, a sheet printed for the wall, and a seasonal program guide — and each one is edited by hand. They drift, and the version a resident sees is whichever was updated last.
 
-**For organizations:** Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, forcing staff to build redundant paper or PDF schedules every week. Dropin provides a visual weekly schedule layer and an illustrated facility map that work *on top of* existing systems — no migration required. A drag-and-drop **schedule builder** lets staff place reusable session templates instead of filling out a form for every session.
+Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, which is what pushes staff into rebuilding the same timetable in Word every term. Dropin holds the schedule once and produces the rest from it: an embeddable widget, a printed month calendar, a seasonal guide, and a public page per building. It works *on top of* whatever registration system a centre already runs — no migration required.
+
+The visitor-facing side is the centre's **own** audience: its widget on its own site, its public pages. Dropin does not index one centre against another.
 
 ---
 
@@ -40,10 +44,10 @@ Ingestion into a schedule is **manual entry or CSV import only.** An earlier pha
 │                        DROPIN PLATFORM                          │
 │                                                                 │
 │  ┌──────────────────┐  ┌──────────────────┐  ┌──────────────┐  │
-│  │  Public Discovery │  │  Org Dashboard   │  │   Widget     │  │
-│  │  /search, /browse│  │  /dashboard/*    │  │ /widget/[id] │  │
-│  │  /facility        │  │  Schedule + map  │  │ (iframe)     │  │
-│  │                    │  │  builders        │  │              │  │
+│  │  A centre's own   │  │  Org Dashboard   │  │   Widget     │  │
+│  │  public pages     │  │  /dashboard/*    │  │ /widget/[id] │  │
+│  │  /facility/[slug] │  │  Schedule + map  │  │ (iframe on   │  │
+│  │  /org/[slug]      │  │  builders        │  │  their site) │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────┘  │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │
@@ -80,11 +84,10 @@ Ingestion into a schedule is **manual entry or CSV import only.** An earlier pha
 | Payments | Stripe |
 | Deployment | Vercel |
 | Styling | Tailwind CSS 4 |
-| Client state | Zustand |
 | Server state | TanStack Query |
-| Forms | React Hook Form + Zod |
+| Client state | React state — no store library |
+| Validation | Zod (forms are plain `useState` + `fetch`) |
 | Drag and drop | dnd-kit |
-| Maps (discovery) | Mapbox GL JS |
 | Facility map rendering | Hand-rolled SVG (`src/components/facility-maps/renderer/`) |
 | Email | Resend |
 | Import parsing | papaparse (CSV only — `xlsx` removed, see SECURITY.md → H4) |
@@ -98,7 +101,7 @@ Ingestion into a schedule is **manual entry or CSV import only.** An earlier pha
 dropin/
 ├── src/
 │   ├── app/                    # Next.js App Router pages and API routes
-│   │   ├── (public)/           # Public discovery: search, browse, facility pages
+│   │   ├── (public)/           # Marketing site + a centre's own public pages
 │   │   ├── (auth)/             # Login, signup, org onboarding
 │   │   ├── (dashboard)/        # Org staff dashboard (auth required)
 │   │   ├── (admin)/            # Superadmin panel
@@ -108,7 +111,6 @@ dropin/
 │   ├── components/
 │   │   ├── ui/                 # shadcn/ui base components
 │   │   ├── layout/              # Nav, sidebar, providers
-│   │   ├── discovery/           # Search, map, facility cards
 │   │   ├── schedule/             # Weekly grid + floorplan views (public AND editable)
 │   │   │   └── editing/           # Providers/dialogs that turn those views into editors
 │   │   ├── schedule-command/      # /dashboard/schedule — the staff command centre

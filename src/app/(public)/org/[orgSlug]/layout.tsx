@@ -10,15 +10,14 @@ import { getOrgPublicData } from "./orgPublicData";
  * page under `/org/[orgSlug]`.
  *
  * This is the org-level public surface the app did not have. `(public)`
- * previously only ever addressed a *facility* (`/facility/[slug]`) or the
- * platform's own directory (`/search`, `/browse`), which meant an org with
- * three buildings had no single URL representing the organization — and an
- * org-wide event calendar has nowhere to live but here. Phase D's brochure
+ * previously only ever addressed a *facility* (`/facility/[slug]`), which meant
+ * an org with three buildings had no single URL representing the organization —
+ * and an org-wide event calendar has nowhere to live but here. Phase D's brochure
  * (`/org/[orgSlug]/brochure/[seasonSlug]`) hangs off the same shell, which is
  * why the org lookup lives in a shared cached function rather than in the page.
  *
- * Deliberately NOT added to `PublicNav`. That nav is the platform's own
- * wayfinding — "find activities", "browse sports" — and is identical on every
+ * Deliberately NOT added to `PublicNav`. That nav is the marketing site's own
+ * wayfinding — features, pricing, sign in — and is identical on every
  * public page; an org-specific destination in it would either be dead weight
  * for every visitor who isn't looking at that org, or a nav that changes shape
  * per route. Orgs are reached from their facility pages and from links the org

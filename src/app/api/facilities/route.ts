@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
-import { geocodeAddress } from "@/lib/maps/geocode";
 import { slugify } from "@/lib/utils/slugify";
 
 const FacilitySchema = z.object({
@@ -31,8 +30,9 @@ const FacilitySchema = z.object({
 
 /**
  * POST /api/facilities — create or update a facility.
- * Geocodes the address server-side before writing to DB so lat/lng
- * are always populated when an address is provided.
+ *
+ * The address is stored as text and never geocoded; see the note at the payload
+ * below for why coordinates stopped having a reader.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -62,22 +62,18 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No organization found" }, { status: 403 });
   }
 
-  // Geocode the address
-  const coords = await geocodeAddress(
-    fields.address_line1,
-    fields.city,
-    fields.province,
-    fields.country
-  );
-
+  // No geocoding. Coordinates existed for one reader: the Mapbox pin map on the
+  // cross-org search page, which was the aggregator product. Dropin is a tool a
+  // centre uses to publish its own schedule, so nothing plots facilities against
+  // each other on a map, and an address is displayed as text.
+  //
+  // The lat/lng/location columns are left in place rather than migrated away —
+  // they cost nothing empty, and dropping them is the kind of irreversible step
+  // that should wait until the shape of the product has settled.
   const payload = {
     ...fields,
     org_id: membership.org_id,
     slug: slugify(fields.name),
-    lat: coords?.lat ?? null,
-    lng: coords?.lng ?? null,
-    // PostGIS point — only set if we have coords
-    ...(coords ? { location: `POINT(${coords.lng} ${coords.lat})` } : {}),
   };
 
   const table = supabase.from("facilities");

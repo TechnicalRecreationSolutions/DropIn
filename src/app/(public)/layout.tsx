@@ -19,15 +19,15 @@ export default function PublicLayout({
               <div>
                 <p className="text-white font-bold mb-1">Dropin</p>
                 <p className="text-sm">
-                  The easiest way to discover drop-in recreation.
+                  Drop-in schedules for recreation centres.
                 </p>
               </div>
               <div className="flex gap-8 text-sm">
                 <div>
-                  <p className="text-white font-medium mb-2">Discover</p>
+                  <p className="text-white font-medium mb-2">Product</p>
                   <ul className="space-y-1">
-                    <li><Link href="/search" className="hover:text-white transition-colors">Find Activities</Link></li>
-                    <li><Link href="/browse" className="hover:text-white transition-colors">Browse Sports</Link></li>
+                    <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
+                    <li><Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
                   </ul>
                 </div>
                 <div>

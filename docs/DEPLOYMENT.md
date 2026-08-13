@@ -104,8 +104,13 @@ follows.
 | Variable | What breaks if absent or wrong |
 |---|---|
 | `NEXT_PUBLIC_APP_URL` | **Confirmation emails link nowhere.** See section 2. |
-| `NEXT_PUBLIC_MAPBOX_TOKEN` | Maps and address lookup |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Client-side Stripe references |
+
+`NEXT_PUBLIC_MAPBOX_TOKEN` is **no longer used and should be removed** from any
+environment that still sets it. Mapbox left the stack with the cross-org search
+page: nothing plots facilities geographically any more, and addresses are stored
+as typed rather than geocoded. It was the app's only third-party browser origin,
+so the CSP no longer allows any.
 
 ### Two traps
 
@@ -191,9 +196,8 @@ a rendered page. With a live URL this is finally testable.
 Load each of these and check the browser console is free of
 `Content-Security-Policy` violations:
 
-- `/search` — Mapbox. The riskiest one: mapbox-gl builds its tile worker from a
-  `blob:` URL, which is why `worker-src blob:` is in the policy.
-- A facility page with a map.
+- `/` — the marketing page.
+- A facility page, and an org page with its event calendar.
 - The embedded widget, **framed on a different origin** — not just opened
   directly. Framing is the whole point of `frame-ancestors *` on `/widget`.
 - `/dashboard/widget` — the preview pane. See the trap below.
@@ -250,3 +254,22 @@ possible once deployed:
 | [`SECURITY.md`](SECURITY.md) | Findings register, standing assumptions, owner-only actions |
 | [`RESUME.md`](RESUME.md) | Session handoff — current state and what to pick up |
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Cache Components / PPR work |
+
+---
+
+## Scope change — 2026-08-12
+
+Dropin stopped being a consumer marketplace and became a tool a single
+recreation centre uses to publish its own schedule. Two entries in the launch
+checklists above are affected:
+
+- **Mapbox is gone.** `NEXT_PUBLIC_MAPBOX_TOKEN`, `mapbox-gl` and address
+  geocoding were removed with the cross-org search page. Any checklist item
+  about restricting the Mapbox token or setting a Mapbox spend cap is void —
+  delete the token from the environment rather than restricting it.
+- **The CSP no longer allows any third-party origin.** Mapbox was the only one.
+  `blob:` also went from `img-src`/`worker-src`/`child-src`: mapbox-gl compiling
+  its tile worker from a blob URL was its only user, and nothing else in the app
+  creates a worker or an object URL. Re-verify the policy against `/`, a
+  facility page and a framed widget rather than against `/search`, which no
+  longer exists.

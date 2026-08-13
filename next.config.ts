@@ -49,24 +49,29 @@ const HSTS_MAX_AGE = 3600;
  * Origins are exactly what the app uses; anything added later must be added
  * here or it fails closed at runtime:
  *   - Supabase   — REST + realtime websocket, and Storage for org/facility images
- *   - Mapbox     — tiles and geocoding from the browser in FacilityMap
- *   - blob:      — mapbox-gl compiles its tile worker from a blob URL, so
- *                  worker-src/child-src must allow it or the map never renders
  *   - fonts      — none external; next/font/google self-hosts at build time
  *   - Stripe     — none; checkout is a server-side redirect, no Stripe.js loads
+ *
+ * Mapbox and `blob:` were both removed when the cross-org search page went.
+ * Mapbox was the only third-party origin the browser ever contacted, and
+ * mapbox-gl compiling its tile worker from a blob URL was the only reason
+ * worker-src/child-src allowed blob: at all. Nothing else in the app creates a
+ * worker or an object URL — `ImageUpload` uploads first and previews from the
+ * returned Supabase URL — so both allowances now have no user and the policy is
+ * narrower than it was.
  */
 function contentSecurityPolicy(frameAncestors: string): string {
   return [
     "default-src 'self'",
     `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
     "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: blob: https://*.supabase.co https://api.mapbox.com https://*.tiles.mapbox.com",
+    "img-src 'self' data: https://*.supabase.co",
     "font-src 'self' data:",
     // ws: in dev only — the HMR socket. Shipping it in prod would let an
     // injected script open a plaintext socket to anywhere.
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co https://api.mapbox.com https://events.mapbox.com https://*.tiles.mapbox.com${isDev ? " ws: http://localhost:*" : ""}`,
-    "worker-src 'self' blob:",
-    "child-src 'self' blob:",
+    `connect-src 'self' https://*.supabase.co wss://*.supabase.co${isDev ? " ws: http://localhost:*" : ""}`,
+    "worker-src 'self'",
+    "child-src 'self'",
     // The only iframe is the widget preview in /dashboard/widget, which builds
     // its src from NEXT_PUBLIC_APP_URL. 'self' therefore holds only while that
     // variable matches the origin actually serving the page — on a preview

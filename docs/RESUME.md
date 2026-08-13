@@ -83,12 +83,14 @@ which grew this session. The ones that matter most:
 - [ ] **Login rate limiting** — Supabase dashboard. Cannot be done in app code:
       `LoginForm` calls `signInWithPassword()` straight from the browser, so the
       request never reaches this app.
-- [ ] **Browser-verify the CSP.** Load `/search` (Mapbox) and an embedded widget
-      with the policy live and confirm a clean console. The headers are verified
-      by curl and Mapbox's requirements were checked against its bundle, but
-      nothing has actually rendered under enforcement. Attempted this session;
-      the Chrome extension wasn't connected.
-- [ ] Spend caps / budget alerts: Vercel, Supabase, Stripe, Mapbox.
+- [ ] **Browser-verify the CSP in production.** Load `/`, a facility page and an
+      embedded widget with the policy live and confirm a clean console. Headers
+      are verified by curl; runtime enforcement is not. Note the policy is now
+      much narrower — Mapbox was the only third-party origin and it is gone, as
+      is `blob:`, so this is a smaller surface than when the item was written.
+      Verified clean locally on 2026-08-12; production still outstanding.
+- [ ] Spend caps / budget alerts: Vercel, Supabase, Stripe. *(Mapbox no longer
+      applies — removed with the cross-org search page.)*
 - [ ] Confirm backups (PITR) and run one restore test.
 
 ---
