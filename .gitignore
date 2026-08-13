@@ -48,3 +48,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Seeded demo session token — never commit (see scripts/verify/seed-demo.mjs)
+scripts/verify/.demo-cookie.js
+scripts/verify/.probe.mjs
