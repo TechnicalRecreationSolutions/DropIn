@@ -3,7 +3,12 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTime, formatDayShort, formatDayFull } from "@/lib/utils/dates";
+import {
+  formatTimeIn,
+  formatDayShort,
+  formatDayFull,
+  zonedDayOfWeek,
+} from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
@@ -51,7 +56,10 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
     const map: Record<number, ExpandedSession[]> = {};
     for (let i = 0; i < 7; i++) map[i] = [];
     for (const session of sessions) {
-      const dayOfWeek = session.start.getDay();
+      // The weekday in the session's own zone, not the reader's. `getDay()`
+      // resolves in the runtime zone, so a 6:00 AM Monday session read from
+      // anywhere west of the facility files itself under Sunday.
+      const dayOfWeek = zonedDayOfWeek(session.start, session.timezone);
       const index = dayOfWeek === 0 ? 6 : dayOfWeek - 1;
       map[index].push(session);
     }
@@ -146,7 +154,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                         >
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
                           <span className="w-24 sm:w-28 shrink-0 text-xs font-medium text-gray-500">
-                            {formatTime(session.start)}
+                            {formatTimeIn(session.start, session.timezone)}
                           </span>
                           <span className="flex-1 min-w-0">
                             <span className="block text-sm font-semibold text-gray-900 truncate">

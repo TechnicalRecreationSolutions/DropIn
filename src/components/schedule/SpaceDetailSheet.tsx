@@ -2,7 +2,7 @@
 
 import { X, Clock, DollarSign, Tag, Users } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTime } from "@/lib/utils/dates";
+import { formatTimeIn } from "@/lib/utils/dates";
 
 interface SpaceDetailSheetProps {
   spaceName: string;
@@ -98,8 +98,9 @@ export default function SpaceDetailSheet({
                 {liveSession.templateName ?? liveSession.scheduleGroupName}
               </p>
               <DetailRow icon={Clock}>
-                {formatTime(liveSession.start)} – {formatTime(liveSession.end)}
-                {viewingNow && ` · ends ${formatTime(liveSession.end)}`}
+                {formatTimeIn(liveSession.start, liveSession.timezone)} –{" "}
+                {formatTimeIn(liveSession.end, liveSession.timezone)}
+                {viewingNow && ` · ends ${formatTimeIn(liveSession.end, liveSession.timezone)}`}
               </DetailRow>
               <DetailRow icon={DollarSign}>{costLine(liveSession)}</DetailRow>
               {(liveSession.ageGroup || liveSession.skillLevel) && (
@@ -126,7 +127,7 @@ export default function SpaceDetailSheet({
                 {nextSession.templateName ?? nextSession.scheduleGroupName}
               </p>
               <p className="text-sm text-gray-500">
-                Starts {formatTime(nextSession.start)} · {costLine(nextSession)}
+                Starts {formatTimeIn(nextSession.start, nextSession.timezone)} · {costLine(nextSession)}
               </p>
             </div>
           )}

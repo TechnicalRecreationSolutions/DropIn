@@ -135,6 +135,7 @@ export function expandSessions(
         orgId: session.org_id,
         start,
         end,
+        timezone: session.timezone,
         scheduleGroupId: scheduleGroup.id,
         scheduleGroupName: scheduleGroup.name,
         sportCategory: scheduleGroup.sport_category,

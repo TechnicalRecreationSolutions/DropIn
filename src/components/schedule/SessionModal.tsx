@@ -2,7 +2,7 @@
 
 import { X, Clock, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTime, formatDayFull } from "@/lib/utils/dates";
+import { formatTimeIn, formatDayFullIn } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 
 interface SessionModalProps {
@@ -63,7 +63,8 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
             <div className="flex items-center gap-3 text-sm">
               <Clock className="w-4 h-4 text-gray-400 shrink-0" />
               <span className="text-gray-700">
-                {formatDayFull(session.start)} · {formatTime(session.start)} – {formatTime(session.end)}
+                {formatDayFullIn(session.start, session.timezone)} ·{" "}
+                {formatTimeIn(session.start, session.timezone)} – {formatTimeIn(session.end, session.timezone)}
               </span>
             </div>
 

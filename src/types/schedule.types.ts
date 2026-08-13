@@ -65,6 +65,19 @@ export type ExpandedSession = {
   start: Date;
   /** Absolute end datetime for this occurrence */
   end: Date;
+  /**
+   * IANA zone the session is actually scheduled in (`sessions.timezone`), e.g.
+   * "America/Edmonton". `start`/`end` are absolute instants, so rendering them
+   * without this formats in whatever zone the *runtime* happens to be in — the
+   * viewer's browser, or UTC on the server. A 6:00 AM lane swim in Edmonton
+   * then reads as 5:00 AM to someone in Vancouver and lands in the previous
+   * day's column, because the shift crosses midnight.
+   *
+   * A facility's schedule is a fact about the facility, not about who is
+   * looking at it. Format session instants with `formatTimeIn` and bucket them
+   * with `zonedDateString`, both of which take this.
+   */
+  timezone: string;
 
   /** Denormalized schedule group info for display without extra fetches */
   scheduleGroupId: string;

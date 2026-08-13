@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTime, formatDayShort, formatDayFull } from "@/lib/utils/dates";
+import { formatTimeIn, formatDayShort, formatDayFull } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
@@ -72,7 +72,7 @@ export default function WeeklyScheduleGrid({
     const map: Record<number, ExpandedSession[]> = {};
     for (let i = 0; i < 7; i++) map[i] = [];
     for (const session of sessions) {
-      map[dayIndexFromDate(session.start)].push(session);
+      map[dayIndexFromDate(session.start, session.timezone)].push(session);
     }
     for (const list of Object.values(map)) {
       list.sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -180,7 +180,7 @@ export default function WeeklyScheduleGrid({
                               {session.templateName ?? session.scheduleGroupName}
                             </p>
                             <p className="text-xs opacity-75 leading-tight mt-0.5">
-                              {formatTime(session.start)}–{formatTime(session.end)}
+                              {formatTimeIn(session.start, session.timezone)}–{formatTimeIn(session.end, session.timezone)}
                             </p>
                             {isLive && (
                               <span

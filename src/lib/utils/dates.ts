@@ -11,8 +11,80 @@ import {
   subMonths,
 } from "date-fns";
 
+/**
+ * ---------------------------------------------------------------------------
+ * Two families of formatter live in this file, and picking the wrong one is a
+ * silent bug rather than a crash.
+ *
+ * `formatTime` / `formatDayShort` / `formatDayFull` format in the **runtime's**
+ * zone — the viewer's browser on the client, UTC on the server. Correct for
+ * dates that are viewer constructs: the week the user is paging through, "today"
+ * in a date picker, a `created_at` audit line.
+ *
+ * `formatTimeIn` / `formatDayShortIn` / `formatDayFullIn` take an IANA zone and
+ * are the ones to use for **session occurrences**. When a facility opens at
+ * 6:00 AM it opens at 6:00 AM, whoever is looking; formatting that instant in
+ * the reader's zone shows the wrong hour and, when the shift crosses midnight,
+ * files it under the wrong day. Pass `session.timezone` (carried on every
+ * ExpandedSession for exactly this).
+ * ---------------------------------------------------------------------------
+ */
+
 export function formatTime(date: Date): string {
   return format(date, "h:mm a");
+}
+
+/** `formatTime` in an explicit IANA zone. Use for session instants. */
+export function formatTimeIn(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(date);
+}
+
+/** `formatDayShort` in an explicit IANA zone. Use for session instants. */
+export function formatDayShortIn(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+}
+
+/** `formatDayFull` in an explicit IANA zone. Use for session instants. */
+export function formatDayFullIn(date: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+  }).format(date);
+}
+
+/**
+ * Day-of-week index (0 = Sunday, matching `Date.prototype.getDay`) as observed
+ * in `timeZone`. Bucketing occurrences into weekday columns with `getDay()`
+ * uses the runtime zone and drops early-morning sessions into the day before.
+ */
+export function zonedDayOfWeek(date: Date, timeZone: string): number {
+  const short = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(short);
+}
+
+/**
+ * Minutes since midnight. With `timeZone` the wall clock is read in that zone;
+ * without it, in the runtime's — pass the session's zone whenever the number
+ * positions or labels a session, and omit it only for viewer-owned clocks.
+ */
+export function minutesOfDayIn(date: Date, timeZone?: string): number {
+  if (!timeZone) return date.getHours() * 60 + date.getMinutes();
+  const parts = new Intl.DateTimeFormat("en-GB", {
+    timeZone,
+    hour: "2-digit",
+    minute: "2-digit",
+    hour12: false,
+  }).formatToParts(date);
+  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
+  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
+  return hour * 60 + minute;
 }
 
 export function formatDate(date: Date): string {

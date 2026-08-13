@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTime, formatDayShort, formatDayFull } from "@/lib/utils/dates";
+import { formatTimeIn, formatDayShort, formatDayFull } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import { getSessionCardStyle } from "./sessionCardColor";
 import SessionModal from "./SessionModal";
@@ -78,7 +78,7 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
 
   const daySessions = useMemo(() => {
     return sessions
-      .filter((s) => dayIndexFromDate(s.start) === activeDayIndex)
+      .filter((s) => dayIndexFromDate(s.start, s.timezone) === activeDayIndex)
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   }, [sessions, activeDayIndex]);
 
@@ -322,7 +322,13 @@ function MapSessionBlock({
     disabled: !editing,
   });
 
-  const { top, height } = getSessionPixelPosition(session.start, session.end);
+  const { top, height } = getSessionPixelPosition(
+    session.start,
+    session.end,
+    undefined,
+    undefined,
+    session.timezone
+  );
   const isPast = session.end < new Date();
   const displayName = session.templateName ?? session.scheduleGroupName;
 
@@ -354,7 +360,7 @@ function MapSessionBlock({
         </p>
         {height >= SLOT_HEIGHT_PX && (
           <p className="text-xs opacity-75 leading-tight truncate">
-            {formatTime(session.start)}–{formatTime(session.end)}
+            {formatTimeIn(session.start, session.timezone)}–{formatTimeIn(session.end, session.timezone)}
           </p>
         )}
       </button>

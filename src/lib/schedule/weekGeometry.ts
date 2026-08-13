@@ -5,22 +5,33 @@
  * truth so pixel math and drag-drop math never drift apart between views.
  */
 
+import { minutesOfDayIn, zonedDayOfWeek } from "@/lib/utils/dates";
+
 export const SLOT_HEIGHT_PX = 48; // Height of each 30-minute slot
 export const SLOT_MINUTES = 30;
 export const GRID_START_HOUR = 6;
 export const GRID_END_HOUR = 22;
 
-/** Pixel top/height for a session occurring between start/end, relative to a grid starting at gridStartHour. */
+/**
+ * Pixel top/height for a session occurring between start/end, relative to a
+ * grid starting at gridStartHour.
+ *
+ * `timeZone` is the session's own zone. Without it the wall clock is read in
+ * the runtime's zone, which does not just mislabel the block — it *positions*
+ * it: a 6am Edmonton session lands on the 5am row for a Pacific reader, and
+ * slides off the top of the grid entirely once the offset exceeds the gutter.
+ */
 export function getSessionPixelPosition(
   start: Date,
   end: Date,
   gridStartHour = GRID_START_HOUR,
-  gridEndHour = GRID_END_HOUR
+  gridEndHour = GRID_END_HOUR,
+  timeZone?: string
 ): { top: number; height: number } {
   const gridStartMinute = gridStartHour * 60;
   const gridEndMinute = gridEndHour * 60;
-  const startMin = start.getHours() * 60 + start.getMinutes();
-  const endMin = end.getHours() * 60 + end.getMinutes();
+  const startMin = minutesOfDayIn(start, timeZone);
+  const endMin = minutesOfDayIn(end, timeZone);
   const clampedStart = Math.max(startMin, gridStartMinute);
   const clampedEnd = Math.min(endMin, gridEndMinute);
   const top = ((clampedStart - gridStartMinute) / SLOT_MINUTES) * SLOT_HEIGHT_PX;
@@ -74,9 +85,14 @@ export const DAYS: WeekDay[] = [
   { code: "SU", label: "Sunday", short: "Sun" },
 ];
 
-/** Day-of-week index where 0=Monday...6=Sunday, matching DAYS' order. */
-export function dayIndexFromDate(date: Date): number {
-  const d = date.getDay();
+/**
+ * Day-of-week index where 0=Monday...6=Sunday, matching DAYS' order.
+ *
+ * Pass `timeZone` for a session instant so it is filed under the weekday it
+ * actually runs on; omit it for viewer-owned dates like "today".
+ */
+export function dayIndexFromDate(date: Date, timeZone?: string): number {
+  const d = timeZone ? zonedDayOfWeek(date, timeZone) : date.getDay();
   return d === 0 ? 6 : d - 1;
 }
 
