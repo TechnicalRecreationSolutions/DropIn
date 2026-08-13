@@ -259,6 +259,15 @@
   .event-calendar .grid > * {
     break-inside: avoid;
   }
+
+  /* "Today" is a fact about the screen, not about the month. The printed sheet
+     goes on a wall and is read for weeks, so the accent bubble is dropped and
+     the date printed like any other. Overrides an inline background, hence the
+     !important. */
+  .event-calendar [data-today] {
+    background: none !important;
+    color: #6a7282 !important; /* text-gray-500, matching the other in-month dates */
+  }
 }
 
 

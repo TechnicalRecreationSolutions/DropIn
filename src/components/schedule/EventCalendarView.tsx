@@ -189,7 +189,13 @@ export default function EventCalendarView({
                 )}
               >
                 <div className="flex items-start justify-between gap-1">
+                  {/* data-today is what the print stylesheet strips the
+                      highlight from. A sheet pinned to a wall outlives the day
+                      it was printed on, and a date still circled in the org's
+                      accent reads as "something happens here" long after it
+                      stopped being true. */}
                   <span
+                    data-today={isToday || undefined}
                     className={cn(
                       "text-xs font-semibold leading-none rounded-full px-1.5 py-1",
                       !inMonth && "text-gray-300",

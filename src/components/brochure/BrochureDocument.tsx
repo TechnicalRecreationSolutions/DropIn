@@ -71,6 +71,8 @@ export default function BrochureDocument({
     else bySection.set(entry.section_id, [entry]);
   }
 
+  const renderedSections = sections.filter((s) => (bySection.get(s.id) ?? []).length > 0);
+
   return (
     <article className="brochure max-w-4xl mx-auto px-4 sm:px-6 py-8">
       {/* Cover */}
@@ -120,11 +122,12 @@ export default function BrochureDocument({
         </div>
       </header>
 
-      {sections.map((section) => {
+      {/* A section with nothing in it is a heading with no content — on paper
+          that reads as a mistake, so it is dropped rather than printed empty.
+          Resolved up front because the unfiled block below needs to know
+          whether any heading actually precedes it. */}
+      {renderedSections.map((section) => {
         const sectionEntries = bySection.get(section.id) ?? [];
-        // A section with nothing in it is a heading with no content — on paper
-        // that reads as a mistake, so it is dropped rather than printed empty.
-        if (sectionEntries.length === 0) return null;
 
         return (
           <section key={section.id} className="brochure-section mb-8">
@@ -155,9 +158,27 @@ export default function BrochureDocument({
       })}
 
       {/* Entries never filed into a section still belong in the document —
-          dropping them would silently lose content someone pulled in. */}
+          dropping them would silently lose content someone pulled in.
+
+          They need a heading of their own whenever a real section precedes
+          them. Without one they sit directly under the previous section's
+          heading and are read as part of it: on a printed guide, an open gym
+          left unfiled after an "Aquatics" section becomes an aquatics
+          programme, which is worse than either dropping it or labelling it.
+          When nothing else is sectioned there is no heading to be captured by,
+          and the document is simply a list — a bare label there would be
+          noise. "Unfiled" is editor vocabulary and deliberately not used. */}
       {unfiled.length > 0 && (
         <section className="brochure-section mb-8">
+          {renderedSections.length > 0 && (
+            <h2
+              className="text-xl font-bold text-gray-900 pb-1.5 border-b-2"
+              style={{ borderColor: "var(--org-accent, #2563eb)" }}
+            >
+              More programs
+            </h2>
+          )}
+
           <div className="mt-3 space-y-3">
             {unfiled.map((entry) => (
               <EntryBlock key={entry.id} entry={entry} layout="list" />
