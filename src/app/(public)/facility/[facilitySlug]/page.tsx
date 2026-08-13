@@ -4,6 +4,7 @@ import Link from "next/link";
 import { MapPin, Globe, Phone, Clock, CalendarDays } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
+import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import FacilityScheduleClient from "./FacilityScheduleClient";
 import type { ScheduleTemplate } from "@/types/schedule.types";
@@ -75,7 +76,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { facilitySlug } = await params;
   const data = await getFacilityPageData(facilitySlug);
 
-  if (!data) return { title: "Facility Not Found — Dropin" };
+  if (!data) return notFoundMetadata("Facility Not Found — Dropin");
   const { facility } = data;
 
   return {

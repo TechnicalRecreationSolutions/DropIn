@@ -4,6 +4,7 @@ import { notFound } from "next/navigation";
 import { createPublicClient } from "@/lib/supabase/public";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import { getOrgPublicData } from "../../orgPublicData";
+import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import BrochureDocument from "@/components/brochure/BrochureDocument";
 
 interface PageProps {
@@ -84,7 +85,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { orgSlug, brochureSlug } = await params;
   const data = await getBrochure(orgSlug, brochureSlug);
 
-  if (!data) return { title: "Brochure Not Found — Dropin" };
+  if (!data) return notFoundMetadata("Brochure Not Found — Dropin");
   const { brochure, org } = data;
 
   return {

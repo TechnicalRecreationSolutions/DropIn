@@ -3,6 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { CalendarDays, MapPin, ChevronRight } from "lucide-react";
 import { getOrgPublicData, getOrgFacilities } from "./orgPublicData";
+import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 
 interface PageProps {
   params: Promise<{ orgSlug: string }>;
@@ -12,7 +13,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { orgSlug } = await params;
   const data = await getOrgPublicData(orgSlug);
 
-  if (!data) return { title: "Organization Not Found — Dropin" };
+  if (!data) return notFoundMetadata("Organization Not Found — Dropin");
   const { org } = data;
 
   return {

@@ -140,7 +140,7 @@ hand after touching what they cover. Read that README before adding to them.
 1. Route de-duplication (department-nested vs. facility-direct schedule-group trees) — codebase health.
 2. Real onboarding flow + settings inheritance (cost/age/skill defaults from department, timezone from facility).
 3. Schedule builder Phase B: drag-and-drop placement of session templates onto real `spaces` (the primary deliverable of the schedule-builder redesign — everything after A is blocked on this being genuinely useful).
-4. Schedule builder Phases C–E: session edit/delete UI (doesn't exist yet at all — create + soft-delete only), `schedule_type` time-block/continuous variant, grid/list builder parity — lower priority, do B first.
+4. Schedule builder Phases C–E: `schedule_type` time-block/continuous variant, grid/list builder parity — lower priority, do B first. ~~session edit/delete UI (doesn't exist yet at all)~~ **That claim was wrong when written and is corrected here:** `dashboard/sessions/[sessionId]/edit` renders `SessionForm` against a real row, `PATCH /api/sessions/[sessionId]` saves it, and `DELETE /api/sessions` soft-deletes via `is_active`. Verified 2026-08-12.
 
 ---
 
