@@ -11,6 +11,7 @@ import {
   CalendarRange,
   BookOpen,
   Plus,
+  Settings,
 } from "lucide-react";
 import { useNavTree } from "@/hooks/useNavTree";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
@@ -32,6 +33,9 @@ export const topLinks = [
 
 export const bottomLinks = [
   { href: "/dashboard/data-sources", label: "Data Sources", icon: Database },
+  // Above Billing because it's the one a new centre needs on day one — the
+  // org name and logo it edits here are what the public pages render.
+  { href: "/dashboard/settings", label: "Organization", icon: Settings },
   { href: "/dashboard/billing", label: "Billing", icon: CreditCard },
 ];
 

@@ -72,10 +72,14 @@ bucket against four columns (`facilities.photo_urls`,
 `session_features.image_url`) plus Phase D's brochure entries, so it is worth
 writing once, after the brochure lands rather than before.
 
-## Known gap
+## `organizations.logo_url` — closed
 
-`organizations.logo_url` has a storage folder and a policy, and the org public
-page and printed event sheet both render it — but **there is no UI anywhere that
-sets it**. There is no org settings page in this app at all. Adding one is a
-real feature, not part of this deliverable; the folder is in place for whenever
-it happens.
+This section used to record a gap: the folder and policy existed, the org public
+page and printed event sheet both rendered the logo, and nothing anywhere set
+it. `/dashboard/settings` now does (`components/org/OrgSettingsForm.tsx`).
+
+One wrinkle worth knowing if you reuse `ImageUpload` on a role-gated form: it has
+no `disabled` prop. `{orgId}/org/` is owner/admin-only, so a member operating the
+control would get a raw storage error. The settings form wraps it in a
+`<fieldset disabled>` — the drop zone is a `<button>` and the picker is an
+`<input>`, so both are genuinely inert, and the current logo still renders.

@@ -4,6 +4,8 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import FacilityForm from "@/components/facility/FacilityForm";
+import FacilityDangerZone from "@/components/facility/FacilityDangerZone";
+import { getFacilityDeletionImpact } from "@/lib/facilities/deletionImpact";
 
 interface EditFacilityPageProps {
   params: Promise<{ facilityId: string }>;
@@ -24,6 +26,9 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
     .single();
 
   if (!facility) notFound();
+
+  const impact = await getFacilityDeletionImpact(facilityId, orgContext.org.id);
+  const canDelete = ["owner", "admin"].includes(orgContext.membership.role);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -55,6 +60,13 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
           description: facility.description ?? "",
           is_published: facility.is_published,
         }}
+      />
+
+      <FacilityDangerZone
+        facilityId={facilityId}
+        facilityName={facility.name}
+        impact={impact}
+        canDelete={canDelete}
       />
     </div>
   );

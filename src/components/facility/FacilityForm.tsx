@@ -185,7 +185,7 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
             Publish this facility
           </label>
           <p className="text-xs text-gray-500">
-            Visible on the public Dropin discovery map and search.
+            Included on your public schedule pages and embedded widget.
           </p>
         </div>
       </div>
