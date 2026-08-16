@@ -1,24 +1,19 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
-import { getWeekStart, getWeekEnd, toSessionTime } from "@/lib/utils/dates";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import {
-  Building2,
-  Calendar,
-  ArrowRight,
-  EyeOff,
-  Inbox,
-  Plus,
-  Layers,
-  Clock,
-} from "lucide-react";
+import { Building2, Calendar, ArrowRight, Plus } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardPageSkeleton as DashboardOverviewSkeleton } from "@/components/layout/DashboardChromeSkeletons";
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
+import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
+import { localDateString } from "@/lib/utils/dates";
+import { getSportCategory } from "@/lib/utils/sport-categories";
+import ScheduleListSection, {
+  type ScheduleListRow,
+} from "@/components/schedule-list/ScheduleListSection";
 
 /**
  * Validated for instant client-side navigation: Next.js checks at build time
@@ -33,14 +28,17 @@ import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCen
  */
 export const unstable_instant = { prefetch: "static" };
 
-export default function DashboardPage() {
+interface DashboardPageProps {
+  searchParams: Promise<{ facility?: string }>;
+}
+
+export default function DashboardPage({ searchParams }: DashboardPageProps) {
   return (
     <Suspense fallback={<DashboardOverviewSkeleton />}>
-      <DashboardOverview />
+      <DashboardOverview searchParams={searchParams} />
     </Suspense>
   );
 }
-
 
 type RecentFacility = {
   id: string;
@@ -62,114 +60,122 @@ type RecentScheduleGroup = {
 
 type RecentItem = RecentFacility | RecentScheduleGroup;
 
-type AttentionItem = {
-  key: string;
-  label: string;
-  detail: string;
-  href: string;
-};
-
-function settledCount(
-  result: PromiseSettledResult<{ count: number | null; error: unknown }>
-): number | null {
-  if (result.status !== "fulfilled" || result.value.error) return null;
-  return result.value.count ?? 0;
-}
-
-/** Schedules open on the command centre, scoped and ready to edit — same as everywhere else. */
 function scheduleGroupHref(sg: { facility_id: string; department_id: string | null; id: string }) {
   return commandCentreHref(scheduleGroupScope(sg));
 }
 
-async function DashboardOverview() {
+async function DashboardOverview({ searchParams }: DashboardPageProps) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();
+  const { facility: facilityParam } = await searchParams;
 
-  const now = new Date();
-  const weekStart = getWeekStart(now);
-  const weekEnd = getWeekEnd(now);
+  // Ordered by name to match the sidebar tree — "the first facility" means
+  // the same building in both places.
+  const { data: facilityRows } = await supabase
+    .from("facilities")
+    .select("id, name, slug, is_published, updated_at")
+    .eq("org_id", orgId)
+    .order("name");
 
-  // Every query is settled independently so one failure can't blank the whole page.
-  const [
-    facilitiesRes,
-    thisWeekRes,
-    recentFacilitiesRes,
-    recentScheduleGroupsRes,
-    draftFacilitiesRes,
-    draftScheduleGroupsRes,
-    emptyFacilitiesRes,
-  ] = await Promise.allSettled([
-    supabase.from("facilities").select("id", { count: "exact", head: true }).eq("org_id", orgId),
-    supabase
-      .from("sessions")
-      .select(
-        `*, schedule_groups!inner ( id, name, sport_category, activity_type, cost_cents, cost_notes,
-          age_group, skill_level, max_participants, org_id,
-          facilities ( id, name ), departments ( id, name ) ),
-        session_spaces ( spaces ( id, name, display_order ) )`
-      )
-      .eq("org_id", orgId)
-      .eq("is_active", true)
-      .lte("valid_from", weekEnd.toISOString().split("T")[0])
-      .or(`valid_until.is.null,valid_until.gte.${weekStart.toISOString().split("T")[0]}`),
+  const facilities = facilityRows ?? [];
+  const isNew = facilities.length === 0;
+  const selectedFacility =
+    facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null;
+
+  const [scheduleGroupsRes, recentFacilitiesRes, recentScheduleGroupsRes] = await Promise.allSettled([
+    selectedFacility
+      ? supabase
+          .from("schedule_groups")
+          .select(
+            "id, name, sport_category, status, starts_on, ends_on, updated_at, published_at, department_id, departments ( name )"
+          )
+          .eq("org_id", orgId)
+          .eq("facility_id", selectedFacility.id)
+          .order("display_order", { ascending: true })
+      : Promise.resolve({ data: null, error: null }),
     supabase
       .from("facilities")
       .select("id, name, is_published, updated_at")
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
-      .limit(8),
+      .limit(6),
     supabase
       .from("schedule_groups")
       .select("id, name, status, updated_at, facility_id, department_id")
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
-      .limit(8),
-    // Needs attention: unpublished facilities
-    supabase
-      .from("facilities")
-      .select("id, name, updated_at")
-      .eq("org_id", orgId)
-      .eq("is_published", false)
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    // Needs attention: unpublished (draft) schedules
-    supabase
-      .from("schedule_groups")
-      .select("id, name, facility_id, department_id, updated_at")
-      .eq("org_id", orgId)
-      .eq("status", "draft")
-      .order("updated_at", { ascending: false })
-      .limit(5),
-    // Needs attention: facilities with no departments and no schedule groups
-    // Relational select — cast needed until Supabase CLI generates types with FK relations
-    supabase
-      .from("facilities")
-      .select("id, name, departments(id), schedule_groups(id)")
-      .eq("org_id", orgId)
-      .order("updated_at", { ascending: false })
-      .limit(20) as unknown as Promise<{
-      data: { id: string; name: string; departments: { id: string }[]; schedule_groups: { id: string }[] }[] | null;
-      error: unknown;
-    }>,
+      .limit(6),
   ]);
 
-  const facilityCount = settledCount(facilitiesRes);
+  type ScheduleGroupRow = {
+    id: string;
+    name: string;
+    sport_category: string;
+    status: "draft" | "published";
+    starts_on: string | null;
+    ends_on: string | null;
+    updated_at: string;
+    published_at: string | null;
+    department_id: string | null;
+    departments: { name: string } | null;
+  };
 
-  const thisWeekCount =
-    thisWeekRes.status === "fulfilled" && !thisWeekRes.value.error && thisWeekRes.value.data
-      ? // Relational select — cast needed until Supabase CLI generates types with FK relations
-        // weekStart/weekEnd are real server-local Dates; expandSessions compares
-        // against session occurrences in the session-Date convention, so they're
-        // re-encoded via toSessionTime right at this boundary (see its doc comment).
-        expandSessions(thisWeekRes.value.data as unknown as SessionWithRelations[], [], {
-          rangeStart: toSessionTime(weekStart),
-          rangeEnd: toSessionTime(weekEnd),
-          orgId,
-        }).length
-      : null;
+  const scheduleGroupRows: ScheduleGroupRow[] =
+    scheduleGroupsRes.status === "fulfilled"
+      ? ((scheduleGroupsRes.value.data as unknown as ScheduleGroupRow[] | null) ?? [])
+      : [];
+
+  const scheduleIds = scheduleGroupRows.map((g) => g.id);
+  const { data: sessionRows } =
+    scheduleIds.length > 0
+      ? await supabase
+          .from("sessions")
+          .select("schedule_group_id")
+          .eq("org_id", orgId)
+          .eq("is_active", true)
+          .in("schedule_group_id", scheduleIds)
+      : { data: [] as { schedule_group_id: string }[] };
+
+  const sessionCounts = new Map<string, number>();
+  for (const s of sessionRows ?? []) {
+    sessionCounts.set(s.schedule_group_id, (sessionCounts.get(s.schedule_group_id) ?? 0) + 1);
+  }
+
+  const today = localDateString();
+  const scheduleListRows: ScheduleListRow[] = selectedFacility
+    ? scheduleGroupRows.map((g) => {
+        const sport = getSportCategory(g.sport_category);
+        return {
+          id: g.id,
+          name: g.name,
+          typeLabel: sport?.label ?? g.sport_category,
+          typeIcon: sport?.icon ?? "🎯",
+          departmentName: g.departments?.name ?? null,
+          startsOn: g.starts_on,
+          endsOn: g.ends_on,
+          sessionsCount: sessionCounts.get(g.id) ?? 0,
+          scheduleStatus: deriveScheduleStatus(
+            {
+              status: g.status,
+              startsOn: g.starts_on,
+              endsOn: g.ends_on,
+              updatedAt: g.updated_at,
+              publishedAt: g.published_at,
+            },
+            today
+          ),
+          editHref: scheduleGroupHref({
+            facility_id: selectedFacility.id,
+            department_id: g.department_id,
+            id: g.id,
+          }),
+          previewHref: `/facility/${selectedFacility.slug}`,
+        };
+      })
+    : [];
 
   const recentFacilities: RecentFacility[] =
     recentFacilitiesRes.status === "fulfilled" && recentFacilitiesRes.value.data
@@ -196,135 +202,27 @@ async function DashboardOverview() {
 
   const recentActivity: RecentItem[] = [...recentFacilities, ...recentScheduleGroups]
     .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-    .slice(0, 8);
-
-  // Needs attention — three signals, each capped and merged into one list.
-  const attentionItems: AttentionItem[] = [];
-
-  if (draftFacilitiesRes.status === "fulfilled" && draftFacilitiesRes.value.data) {
-    for (const f of draftFacilitiesRes.value.data) {
-      attentionItems.push({
-        key: `draft_facility_${f.id}`,
-        label: f.name,
-        detail: "Facility is unpublished",
-        href: commandCentreHref({ facilityId: f.id }),
-      });
-    }
-  }
-
-  if (draftScheduleGroupsRes.status === "fulfilled" && draftScheduleGroupsRes.value.data) {
-    for (const sg of draftScheduleGroupsRes.value.data) {
-      attentionItems.push({
-        key: `draft_schedule_${sg.id}`,
-        label: sg.name,
-        detail: "Schedule is unpublished",
-        href: scheduleGroupHref(sg),
-      });
-    }
-  }
-
-  if (emptyFacilitiesRes.status === "fulfilled" && emptyFacilitiesRes.value.data) {
-    for (const f of emptyFacilitiesRes.value.data) {
-      if (f.departments.length === 0 && f.schedule_groups.length === 0) {
-        attentionItems.push({
-          key: `empty_facility_${f.id}`,
-          label: f.name,
-          detail: "No departments or schedules yet",
-          href: commandCentreHref({ facilityId: f.id }),
-        });
-      }
-    }
-  }
-
-  const isNew = facilityCount === 0;
-  // Schedules are created within a facility, so quick-build routes there via
-  // whichever facility was touched most recently.
-  const mostRecentFacilityId = recentFacilities[0]?.id ?? null;
+    .slice(0, 5);
 
   function itemHref(item: RecentItem) {
     return item.kind === "facility" ? commandCentreHref({ facilityId: item.id }) : scheduleGroupHref(item);
   }
-
-  const quickBuildActions = [
-    { label: "Add facility", icon: Building2, href: "/dashboard/facilities/new" },
-    // Departments always belong to a facility, so this route asks staff which
-    // one rather than silently guessing based on recent activity.
-    ...(facilityCount ? [{ label: "Add department", icon: Layers, href: "/dashboard/departments/new" }] : []),
-    ...(mostRecentFacilityId
-      ? [
-          {
-            label: "Add schedule",
-            icon: Calendar,
-            href: `/dashboard/facilities/${mostRecentFacilityId}/schedule-groups/new`,
-          },
-        ]
-      : []),
-    { label: "Add session", icon: Clock, href: "/dashboard/sessions/new" },
-  ];
 
   return (
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">
-          Welcome back{isNew ? "" : `, ${orgContext.org.name}`}
+          {isNew ? `Welcome back` : selectedFacility ? selectedFacility.name : orgContext.org.name}
         </h1>
         <p className="text-gray-500 mt-1">
           {isNew
             ? "Get started by adding your first facility."
-            : "Here's what's happening across your organization."}
+            : selectedFacility
+              ? "Every schedule at this building, current and stored."
+              : "Here's what's happening across your organization."}
         </p>
       </div>
-
-      {/* Stats row */}
-      <div className="grid grid-cols-2 gap-4">
-        {[
-          { label: "Facilities", value: facilityCount, icon: Building2, href: "/dashboard/facilities" },
-          { label: "This week", value: thisWeekCount, icon: Calendar, href: "/dashboard/schedule" },
-        ].map((stat) => (
-          <Link key={stat.label} href={stat.href}>
-            <Card className="p-5 hover:border-blue-300 hover:shadow-sm transition-all group">
-              <div className="flex items-center justify-between mb-3">
-                <stat.icon className="w-5 h-5 text-gray-400 group-hover:text-blue-500 transition-colors" />
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
-              </div>
-              {stat.value === null ? (
-                <p
-                  className="text-2xl font-bold text-gray-300"
-                  title="Couldn't load this right now"
-                >
-                  –
-                </p>
-              ) : (
-                <p className="text-2xl font-bold text-gray-900">{stat.value}</p>
-              )}
-              <p className="text-sm text-gray-500 mt-0.5">{stat.label}</p>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {/* Quick build — fast entry points into the most common create flows */}
-      {!isNew && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Quick build</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-            {quickBuildActions.map((action) => (
-              <Link
-                key={action.label}
-                href={action.href}
-                className="flex flex-col items-center justify-center gap-2 p-4 bg-white rounded-xl border border-gray-200 hover:border-blue-300 hover:shadow-sm transition-all text-center"
-              >
-                <span className="relative w-9 h-9 rounded-full bg-blue-50 flex items-center justify-center">
-                  <action.icon className="w-4 h-4 text-blue-600" />
-                  <Plus className="w-3 h-3 text-blue-600 absolute -right-1 -bottom-1 bg-white rounded-full border border-blue-100 p-0.5" />
-                </span>
-                <span className="text-xs font-medium text-gray-700">{action.label}</span>
-              </Link>
-            ))}
-          </div>
-        </div>
-      )}
 
       {/* Quick actions for new orgs */}
       {isNew && (
@@ -355,25 +253,40 @@ async function DashboardOverview() {
         </div>
       )}
 
-      {/* Needs attention — the primary reason to visit the overview day to day */}
-      {!isNew && attentionItems.length > 0 && (
+      {/* The schedule list — the primary reason to be on this page day to day */}
+      {!isNew && selectedFacility && (
+        <ScheduleListSection
+          orgId={orgId}
+          facilityName={selectedFacility.name}
+          rows={scheduleListRows}
+          newScheduleHref={`/dashboard/facilities/${selectedFacility.id}/schedule-groups/new`}
+        />
+      )}
+
+      {/* Recent activity — a compact secondary panel. Facility-level changes
+          (e.g. a new building added) show up here even though the schedule
+          list above only ever covers one building at a time. */}
+      {!isNew && recentActivity.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Needs attention</h2>
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent activity</h2>
           <Card className="divide-y divide-gray-100 py-0">
-            {attentionItems.slice(0, 8).map((item) => {
-              const Icon = item.key.startsWith("empty_") ? Inbox : EyeOff;
+            {recentActivity.map((item) => {
+              const Icon = item.kind === "facility" ? Building2 : Calendar;
               return (
                 <Link
-                  key={item.key}
-                  href={item.href}
+                  key={`${item.kind}_${item.id}`}
+                  href={itemHref(item)}
                   className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
                 >
-                  <Icon className="w-4 h-4 text-amber-500 shrink-0" />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-900 truncate">{item.label}</p>
-                    <p className="text-xs text-gray-500 truncate">{item.detail}</p>
-                  </div>
-                  <ArrowRight className="w-4 h-4 text-gray-300 shrink-0" />
+                  <Icon className="w-4 h-4 text-gray-400 shrink-0" />
+                  <span className="text-sm font-medium text-gray-900 truncate">{item.name}</span>
+                  <Badge variant={item.is_published ? "default" : "secondary"} className="shrink-0">
+                    {item.is_published ? "Published" : "Draft"}
+                  </Badge>
+                  <span className="text-xs text-gray-400 shrink-0 hidden sm:inline">
+                    {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
+                  </span>
+                  <ArrowRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
                 </Link>
               );
             })}
@@ -381,41 +294,18 @@ async function DashboardOverview() {
         </div>
       )}
 
-      {/* Recent activity — every row links directly into the tree at the right node */}
-      {!isNew && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent activity</h2>
-          {recentActivity.length > 0 ? (
-            <Card className="divide-y divide-gray-100 py-0">
-              {recentActivity.map((item) => {
-                const Icon = item.kind === "facility" ? Building2 : Calendar;
-                return (
-                  <Link
-                    key={`${item.kind}_${item.id}`}
-                    href={itemHref(item)}
-                    className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
-                  >
-                    <Icon className="w-4 h-4 text-gray-400 shrink-0" />
-                    <span className="text-sm font-medium text-gray-900 truncate">{item.name}</span>
-                    <Badge variant={item.is_published ? "default" : "secondary"} className="shrink-0">
-                      {item.is_published ? "Published" : "Draft"}
-                    </Badge>
-                    <span className="text-xs text-gray-400 shrink-0 hidden sm:inline">
-                      {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
-                    </span>
-                    <ArrowRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
-                  </Link>
-                );
-              })}
-            </Card>
-          ) : (
-            <Card className="px-5 py-6 text-center">
-              <p className="text-sm text-gray-500">Nothing&apos;s changed recently.</p>
-              <p className="text-xs text-gray-400 mt-0.5">
-                Updates to your facilities and schedules will show up here.
-              </p>
-            </Card>
-          )}
+      {!isNew && !selectedFacility && (
+        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+          <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
+          <h3 className="font-medium text-gray-900 mb-1">No buildings yet</h3>
+          <p className="text-sm text-gray-500 mb-4">Add a facility to start building its schedule.</p>
+          <Link
+            href="/dashboard/facilities/new"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add a facility
+          </Link>
         </div>
       )}
     </div>

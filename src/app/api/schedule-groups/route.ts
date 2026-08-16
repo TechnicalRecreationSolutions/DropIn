@@ -22,7 +22,6 @@ const CreateScheduleGroupSchema = z.object({
   status: z.enum(["draft", "published"]).default("draft"),
   starts_on: DateString.nullish(),
   ends_on: DateString.nullish(),
-  in_brochure: z.boolean().default(false),
   photo_urls: z.array(z.string()).default([]),
 });
 
@@ -132,9 +131,12 @@ export async function POST(request: Request) {
       status: fields.status,
       starts_on: fields.starts_on ?? null,
       ends_on: fields.ends_on ?? null,
-      in_brochure: fields.in_brochure,
       photo_urls: fields.photo_urls,
       source: "manual" as const,
+      // Set once, on the transition into 'published' — see migration 035.
+      // A schedule created already-published gets its real publish moment
+      // here rather than the update path below.
+      ...(fields.status === "published" ? { published_at: new Date().toISOString() } : {}),
     })
     .select("*")
     .single();

@@ -362,6 +362,11 @@ export type Database = {
           status: "draft" | "published";
           starts_on: string | null;
           ends_on: string | null;
+          // Added in 035_schedule_group_modified_tracking.sql. Set only on
+          // the transition INTO 'published' (see that migration's header) —
+          // never on an ordinary edit to an already-published row. Compared
+          // against updated_at to derive the schedule list's MODIFIED state.
+          published_at: string | null;
           // Added in 031_brochures.sql. Candidacy for a season brochure, not
           // membership — the editor pulls candidates explicitly.
           in_brochure: boolean;
@@ -393,6 +398,7 @@ export type Database = {
           | "continuous_hours_note"
           | "starts_on"
           | "ends_on"
+          | "published_at"
         > & {
           description?: string | null;
           activity_type?: "drop_in" | "registered" | "open_gym" | null;
@@ -408,6 +414,13 @@ export type Database = {
           continuous_hours_note?: string | null;
           starts_on?: string | null;
           ends_on?: string | null;
+          published_at?: string | null;
+          // DEFAULT NOW() at the DB level, but writable — there is no
+          // updated_at trigger on this table for the schedule_groups row
+          // itself (session writes bump it via a DB trigger instead, see
+          // migration 035), so PATCH /api/schedule-groups/[id] sets it
+          // explicitly on every edit. Same shape as seasons' Insert type.
+          updated_at?: string;
         };
         Update: Partial<
           Database["public"]["Tables"]["schedule_groups"]["Insert"]
