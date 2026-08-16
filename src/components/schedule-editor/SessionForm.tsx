@@ -7,6 +7,8 @@ import { ChevronDown, CalendarDays, BookOpen } from "lucide-react";
 import RRuleBuilder from "./RRuleBuilder";
 import { ONCE_RRULE, isOneTimeRRule } from "@/lib/rrule/validate";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
+import ImageUpload from "@/components/media/ImageUpload";
+import { ACTIVITY_TYPES, AGE_GROUPS, SKILL_LEVELS } from "@/lib/utils/schedule-group-attributes";
 import { cn } from "@/lib/utils/cn";
 
 /** Remembers the last schedule picked here, so entering several blocks for
@@ -14,11 +16,27 @@ import { cn } from "@/lib/utils/cn";
 const LAST_SCHEDULE_GROUP_KEY = "dropin:sessionForm:lastScheduleGroupId";
 
 interface SessionFormProps {
+  orgId: string;
+  /** Owner/admin only — matches the PATCH /api/schedule-groups/[id] role
+   *  check, the same line migration 024 draws for schedule groups generally.
+   *  A member can still create/edit the session itself; the "Program
+   *  details" sub-section (which writes to the parent schedule_group) is
+   *  hidden rather than left to fail with a 403 after the session saves. */
+  canEditScheduleDetails: boolean;
   scheduleGroups: {
     id: string;
     name: string;
     facility_id: string;
     facility_name: string;
+    /** The schedule's own descriptive fields — shared by every session under
+     *  it, so editing them here edits the schedule, not just this session. */
+    activity_type: "drop_in" | "registered" | "open_gym";
+    age_group: string | null;
+    skill_level: string | null;
+    max_participants: number | null;
+    cost_notes: string | null;
+    description: string | null;
+    photo_urls: string[];
   }[];
   spaces: { id: string; name: string; facility_id: string }[];
   defaultScheduleGroupId?: string;
@@ -46,6 +64,8 @@ interface SessionFormProps {
 const DEFAULT_RRULE = "FREQ=WEEKLY;BYDAY=MO,WE,FR";
 
 export default function SessionForm({
+  orgId,
+  canEditScheduleDetails,
   scheduleGroups,
   spaces,
   defaultScheduleGroupId,
@@ -61,6 +81,7 @@ export default function SessionForm({
   // swaps in the last-used one on the client, once, if nothing more specific
   // was already asked for.
   const [scheduleGroupId, setScheduleGroupId] = useState(defaultScheduleGroupId ?? scheduleGroups[0]?.id ?? "");
+  const initialGroup = scheduleGroups.find((sg) => sg.id === scheduleGroupId);
   const [rrule, setRrule] = useState(initialValues?.rrule ?? DEFAULT_RRULE);
   // Bumped to force RRuleBuilder to remount. It parses its RRULE once on mount
   // and owns frequency/day state from then on, so changing `rrule` from out
@@ -75,7 +96,50 @@ export default function SessionForm({
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(!!initialValues?.locationDetail);
+
+  // The schedule's own descriptive fields (see SessionFormProps). Kept here,
+  // not on the schedule form, but saved back to schedule_groups — never to
+  // this session — as a second request, same pattern as the feature fields
+  // below.
+  const [activityType, setActivityType] = useState(initialGroup?.activity_type ?? "drop_in");
+  const [ageGroup, setAgeGroup] = useState(initialGroup?.age_group ?? "all_ages");
+  const [skillLevel, setSkillLevel] = useState(initialGroup?.skill_level ?? "all_levels");
+  const [maxParticipants, setMaxParticipants] = useState(
+    initialGroup?.max_participants ? String(initialGroup.max_participants) : ""
+  );
+  const [costNotes, setCostNotes] = useState(initialGroup?.cost_notes ?? "");
+  const [description, setDescription] = useState(initialGroup?.description ?? "");
+  const [photoUrls, setPhotoUrls] = useState<string[]>(initialGroup?.photo_urls ?? []);
+
+  const [advancedOpen, setAdvancedOpen] = useState(
+    () =>
+      !!(
+        initialValues?.locationDetail ||
+        (canEditScheduleDetails &&
+          ((initialGroup?.activity_type && initialGroup.activity_type !== "drop_in") ||
+            (initialGroup?.age_group && initialGroup.age_group !== "all_ages") ||
+            (initialGroup?.skill_level && initialGroup.skill_level !== "all_levels") ||
+            initialGroup?.max_participants ||
+            initialGroup?.cost_notes ||
+            initialGroup?.description))
+      )
+  );
+
+  // Re-seeds the schedule's descriptive fields from whichever group is now
+  // selected — only reachable while creating (the picker is disabled once
+  // editing), but a schedule switch mid-create must not carry over the
+  // previous group's values.
+  function applyGroupDefaults(groupId: string) {
+    const g = scheduleGroups.find((sg) => sg.id === groupId);
+    if (!g) return;
+    setActivityType(g.activity_type);
+    setAgeGroup(g.age_group ?? "all_ages");
+    setSkillLevel(g.skill_level ?? "all_levels");
+    setMaxParticipants(g.max_participants ? String(g.max_participants) : "");
+    setCostNotes(g.cost_notes ?? "");
+    setDescription(g.description ?? "");
+    setPhotoUrls(g.photo_urls ?? []);
+  }
 
   const [isEvent, setIsEvent] = useState(initialValues?.isEvent ?? false);
   const [inBrochure, setInBrochure] = useState(initialValues?.inBrochure ?? false);
@@ -116,8 +180,23 @@ export default function SessionForm({
     inBrochure !== (initialValues?.inBrochure ?? false) ||
     featureSummary !== (initialValues?.featureSummary ?? "");
 
-  const selectedFacilityId = scheduleGroups.find((sg) => sg.id === scheduleGroupId)?.facility_id;
+  const selectedGroup = scheduleGroups.find((sg) => sg.id === scheduleGroupId);
+  const selectedFacilityId = selectedGroup?.facility_id;
   const facilitySpaces = spaces.filter((s) => s.facility_id === selectedFacilityId);
+
+  // Same skip-the-second-request reasoning as featureTouched, compared
+  // against whichever group is currently selected — not the group this form
+  // started with, since the picker (while creating) can change it.
+  const groupFieldsTouched =
+    canEditScheduleDetails &&
+    !!selectedGroup &&
+    (activityType !== selectedGroup.activity_type ||
+      (ageGroup || null) !== selectedGroup.age_group ||
+      (skillLevel || null) !== selectedGroup.skill_level ||
+      (maxParticipants ? parseInt(maxParticipants) : null) !== selectedGroup.max_participants ||
+      (costNotes || null) !== selectedGroup.cost_notes ||
+      (description || null) !== selectedGroup.description ||
+      photoUrls.join(",") !== selectedGroup.photo_urls.join(","));
 
   // Client-only: swap in the last schedule used from this browser, once, but
   // only when nobody asked for a specific one (a deep link from "Add a
@@ -126,8 +205,11 @@ export default function SessionForm({
   useEffect(() => {
     if (isEditing || defaultScheduleGroupId) return;
     const last = localStorage.getItem(LAST_SCHEDULE_GROUP_KEY);
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    if (last && scheduleGroups.some((sg) => sg.id === last)) setScheduleGroupId(last);
+    if (last && scheduleGroups.some((sg) => sg.id === last)) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setScheduleGroupId(last);
+      applyGroupDefaults(last);
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -208,6 +290,36 @@ export default function SessionForm({
       }
     }
 
+    // The schedule's descriptive fields live on schedule_groups, not
+    // sessions — a third request, same reasoning as featureTouched/the
+    // feature save above, against the schedule the session was just saved
+    // under (not necessarily `scheduleGroupId`'s prop value, but it's the
+    // same thing here).
+    if (groupFieldsTouched) {
+      const groupRes = await fetch(`/api/schedule-groups/${scheduleGroupId}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          activity_type: activityType,
+          age_group: ageGroup || null,
+          skill_level: skillLevel || null,
+          max_participants: maxParticipants ? parseInt(maxParticipants) : null,
+          cost_notes: costNotes || null,
+          description: description || null,
+          photo_urls: photoUrls,
+        }),
+      });
+
+      if (!groupRes.ok) {
+        const groupData = await groupRes.json().catch(() => ({}));
+        setError(
+          `${groupData.error ?? "Could not save the schedule's program details."} The session itself was saved.`
+        );
+        setLoading(false);
+        return;
+      }
+    }
+
     router.push(redirectTo);
     router.refresh();
   }
@@ -249,6 +361,7 @@ export default function SessionForm({
           onChange={(e) => {
             setScheduleGroupId(e.target.value);
             setSpaceIds([]); // the space list is scoped to the schedule's facility
+            applyGroupDefaults(e.target.value);
           }}
           required
           disabled={isEditing}
@@ -410,7 +523,9 @@ export default function SessionForm({
         <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
           <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
           Advanced options
-          <span className="font-normal text-gray-400">(location detail)</span>
+          <span className="font-normal text-gray-400">
+            (location detail{canEditScheduleDetails ? ", program details" : ""})
+          </span>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-5 pt-4">
           <div>
@@ -427,6 +542,69 @@ export default function SessionForm({
               Optional free-text note shown alongside the space, e.g. entry instructions.
             </p>
           </div>
+
+          {canEditScheduleDetails && (
+          <div className="border-t border-gray-100 pt-5 space-y-5">
+            <div>
+              <p className="text-sm font-medium text-gray-700">Program details</p>
+              <p className="text-xs text-gray-500 mt-0.5">
+                These describe the schedule itself, not just this session — saving here updates
+                {selectedGroup ? ` every session under “${selectedGroup.name}.”` : " the whole schedule."}
+              </p>
+            </div>
+
+            <div className="grid grid-cols-3 gap-4">
+              <div>
+                <label htmlFor="activity_type" className={labelClass}>Type</label>
+                <select id="activity_type" value={activityType}
+                  onChange={(e) => setActivityType(e.target.value as typeof activityType)} className={fieldClass}>
+                  {ACTIVITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="age_group" className={labelClass}>Age group</label>
+                <select id="age_group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} className={fieldClass}>
+                  {AGE_GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
+                </select>
+              </div>
+              <div>
+                <label htmlFor="skill_level" className={labelClass}>Skill level</label>
+                <select id="skill_level" value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)} className={fieldClass}>
+                  {SKILL_LEVELS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
+                </select>
+              </div>
+            </div>
+
+            <div>
+              <label htmlFor="max_participants" className={labelClass}>Max participants</label>
+              <input id="max_participants" type="number" min="1"
+                value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)}
+                className={fieldClass} placeholder="Leave blank for unlimited" />
+            </div>
+
+            <div>
+              <label htmlFor="cost_notes" className={labelClass}>Cost notes</label>
+              <input id="cost_notes" type="text" value={costNotes} onChange={(e) => setCostNotes(e.target.value)}
+                className={fieldClass} placeholder="e.g. Members free, Non-members $5" />
+            </div>
+
+            <div>
+              <label htmlFor="group_description" className={labelClass}>Description</label>
+              <textarea id="group_description" rows={3} value={description}
+                onChange={(e) => setDescription(e.target.value)} className={fieldClass}
+                placeholder="Brief description of this schedule..." />
+            </div>
+
+            <ImageUpload
+              value={photoUrls[0] ?? null}
+              onChange={(url) => setPhotoUrls(url ? [url, ...photoUrls.slice(1)] : photoUrls.slice(1))}
+              orgId={orgId}
+              kind="schedules"
+              label="Photo"
+              hint="Used where this schedule is presented as a program, including the brochure."
+            />
+          </div>
+          )}
         </CollapsibleContent>
       </Collapsible>
 

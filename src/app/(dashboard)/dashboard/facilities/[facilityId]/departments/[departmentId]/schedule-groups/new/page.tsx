@@ -47,17 +47,13 @@ export default async function NewScheduleGroupPage({ params }: NewScheduleGroupP
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Add a schedule</h1>
         <p className="text-gray-500 mt-1">
-          A schedule is a named activity your facility runs (e.g. &quot;Lane Swim&quot;) with its own cost,
-          age group, and recurring sessions.
+          A schedule is a named activity your facility runs (e.g. &quot;Lane Swim&quot;) with its own cost
+          and recurring sessions.
         </p>
       </div>
       <ScheduleGroupForm
-        orgId={orgContext.org.id}
         facilityId={facilityId}
         departmentId={departmentId}
-        // A brand-new schedule is empty, so land on the command centre where it
-        // can be built rather than on a list that just names it.
-        redirectTo={commandCentreHref({ facilityId, departmentId })}
       />
     </div>
   );

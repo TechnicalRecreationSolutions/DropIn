@@ -3,35 +3,27 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ChevronDown } from "lucide-react";
 import { SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
-import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import ImageUpload from "@/components/media/ImageUpload";
+import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 
 interface ScheduleGroupFormProps {
-  orgId: string;
   facilityId: string;
-  /** Pre-filled when created from a department's page; otherwise staff can pick one (or none). */
+  /** Pre-filled when created from a department's page; still editable either way. */
   departmentId?: string;
   scheduleGroupId?: string;
   defaultValues?: {
     name?: string;
     sport_category?: string;
-    activity_type?: string;
-    age_group?: string;
-    skill_level?: string;
     cost_cents?: number;
-    cost_notes?: string;
-    description?: string;
-    max_participants?: number | null;
     status?: "draft" | "published";
     starts_on?: string | null;
     ends_on?: string | null;
-    photo_urls?: string[];
-    in_brochure?: boolean;
   };
-  /** Where to send staff after a successful save. */
-  redirectTo: string;
+}
+
+interface FacilityOption {
+  id: string;
+  name: string;
 }
 
 interface DepartmentOption {
@@ -39,34 +31,21 @@ interface DepartmentOption {
   name: string;
 }
 
-const ACTIVITY_TYPES = [
-  { value: "drop_in", label: "Drop-in" },
-  { value: "open_gym", label: "Open Gym" },
-  { value: "registered", label: "Registered Program" },
-];
+interface SeasonOption {
+  id: string;
+  name: string;
+  starts_on: string;
+  ends_on: string;
+}
 
-const AGE_GROUPS = [
-  { value: "all_ages", label: "All ages" },
-  { value: "youth", label: "Youth (under 18)" },
-  { value: "adult", label: "Adult (18+)" },
-  { value: "senior", label: "Senior (55+)" },
-  { value: "family", label: "Family" },
-];
-
-const SKILL_LEVELS = [
-  { value: "all_levels", label: "All levels" },
-  { value: "beginner", label: "Beginner" },
-  { value: "intermediate", label: "Intermediate" },
-  { value: "advanced", label: "Advanced" },
-];
+/** Sentinel picker value meaning "not tied to a season's dates". */
+const CUSTOM_DATES = "";
 
 export default function ScheduleGroupForm({
-  orgId,
   facilityId,
-  departmentId: fixedDepartmentId,
+  departmentId: defaultDepartmentId,
   scheduleGroupId,
   defaultValues,
-  redirectTo,
 }: ScheduleGroupFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -74,47 +53,43 @@ export default function ScheduleGroupForm({
 
   const [form, setForm] = useState({
     name: defaultValues?.name ?? "",
-    department_id: fixedDepartmentId ?? "",
+    facility_id: facilityId,
+    department_id: defaultDepartmentId ?? "",
     sport_category: defaultValues?.sport_category ?? "swimming",
-    activity_type: defaultValues?.activity_type ?? "drop_in",
-    age_group: defaultValues?.age_group ?? "all_ages",
-    skill_level: defaultValues?.skill_level ?? "all_levels",
     cost_dollars: defaultValues?.cost_cents ? String(defaultValues.cost_cents / 100) : "0",
-    cost_notes: defaultValues?.cost_notes ?? "",
-    description: defaultValues?.description ?? "",
-    max_participants: defaultValues?.max_participants ? String(defaultValues.max_participants) : "",
     status: defaultValues?.status ?? "draft",
     starts_on: defaultValues?.starts_on ?? "",
     ends_on: defaultValues?.ends_on ?? "",
-    in_brochure: defaultValues?.in_brochure ?? false,
   });
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [facilities, setFacilities] = useState<FacilityOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
-  // Separate from `form` for the same reason as FacilityForm's: the upload
-  // control sets a URL directly rather than emitting an input change event.
-  const [photoUrls, setPhotoUrls] = useState<string[]>(defaultValues?.photo_urls ?? []);
+  const [seasons, setSeasons] = useState<SeasonOption[]>([]);
+  const [seasonId, setSeasonId] = useState(CUSTOM_DATES);
 
-  // Auto-expand advanced options when editing a schedule that already has
-  // non-default values set, so staff don't lose sight of their own data.
-  const [advancedOpen, setAdvancedOpen] = useState(
-    () =>
-      !!(
-        (defaultValues?.activity_type && defaultValues.activity_type !== "drop_in") ||
-        (defaultValues?.age_group && defaultValues.age_group !== "all_ages") ||
-        (defaultValues?.skill_level && defaultValues.skill_level !== "all_levels") ||
-        defaultValues?.max_participants ||
-        defaultValues?.cost_notes ||
-        defaultValues?.description
-      )
-  );
-
-  // If no department is pre-fixed by the route, let staff optionally pick one for this facility.
+  // The org's facilities, for the picker. Org-wide, so fetched once.
   useEffect(() => {
-    if (fixedDepartmentId) return;
+    fetch("/api/nav-tree")
+      .then((res) => res.json())
+      .then((data) => setFacilities(data.facilities ?? []))
+      .catch(() => setFacilities([]));
+  }, []);
+
+  // The org's seasons, for the dates picker. Org-wide, so fetched once.
+  useEffect(() => {
+    fetch("/api/seasons")
+      .then((res) => res.json())
+      .then((data) => setSeasons(data.seasons ?? []))
+      .catch(() => setSeasons([]));
+  }, []);
+
+  // Departments are scoped to whichever facility is currently selected —
+  // refetches whenever that changes, including from the picker below.
+  useEffect(() => {
     let cancelled = false;
-    fetch(`/api/departments?facilityId=${facilityId}`)
+    fetch(`/api/departments?facilityId=${form.facility_id}`)
       .then((res) => res.json())
       .then((data) => {
         if (!cancelled) setDepartments(data.departments ?? []);
@@ -125,7 +100,7 @@ export default function ScheduleGroupForm({
     return () => {
       cancelled = true;
     };
-  }, [facilityId, fixedDepartmentId]);
+  }, [form.facility_id]);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
@@ -133,6 +108,24 @@ export default function ScheduleGroupForm({
       ...prev,
       [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
     }));
+  }
+
+  function handleFacilityChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    // A department belongs to one facility, so switching facilities always
+    // clears it rather than carrying over an id that no longer applies.
+    setForm((prev) => ({ ...prev, facility_id: e.target.value, department_id: "" }));
+  }
+
+  function handleSeasonChange(e: React.ChangeEvent<HTMLSelectElement>) {
+    const id = e.target.value;
+    setSeasonId(id);
+    if (id === CUSTOM_DATES) return;
+    const season = seasons.find((s) => s.id === id);
+    if (!season) return;
+    // A one-time prefill, not a binding — starts_on/ends_on are plain columns
+    // on schedule_groups (no season_id FK), so this just copies the dates
+    // across. Editing them afterward doesn't move the picker back to "Custom".
+    setForm((prev) => ({ ...prev, starts_on: season.starts_on, ends_on: season.ends_on }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -150,21 +143,13 @@ export default function ScheduleGroupForm({
 
     const payload = {
       name: form.name,
-      facility_id: facilityId,
+      facility_id: form.facility_id,
       department_id: form.department_id || null,
       sport_category: form.sport_category,
-      activity_type: form.activity_type as "drop_in" | "registered" | "open_gym",
-      age_group: form.age_group || null,
-      skill_level: form.skill_level || null,
       cost_cents: isNaN(costCents) ? 0 : costCents,
-      cost_notes: form.cost_notes || null,
-      description: form.description || null,
-      max_participants: form.max_participants ? parseInt(form.max_participants) : null,
       status: form.status,
       starts_on: form.starts_on || null,
       ends_on: form.ends_on || null,
-      in_brochure: form.in_brochure,
-      photo_urls: photoUrls,
     };
 
     const res = await fetch(
@@ -176,15 +161,19 @@ export default function ScheduleGroupForm({
       }
     );
 
+    const data = await res.json().catch(() => ({}));
+
     if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
       setError(data.error ?? "Something went wrong. Please try again.");
       setLoading(false);
       return;
     }
 
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
-    router.push(redirectTo);
+    // Built from what was actually saved, not the page's starting scope, so
+    // a facility or department change lands on the schedule where it now
+    // lives instead of a stale URL.
+    router.push(commandCentreHref(scheduleGroupScope(data.scheduleGroup)));
     router.refresh();
   }
 
@@ -200,25 +189,33 @@ export default function ScheduleGroupForm({
       </div>
 
       <div className="grid grid-cols-2 gap-4">
-        {!fixedDepartmentId && (
-          <div>
-            <label htmlFor="department_id" className={labelClass}>
-              Department <span className="font-normal text-gray-400">(optional)</span>
-            </label>
-            <select id="department_id" name="department_id" value={form.department_id} onChange={handleChange} className={fieldClass}>
-              <option value="">No department</option>
-              {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-            </select>
-          </div>
-        )}
         <div>
-          <label htmlFor="sport_category" className={labelClass}>Sport / Activity *</label>
-          <select id="sport_category" name="sport_category" required value={form.sport_category} onChange={handleChange} className={fieldClass}>
-            {SPORT_CATEGORIES.map((cat) => (
-              <option key={cat.id} value={cat.id}>{cat.label}</option>
-            ))}
+          <label htmlFor="facility_id" className={labelClass}>Facility *</label>
+          <select id="facility_id" name="facility_id" required value={form.facility_id} onChange={handleFacilityChange} className={fieldClass}>
+            {!facilities.some((f) => f.id === form.facility_id) && (
+              <option value={form.facility_id}>Loading…</option>
+            )}
+            {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
           </select>
         </div>
+        <div>
+          <label htmlFor="department_id" className={labelClass}>
+            Department <span className="font-normal text-gray-400">(optional)</span>
+          </label>
+          <select id="department_id" name="department_id" value={form.department_id} onChange={handleChange} className={fieldClass}>
+            <option value="">No department</option>
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
+          </select>
+        </div>
+      </div>
+
+      <div>
+        <label htmlFor="sport_category" className={labelClass}>Sport / Activity *</label>
+        <select id="sport_category" name="sport_category" required value={form.sport_category} onChange={handleChange} className={fieldClass}>
+          {SPORT_CATEGORIES.map((cat) => (
+            <option key={cat.id} value={cat.id}>{cat.label}</option>
+          ))}
+        </select>
       </div>
 
       <div>
@@ -226,88 +223,6 @@ export default function ScheduleGroupForm({
         <input id="cost_dollars" name="cost_dollars" type="number" min="0" step="0.01"
           value={form.cost_dollars} onChange={handleChange} className={fieldClass} placeholder="0.00" />
       </div>
-
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-gray-100 pt-5">
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
-          <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
-          Advanced options
-          <span className="font-normal text-gray-400">(type, age group, skill level, max participants, notes)</span>
-        </CollapsibleTrigger>
-        <CollapsibleContent className="space-y-5 pt-4">
-          <div className="grid grid-cols-3 gap-4">
-            <div>
-              <label htmlFor="activity_type" className={labelClass}>Type</label>
-              <select id="activity_type" name="activity_type" value={form.activity_type} onChange={handleChange} className={fieldClass}>
-                {ACTIVITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="age_group" className={labelClass}>Age group</label>
-              <select id="age_group" name="age_group" value={form.age_group} onChange={handleChange} className={fieldClass}>
-                {AGE_GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-              </select>
-            </div>
-            <div>
-              <label htmlFor="skill_level" className={labelClass}>Skill level</label>
-              <select id="skill_level" name="skill_level" value={form.skill_level} onChange={handleChange} className={fieldClass}>
-                {SKILL_LEVELS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-              </select>
-            </div>
-          </div>
-
-          <div>
-            <label htmlFor="max_participants" className={labelClass}>Max participants</label>
-            <input id="max_participants" name="max_participants" type="number" min="1"
-              value={form.max_participants} onChange={handleChange} className={fieldClass} placeholder="Leave blank for unlimited" />
-          </div>
-
-          <div>
-            <label htmlFor="cost_notes" className={labelClass}>Cost notes</label>
-            <input id="cost_notes" name="cost_notes" type="text" value={form.cost_notes} onChange={handleChange}
-              className={fieldClass} placeholder="e.g. Members free, Non-members $5" />
-          </div>
-
-          <div>
-            <label htmlFor="description" className={labelClass}>Description</label>
-            <textarea id="description" name="description" rows={3} value={form.description} onChange={handleChange}
-              className={fieldClass} placeholder="Brief description of this schedule..." />
-          </div>
-
-          {/* Element 0 is the cover, matching facilities. A schedule group is
-              what a brochure lists as a *program*, so this image is what
-              Phase D pulls in alongside the description above. */}
-          <ImageUpload
-            value={photoUrls[0] ?? null}
-            onChange={(url) => setPhotoUrls(url ? [url, ...photoUrls.slice(1)] : photoUrls.slice(1))}
-            orgId={orgId}
-            kind="schedules"
-            label="Photo"
-            hint="Used where this schedule is presented as a program, including the brochure."
-          />
-
-          {/* Candidacy, not membership: this offers the program to brochure
-              editors, it does not put it in one. See migration 031. */}
-          <label className="flex items-start gap-3 cursor-pointer">
-            <input
-              id="in_brochure"
-              name="in_brochure"
-              type="checkbox"
-              checked={form.in_brochure}
-              onChange={handleChange}
-              className="mt-0.5 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
-            />
-            <span>
-              <span className="block text-sm font-medium text-gray-700">
-                Offer for season brochures
-              </span>
-              <span className="block text-xs text-gray-500">
-                Suggests this program when someone builds a brochure. They still choose what
-                goes in, and removing it from one brochure won&rsquo;t affect the others.
-              </span>
-            </span>
-          </label>
-        </CollapsibleContent>
-      </Collapsible>
 
       <div className="border-t border-gray-100 pt-5 space-y-4">
         <div>
@@ -317,6 +232,16 @@ export default function ScheduleGroupForm({
             <option value="published">Published</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">Only published schedules are visible on the public schedule page and widget.</p>
+        </div>
+
+        <div>
+          <label htmlFor="season_id" className={labelClass}>
+            Season <span className="font-normal text-gray-400">(optional — fills in the dates below)</span>
+          </label>
+          <select id="season_id" name="season_id" value={seasonId} onChange={handleSeasonChange} className={fieldClass}>
+            <option value={CUSTOM_DATES}>Custom dates</option>
+            {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
+          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

@@ -35,10 +35,19 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
   // Relational select — cast needed until Supabase CLI generates types with FK relations
   const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select("id, name, facility_id, department_id, facilities(name)")
+    .select(
+      "id, name, facility_id, department_id, activity_type, age_group, skill_level, max_participants, cost_notes, description, photo_urls, facilities(name)"
+    )
     .eq("id", session.schedule_group_id)
     .single() as unknown as {
-    data: { id: string; name: string; facility_id: string; department_id: string | null; facilities: { name: string } | null } | null;
+    data: {
+      id: string; name: string; facility_id: string; department_id: string | null;
+      activity_type: "drop_in" | "registered" | "open_gym";
+      age_group: string | null; skill_level: string | null;
+      max_participants: number | null; cost_notes: string | null;
+      description: string | null; photo_urls: string[] | null;
+      facilities: { name: string } | null;
+    } | null;
   };
 
   if (!scheduleGroup) notFound();
@@ -76,11 +85,20 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
         </p>
       </div>
       <SessionForm
+        orgId={orgContext.org.id}
+        canEditScheduleDetails={["owner", "admin"].includes(orgContext.membership.role)}
         scheduleGroups={[{
           id: scheduleGroup.id,
           name: scheduleGroup.name,
           facility_id: scheduleGroup.facility_id,
           facility_name: scheduleGroup.facilities?.name ?? "Unknown facility",
+          activity_type: scheduleGroup.activity_type,
+          age_group: scheduleGroup.age_group,
+          skill_level: scheduleGroup.skill_level,
+          max_participants: scheduleGroup.max_participants,
+          cost_notes: scheduleGroup.cost_notes,
+          description: scheduleGroup.description,
+          photo_urls: scheduleGroup.photo_urls ?? [],
         }]}
         defaultScheduleGroupId={scheduleGroup.id}
         spaces={spaces ?? []}

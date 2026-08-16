@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { commandCentreHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -27,7 +27,7 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
 
   const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, status, starts_on, ends_on, photo_urls, in_brochure")
+    .select("id, name, sport_category, cost_cents, status, starts_on, ends_on")
     .eq("id", scheduleGroupId)
     .eq("facility_id", facilityId)
     .single();
@@ -49,28 +49,16 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
         <p className="text-gray-500 mt-1">Update this schedule&apos;s details.</p>
       </div>
       <ScheduleGroupForm
-        orgId={orgContext.org.id}
         facilityId={facilityId}
         scheduleGroupId={scheduleGroupId}
         defaultValues={{
           name: scheduleGroup.name,
           sport_category: scheduleGroup.sport_category,
-          activity_type: scheduleGroup.activity_type,
-          age_group: scheduleGroup.age_group ?? undefined,
-          skill_level: scheduleGroup.skill_level ?? undefined,
           cost_cents: scheduleGroup.cost_cents,
-          cost_notes: scheduleGroup.cost_notes ?? "",
-          description: scheduleGroup.description ?? "",
-          max_participants: scheduleGroup.max_participants,
           status: scheduleGroup.status,
           starts_on: scheduleGroup.starts_on,
           ends_on: scheduleGroup.ends_on,
-          photo_urls: scheduleGroup.photo_urls ?? [],
-          in_brochure: scheduleGroup.in_brochure,
         }}
-        // Settings are reached from the command centre, so saving returns there
-        // with this schedule still in scope.
-        redirectTo={commandCentreHref({ facilityId, departmentId: NO_DEPARTMENT, scheduleGroupId })}
       />
     </div>
   );

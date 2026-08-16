@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { commandCentreHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -37,17 +37,13 @@ export default async function NewFacilityScheduleGroupPage({ params }: NewFacili
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-gray-900">Add a schedule</h1>
         <p className="text-gray-500 mt-1">
-          A schedule is a named activity your facility runs (e.g. &quot;Lane Swim&quot;) with its own cost,
-          age group, and recurring sessions. Departments are optional — pick one below if this
+          A schedule is a named activity your facility runs (e.g. &quot;Lane Swim&quot;) with its own cost
+          and recurring sessions. Departments are optional — pick one below if this
           facility uses them, or leave it as-is.
         </p>
       </div>
       <ScheduleGroupForm
-        orgId={orgContext.org.id}
         facilityId={facilityId}
-        // A brand-new schedule is empty, so land on the command centre where it
-        // can be built rather than on a list that just names it.
-        redirectTo={commandCentreHref({ facilityId, departmentId: NO_DEPARTMENT })}
       />
     </div>
   );
