@@ -8,10 +8,9 @@ import { CalendarPlus, ExternalLink, Info } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
 import { useTemplateSchedule, SCHEDULE_RANGE_KEY } from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
-import { localDateString } from "@/lib/utils/dates";
+import { localDateString, getWeekStart, sessionTimeString } from "@/lib/utils/dates";
 import { buildRRuleString } from "@/lib/rrule/validate";
-import { DEFAULT_APP_TIMEZONE, zonedTimeToUtc } from "@/lib/utils/timezone";
-import { DAYS, timeStringToMinutes, minutesToTimeString } from "@/lib/schedule/weekGeometry";
+import { DAYS, timeStringToMinutes, minutesToTimeString, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import ScheduleView from "@/components/schedule/ScheduleView";
@@ -28,6 +27,9 @@ import CreateSessionDialog, {
   type CreateSessionValues,
 } from "@/components/schedule/editing/CreateSessionDialog";
 import DuplicateSessionDialog from "@/components/schedule/editing/DuplicateSessionDialog";
+import AddAnotherTimeDialog, {
+  type AddAnotherTimeValues,
+} from "@/components/schedule/editing/AddAnotherTimeDialog";
 import RescheduleConfirmDialog, {
   type RescheduleTarget,
 } from "@/components/schedule/editing/RescheduleConfirmDialog";
@@ -35,6 +37,9 @@ import DeleteSessionDialog from "@/components/schedule/editing/DeleteSessionDial
 import FeatureSessionDialog, {
   type FeatureSubmitValues,
 } from "@/components/schedule/editing/FeatureSessionDialog";
+import OverrideWeekDialog, {
+  type OverrideWeekValues,
+} from "@/components/schedule/editing/OverrideWeekDialog";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
 import WidgetConfigurator from "@/components/widget/WidgetConfigurator";
 import { NO_DEPARTMENT, isWorkspaceTab, type WorkspaceTab } from "@/lib/schedule/commandCentreHref";
@@ -125,6 +130,10 @@ export default function ScheduleCommandCentre({
   const [duplicateSubmitting, setDuplicateSubmitting] = useState(false);
   const [duplicateError, setDuplicateError] = useState<string | null>(null);
 
+  const [addingTime, setAddingTime] = useState<ExpandedSession | null>(null);
+  const [addTimeSubmitting, setAddTimeSubmitting] = useState(false);
+  const [addTimeError, setAddTimeError] = useState<string | null>(null);
+
   const [pendingReschedule, setPendingReschedule] = useState<
     { display: RescheduleTarget; dayCode: string; durationMinutes: number } | null
   >(null);
@@ -140,6 +149,10 @@ export default function ScheduleCommandCentre({
   const [deleting, setDeleting] = useState<ExpandedSession | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
+
+  const [overriding, setOverriding] = useState<ExpandedSession | null>(null);
+  const [overrideSubmitting, setOverrideSubmitting] = useState(false);
+  const [overrideError, setOverrideError] = useState<string | null>(null);
 
   const facility = useMemo(
     () => facilities.find((f) => f.id === facilityId) ?? null,
@@ -389,6 +402,10 @@ export default function ScheduleCommandCentre({
         setDuplicateError(null);
         setDuplicating(session);
       },
+      onAddAnotherTime: (session) => {
+        setAddTimeError(null);
+        setAddingTime(session);
+      },
       onReschedule: handleReschedule,
       onDelete: (session) => {
         setDeleteError(null);
@@ -397,6 +414,10 @@ export default function ScheduleCommandCentre({
       onFeature: (session) => {
         setFeatureError(null);
         setFeaturing(session);
+      },
+      onOverrideWeek: (session) => {
+        setOverrideError(null);
+        setOverriding(session);
       },
       onToggleEvent: handleToggleEvent,
       togglingSessionId: togglingId,
@@ -422,7 +443,10 @@ export default function ScheduleCommandCentre({
     setCreateSubmitting(true);
     setCreateError(null);
 
-    const dtstart = zonedTimeToUtc(values.validFrom, values.startTime, DEFAULT_APP_TIMEZONE).toISOString();
+    // dtstart's digits are the literal local wall-clock time (see
+    // dropin/docs/RESUME-timezone-removal.md) — direct construction, not a
+    // conversion.
+    const dtstart = `${values.validFrom}T${values.startTime}:00Z`;
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -483,10 +507,10 @@ export default function ScheduleCommandCentre({
     setDuplicateSubmitting(true);
     setDuplicateError(null);
 
-    const startTime = timeOfDay(duplicating.start);
-    const endTime = timeOfDay(duplicating.end);
+    const startTime = sessionTimeString(duplicating.start);
+    const endTime = sessionTimeString(duplicating.end);
     const validFrom = localDateString();
-    const dtstart = zonedTimeToUtc(validFrom, startTime, DEFAULT_APP_TIMEZONE).toISOString();
+    const dtstart = `${validFrom}T${startTime}:00Z`;
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -520,6 +544,46 @@ export default function ScheduleCommandCentre({
     refresh();
   }
 
+  async function handleConfirmAddTime({ startTime, endTime }: AddAnotherTimeValues) {
+    if (!addingTime) return;
+    setAddTimeSubmitting(true);
+    setAddTimeError(null);
+
+    const validFrom = localDateString();
+    const dtstart = `${validFrom}T${startTime}:00Z`;
+    // Same single day the clicked occurrence falls on — the source
+    // session's fuller weekly pattern (if it repeats on more than one day)
+    // isn't available on an expanded occurrence, and guessing it would
+    // silently add days nobody asked for. See AddAnotherTimeDialog's header.
+    const dayCode = DAYS[sessionDayIndex(addingTime.start)].code;
+
+    const res = await fetch("/api/sessions", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        schedule_group_id: addingTime.scheduleGroupId,
+        template_id: addingTime.templateId,
+        rrule: buildRRuleString({ frequency: "weekly", days: [dayCode] }),
+        dtstart,
+        dtend_time: endTime,
+        valid_from: validFrom,
+        space_ids: addingTime.spaceIds,
+        season_id: addingTime.seasonId,
+      }),
+    });
+
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setAddTimeError(data.error ?? "Could not add this time.");
+      setAddTimeSubmitting(false);
+      return;
+    }
+
+    setAddTimeSubmitting(false);
+    setAddingTime(null);
+    refresh();
+  }
+
   async function handleConfirmReschedule() {
     if (!pendingReschedule) return;
     setRescheduleSubmitting(true);
@@ -530,7 +594,7 @@ export default function ScheduleCommandCentre({
     const dtendTime = minutesToTimeString(endMinutes % (24 * 60));
 
     const validFrom = localDateString();
-    const dtstart = zonedTimeToUtc(validFrom, display.newStartTime, DEFAULT_APP_TIMEZONE).toISOString();
+    const dtstart = `${validFrom}T${display.newStartTime}:00Z`;
 
     const res = await fetch(`/api/sessions/${display.sessionId}`, {
       method: "PATCH",
@@ -603,6 +667,37 @@ export default function ScheduleCommandCentre({
     }
 
     setDeleting(null);
+    refresh();
+  }
+
+  async function handleConfirmOverride(values: OverrideWeekValues) {
+    if (!overriding) return;
+    setOverrideSubmitting(true);
+    setOverrideError(null);
+
+    const res = await fetch(`/api/sessions/${overriding.sessionId}/exceptions`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        // Derived from the clicked occurrence's own date, not the view's
+        // anchor state — the Events tab spans a whole month, so its anchor is
+        // very often a different week than the specific card clicked.
+        weekStart: localDateString(getWeekStart(overriding.start)),
+        action: values.action,
+        startTime: values.startTime,
+        endTime: values.endTime,
+        note: values.note,
+      }),
+    });
+
+    setOverrideSubmitting(false);
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setOverrideError(data.error ?? "Could not update this week.");
+      return;
+    }
+
+    setOverriding(null);
     refresh();
   }
 
@@ -881,6 +976,18 @@ export default function ScheduleCommandCentre({
         error={duplicateError}
       />
 
+      <AddAnotherTimeDialog
+        open={!!addingTime}
+        session={addingTime}
+        onCancel={() => {
+          setAddingTime(null);
+          setAddTimeError(null);
+        }}
+        onConfirm={handleConfirmAddTime}
+        submitting={addTimeSubmitting}
+        error={addTimeError}
+      />
+
       <RescheduleConfirmDialog
         open={!!pendingReschedule}
         target={pendingReschedule?.display ?? null}
@@ -914,10 +1021,17 @@ export default function ScheduleCommandCentre({
         submitting={!!deletingId}
         error={deleteError}
       />
+
+      <OverrideWeekDialog
+        session={overriding}
+        onCancel={() => {
+          setOverriding(null);
+          setOverrideError(null);
+        }}
+        onConfirm={handleConfirmOverride}
+        submitting={overrideSubmitting}
+        error={overrideError}
+      />
     </OrgThemeProvider>
   );
-}
-
-function timeOfDay(date: Date): string {
-  return `${String(date.getHours()).padStart(2, "0")}:${String(date.getMinutes()).padStart(2, "0")}`;
 }

@@ -109,11 +109,11 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     // Relational select — cast needed until Supabase CLI generates types with FK relations
     supabase
       .from("schedule_groups")
-      .select("id, name, is_published, schedule_type, facility_id, department_id, departments ( name )")
+      .select("id, name, status, schedule_type, facility_id, department_id, departments ( name )")
       .eq("org_id", orgId)
       .order("display_order", { ascending: true }) as unknown as Promise<{
       data: {
-        id: string; name: string; is_published: boolean; schedule_type: string | null;
+        id: string; name: string; status: "draft" | "published"; schedule_type: string | null;
         facility_id: string; department_id: string | null; departments: { name: string } | null;
       }[] | null;
     }>,
@@ -201,7 +201,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         return {
           id: g.id,
           name: g.name,
-          isPublished: g.is_published,
+          status: g.status,
           scheduleType: g.schedule_type,
           departmentId: g.department_id,
           departmentName: g.departments?.name ?? null,

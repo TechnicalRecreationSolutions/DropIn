@@ -1,8 +1,12 @@
 import Link from "next/link";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_APP_TIMEZONE } from "@/lib/utils/timezone";
 import { Upload, ArrowRight } from "lucide-react";
+
+// Unrelated to session-time removal (dropin/docs/RESUME-timezone-removal.md):
+// created_at is a real instant, not a session occurrence, and this page
+// renders server-side (UTC in production) — see the comment below.
+const IMPORT_TIMESTAMP_TIMEZONE = "America/Edmonton";
 
 type ImportedScheduleGroupRow = {
   id: string;
@@ -67,7 +71,7 @@ export default async function DataSourcesPage() {
                         timestamps hours off from when they actually imported. */}
                     {sg.facilities?.name ?? "Unknown facility"} ·{" "}
                     {new Intl.DateTimeFormat("en-US", {
-                      timeZone: DEFAULT_APP_TIMEZONE,
+                      timeZone: IMPORT_TIMESTAMP_TIMEZONE,
                       dateStyle: "medium",
                       timeStyle: "short",
                     }).format(new Date(sg.created_at))}

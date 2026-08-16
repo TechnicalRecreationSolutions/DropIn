@@ -4,7 +4,7 @@ import type { EditorTemplate } from "@/components/schedule/editing/ScheduleEditi
 export interface CommandScheduleGroup {
   id: string;
   name: string;
-  isPublished: boolean;
+  status: "draft" | "published";
   /** "continuous" schedules are always-open hours, not placed sessions — they have nothing to build. */
   scheduleType: string | null;
   /** Null for schedules that sit directly under the facility. */

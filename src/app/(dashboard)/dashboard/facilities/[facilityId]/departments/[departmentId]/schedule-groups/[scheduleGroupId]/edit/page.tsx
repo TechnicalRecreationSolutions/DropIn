@@ -36,7 +36,7 @@ export default async function EditScheduleGroupPage({ params }: EditScheduleGrou
 
   const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, is_published, photo_urls, in_brochure")
+    .select("id, name, sport_category, activity_type, age_group, skill_level, cost_cents, cost_notes, description, max_participants, status, starts_on, ends_on, photo_urls, in_brochure")
     .eq("id", scheduleGroupId)
     .eq("department_id", departmentId)
     .single();
@@ -73,7 +73,9 @@ export default async function EditScheduleGroupPage({ params }: EditScheduleGrou
           cost_notes: scheduleGroup.cost_notes ?? "",
           description: scheduleGroup.description ?? "",
           max_participants: scheduleGroup.max_participants,
-          is_published: scheduleGroup.is_published,
+          status: scheduleGroup.status,
+          starts_on: scheduleGroup.starts_on,
+          ends_on: scheduleGroup.ends_on,
           photo_urls: scheduleGroup.photo_urls ?? [],
           in_brochure: scheduleGroup.in_brochure,
         }}

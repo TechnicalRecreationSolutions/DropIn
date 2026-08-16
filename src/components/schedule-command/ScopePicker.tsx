@@ -120,7 +120,7 @@ export default function ScopePicker({
             onClick={() => onScheduleChange(group.id)}
           >
             {group.name}
-            {!group.isPublished && <EyeOff className="w-3 h-3 opacity-70" aria-label="Draft" />}
+            {group.status !== "published" && <EyeOff className="w-3 h-3 opacity-70" aria-label="Draft" />}
           </Chip>
         ))}
 

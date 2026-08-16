@@ -22,8 +22,8 @@ re-derive it inline.
 
 **Three states, not published/unpublished.** `planning` is staff-only, `active` is public,
 `archived` is over but still publicly resolvable — so a link printed in last year's brochure
-keeps working. That's why this table uses `status` where the rest of the schema uses
-`is_published`.
+keeps working. `schedule_groups.status` (migration 033) is the same idea with only two states —
+if a third is ever needed there, this table's three-state shape is the precedent to follow.
 
 **Dates are strings, never Dates.** `starts_on`/`ends_on` are DATE columns — calendar days
 with no zone. Parsing them into a `Date` attaches the browser's offset, which is how "Fall

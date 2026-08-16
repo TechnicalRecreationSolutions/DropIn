@@ -16,17 +16,20 @@ import {
  * Two families of formatter live in this file, and picking the wrong one is a
  * silent bug rather than a crash.
  *
- * `formatTime` / `formatDayShort` / `formatDayFull` format in the **runtime's**
- * zone — the viewer's browser on the client, UTC on the server. Correct for
- * dates that are viewer constructs: the week the user is paging through, "today"
- * in a date picker, a `created_at` audit line.
+ * `formatTime` / `formatDayShort` / `formatDayFull` read the Date through the
+ * **runtime's local getters** (`getHours`, `getDay`, ...) — the viewer's
+ * browser on the client, UTC on the server. Correct for dates that are viewer
+ * constructs: the week the user is paging through, "today" in a date picker,
+ * a `created_at` audit line.
  *
- * `formatTimeIn` / `formatDayShortIn` / `formatDayFullIn` take an IANA zone and
- * are the ones to use for **session occurrences**. When a facility opens at
- * 6:00 AM it opens at 6:00 AM, whoever is looking; formatting that instant in
- * the reader's zone shows the wrong hour and, when the shift crosses midnight,
- * files it under the wrong day. Pass `session.timezone` (carried on every
- * ExpandedSession for exactly this).
+ * `formatSessionTime` / `formatSessionDayShort` / `formatSessionDayFull` read
+ * the Date through its **UTC getters** and are the ones to use for **session
+ * occurrences**. A session's `start`/`end` Date carries its local wall-clock
+ * time in its UTC slots by construction (see src/lib/rrule/README.md) — no
+ * IANA zone is stored or needed, but reading it with the runtime-local
+ * getters above would still be wrong on any machine not itself running in
+ * UTC (every server render, most browsers), silently reintroducing the
+ * "wrong hour / wrong day" bug this file's split exists to prevent.
  * ---------------------------------------------------------------------------
  */
 
@@ -34,57 +37,48 @@ export function formatTime(date: Date): string {
   return format(date, "h:mm a");
 }
 
-/** `formatTime` in an explicit IANA zone. Use for session instants. */
-export function formatTimeIn(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    hour: "numeric",
-    minute: "2-digit",
-    hour12: true,
-  }).format(date);
+/** `formatTime` read via UTC getters. Use for session occurrences. */
+export function formatSessionTime(date: Date): string {
+  const h = date.getUTCHours();
+  const m = date.getUTCMinutes();
+  const period = h >= 12 ? "PM" : "AM";
+  const displayH = h % 12 || 12;
+  return `${displayH}:${String(m).padStart(2, "0")} ${period}`;
 }
 
-/** `formatDayShort` in an explicit IANA zone. Use for session instants. */
-export function formatDayShortIn(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
+const WEEKDAY_SHORT = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+const WEEKDAY_LONG = [
+  "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday",
+];
+const MONTH_LONG = [
+  "January", "February", "March", "April", "May", "June",
+  "July", "August", "September", "October", "November", "December",
+];
+
+/** `formatDayShort` read via UTC getters. Use for session occurrences. */
+export function formatSessionDayShort(date: Date): string {
+  return WEEKDAY_SHORT[date.getUTCDay()];
 }
 
-/** `formatDayFull` in an explicit IANA zone. Use for session instants. */
-export function formatDayFullIn(date: Date, timeZone: string): string {
-  return new Intl.DateTimeFormat("en-US", {
-    timeZone,
-    weekday: "long",
-    month: "long",
-    day: "numeric",
-  }).format(date);
-}
-
-/**
- * Day-of-week index (0 = Sunday, matching `Date.prototype.getDay`) as observed
- * in `timeZone`. Bucketing occurrences into weekday columns with `getDay()`
- * uses the runtime zone and drops early-morning sessions into the day before.
- */
-export function zonedDayOfWeek(date: Date, timeZone: string): number {
-  const short = new Intl.DateTimeFormat("en-US", { timeZone, weekday: "short" }).format(date);
-  return ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].indexOf(short);
+/** `formatDayFull` read via UTC getters. Use for session occurrences. */
+export function formatSessionDayFull(date: Date): string {
+  return `${WEEKDAY_LONG[date.getUTCDay()]}, ${MONTH_LONG[date.getUTCMonth()]} ${date.getUTCDate()}`;
 }
 
 /**
- * Minutes since midnight. With `timeZone` the wall clock is read in that zone;
- * without it, in the runtime's — pass the session's zone whenever the number
- * positions or labels a session, and omit it only for viewer-owned clocks.
+ * Day-of-week index (0 = Sunday, matching `Date.prototype.getDay`) for a
+ * session occurrence — `getUTCDay()` directly, since the UTC slots already
+ * hold the local wall-clock date. Bucketing with the runtime-local `getDay()`
+ * would drop early-morning sessions into the day before on any non-UTC
+ * machine.
  */
-export function minutesOfDayIn(date: Date, timeZone?: string): number {
-  if (!timeZone) return date.getHours() * 60 + date.getMinutes();
-  const parts = new Intl.DateTimeFormat("en-GB", {
-    timeZone,
-    hour: "2-digit",
-    minute: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-  const hour = Number(parts.find((p) => p.type === "hour")?.value ?? 0);
-  const minute = Number(parts.find((p) => p.type === "minute")?.value ?? 0);
-  return hour * 60 + minute;
+export function zonedDayOfWeek(date: Date): number {
+  return date.getUTCDay();
+}
+
+/** Minutes since midnight for a session occurrence, read via UTC getters. */
+export function minutesOfDayIn(date: Date): number {
+  return date.getUTCHours() * 60 + date.getUTCMinutes();
 }
 
 export function formatDate(date: Date): string {
@@ -163,6 +157,49 @@ export function parseDate(iso: string): Date {
  */
 export function localDateString(date: Date = new Date()): string {
   return format(date, "yyyy-MM-dd");
+}
+
+/**
+ * Re-encodes a real Date's **runtime-local** calendar/clock reading into the
+ * convention a session Date uses: those same digits stored in the UTC slots
+ * (see rrule/README.md). Use this at the boundary where a viewer-owned date
+ * (a week/month-range anchor computed via local Date arithmetic) is about to
+ * be compared against or sent alongside session Dates — never earlier, since
+ * date-fns/local Date arithmetic (getWeekStart, getMonthGridRange, ...)
+ * needs the real runtime-local representation to compute the right calendar
+ * day in the first place.
+ */
+export function toSessionTime(date: Date): Date {
+  return new Date(Date.UTC(
+    date.getFullYear(), date.getMonth(), date.getDate(),
+    date.getHours(), date.getMinutes(), date.getSeconds(), date.getMilliseconds()
+  ));
+}
+
+/**
+ * "Right now," re-encoded into the session-Date convention. Compare this —
+ * never a plain `new Date()` — against `session.start`/`session.end`; a
+ * session Date's real epoch is shifted by whatever the runtime's UTC offset
+ * happens to be, so comparing it against a real instant is silently wrong by
+ * that same offset.
+ */
+export function nowAsSessionTime(): Date {
+  return toSessionTime(new Date());
+}
+
+/** `HH:MM` (24h) for a session occurrence, read via UTC getters — for building API payloads, not display (use formatSessionTime for that). */
+export function sessionTimeString(date: Date): string {
+  const h = String(date.getUTCHours()).padStart(2, "0");
+  const m = String(date.getUTCMinutes()).padStart(2, "0");
+  return `${h}:${m}`;
+}
+
+/** `YYYY-MM-DD` for a session occurrence, read via UTC getters (see nowAsSessionTime). */
+export function sessionDateString(date: Date): string {
+  const y = date.getUTCFullYear();
+  const m = String(date.getUTCMonth() + 1).padStart(2, "0");
+  const d = String(date.getUTCDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
 }
 
 /** Convert a time string like "09:30" into minutes from midnight */

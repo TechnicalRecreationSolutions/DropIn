@@ -70,10 +70,26 @@ export interface ScheduleEditingApi {
   canDuplicate: boolean;
   onAddSession: (target: AddSessionTarget) => void;
   onDuplicate: (session: ExpandedSession) => void;
+  /**
+   * Places a new session on the *same* schedule, day(s), space(s), and
+   * season as the source — only the time differs. The complement to
+   * onDuplicate, which keeps the time fixed and varies day/space instead:
+   * this is the one a pool with five contiguous blocks in one day (a
+   * different lane count each block, same activity) actually needs, and
+   * building it via onDuplicate would mean re-entering the day and space
+   * every time just to change a time that's the only thing different.
+   */
+  onAddAnotherTime: (session: ExpandedSession) => void;
   onReschedule: (request: RescheduleRequest) => void;
   onDelete: (session: ExpandedSession) => void;
   /** Opens the event/brochure toggles and the copy behind them (session_features). */
   onFeature: (session: ExpandedSession) => void;
+  /**
+   * Opens the single-week override dialog (cancel / different hours / revert)
+   * for the week the clicked occurrence belongs to. Writes session_exceptions
+   * rows, never the RRULE — every other week keeps running unmodified.
+   */
+  onOverrideWeek: (session: ExpandedSession) => void;
   /**
    * Flips `is_event` in place, with no dialog — the realistic flow is "I already
    * built the schedule, now make three of these events". Writes only the flag,

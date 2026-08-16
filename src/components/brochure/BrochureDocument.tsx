@@ -1,8 +1,13 @@
 import OrgImage from "@/components/media/OrgImage";
 import { cn } from "@/lib/utils/cn";
-import { DEFAULT_APP_TIMEZONE } from "@/lib/utils/timezone";
 import type { Database } from "@/types/database.types";
 import PrintButton from "./PrintButton";
+
+// Unrelated to session-time removal (dropin/docs/RESUME-timezone-removal.md):
+// `published_at` is a real instant, not a session occurrence, and this
+// document renders server-side (UTC in production) — see the footer comment
+// below for why a fixed zone is still needed here.
+const PRINT_DATE_TIMEZONE = "America/Edmonton";
 
 type Brochure = Database["public"]["Tables"]["brochures"]["Row"];
 
@@ -198,13 +203,13 @@ export default function BrochureDocument({
             Measured, not assumed: a brochure published 2026-08-12 at 23:23
             local printed "August 13, 2026".
 
-            DEFAULT_APP_TIMEZONE rather than a new column — it is the same
-            assumption `sessions.timezone` already defaults to at the database
-            level. An org genuinely spanning zones needs its own timezone
-            column, and that is the point at which this should read it. */}
+            PRINT_DATE_TIMEZONE is a fixed placeholder, not derived from any
+            per-org setting — none exists. An org genuinely outside it needs
+            its own timezone column, and that is the point at which this
+            should read it. */}
         {brochure.published_at
           ? ` · published ${new Intl.DateTimeFormat("en-US", {
-              timeZone: DEFAULT_APP_TIMEZONE,
+              timeZone: PRINT_DATE_TIMEZONE,
               year: "numeric",
               month: "long",
               day: "numeric",

@@ -6,14 +6,14 @@ import { Printer, Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { eventDisplayTitle } from "@/types/schedule.types";
 import {
-  formatTimeIn,
+  formatSessionTime,
   formatDayFull,
   formatMonthLabel,
   getMonthGridRange,
   getMonthStart,
   localDateString,
+  sessionDateString,
 } from "@/lib/utils/dates";
-import { zonedDateString } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
 import { DAYS, dayIndexFromDate } from "@/lib/schedule/weekGeometry";
 import SessionModal from "./SessionModal";
@@ -76,16 +76,15 @@ export default function EventCalendarView({
     return out;
   }, [month]);
 
-  // Keyed by the calendar date in the *session's own* zone. Deliberately not by
-  // ISO instant — an 8pm event in any timezone behind UTC lands on the
-  // following day under toISOString(), which would file half an org's evening
-  // events one day late. And deliberately not by the *viewer's* local date
-  // either: that files an early-morning session under the previous day for
-  // anyone reading from a zone further west than the facility.
+  // Keyed by the session's own calendar date (UTC getters — see
+  // sessionDateString). Deliberately not by `toISOString()`'s date, and not
+  // by the viewer's runtime-local date either — both would drift the key
+  // away from the day the session actually falls on, on any machine not
+  // itself in UTC.
   const sessionsByDate = useMemo(() => {
     const map = new Map<string, ExpandedSession[]>();
     for (const session of sessions) {
-      const key = zonedDateString(session.start, session.timezone);
+      const key = sessionDateString(session.start);
       const list = map.get(key);
       if (list) list.push(session);
       else map.set(key, [session]);
@@ -285,7 +284,7 @@ export default function EventCalendarView({
                           {eventDisplayTitle(session)}
                         </span>
                         <span className="block text-xs text-gray-500">
-                          {formatTimeIn(session.start, session.timezone)} · {session.facilityName}
+                          {formatSessionTime(session.start)} · {session.facilityName}
                         </span>
                         {session.feature?.summary && (
                           <span className="block text-xs text-gray-400 mt-0.5">
@@ -391,7 +390,7 @@ function EventChip({
       {/* summary is written for exactly this cell — one line, authored short
           rather than truncated prose (migration 028, session_features.summary). */}
       <span className="block text-[10px] text-gray-500 leading-tight truncate">
-        {session.feature?.summary ?? formatTimeIn(session.start, session.timezone)}
+        {session.feature?.summary ?? formatSessionTime(session.start)}
       </span>
     </button>
   );

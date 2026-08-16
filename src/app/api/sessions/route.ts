@@ -2,13 +2,17 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { findSessionConflict } from "@/lib/sessions/conflicts";
 
 const SessionSchema = z.object({
   schedule_group_id: z.string().uuid(),
   rrule: z.string().min(1),
-  dtstart: z.string().datetime({ offset: true }),
+  // Must be "Z"-suffixed, not an arbitrary offset — dtstart's digits are the
+  // literal local wall-clock time, never a real instant to be converted
+  // (see dropin/docs/RESUME-timezone-removal.md). zod's datetime() without
+  // `offset: true` requires exactly that.
+  dtstart: z.string().datetime(),
   dtend_time: z.string().regex(/^\d{2}:\d{2}$/),
-  timezone: z.string().default("America/Edmonton"),
   valid_from: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
   valid_until: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).nullable().optional(),
   space_ids: z.array(z.string().uuid()).optional().default([]),
@@ -89,6 +93,17 @@ export async function POST(request: Request) {
 
     if (!season) return NextResponse.json({ error: "Season not found" }, { status: 404 });
   }
+
+  const conflict = await findSessionConflict(supabase, {
+    sessionId: sessionId ?? null,
+    rrule: fields.rrule,
+    dtstart: fields.dtstart,
+    dtend_time: fields.dtend_time,
+    valid_from: fields.valid_from,
+    valid_until: fields.valid_until ?? null,
+    spaceIds: fields.space_ids,
+  });
+  if (conflict) return NextResponse.json({ error: conflict.error }, { status: 409 });
 
   const { space_ids, ...sessionFields } = fields;
   const payload = {

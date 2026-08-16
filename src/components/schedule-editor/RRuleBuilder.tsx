@@ -211,7 +211,7 @@ export default function RRuleBuilder({
           <p className="text-sm font-medium text-gray-700 mb-2">Season</p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">Starts</label>
+              <label className="text-xs text-gray-500 mb-1 block">Starts *</label>
               <input
                 type="date"
                 value={validFrom}

@@ -2,7 +2,7 @@
 
 import { useQuery } from "@tanstack/react-query";
 import type { ExpandedSession, RangeExpandParams, ScheduleTemplate } from "@/types/schedule.types";
-import { getWeekEnd, getMonthGridRange } from "@/lib/utils/dates";
+import { getWeekEnd, getMonthGridRange, toSessionTime } from "@/lib/utils/dates";
 
 /**
  * The one query key family for expanded sessions.
@@ -76,6 +76,14 @@ export function useScheduleRange({
   rangeStart,
   rangeEnd,
 }: UseScheduleRangeOptions) {
+  // rangeStart/rangeEnd arrive as real, runtime-local Dates (from
+  // getWeekStart/getWeekEnd/getMonthGridRange, which need local Date
+  // arithmetic to compute the right calendar day) — re-encode into the
+  // session-Date convention *here*, at the boundary where they're compared
+  // against/sent alongside session occurrences, per toSessionTime's doc.
+  const sessionRangeStart = toSessionTime(rangeStart);
+  const sessionRangeEnd = toSessionTime(rangeEnd);
+
   return useQuery({
     queryKey: [
       SCHEDULE_RANGE_KEY,
@@ -86,14 +94,14 @@ export function useScheduleRange({
         scheduleGroupId,
         seasonId,
         eventsOnly,
-        rangeStart: rangeStart.toISOString(),
-        rangeEnd: rangeEnd.toISOString(),
+        rangeStart: sessionRangeStart.toISOString(),
+        rangeEnd: sessionRangeEnd.toISOString(),
       },
     ],
     queryFn: () =>
       fetchExpandedSessions({
-        rangeStart,
-        rangeEnd,
+        rangeStart: sessionRangeStart,
+        rangeEnd: sessionRangeEnd,
         orgId,
         facilityId,
         departmentId,

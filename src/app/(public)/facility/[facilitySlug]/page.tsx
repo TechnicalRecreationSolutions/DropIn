@@ -46,7 +46,7 @@ async function getFacilityPageData(facilitySlug: string) {
       .from("schedule_groups")
       .select("id, name, sport_category, activity_type, cost_cents, age_group, skill_level")
       .eq("facility_id", facility.id)
-      .eq("is_published", true)
+      .eq("status", "published")
       .order("name"),
     // Same allowed layouts/colors as the org's embeddable widget, for a
     // consistent look. Scoped to this facility's config row (falling back to

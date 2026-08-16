@@ -86,7 +86,7 @@ export async function getBrochureCandidates(
       .select("id, name, description, cost_cents, photo_urls, facilities ( name )")
       .eq("org_id", orgId)
       .eq("in_brochure", true)
-      .eq("is_published", true),
+      .eq("status", "published"),
 
     supabase
       .from("brochure_entries")

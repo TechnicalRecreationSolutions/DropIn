@@ -74,9 +74,9 @@ try {
   // Two programs: one offered to brochures, one not — the negative control.
   const { data: groups } = await admin.from("schedule_groups").insert([
     { org_id: ids.org, facility_id: ids.facility, name: "ZZ Lane Swim", slug: `zz-lane-${stamp}`,
-      sport_category: "swimming", activity_type: "drop_in", cost_cents: 600, is_published: true, in_brochure: true },
+      sport_category: "swimming", activity_type: "drop_in", cost_cents: 600, status: "published", in_brochure: true },
     { org_id: ids.org, facility_id: ids.facility, name: "ZZ Secret Program", slug: `zz-secret-${stamp}`,
-      sport_category: "swimming", activity_type: "drop_in", cost_cents: 0, is_published: true, in_brochure: false },
+      sport_category: "swimming", activity_type: "drop_in", cost_cents: 0, status: "published", in_brochure: false },
   ]).select("id, name");
   ids.flaggedGroup = groups[0].id;
   ids.unflaggedGroup = groups[1].id;

@@ -4,8 +4,6 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { ChevronDown } from "lucide-react";
-import { createClient } from "@/lib/supabase/client";
-import { slugify } from "@/lib/utils/slugify";
 import { SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import ImageUpload from "@/components/media/ImageUpload";
@@ -26,7 +24,9 @@ interface ScheduleGroupFormProps {
     cost_notes?: string;
     description?: string;
     max_participants?: number | null;
-    is_published?: boolean;
+    status?: "draft" | "published";
+    starts_on?: string | null;
+    ends_on?: string | null;
     photo_urls?: string[];
     in_brochure?: boolean;
   };
@@ -83,7 +83,9 @@ export default function ScheduleGroupForm({
     cost_notes: defaultValues?.cost_notes ?? "",
     description: defaultValues?.description ?? "",
     max_participants: defaultValues?.max_participants ? String(defaultValues.max_participants) : "",
-    is_published: defaultValues?.is_published ?? false,
+    status: defaultValues?.status ?? "draft",
+    starts_on: defaultValues?.starts_on ?? "",
+    ends_on: defaultValues?.ends_on ?? "",
     in_brochure: defaultValues?.in_brochure ?? false,
   });
 
@@ -136,16 +138,19 @@ export default function ScheduleGroupForm({
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+
+    if (form.starts_on && form.ends_on && form.ends_on < form.starts_on) {
+      setError("End date must be on or after the start date.");
+      return;
+    }
+
     setLoading(true);
 
-    const supabase = createClient();
     const costCents = Math.round(parseFloat(form.cost_dollars || "0") * 100);
 
     const payload = {
       name: form.name,
-      slug: slugify(form.name),
       facility_id: facilityId,
-      org_id: orgId,
       department_id: form.department_id || null,
       sport_category: form.sport_category,
       activity_type: form.activity_type as "drop_in" | "registered" | "open_gym",
@@ -155,26 +160,25 @@ export default function ScheduleGroupForm({
       cost_notes: form.cost_notes || null,
       description: form.description || null,
       max_participants: form.max_participants ? parseInt(form.max_participants) : null,
-      is_published: form.is_published,
+      status: form.status,
+      starts_on: form.starts_on || null,
+      ends_on: form.ends_on || null,
       in_brochure: form.in_brochure,
       photo_urls: photoUrls,
-      source: "manual" as const,
     };
 
-    let dbError;
-    const table = supabase.from("schedule_groups");
-    if (isEditing) {
-      ({ error: dbError } = await table.update(payload).eq("id", scheduleGroupId));
-    } else {
-      ({ error: dbError } = await table.insert(payload));
-    }
+    const res = await fetch(
+      isEditing ? `/api/schedule-groups/${scheduleGroupId}` : "/api/schedule-groups",
+      {
+        method: isEditing ? "PATCH" : "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      }
+    );
 
-    if (dbError) {
-      setError(
-        dbError.code === "23505"
-          ? "A schedule with this name already exists at that facility."
-          : "Something went wrong. Please try again."
-      );
+    if (!res.ok) {
+      const data = await res.json().catch(() => ({}));
+      setError(data.error ?? "Something went wrong. Please try again.");
       setLoading(false);
       return;
     }
@@ -305,14 +309,33 @@ export default function ScheduleGroupForm({
         </CollapsibleContent>
       </Collapsible>
 
-      <div className="flex items-center gap-3 border-t border-gray-100 pt-5">
-        <input id="is_published" name="is_published" type="checkbox"
-          checked={form.is_published} onChange={handleChange}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500" />
+      <div className="border-t border-gray-100 pt-5 space-y-4">
         <div>
-          <label htmlFor="is_published" className="text-sm font-medium text-gray-700">Publish this schedule</label>
-          <p className="text-xs text-gray-500">Visible on the public Dropin discovery pages.</p>
+          <label htmlFor="status" className={labelClass}>Status</label>
+          <select id="status" name="status" value={form.status} onChange={handleChange} className={fieldClass}>
+            <option value="draft">Draft</option>
+            <option value="published">Published</option>
+          </select>
+          <p className="text-xs text-gray-500 mt-1">Only published schedules are visible on the public schedule page and widget.</p>
         </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label htmlFor="starts_on" className={labelClass}>Starts</label>
+            <input id="starts_on" name="starts_on" type="date"
+              value={form.starts_on} onChange={handleChange} className={fieldClass} />
+          </div>
+          <div>
+            <label htmlFor="ends_on" className={labelClass}>Ends (optional)</label>
+            <input id="ends_on" name="ends_on" type="date"
+              value={form.ends_on} onChange={handleChange} className={fieldClass} />
+          </div>
+        </div>
+        <p className="text-xs text-gray-500">
+          A start date is needed to publish. Leave &ldquo;Ends&rdquo; blank for a
+          schedule that just keeps running, like a weekly drop-in — that&rsquo;s
+          the common case, not the exception.
+        </p>
       </div>
 
       {error && (

@@ -3,12 +3,12 @@
 import { useMemo, useState } from "react";
 import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatTimeIn, formatDayShort, formatDayFull } from "@/lib/utils/dates";
+import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import { getSessionCardStyle } from "./sessionCardColor";
-import { DAYS, dayIndexFromDate } from "@/lib/schedule/weekGeometry";
+import { DAYS, dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
 import SessionActionsMenu from "./editing/SessionActionsMenu";
@@ -72,7 +72,7 @@ export default function WeeklyScheduleGrid({
     const map: Record<number, ExpandedSession[]> = {};
     for (let i = 0; i < 7; i++) map[i] = [];
     for (const session of sessions) {
-      map[dayIndexFromDate(session.start, session.timezone)].push(session);
+      map[sessionDayIndex(session.start)].push(session);
     }
     for (const list of Object.values(map)) {
       list.sort((a, b) => a.start.getTime() - b.start.getTime());
@@ -87,6 +87,7 @@ export default function WeeklyScheduleGrid({
   const forcedSingleDay = singleDay !== undefined;
 
   const now = new Date();
+  const sessionNow = nowAsSessionTime();
 
   return (
     <div>
@@ -164,7 +165,7 @@ export default function WeeklyScheduleGrid({
                     <p className="text-center text-xs text-gray-400 opacity-70 py-3">No sessions</p>
                   ) : (
                     daySessions.map((session) => {
-                      const { isLive, isPast } = getSessionLiveStatus(session, now);
+                      const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
 
                       return (
                         <div key={session.key} className="relative">
@@ -180,7 +181,7 @@ export default function WeeklyScheduleGrid({
                               {session.templateName ?? session.scheduleGroupName}
                             </p>
                             <p className="text-xs opacity-75 leading-tight mt-0.5">
-                              {formatTimeIn(session.start, session.timezone)}–{formatTimeIn(session.end, session.timezone)}
+                              {formatSessionTime(session.start)}–{formatSessionTime(session.end)}
                             </p>
                             {isLive && (
                               <span

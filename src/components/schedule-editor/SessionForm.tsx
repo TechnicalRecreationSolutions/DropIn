@@ -1,17 +1,25 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronDown, CalendarDays, BookOpen } from "lucide-react";
 import RRuleBuilder from "./RRuleBuilder";
 import { ONCE_RRULE, isOneTimeRRule } from "@/lib/rrule/validate";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
-import { zonedTimeToUtc } from "@/lib/utils/timezone";
 import { cn } from "@/lib/utils/cn";
 
+/** Remembers the last schedule picked here, so entering several blocks for
+ *  the same pool doesn't mean re-selecting it from the dropdown every time. */
+const LAST_SCHEDULE_GROUP_KEY = "dropin:sessionForm:lastScheduleGroupId";
+
 interface SessionFormProps {
-  scheduleGroups: { id: string; name: string; facility_id: string; facility_name: string }[];
+  scheduleGroups: {
+    id: string;
+    name: string;
+    facility_id: string;
+    facility_name: string;
+  }[];
   spaces: { id: string; name: string; facility_id: string }[];
   defaultScheduleGroupId?: string;
   /** Present when editing an existing session instead of creating a new one. */
@@ -22,7 +30,6 @@ interface SessionFormProps {
     endTime: string;
     validFrom: string;
     validUntil: string;
-    timezone: string;
     spaceIds: string[];
     locationDetail: string;
     /** From sessions.is_event / .in_brochure — the two publishing toggles. */
@@ -38,16 +45,6 @@ interface SessionFormProps {
 /** What a brand-new session starts as, and the marker for "nobody has chosen a recurrence yet". */
 const DEFAULT_RRULE = "FREQ=WEEKLY;BYDAY=MO,WE,FR";
 
-const TIMEZONES = [
-  "America/Vancouver",
-  "America/Edmonton",
-  "America/Regina",
-  "America/Winnipeg",
-  "America/Toronto",
-  "America/Halifax",
-  "America/St_Johns",
-];
-
 export default function SessionForm({
   scheduleGroups,
   spaces,
@@ -59,6 +56,10 @@ export default function SessionForm({
   const router = useRouter();
   const isEditing = !!sessionId;
 
+  // Falls back to the first schedule at mount (matching server-rendered
+  // markup, since localStorage isn't available there); the effect below
+  // swaps in the last-used one on the client, once, if nothing more specific
+  // was already asked for.
   const [scheduleGroupId, setScheduleGroupId] = useState(defaultScheduleGroupId ?? scheduleGroups[0]?.id ?? "");
   const [rrule, setRrule] = useState(initialValues?.rrule ?? DEFAULT_RRULE);
   // Bumped to force RRuleBuilder to remount. It parses its RRULE once on mount
@@ -69,13 +70,12 @@ export default function SessionForm({
   const [endTime, setEndTime] = useState(initialValues?.endTime ?? "10:00");
   const [validFrom, setValidFrom] = useState(initialValues?.validFrom ?? "");
   const [validUntil, setValidUntil] = useState(initialValues?.validUntil ?? "");
-  const [timezone, setTimezone] = useState(initialValues?.timezone ?? "America/Edmonton");
   const [spaceIds, setSpaceIds] = useState<string[]>(initialValues?.spaceIds ?? []);
   const [locationDetail, setLocationDetail] = useState(initialValues?.locationDetail ?? "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
-  const [advancedOpen, setAdvancedOpen] = useState(!!(initialValues?.timezone || initialValues?.locationDetail));
+  const [advancedOpen, setAdvancedOpen] = useState(!!initialValues?.locationDetail);
 
   const [isEvent, setIsEvent] = useState(initialValues?.isEvent ?? false);
   const [inBrochure, setInBrochure] = useState(initialValues?.inBrochure ?? false);
@@ -119,6 +119,18 @@ export default function SessionForm({
   const selectedFacilityId = scheduleGroups.find((sg) => sg.id === scheduleGroupId)?.facility_id;
   const facilitySpaces = spaces.filter((s) => s.facility_id === selectedFacilityId);
 
+  // Client-only: swap in the last schedule used from this browser, once, but
+  // only when nobody asked for a specific one (a deep link from "Add a
+  // session to X" always wins) and only while creating — editing arrives
+  // with its own schedule already fixed.
+  useEffect(() => {
+    if (isEditing || defaultScheduleGroupId) return;
+    const last = localStorage.getItem(LAST_SCHEDULE_GROUP_KEY);
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    if (last && scheduleGroups.some((sg) => sg.id === last)) setScheduleGroupId(last);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
   function toggleSpace(id: string) {
     setSpaceIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
@@ -133,9 +145,10 @@ export default function SessionForm({
 
     setLoading(true);
 
-    // Build dtstart: combine validFrom date with startTime, converted from the
-    // chosen timezone's wall clock to a true UTC instant.
-    const dtstart = zonedTimeToUtc(validFrom, startTime, timezone).toISOString();
+    // dtstart's digits are the literal local wall-clock date/time, "Z"-suffixed
+    // with no real instant meaning (see dropin/docs/RESUME-timezone-removal.md)
+    // — direct string construction, not a conversion.
+    const dtstart = `${validFrom}T${startTime}:00Z`;
 
     const res = await fetch("/api/sessions", {
       method: "POST",
@@ -145,7 +158,6 @@ export default function SessionForm({
         rrule,
         dtstart,
         dtend_time: endTime,
-        timezone,
         valid_from: validFrom,
         valid_until: validUntil || null,
         space_ids: spaceIds,
@@ -160,6 +172,8 @@ export default function SessionForm({
       setLoading(false);
       return;
     }
+
+    localStorage.setItem(LAST_SCHEDULE_GROUP_KEY, scheduleGroupId);
 
     // Featuring is a second request on purpose. The flags live on `sessions`
     // but the copy lives in `session_features`, and /api/sessions/features is
@@ -396,23 +410,9 @@ export default function SessionForm({
         <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
           <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
           Advanced options
-          <span className="font-normal text-gray-400">(timezone, location detail)</span>
+          <span className="font-normal text-gray-400">(location detail)</span>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-5 pt-4">
-          <div>
-            <label htmlFor="timezone" className={labelClass}>Timezone</label>
-            <select
-              id="timezone"
-              value={timezone}
-              onChange={(e) => setTimezone(e.target.value)}
-              className={fieldClass}
-            >
-              {TIMEZONES.map((tz) => (
-                <option key={tz} value={tz}>{tz}</option>
-              ))}
-            </select>
-          </div>
-
           <div>
             <label htmlFor="location_detail" className={labelClass}>Additional location detail</label>
             <input

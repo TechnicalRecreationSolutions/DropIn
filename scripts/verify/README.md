@@ -9,6 +9,8 @@ node scripts/verify/verify-b.mjs   # events calendar + featuring   (64 assertion
 node scripts/verify/verify-c.mjs   # storage bucket + policies     (19 assertions)
 node scripts/verify/verify-d.mjs   # brochures                     (40 assertions)
 node scripts/verify/verify-e.mjs   # facility delete + org settings (51 assertions)
+node scripts/verify/verify-f.mjs   # recurrence + conflict correctness (11 assertions)
+node scripts/verify/verify-g.mjs   # schedule-group publish gate (5 assertions)
 ```
 
 They read `.env.local` for the Supabase URL, publishable key and service-role
@@ -51,6 +53,8 @@ throw. They just quietly do the wrong thing.
 | `verify-c` | The `org-media` folder role split both ways, cross-org isolation, anonymous denial, SVG / `text/plain` / 6 MB rejection for an *authorized* user, malformed paths denying without a DB error, public read returning real bytes |
 | `verify-d` | Candidacy refusing non-candidates, snapshots freezing, tombstones surviving a re-pull and a section delete, season changes not touching entries, publish gating, unpublish taking effect immediately, entries outliving their source |
 | `verify-e` | Facility delete's **cascade** (departments/groups/spaces/sessions all gone, a second org's identical tree untouched), the owner/admin line on both features, cross-org delete answering 404, org PATCH stripping `slug` and `status`, empty string stored as NULL, and both new pages rendering server-side |
+| `verify-f` | Session-conflict detection and recurrence expansion (`src/lib/rrule/expand.ts`, see its README): a genuine overlap still 409s, a same-space pair that only *touches* and recurs across a DST boundary does not, an evening session's expanded occurrence lands on its configured local weekday rather than the day before, and a session on an unpublished Space doesn't crash the public (anonymous) schedule read |
+| `verify-g` | Schedule-group publish gate: a start date but no end date now publishes (POST and PATCH), no start date still doesn't, and a genuine space overlap between two open-ended published schedules is still caught |
 
 `verify-e` also reads the deletion-impact counts back out of the **flight
 payload** of the rendered edit page, because the dialog they feed is closed on

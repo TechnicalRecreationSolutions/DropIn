@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Pencil, Copy, Trash2, Star, CalendarPlus, CalendarMinus } from "lucide-react";
+import { MoreVertical, Pencil, Copy, Clock3, Trash2, Star, CalendarPlus, CalendarMinus, CalendarClock } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -64,6 +64,10 @@ export default function SessionActionsMenu({
             Edit details
           </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem onSelect={() => editing.onOverrideWeek(session)}>
+          <CalendarClock />
+          Override this week…
+        </DropdownMenuItem>
         {/* One click, no dialog. Separate from "Feature…" below because the
             common case is flipping the flag on a session whose name and details
             are already right — writing the blurb is the rarer, deliberate act. */}
@@ -84,6 +88,12 @@ export default function SessionActionsMenu({
               featured, "Feature…" would invite staff to do it twice. */}
           {session.isEvent || session.inBrochure ? "Featured…" : "Feature…"}
         </DropdownMenuItem>
+        {editing.canDuplicate && (
+          <DropdownMenuItem onSelect={() => editing.onAddAnotherTime(session)}>
+            <Clock3 />
+            Add another time…
+          </DropdownMenuItem>
+        )}
         {editing.canDuplicate && (
           <DropdownMenuItem onSelect={() => editing.onDuplicate(session)}>
             <Copy />

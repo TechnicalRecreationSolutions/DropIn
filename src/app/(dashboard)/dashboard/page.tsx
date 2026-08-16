@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
-import { getWeekStart, getWeekEnd } from "@/lib/utils/dates";
+import { getWeekStart, getWeekEnd, toSessionTime } from "@/lib/utils/dates";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
 import {
@@ -107,7 +107,7 @@ async function DashboardOverview() {
       .from("sessions")
       .select(
         `*, schedule_groups!inner ( id, name, sport_category, activity_type, cost_cents, cost_notes,
-          age_group, skill_level, max_participants, is_published, org_id,
+          age_group, skill_level, max_participants, org_id,
           facilities ( id, name ), departments ( id, name ) ),
         session_spaces ( spaces ( id, name, display_order ) )`
       )
@@ -123,7 +123,7 @@ async function DashboardOverview() {
       .limit(8),
     supabase
       .from("schedule_groups")
-      .select("id, name, is_published, updated_at, facility_id, department_id")
+      .select("id, name, status, updated_at, facility_id, department_id")
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
       .limit(8),
@@ -140,7 +140,7 @@ async function DashboardOverview() {
       .from("schedule_groups")
       .select("id, name, facility_id, department_id, updated_at")
       .eq("org_id", orgId)
-      .eq("is_published", false)
+      .eq("status", "draft")
       .order("updated_at", { ascending: false })
       .limit(5),
     // Needs attention: facilities with no departments and no schedule groups
@@ -161,9 +161,12 @@ async function DashboardOverview() {
   const thisWeekCount =
     thisWeekRes.status === "fulfilled" && !thisWeekRes.value.error && thisWeekRes.value.data
       ? // Relational select — cast needed until Supabase CLI generates types with FK relations
+        // weekStart/weekEnd are real server-local Dates; expandSessions compares
+        // against session occurrences in the session-Date convention, so they're
+        // re-encoded via toSessionTime right at this boundary (see its doc comment).
         expandSessions(thisWeekRes.value.data as unknown as SessionWithRelations[], [], {
-          rangeStart: weekStart,
-          rangeEnd: weekEnd,
+          rangeStart: toSessionTime(weekStart),
+          rangeEnd: toSessionTime(weekEnd),
           orgId,
         }).length
       : null;
@@ -183,7 +186,7 @@ async function DashboardOverview() {
       ? recentScheduleGroupsRes.value.data.map((sg) => ({
           id: sg.id,
           name: sg.name,
-          is_published: sg.is_published,
+          is_published: sg.status === "published",
           updated_at: sg.updated_at,
           facility_id: sg.facility_id,
           department_id: sg.department_id,

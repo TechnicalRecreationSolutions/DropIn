@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
-import { getWeekStart, getWeekEnd } from "@/lib/utils/dates";
+import { getWeekStart, getWeekEnd, toSessionTime } from "@/lib/utils/dates";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -101,18 +101,30 @@ export async function GET(request: Request) {
     );
   }
 
-  // An explicit rangeStart is taken literally. Without one we fall back to the
-  // enclosing Monday–Sunday of weekStart (or of today), which is exactly what
-  // this endpoint has always done.
+  // An explicit rangeStart is taken literally — both it and weekStart, when
+  // supplied, are already in the session-Date convention (see useScheduleRange,
+  // the only internal caller). Without either we fall back to the enclosing
+  // Monday–Sunday of today, computed via real server-local Date arithmetic and
+  // only *then* re-encoded via toSessionTime — getWeekStart/getWeekEnd need a
+  // genuine local Date to find the right calendar day in the first place, and
+  // this is the one branch with no client-supplied value to already be one.
   const explicitStart = rangeStartParam ? new Date(rangeStartParam) : null;
-  const anchorDate = weekStartParam ? new Date(weekStartParam) : new Date();
+  const anchorDate = weekStartParam ? new Date(weekStartParam) : null;
 
-  const rangeStart = explicitStart ?? getWeekStart(anchorDate);
-  const rangeEnd = rangeEndParam
-    ? new Date(rangeEndParam)
-    : explicitStart
-      ? getWeekEnd(explicitStart)
-      : getWeekEnd(anchorDate);
+  let rangeStart: Date;
+  let rangeEnd: Date;
+
+  if (explicitStart) {
+    rangeStart = explicitStart;
+    rangeEnd = rangeEndParam ? new Date(rangeEndParam) : getWeekEnd(explicitStart);
+  } else if (anchorDate) {
+    rangeStart = getWeekStart(anchorDate);
+    rangeEnd = rangeEndParam ? new Date(rangeEndParam) : getWeekEnd(anchorDate);
+  } else {
+    const today = new Date();
+    rangeStart = toSessionTime(getWeekStart(today));
+    rangeEnd = rangeEndParam ? new Date(rangeEndParam) : toSessionTime(getWeekEnd(today));
+  }
 
   if (rangeEnd < rangeStart) {
     return NextResponse.json(
@@ -138,7 +150,7 @@ export async function GET(request: Request) {
       *,
       schedule_groups (
         id, name, sport_category, activity_type, cost_cents, cost_notes,
-        age_group, skill_level, max_participants, is_published,
+        age_group, skill_level, max_participants,
         facilities ( id, name ),
         departments ( id, name )
       ),

@@ -129,7 +129,7 @@ const groups = (await admin
       sport_category: "swimming",
       activity_type: "drop_in",
       cost_cents: 600,
-      is_published: true,
+      status: "published",
       in_brochure: true,
     },
     {
@@ -140,7 +140,7 @@ const groups = (await admin
       sport_category: "basketball",
       activity_type: "drop_in",
       cost_cents: 0,
-      is_published: true,
+      status: "published",
       in_brochure: true,
     },
   ])

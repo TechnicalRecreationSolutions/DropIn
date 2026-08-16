@@ -4,8 +4,7 @@ import { useMemo, useState } from "react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { useFacilityMap } from "@/hooks/useFacilityMap";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
-import { formatTimeIn, minutesOfDayIn } from "@/lib/utils/dates";
-import { zonedDateString, zonedTimeToUtc } from "@/lib/utils/timezone";
+import { formatSessionTime, minutesOfDayIn, nowAsSessionTime, sessionDateString } from "@/lib/utils/dates";
 import FacilityMapSvg from "@/components/facility-maps/renderer/FacilityMapSvg";
 import type { RenderShape, RenderContextElement, SpaceStatusInfo } from "@/components/facility-maps/renderer/types";
 import SpaceDetailSheet from "./SpaceDetailSheet";
@@ -21,10 +20,11 @@ const DEFAULT_RANGE = { startMinutes: 360, endMinutes: 1320 }; // 6am–10pm fal
 /** A session starting within this many minutes of the viewed time shows as "starting soon". */
 const SOON_THRESHOLD_MINUTES = 60;
 
-// The scrub slider is "time of day at this building", so every position on it
-// is resolved in the building's zone via the shared minutesOfDayIn — otherwise
-// the track spans the wrong hours and the "now" marker sits in the wrong place
-// for any reader elsewhere.
+// The scrub slider is "time of day at this building" — sessions carry no
+// timezone (dropin/docs/RESUME-timezone-removal.md), so every position on it
+// is read straight off the session-Date convention via the shared
+// minutesOfDayIn/nowAsSessionTime, with the viewer presumed local to the
+// facility, same as the rest of the app.
 
 /**
  * Visual, tap-to-see-status alternative to the grid/list/map views — an org
@@ -52,39 +52,35 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   const { data, isLoading, isError } = useFacilityMap(facilityId);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
 
-  // Every session on one floorplan is in one building, so the first one's zone
-  // is the building's. Falls back to the runtime zone only when there is
-  // nothing to render anyway.
-  const zone = sessions[0]?.timezone ?? Intl.DateTimeFormat().resolvedOptions().timeZone;
-
   const todaysRange = useMemo(() => {
-    const todayKey = zonedDateString(new Date(), zone);
-    const todaysSessions = sessions.filter((s) => zonedDateString(s.start, zone) === todayKey);
+    const todayKey = sessionDateString(nowAsSessionTime());
+    const todaysSessions = sessions.filter((s) => sessionDateString(s.start) === todayKey);
     if (todaysSessions.length === 0) return DEFAULT_RANGE;
 
-    const starts = todaysSessions.map((s) => minutesOfDayIn(s.start, zone));
-    const ends = todaysSessions.map((s) => minutesOfDayIn(s.end, zone));
+    const starts = todaysSessions.map((s) => minutesOfDayIn(s.start));
+    const ends = todaysSessions.map((s) => minutesOfDayIn(s.end));
     return { startMinutes: Math.min(...starts), endMinutes: Math.max(...ends) };
-  }, [sessions, zone]);
+  }, [sessions]);
 
-  const nowMinutes = minutesOfDayIn(new Date(), zone);
+  const nowMinutes = minutesOfDayIn(nowAsSessionTime());
   const [scrubMinutes, setScrubMinutes] = useState<number>(() =>
     Math.min(todaysRange.endMinutes, Math.max(todaysRange.startMinutes, nowMinutes))
   );
 
   const isViewingNow = scrubMinutes === nowMinutes;
 
-  // The instant at which the building's wall clock reads `scrubMinutes` today.
-  // Built through the zone rather than with setHours, which would set the
-  // reader's wall clock instead and slide every comparison below by the offset
-  // between them.
+  // The session-Date-convention instant at which the wall clock reads
+  // `scrubMinutes` today — today's date comes from nowAsSessionTime(), the
+  // time-of-day is overwritten to the scrub position.
   const scrubDate = useMemo(() => {
-    const hh = String(Math.floor(scrubMinutes / 60)).padStart(2, "0");
-    const mm = String(scrubMinutes % 60).padStart(2, "0");
-    return zonedTimeToUtc(zonedDateString(new Date(), zone), `${hh}:${mm}`, zone);
-  }, [scrubMinutes, zone]);
+    const today = nowAsSessionTime();
+    return new Date(Date.UTC(
+      today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(),
+      Math.floor(scrubMinutes / 60), scrubMinutes % 60
+    ));
+  }, [scrubMinutes]);
 
-  const viewedTimeLabel = formatTimeIn(scrubDate, zone);
+  const viewedTimeLabel = formatSessionTime(scrubDate);
 
   const liveSessionBySpaceId = useMemo(() => {
     const map = new Map<string, ExpandedSession>();
@@ -103,7 +99,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
     const map = new Map<string, ExpandedSession>();
     for (const session of sessions) {
       if (session.spaceIds.length === 0) continue;
-      if (zonedDateString(session.start, zone) !== zonedDateString(scrubDate, zone)) continue;
+      if (sessionDateString(session.start) !== sessionDateString(scrubDate)) continue;
       if (session.start <= scrubDate) continue;
       for (const spaceId of session.spaceIds) {
         const earliest = map.get(spaceId);
@@ -111,7 +107,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
       }
     }
     return map;
-  }, [sessions, scrubDate, zone]);
+  }, [sessions, scrubDate]);
 
   // live > soon > free per space; "soon" is the next session starting within
   // the threshold of the viewed time.
@@ -121,7 +117,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
       map.set(spaceId, {
         status: "live",
         title: session.templateName ?? session.scheduleGroupName,
-        timeLabel: `ends ${formatTimeIn(session.end, session.timezone)}`,
+        timeLabel: `ends ${formatSessionTime(session.end)}`,
       });
     }
     const soonCutoff = new Date(scrubDate.getTime() + SOON_THRESHOLD_MINUTES * 60_000);
@@ -130,7 +126,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
       map.set(spaceId, {
         status: "soon",
         title: session.templateName ?? session.scheduleGroupName,
-        timeLabel: `starts ${formatTimeIn(session.start, session.timezone)}`,
+        timeLabel: `starts ${formatSessionTime(session.start)}`,
       });
     }
     return map;
@@ -242,7 +238,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
         {summary.live === 0 && summary.soon === 0 && (
           <span className="text-gray-400">
             {summary.nextStart
-              ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatTimeIn(summary.nextStart, zone)}`
+              ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatSessionTime(summary.nextStart)}`
               : "No sessions here today"}
           </span>
         )}

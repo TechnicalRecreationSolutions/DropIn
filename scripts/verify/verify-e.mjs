@@ -162,7 +162,7 @@ async function buildTree(orgId, tag, counts = {}) {
       sport_category: "swimming",
       activity_type: "drop_in",
       cost_cents: 0,
-      is_published: true,
+      status: "published",
     })
     .select("id")
     .single();

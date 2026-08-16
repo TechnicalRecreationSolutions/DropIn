@@ -12,8 +12,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { DAYS } from "@/lib/schedule/weekGeometry";
-import { zonedDayOfWeek } from "@/lib/utils/dates";
+import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 
 interface DuplicateSessionDialogProps {
   open: boolean;
@@ -47,11 +46,10 @@ export default function DuplicateSessionDialog({
     if (!session) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSpaceIds(session.spaceIds);
-    // The weekday the session actually runs on at its facility. `getDay()` here
-    // would prefill the duplicate with the reader's weekday, quietly moving an
+    // The weekday the session actually runs on. `getDay()` here would prefill
+    // the duplicate with the reader's runtime-local weekday, quietly moving an
     // early-morning session back a day every time it is copied from elsewhere.
-    const dow = zonedDayOfWeek(session.start, session.timezone);
-    const dayCode = DAYS[dow === 0 ? 6 : dow - 1].code;
+    const dayCode = DAYS[sessionDayIndex(session.start)].code;
     setSelectedDays([dayCode]);
   }, [session]);
 

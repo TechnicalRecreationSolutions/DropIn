@@ -16,7 +16,7 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, schedule_group_id, rrule, dtstart, dtend_time, timezone, valid_from, valid_until, location_detail, is_event, in_brochure")
+    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail, is_event, in_brochure")
     .eq("id", sessionId)
     .eq("org_id", orgContext.org.id)
     .single();
@@ -60,6 +60,9 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
     .eq("session_id", sessionId);
   const spaceIds = (sessionSpaceRows ?? []).map((r) => r.space_id);
 
+  // dtstart's digits are the literal local wall-clock time (see
+  // dropin/docs/RESUME-timezone-removal.md) — UTC getters read it directly,
+  // no conversion.
   const dtstart = new Date(session.dtstart);
   const startTime = `${String(dtstart.getUTCHours()).padStart(2, "0")}:${String(dtstart.getUTCMinutes()).padStart(2, "0")}`;
   const endTime = session.dtend_time.slice(0, 5);
@@ -88,7 +91,6 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
           endTime,
           validFrom: session.valid_from,
           validUntil: session.valid_until ?? "",
-          timezone: session.timezone,
           spaceIds,
           locationDetail: session.location_detail ?? "",
           isEvent: session.is_event,

@@ -354,7 +354,14 @@ export type Database = {
           photo_urls: string[];
           tags: string[];
           display_order: number;
-          is_published: boolean;
+          // Added in 033_schedule_group_status.sql, replacing the old
+          // is_published boolean. starts_on/ends_on are nullable — a
+          // schedule group can be 'published' with NULL dates if backfill
+          // couldn't derive them; the API layer (not a DB constraint) is
+          // what blocks a *new* draft->published transition without dates.
+          status: "draft" | "published";
+          starts_on: string | null;
+          ends_on: string | null;
           // Added in 031_brochures.sql. Candidacy for a season brochure, not
           // membership — the editor pulls candidates explicitly.
           in_brochure: boolean;
@@ -384,6 +391,8 @@ export type Database = {
           | "display_order"
           | "schedule_type"
           | "continuous_hours_note"
+          | "starts_on"
+          | "ends_on"
         > & {
           description?: string | null;
           activity_type?: "drop_in" | "registered" | "open_gym" | null;
@@ -397,6 +406,8 @@ export type Database = {
           display_order?: number;
           schedule_type?: "time_block" | "continuous";
           continuous_hours_note?: string | null;
+          starts_on?: string | null;
+          ends_on?: string | null;
         };
         Update: Partial<
           Database["public"]["Tables"]["schedule_groups"]["Insert"]
@@ -491,9 +502,12 @@ export type Database = {
           is_event: boolean;
           in_brochure: boolean;
           rrule: string;
+          // Local wall-clock date/time, stored as literal UTC-labelled digits
+          // with no real timezone meaning (034_remove_timezone.sql). Read with
+          // getUTCHours()/getUTCDate()/etc — never convert through an IANA
+          // zone. See src/lib/rrule/README.md.
           dtstart: string;
           dtend_time: string;
-          timezone: string;
           valid_from: string;
           valid_until: string | null;
           location_detail: string | null;
@@ -511,7 +525,6 @@ export type Database = {
           | "season_id"
           | "is_event"
           | "in_brochure"
-          | "timezone"
           | "valid_until"
           | "location_detail"
           | "source"
@@ -521,7 +534,6 @@ export type Database = {
           season_id?: string | null;
           is_event?: boolean;
           in_brochure?: boolean;
-          timezone?: string;
           valid_until?: string | null;
           location_detail?: string | null;
           source?: "manual" | "imported";

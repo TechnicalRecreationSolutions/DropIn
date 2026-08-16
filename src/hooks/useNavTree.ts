@@ -18,7 +18,7 @@ export interface NavTreeDepartment {
 export interface NavTreeScheduleGroup {
   id: string;
   name: string;
-  is_published: boolean;
+  status: "draft" | "published";
   facility_id: string;
   department_id: string | null;
 }

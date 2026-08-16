@@ -23,9 +23,10 @@ export type RRuleFrequency = "once" | "daily" | "weekly";
  * have to branch on), a one-off is a daily rule capped at one occurrence.
  *
  * `COUNT=1` rather than an UNTIL date, because UNTIL has to be expressed as a
- * UTC instant and would therefore need the session's timezone to be correct —
- * a whole class of off-by-one-day bugs for something that means "just this
- * once". The occurrence lands on DTSTART either way.
+ * real instant, which would reintroduce the exact off-by-one-day class of bug
+ * this app went out of its way to remove (see dropin/docs/RESUME-timezone-removal.md)
+ * for something that means "just this once". The occurrence lands on DTSTART
+ * either way.
  */
 export const ONCE_RRULE = "FREQ=DAILY;COUNT=1";
 

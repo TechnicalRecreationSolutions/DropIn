@@ -5,7 +5,6 @@ import type {
   SessionFeatureContent,
 } from "@/types/schedule.types";
 import type { Database } from "@/types/database.types";
-import { zonedDateString, zonedTimeToUtc } from "@/lib/utils/timezone";
 
 type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
 type SessionExceptionRow =
@@ -26,8 +25,12 @@ export type SessionWithRelations = SessionRow & {
     departments: Pick<DepartmentRow, "id" | "name"> | null;
   }) | null;
   // Empty array when the session has no spaces attached. PostgREST nests the
-  // join-table rows, each carrying its embedded `spaces` object.
-  session_spaces: { spaces: Pick<SpaceRow, "id" | "name" | "display_order"> }[];
+  // join-table rows, each carrying its embedded `spaces` object — nullable
+  // for the same reason schedule_groups is above: a viewer without RLS
+  // access to that specific space (e.g. an anonymous visitor and a space
+  // still in Draft) gets the join-table row back with `spaces: null` rather
+  // than the row being omitted. Must be filtered, not trusted present.
+  session_spaces: { spaces: Pick<SpaceRow, "id" | "name" | "display_order"> | null }[];
   // Null when the session has no template_id, or the template was archived/deleted.
   session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
   // session_features is 1:1 (UNIQUE session_id), so PostgREST *should* detect a
@@ -37,6 +40,98 @@ export type SessionWithRelations = SessionRow & {
   // than trusted. Absent entirely when the session has never been featured.
   session_features: SessionFeatureRow | SessionFeatureRow[] | null;
 };
+
+/** One resolved occurrence's time range, plus whether an exception modified it. */
+export interface OccurrenceTime {
+  /** Calendar date (YYYY-MM-DD) of the originally-scheduled occurrence, before
+   *  any modification — stable identity even if a 'modified' exception shifts
+   *  the actual start/end. This is what exception lookups key on. */
+  occurrenceDate: string;
+  start: Date;
+  end: Date;
+  isModified: boolean;
+  modificationNote: string | null;
+}
+
+/**
+ * Expands a single recurring session's RRULE into concrete occurrence time
+ * ranges within `range`, clamped to the session's valid_from/valid_until
+ * bounds, with cancelled occurrences dropped and modified ones substituted.
+ * The shared core both expandSessions() (below) and the session-conflict
+ * checker (src/lib/sessions/conflicts.ts) build on.
+ *
+ * `session.dtstart` stores local wall-clock digits directly, with no real
+ * instant meaning (see dropin/docs/RESUME-timezone-removal.md) — the exact
+ * representation rrule.js itself needs, since its DTSTART arithmetic has no
+ * notion of "local time" and just advances by fixed calendar increments.
+ * Every value here — DTSTART, the generated occurrences, dtend_time — stays
+ * in that same convention throughout; nothing is ever converted to or from a
+ * real instant. Read start/end via UTC getters (see rrule/README.md), never
+ * via runtime-local ones.
+ */
+export function expandOccurrenceTimes(
+  session: Pick<SessionRow, "id" | "rrule" | "dtstart" | "dtend_time" | "valid_from" | "valid_until">,
+  exceptions: SessionExceptionRow[],
+  range: RangeExpandParams
+): OccurrenceTime[] {
+  const { rangeStart, rangeEnd } = range;
+
+  const exceptionMap = new Map<string, SessionExceptionRow>();
+  for (const ex of exceptions) {
+    if (ex.session_id === session.id) exceptionMap.set(ex.exception_date, ex);
+  }
+
+  let rule: RRule;
+  try {
+    rule = RRule.fromString(`DTSTART:${dtstartLine(session.dtstart)}\n${session.rrule}`);
+  } catch {
+    // Malformed RRULE — skip silently, log in production
+    console.warn(`Skipping session ${session.id}: invalid RRULE "${session.rrule}"`);
+    return [];
+  }
+
+  const seasonStart = new Date(session.valid_from + "T00:00:00Z");
+  const seasonEnd = session.valid_until
+    ? new Date(session.valid_until + "T23:59:59Z")
+    : null;
+
+  const expandFrom = rangeStart > seasonStart ? rangeStart : seasonStart;
+  const expandTo = seasonEnd && rangeEnd > seasonEnd ? seasonEnd : rangeEnd;
+
+  if (expandFrom > expandTo) return [];
+
+  const occurrences = rule.between(expandFrom, expandTo, true);
+  const results: OccurrenceTime[] = [];
+
+  for (const start of occurrences) {
+    const dateKey = toDateString(start);
+    const exception = exceptionMap.get(dateKey);
+
+    // Skip cancelled occurrences entirely
+    if (exception?.exception_type === "cancelled") continue;
+
+    // Determine start/end times — use modified times if exception exists
+    let occStart = start;
+    let end: Date;
+
+    if (exception?.exception_type === "modified" && exception.modified_start && exception.modified_end) {
+      occStart = new Date(exception.modified_start);
+      end = new Date(exception.modified_end);
+    } else {
+      end = buildEndTime(occStart, session.dtend_time);
+    }
+
+    results.push({
+      occurrenceDate: dateKey,
+      start: occStart,
+      end,
+      isModified: exception?.exception_type === "modified",
+      modificationNote: exception?.note ?? null,
+    });
+  }
+
+  return results;
+}
 
 /**
  * Expands an array of recurring sessions into concrete occurrences for the
@@ -54,14 +149,7 @@ export function expandSessions(
   exceptions: SessionExceptionRow[],
   params: RangeExpandParams
 ): ExpandedSession[] {
-  const { rangeStart, rangeEnd } = params;
   const results: ExpandedSession[] = [];
-
-  // Index exceptions by session_id + date for O(1) lookup
-  const exceptionMap = new Map<string, SessionExceptionRow>();
-  for (const ex of exceptions) {
-    exceptionMap.set(`${ex.session_id}_${ex.exception_date}`, ex);
-  }
 
   for (const session of sessions) {
     const scheduleGroup = session.schedule_groups;
@@ -75,6 +163,7 @@ export function expandSessions(
 
     const attachedSpaces = session.session_spaces
       .map((row) => row.spaces)
+      .filter((space) => space !== null)
       .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
 
     // Built once per session rather than per occurrence — a month of a daily
@@ -82,60 +171,15 @@ export function expandSessions(
     // identical object.
     const feature = toFeatureContent(session.session_features);
 
-    // Parse the RRULE string
-    let rule: RRule;
-    try {
-      rule = RRule.fromString(
-        `DTSTART:${formatDtstart(session.dtstart)}\n${session.rrule}`
-      );
-    } catch {
-      // Malformed RRULE — skip silently, log in production
-      console.warn(`Skipping session ${session.id}: invalid RRULE "${session.rrule}"`);
-      continue;
-    }
+    const occurrences = expandOccurrenceTimes(session, exceptions, params);
 
-    // Clamp expansion range to the session's season bounds
-    const seasonStart = new Date(session.valid_from + "T00:00:00Z");
-    const seasonEnd = session.valid_until
-      ? new Date(session.valid_until + "T23:59:59Z")
-      : null;
-
-    const expandFrom = rangeStart > seasonStart ? rangeStart : seasonStart;
-    const expandTo =
-      seasonEnd && rangeEnd > seasonEnd ? seasonEnd : rangeEnd;
-
-    if (expandFrom > expandTo) continue;
-
-    // Get all occurrences in the requested range
-    const occurrences = rule.between(expandFrom, expandTo, true);
-
-    for (const occurrence of occurrences) {
-      const dateKey = toDateString(occurrence);
-      const exKey = `${session.id}_${dateKey}`;
-      const exception = exceptionMap.get(exKey);
-
-      // Skip cancelled occurrences entirely
-      if (exception?.exception_type === "cancelled") continue;
-
-      // Determine start/end times — use modified times if exception exists
-      let start: Date;
-      let end: Date;
-
-      if (exception?.exception_type === "modified" && exception.modified_start && exception.modified_end) {
-        start = new Date(exception.modified_start);
-        end = new Date(exception.modified_end);
-      } else {
-        start = occurrence;
-        end = buildEndTime(occurrence, session.dtend_time, session.timezone);
-      }
-
+    for (const occ of occurrences) {
       results.push({
-        key: `${session.id}_${dateKey}`,
+        key: `${session.id}_${occ.occurrenceDate}`,
         sessionId: session.id,
         orgId: session.org_id,
-        start,
-        end,
-        timezone: session.timezone,
+        start: occ.start,
+        end: occ.end,
         scheduleGroupId: scheduleGroup.id,
         scheduleGroupName: scheduleGroup.name,
         sportCategory: scheduleGroup.sport_category,
@@ -162,8 +206,8 @@ export function expandSessions(
         inBrochure: session.in_brochure,
         feature,
         locationDetail: session.location_detail,
-        isModified: exception?.exception_type === "modified",
-        modificationNote: exception?.note ?? null,
+        isModified: occ.isModified,
+        modificationNote: occ.modificationNote,
       });
     }
   }
@@ -194,31 +238,44 @@ function toFeatureContent(
   };
 }
 
-/** Format a TIMESTAMPTZ string to the DTSTART format rrule expects: YYYYMMDDTHHmmssZ */
-function formatDtstart(dtstart: string): string {
-  return new Date(dtstart)
-    .toISOString()
-    .replace(/[-:]/g, "")
-    .replace(/\.\d{3}/, "");
+/**
+ * Builds an RRULE DTSTART line straight from the stored value's own digits —
+ * `session.dtstart` already holds local wall-clock date/time with no real
+ * instant meaning (see the header comment above), so this is direct
+ * formatting, not a conversion.
+ */
+function dtstartLine(dtstart: string): string {
+  const d = new Date(dtstart);
+  const y = d.getUTCFullYear();
+  const mo = pad2(d.getUTCMonth() + 1);
+  const da = pad2(d.getUTCDate());
+  const h = pad2(d.getUTCHours());
+  const mi = pad2(d.getUTCMinutes());
+  return `${y}${mo}${da}T${h}${mi}00`;
+}
+
+/** Zero-pad a number to two digits. */
+function pad2(n: number): string {
+  return String(n).padStart(2, "0");
 }
 
 /**
  * Build the end Date for an occurrence using the session's dtend_time
- * (HH:MM, wall-clock in the session's timezone). occurrenceStart is a UTC
- * instant, so dtend_time must be converted through the same timezone rather
- * than assumed to already be UTC — otherwise the result drifts from the
- * start time by the zone's UTC offset.
+ * (HH:MM, same wall-clock convention as dtstart). Both occurrenceStart and
+ * the result stay in that convention throughout — no conversion.
  */
-function buildEndTime(occurrenceStart: Date, dtendTime: string, timeZone: string): Date {
-  // dtendTime comes from the `dtend_time` TIME column as "HH:MM:SS";
-  // zonedTimeToUtc expects "HH:MM".
-  const time = dtendTime.slice(0, 5);
-  const dateStr = zonedDateString(occurrenceStart, timeZone);
-  let end = zonedTimeToUtc(dateStr, time, timeZone);
-  // Handle edge case: if end is before start, it rolled past midnight
+function buildEndTime(occurrenceStart: Date, dtendTime: string): Date {
+  // dtendTime comes from the `dtend_time` TIME column as "HH:MM:SS".
+  const [h, m] = dtendTime.slice(0, 5).split(":").map(Number);
+  let end = new Date(Date.UTC(
+    occurrenceStart.getUTCFullYear(),
+    occurrenceStart.getUTCMonth(),
+    occurrenceStart.getUTCDate(),
+    h, m
+  ));
+  // Handle edge case: if end is before start, it rolled past midnight.
   if (end < occurrenceStart) {
-    const nextDay = new Date(occurrenceStart.getTime() + 24 * 60 * 60 * 1000);
-    end = zonedTimeToUtc(zonedDateString(nextDay, timeZone), time, timeZone);
+    end = new Date(end.getTime() + 24 * 60 * 60 * 1000);
   }
   return end;
 }
@@ -232,6 +289,10 @@ function toDateString(date: Date): string {
  * Builds an RRuleSet that excludes exception dates.
  * Used when you need an rrule-native representation for display purposes
  * (e.g. showing "next 5 occurrences" in the dashboard editor).
+ *
+ * Currently unused (no call sites) — kept in the same dtstart convention as
+ * expandOccurrenceTimes (local wall-clock digits, no conversion) so it stays
+ * correct if it's ever wired up.
  */
 export function buildRRuleSet(
   session: Pick<SessionRow, "rrule" | "dtstart" | "valid_from" | "valid_until">,
@@ -239,9 +300,7 @@ export function buildRRuleSet(
 ): RRuleSet {
   const set = new RRuleSet();
 
-  const rule = RRule.fromString(
-    `DTSTART:${formatDtstart(session.dtstart)}\n${session.rrule}`
-  );
+  const rule = RRule.fromString(`DTSTART:${dtstartLine(session.dtstart)}\n${session.rrule}`);
   set.rrule(rule);
 
   for (const dateStr of cancelledDates) {

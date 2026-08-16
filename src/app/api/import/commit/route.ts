@@ -3,7 +3,6 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
 import { slugify } from "@/lib/utils/slugify";
-import { zonedTimeToUtc } from "@/lib/utils/timezone";
 import { MAX_ROWS, validateRow, type ImportRow } from "@/lib/import/rows";
 
 const CommitSchema = z.object({
@@ -68,7 +67,7 @@ export async function POST(request: Request) {
           // the DB level (sgErr below), same as before this cast existed.
           activity_type: (row.activity_type ?? "drop_in") as "drop_in" | "registered" | "open_gym",
           cost_cents: isNaN(costCents) ? 0 : costCents,
-          is_published: false,
+          status: "draft",
           source: "imported",
         }, { onConflict: "facility_id,slug" })
         .select("id")
@@ -81,8 +80,10 @@ export async function POST(request: Request) {
 
       scheduleGroupsCreated++;
 
-      // Build dtstart from season_start + start_time, wall-clock in the facility's timezone
-      const dtstart = zonedTimeToUtc(row.season_start, row.start_time, "America/Edmonton").toISOString();
+      // dtstart's digits are the literal local wall-clock time (see
+      // dropin/docs/RESUME-timezone-removal.md) — direct construction, not a
+      // conversion.
+      const dtstart = `${row.season_start}T${row.start_time}:00Z`;
 
       const { error: sErr } = await supabase.from("sessions").insert({
         schedule_group_id: scheduleGroup.id,
@@ -90,7 +91,6 @@ export async function POST(request: Request) {
         rrule: row._rrule,
         dtstart,
         dtend_time: row.end_time,
-        timezone: "America/Edmonton",
         valid_from: row.season_start,
         valid_until: row.season_end || null,
         location_detail: row.location_detail || null,

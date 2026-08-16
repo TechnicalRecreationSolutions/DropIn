@@ -2,10 +2,13 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { findSessionConflict } from "@/lib/sessions/conflicts";
 
 const PatchSessionSchema = z.object({
   rrule: z.string().min(1).optional(),
-  dtstart: z.string().datetime({ offset: true }).optional(),
+  // Must be "Z"-suffixed, not an arbitrary offset — see the same note on
+  // SessionSchema in /api/sessions/route.ts.
+  dtstart: z.string().datetime().optional(),
   dtend_time: z.string().regex(/^\d{2}:\d{2}$/).optional(),
 });
 
@@ -13,7 +16,7 @@ const PatchSessionSchema = z.object({
  * PATCH /api/sessions/[sessionId] — partial update for drag-to-reschedule.
  * Only accepts the fields a drag can change (day/time) so callers don't need
  * to round-trip the full session record (rrule, dtend_time, valid_from/until,
- * timezone, spaces) just to move one block on the grid — unlike POST
+ * spaces) just to move one block on the grid — unlike POST
  * /api/sessions, which always requires the complete payload. Space
  * membership never changes through this route: a multi-space session's
  * blocks all move together on drag, and which spaces it occupies is only
@@ -45,6 +48,35 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
+
+  // A drag only sends the fields it changed — merge with the existing row to
+  // build the full candidate findSessionConflict() needs. Space membership
+  // never changes through this route (see header), so the session's current
+  // session_spaces rows are exactly what a drag would still occupy.
+  const { data: existing } = await supabase
+    .from("sessions")
+    .select("rrule, dtstart, dtend_time, valid_from, valid_until")
+    .eq("id", sessionId)
+    .eq("org_id", membership.org_id)
+    .maybeSingle();
+
+  if (!existing) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+  const { data: spaceRows } = await supabase
+    .from("session_spaces")
+    .select("space_id")
+    .eq("session_id", sessionId);
+
+  const conflict = await findSessionConflict(supabase, {
+    sessionId,
+    rrule: parsed.data.rrule ?? existing.rrule,
+    dtstart: parsed.data.dtstart ?? existing.dtstart,
+    dtend_time: parsed.data.dtend_time ?? existing.dtend_time,
+    valid_from: existing.valid_from,
+    valid_until: existing.valid_until,
+    spaceIds: (spaceRows ?? []).map((r) => r.space_id),
+  });
+  if (conflict) return NextResponse.json({ error: conflict.error }, { status: 409 });
 
   const { error } = await supabase
     .from("sessions")
