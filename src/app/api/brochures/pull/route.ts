@@ -121,8 +121,11 @@ export async function POST(request: Request) {
     section_id: sectionId ?? null,
     org_id: membership.org_id,
     source_type: candidate.sourceType,
-    session_id: candidate.sourceType === "session" ? candidate.sourceId : null,
-    schedule_group_id: candidate.sourceType === "schedule_group" ? candidate.sourceId : null,
+    // Every live candidate is a session now (see candidates.ts) — the column
+    // stays for the schedule_group-sourced entries pulled before that change,
+    // which are snapshots and untouched by it.
+    session_id: candidate.sourceId,
+    schedule_group_id: null,
     title: candidate.title,
     description: candidate.description,
     image_url: candidate.imageUrl,

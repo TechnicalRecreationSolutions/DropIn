@@ -13,8 +13,7 @@ type Client = SupabaseClient<Database>;
  * alter it. See the header of migration 031.
  */
 export interface BrochureCandidate {
-  sourceType: "session" | "schedule_group";
-  /** `sessions.id` or `schedule_groups.id`. */
+  sourceType: "session";
   sourceId: string;
   /** What the entry's snapshot would be titled. */
   title: string;
@@ -39,8 +38,15 @@ interface CandidateQuery {
 }
 
 /**
- * Everything flagged `in_brochure` whose dates overlap the season, annotated
- * with whether this brochure has already dealt with it.
+ * Every session flagged `in_brochure` whose dates overlap the season,
+ * annotated with whether this brochure has already dealt with it.
+ *
+ * SESSIONS ONLY. A program (schedule_groups) has no occurrence of its own to
+ * show up on a printed page or an events calendar — only its sessions do, and
+ * only the ones someone chose to feature. schedule_groups carried its own
+ * `in_brochure` flag until the product decision to drop it: a whole program
+ * being "offered" independent of any specific, recurring session it runs
+ * produced brochure entries nobody could point at a real occurrence.
  *
  * OVERLAP, NOT CONTAINMENT. A session running Sep 1 – Dec 20 is a candidate for
  * a fall season starting Sep 8, even though it began before the season did.
@@ -50,16 +56,12 @@ interface CandidateQuery {
  * A NULL season window means "no season" — everything flagged is a candidate.
  * That is a real state: an org can build a brochure before defining seasons,
  * and returning nothing there would look like the flags weren't working.
- *
- * Schedule groups have no dates of their own, so they are never filtered by the
- * window. A program is a program for as long as it is published; its *sessions*
- * are what live in time.
  */
 export async function getBrochureCandidates(
   supabase: Client,
   { orgId, seasonStart, seasonEnd, brochureId }: CandidateQuery
 ): Promise<BrochureCandidate[]> {
-  const [sessionRows, groupRows, entryRows] = await Promise.all([
+  const [sessionRows, entryRows] = await Promise.all([
     (async () => {
       let query = supabase
         .from("sessions")
@@ -82,28 +84,20 @@ export async function getBrochureCandidates(
     })(),
 
     supabase
-      .from("schedule_groups")
-      .select("id, name, description, cost_cents, photo_urls, facilities ( name )")
-      .eq("org_id", orgId)
-      .eq("in_brochure", true)
-      .eq("status", "published"),
-
-    supabase
       .from("brochure_entries")
-      .select("session_id, schedule_group_id, status")
-      .eq("brochure_id", brochureId),
+      .select("session_id, status")
+      .eq("brochure_id", brochureId)
+      .not("session_id", "is", null),
   ]);
 
   const existingBySource = new Map<string, "included" | "dismissed">();
   for (const entry of entryRows.data ?? []) {
-    const key = entry.session_id ?? entry.schedule_group_id;
-    if (key) existingBySource.set(key, entry.status);
+    if (entry.session_id) existingBySource.set(entry.session_id, entry.status);
   }
 
   // Relational selects — cast needed until the Supabase CLI generates types
   // with FK relations, matching the pattern in /api/sessions/expand.
   const sessions = (sessionRows.data ?? []) as unknown as SessionCandidateRow[];
-  const groups = (groupRows.data ?? []) as unknown as GroupCandidateRow[];
 
   const fromSessions: BrochureCandidate[] = sessions.map((row) => {
     const feature = firstOf(row.session_features);
@@ -127,20 +121,7 @@ export async function getBrochureCandidates(
     };
   });
 
-  const fromGroups: BrochureCandidate[] = groups.map((row) => ({
-    sourceType: "schedule_group",
-    sourceId: row.id,
-    title: row.name,
-    description: row.description ?? null,
-    imageUrl: row.photo_urls?.[0] ?? null,
-    linkUrl: null,
-    linkLabel: null,
-    facilityName: row.facilities?.name ?? null,
-    costCents: row.cost_cents ?? null,
-    existing: existingBySource.get(row.id) ?? null,
-  }));
-
-  return [...fromGroups, ...fromSessions].sort((a, b) => a.title.localeCompare(b.title));
+  return fromSessions.sort((a, b) => a.title.localeCompare(b.title));
 }
 
 /**
@@ -175,13 +156,4 @@ interface SessionCandidateRow {
       }>
     | null;
   session_templates: { name: string } | Array<{ name: string }> | null;
-}
-
-interface GroupCandidateRow {
-  id: string;
-  name: string;
-  description: string | null;
-  cost_cents: number;
-  photo_urls: string[] | null;
-  facilities: { name: string } | null;
 }

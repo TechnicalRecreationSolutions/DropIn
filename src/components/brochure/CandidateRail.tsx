@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { CalendarDays, Layers, Sparkles } from "lucide-react";
+import { CalendarDays, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import type { BrochureCandidate } from "@/lib/brochure/candidates";
@@ -17,10 +17,10 @@ interface CandidateRailProps {
 /**
  * The "Suggested" rail — candidacy made visible.
  *
- * Everything here is computed live from `in_brochure` plus the season window,
- * and nothing in it is part of the brochure until someone pulls it. That
- * distinction is the point of the whole model, so the rail states it rather
- * than leaving staff to infer it from behaviour.
+ * Everything here is computed live from a session's `in_brochure` flag plus
+ * the season window, and nothing in it is part of the brochure until someone
+ * pulls it. That distinction is the point of the whole model, so the rail
+ * states it rather than leaving staff to infer it from behaviour.
  *
  * Candidates already handled stay listed, greyed, with why — "in the brochure"
  * or "removed". Hiding them would make the rail look like it had lost track of
@@ -70,8 +70,8 @@ export default function CandidateRail({
 
       {available.length === 0 && handled.length === 0 ? (
         <p className="text-xs text-gray-500 py-6 text-center">
-          Nothing is flagged yet. Turn on &ldquo;Offer for season brochures&rdquo; on a program, or
-          use <span className="font-medium">Feature…</span> on a session, and it will show up here.
+          Nothing is flagged yet. Use <span className="font-medium">Feature…</span> on a session,
+          and it will show up here.
         </p>
       ) : (
         <>
@@ -93,17 +93,13 @@ export default function CandidateRail({
                             : "border-transparent hover:bg-gray-50"
                         )}
                       >
-                        {candidate.sourceType === "session" ? (
-                          <CalendarDays className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-                        ) : (
-                          <Layers className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
-                        )}
+                        <CalendarDays className="w-3.5 h-3.5 text-gray-400 shrink-0 mt-0.5" />
                         <span className="min-w-0 flex-1">
                           <span className="block text-sm font-medium text-gray-900 truncate">
                             {candidate.title}
                           </span>
                           <span className="block text-xs text-gray-500 truncate">
-                            {candidate.sourceType === "session" ? "Session" : "Program"}
+                            Session
                             {candidate.facilityName ? ` · ${candidate.facilityName}` : ""}
                           </span>
                         </span>
