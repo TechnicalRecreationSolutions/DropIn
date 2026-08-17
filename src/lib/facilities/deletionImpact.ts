@@ -5,7 +5,6 @@ export type FacilityDeletionImpact = {
   scheduleGroups: number;
   sessions: number;
   spaces: number;
-  brochures: number;
 };
 
 /**
@@ -33,7 +32,7 @@ export async function getFacilityDeletionImpact(
 ): Promise<FacilityDeletionImpact> {
   const supabase = await createClient();
 
-  const countIn = async (table: "departments" | "spaces" | "brochures") => {
+  const countIn = async (table: "departments" | "spaces") => {
     const { count } = await supabase
       .from(table)
       .select("id", { count: "exact", head: true })
@@ -59,10 +58,9 @@ export async function getFacilityDeletionImpact(
     sessions = count ?? 0;
   }
 
-  const [departments, spaces, brochures] = await Promise.all([
+  const [departments, spaces] = await Promise.all([
     countIn("departments"),
     countIn("spaces"),
-    countIn("brochures"),
   ]);
 
   return {
@@ -70,6 +68,5 @@ export async function getFacilityDeletionImpact(
     scheduleGroups: groupIds.length,
     sessions,
     spaces,
-    brochures,
   };
 }

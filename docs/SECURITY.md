@@ -656,10 +656,14 @@ violates one as a security regression.
     which returns NULL rather than raising on a malformed path.** A bare
     `::UUID` cast inside a policy turns a junk path into a 500 instead of a
     denial, and lets a caller distinguish "rejected" from "malformed". *(Storage, 030)*
-26. **`org-media` writes stay folder-scoped: `events`/`brochure` member-writable,
-    `facilities`/`schedules`/`org` via `org_can_manage()`.** This is assumption 3
-    applied to images; widening it to one role for the whole bucket reopens H3
-    for uploads. *(Storage, 030)*
+26. **Every `org-media` write is owner/admin via `org_can_manage()`; there is no
+    member-writable kind left.** `events`/`brochure` were the two member-writable
+    kinds; migration `036` (seasons/events/brochure removal) drops the
+    member-write policy entirely along with those kinds, leaving
+    `facilities`/`schedules`/`org` — all structural, all manager-only. This is
+    assumption 3 applied to images. **Pending re-verification once `036` is
+    applied** — the "Verified" paragraph below predates the removal and still
+    describes the old, member-writable shape until then. *(Storage, 030/036)*
 
 ---
 
@@ -675,11 +679,11 @@ not been published. Paths carry a random UUID filename and no listing is
 exposed, so objects are not enumerable, but that is unguessability, not
 authorization.
 
-This was chosen over private-plus-signed-URLs because these assets are facility
-photos, event pictures and brochure covers whose purpose is to be shown to the
-public, and because signed URLs expire — a widget embedded on a third-party page
-would serve images that rot, and every render would need a round trip to
-re-sign. `next.config.ts` and the CSP were already written for the public shape.
+This was chosen over private-plus-signed-URLs because these assets are facility,
+schedule and org-logo photos whose purpose is to be shown to the public, and
+because signed URLs expire — a widget embedded on a third-party page would
+serve images that rot, and every render would need a round trip to re-sign.
+`next.config.ts` and the CSP were already written for the public shape.
 
 **Consequences to hold in mind:**
 
@@ -691,12 +695,17 @@ re-sign. `next.config.ts` and the CSP were already written for the public shape.
   folder kind is introduced, it needs a policy in a migration or it silently
   denies (safe) or falls under an existing predicate (not necessarily safe).
 
-**Verified** against the live bucket with two real users, an admin and a member:
-member can write `events/` and `brochure/` but not `facilities/`; admin can;
-neither can write into another org's folder; anonymous cannot write at all; SVG,
-`text/plain` and a 6 MB file are all rejected for an authorized user; malformed
-and unknown-kind paths deny without a database error; public read returns the
-actual bytes with the right content type. 19 assertions, 0 failures.
+**Verified** (before migration `036` removed the `events`/`brochure` kinds and
+their member-write policy — see standing assumption 26) against the live
+bucket with two real users, an admin and a member: member could write
+`events/` and `brochure/` but not `facilities/`; admin could write all of them;
+neither could write into another org's folder; anonymous could not write at
+all; SVG, `text/plain` and a 6 MB file were all rejected for an authorized
+user; malformed and unknown-kind paths denied without a database error; public
+read returned the actual bytes with the right content type. 19 assertions, 0
+failures. **Re-verify the member-write denial for `facilities`/`schedules`/`org`
+once `036` is applied** — the member-writable kinds this run exercised no
+longer exist.
 
 ---
 

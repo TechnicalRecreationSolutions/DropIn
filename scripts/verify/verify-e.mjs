@@ -270,7 +270,6 @@ try {
     ["scheduleGroups", 1],
     ["sessions", 4],
     ["spaces", 3],
-    ["brochures", 0],
   ]) {
     check(
       `...deletion impact reports ${field}: ${want}`,
@@ -281,7 +280,6 @@ try {
 
   const settingsAdmin = await page("/dashboard/settings", adminCookie);
   check("org settings page is 200", settingsAdmin.status === 200, `got ${settingsAdmin.status}`);
-  check("...shows the fixed public address", settingsAdmin.html.includes(`/org/${orgA.slug}`));
   check("...prefills the org name", settingsAdmin.html.includes(`ZZ alpha ${stamp}`));
   check("...offers to save", settingsAdmin.html.includes("Save changes"));
 

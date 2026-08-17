@@ -1,5 +1,15 @@
 # Prompt: Seasons, Event Calendar, Brochure, and the Org Control Centre
 
+> **REMOVED 2026-08-16.** Everything this brief describes was built (phases
+> A–D — see the now-historical `docs/RESUME-events.md`) and then deliberately
+> removed as a scope cut, the same way scraping was
+> (`supabase/migrations/021_remove_scraping.sql`). See
+> `docs/prompts/remove-events-brochure.md` for the removal brief and
+> `supabase/migrations/036_remove_events_brochure_seasons.sql` for the removal
+> migration. This document is kept only as a record of the original intent
+> behind anything that still looks ambiguous elsewhere in the codebase — it is
+> not a plan to resume.
+
 Copy everything below the line into a fresh Claude Code session run from `C:\ForRec\dropin`.
 
 ---

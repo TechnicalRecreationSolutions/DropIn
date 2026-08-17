@@ -62,18 +62,17 @@ export interface ScheduleEditingApi {
   /** False when the scope spans more than one schedule, since a new session needs exactly one. */
   canCreate: boolean;
   /**
-   * False where the surface spans more than one facility. Duplicating offers
-   * `spaces`, which is one facility's list — on an org-wide calendar that list
-   * is wrong for most of the sessions on screen, so the action is withdrawn
-   * rather than silently offered against the wrong building.
+   * False where the surface spans more than one facility — duplicating offers
+   * `spaces`, which is one facility's list, and would be wrong for a session
+   * outside it.
    */
   canDuplicate: boolean;
   onAddSession: (target: AddSessionTarget) => void;
   onDuplicate: (session: ExpandedSession) => void;
   /**
-   * Places a new session on the *same* schedule, day(s), space(s), and
-   * season as the source — only the time differs. The complement to
-   * onDuplicate, which keeps the time fixed and varies day/space instead:
+   * Places a new session on the *same* schedule, day(s) and space(s) as the
+   * source — only the time differs. The complement to onDuplicate, which
+   * keeps the time fixed and varies day/space instead:
    * this is the one a pool with five contiguous blocks in one day (a
    * different lane count each block, same activity) actually needs, and
    * building it via onDuplicate would mean re-entering the day and space
@@ -82,22 +81,12 @@ export interface ScheduleEditingApi {
   onAddAnotherTime: (session: ExpandedSession) => void;
   onReschedule: (request: RescheduleRequest) => void;
   onDelete: (session: ExpandedSession) => void;
-  /** Opens the event/brochure toggles and the copy behind them (session_features). */
-  onFeature: (session: ExpandedSession) => void;
   /**
    * Opens the single-week override dialog (cancel / different hours / revert)
    * for the week the clicked occurrence belongs to. Writes session_exceptions
    * rows, never the RRULE — every other week keeps running unmodified.
    */
   onOverrideWeek: (session: ExpandedSession) => void;
-  /**
-   * Flips `is_event` in place, with no dialog — the realistic flow is "I already
-   * built the schedule, now make three of these events". Writes only the flag,
-   * so any copy the session already carries is left untouched.
-   */
-  onToggleEvent: (session: ExpandedSession) => void;
-  /** Session currently mid-toggle, so the menu item can show progress. */
-  togglingSessionId: string | null;
   deletingSessionId: string | null;
 }
 

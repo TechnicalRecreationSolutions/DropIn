@@ -2,11 +2,10 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, ExternalLink, Code2, Eye, LayoutGrid, List, Columns3, Image as ImageIcon, CalendarDays } from "lucide-react";
+import { Check, Copy, Code2, Eye, LayoutGrid, List, Columns3, Image as ImageIcon } from "lucide-react";
 
 interface WidgetConfiguratorProps {
   orgId: string;
-  orgSlug: string;
   facilities: { id: string; name: string }[];
   /** When set, the widget config is locked to this facility/department scope — hides the pickers. */
   lockedFacilityId?: string;
@@ -14,7 +13,7 @@ interface WidgetConfiguratorProps {
 }
 
 type Theme = "light" | "dark";
-type Template = "grid" | "list" | "map" | "floorplan" | "events";
+type Template = "grid" | "list" | "map" | "floorplan";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
 
@@ -23,12 +22,10 @@ const TEMPLATE_OPTIONS: { value: Template; label: string; icon: typeof LayoutGri
   { value: "list", label: "List", icon: List },
   { value: "map", label: "Map", icon: Columns3 },
   { value: "floorplan", label: "Floorplan", icon: ImageIcon },
-  { value: "events", label: "Events", icon: CalendarDays },
 ];
 
 export default function WidgetConfigurator({
   orgId,
-  orgSlug,
   facilities,
   lockedFacilityId,
   lockedDepartmentId,
@@ -81,20 +78,6 @@ export default function WidgetConfigurator({
     enabled: !!facilityId,
   });
   const floorplanAvailable = !!facilityId && !!facilityMapData?.is_published;
-
-  // Same rule for the events calendar: it can only be enabled once at least one
-  // session in the org is flagged as an event. Org-wide rather than per-facility
-  // because the calendar is a "what's happening" sheet across the whole org, and
-  // unlike the floorplan it isn't scoped to one building.
-  const { data: eventsData } = useQuery({
-    queryKey: ["widget-events-available", orgId],
-    queryFn: async () => {
-      const res = await fetch("/api/sessions/events");
-      if (!res.ok) throw new Error(`Failed to check for events (${res.status})`);
-      return res.json() as Promise<{ hasEvents: boolean; count: number }>;
-    },
-  });
-  const eventsAvailable = !!eventsData?.hasEvents;
 
   // Load the widget config for the current (facility, department) scope
   const { data: widgetConfigData, isLoading: loading } = useQuery({
@@ -299,10 +282,7 @@ export default function WidgetConfigurator({
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
             {TEMPLATE_OPTIONS.map(({ value, label, icon: Icon }) => {
               const checked = allowedTemplates.includes(value);
-              const disabled =
-                loading ||
-                (value === "floorplan" && !floorplanAvailable) ||
-                (value === "events" && !eventsAvailable);
+              const disabled = loading || (value === "floorplan" && !floorplanAvailable);
               return (
                 <button
                   key={value}
@@ -313,9 +293,7 @@ export default function WidgetConfigurator({
                   title={
                     value === "floorplan" && !floorplanAvailable
                       ? "Publish a facility map first (Map tab) to enable this layout."
-                      : value === "events" && !eventsAvailable
-                        ? "Flag at least one session as an event to enable this layout."
-                        : undefined
+                      : undefined
                   }
                   className={`flex flex-col items-center gap-1 py-2.5 text-sm font-medium rounded-lg border transition-colors disabled:opacity-50 ${
                     checked
@@ -332,8 +310,7 @@ export default function WidgetConfigurator({
           <p className="text-xs text-gray-400 mt-1">
             Choose which layouts visitors can switch between. Applies to both the embedded widget
             and your public schedule page — the first enabled layout loads by default. Floorplan
-            requires a published facility map and a single facility scope; Events requires at least
-            one session flagged for the event calendar.
+            requires a published facility map and a single facility scope.
           </p>
         </div>
 
@@ -457,25 +434,6 @@ export default function WidgetConfigurator({
             </div>
           </div>
         )}
-      </div>
-
-      {/* Public schedule link */}
-      <div className="flex items-center gap-3 p-4 bg-blue-50 border border-blue-100 rounded-xl">
-        <ExternalLink className="w-4 h-4 text-blue-600 shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium text-gray-900">Public schedule page</p>
-          <p className="text-xs text-gray-500 truncate">
-            {BASE_URL}/org/{orgSlug}
-          </p>
-        </div>
-        <a
-          href={`${BASE_URL}/org/${orgSlug}`}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-xs font-medium text-blue-600 hover:text-blue-700 shrink-0"
-        >
-          Open ↗
-        </a>
       </div>
     </div>
   );

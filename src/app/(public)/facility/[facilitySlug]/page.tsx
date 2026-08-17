@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
-import { MapPin, Globe, Phone, Clock, CalendarDays } from "lucide-react";
+import { MapPin, Globe, Phone, Clock } from "lucide-react";
 import { cacheLife } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
@@ -59,12 +59,11 @@ async function getFacilityPageData(facilitySlug: string) {
       .eq("facility_id", facility.id)
       .is("department_id", null)
       .maybeSingle(),
-    // The owning org, so this page can point at the org-wide event calendar.
-    // A facility page is one building; the events sheet spans all of them, and
-    // this link is the only route a visitor has to discover that.
+    // The owning org, so the breadcrumb can name it — there is no org-level
+    // public route to link to (see docs/PLAN.md §3a), so this is display-only.
     supabase
       .from("organizations_public")
-      .select("name, slug")
+      .select("name")
       .eq("id", facility.org_id)
       .maybeSingle(),
   ]);
@@ -105,17 +104,15 @@ export default async function FacilityDetailPage({ params }: PageProps) {
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
       {/* Breadcrumb */}
       {/* The middle crumb used to be "Facilities", pointing at the cross-org
-          search index. With that gone the owning organization is the real
-          parent of a building — and the crumb is dropped entirely rather than
-          left dangling when the org can't be resolved. */}
+          search index; later it linked to the org's own public page. Both are
+          gone (see docs/PLAN.md §3a) — the org name is shown as plain text
+          rather than left dangling as a link to nowhere. */}
       <nav className="text-sm text-gray-500 mb-6">
         <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
         <span className="mx-2">›</span>
         {org && (
           <>
-            <Link href={`/org/${org.slug}`} className="hover:text-gray-700 transition-colors">
-              {org.name}
-            </Link>
+            <span>{org.name}</span>
             <span className="mx-2">›</span>
           </>
         )}
@@ -196,23 +193,6 @@ export default async function FacilityDetailPage({ params }: PageProps) {
                   </li>
                 ))}
               </ul>
-            </div>
-          )}
-
-          {/* Org-wide events — the only way from a building to the whole org */}
-          {org && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="font-semibold text-gray-900 mb-1">What&rsquo;s happening</h2>
-              <p className="text-xs text-gray-500 mb-3">
-                Events across every {org.name} location, month by month.
-              </p>
-              <Link
-                href={`/org/${org.slug}/events`}
-                className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:text-blue-700"
-              >
-                <CalendarDays className="w-4 h-4" />
-                View event calendar
-              </Link>
             </div>
           )}
 

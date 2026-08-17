@@ -367,9 +367,6 @@ export type Database = {
           // never on an ordinary edit to an already-published row. Compared
           // against updated_at to derive the schedule list's MODIFIED state.
           published_at: string | null;
-          // Added in 031_brochures.sql. Candidacy for a season brochure, not
-          // membership — the editor pulls candidates explicitly.
-          in_brochure: boolean;
           schedule_type: "time_block" | "continuous";
           continuous_hours_note: string | null;
           source: "manual" | "imported";
@@ -390,7 +387,6 @@ export type Database = {
           | "skill_level"
           | "max_participants"
           | "cost_notes"
-          | "in_brochure"
           | "photo_urls"
           | "tags"
           | "display_order"
@@ -406,7 +402,6 @@ export type Database = {
           skill_level?: string | null;
           max_participants?: number | null;
           cost_notes?: string | null;
-          in_brochure?: boolean;
           photo_urls?: string[];
           tags?: string[];
           display_order?: number;
@@ -419,44 +414,12 @@ export type Database = {
           // updated_at trigger on this table for the schedule_groups row
           // itself (session writes bump it via a DB trigger instead, see
           // migration 035), so PATCH /api/schedule-groups/[id] sets it
-          // explicitly on every edit. Same shape as seasons' Insert type.
+          // explicitly on every edit.
           updated_at?: string;
         };
         Update: Partial<
           Database["public"]["Tables"]["schedule_groups"]["Insert"]
         >;
-        Relationships: [];
-      };
-      // Added in 027_seasons.sql — the org-level named date range that the
-      // event calendar, brochure, and planning tools all hang off.
-      seasons: {
-        Row: {
-          id: string;
-          org_id: string;
-          name: string;
-          slug: string;
-          description: string | null;
-          starts_on: string;
-          ends_on: string;
-          status: "planning" | "active" | "archived";
-          display_order: number;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["seasons"]["Row"],
-          "id" | "created_at" | "updated_at" | "description" | "status" | "display_order"
-        > & {
-          description?: string | null;
-          status?: "planning" | "active" | "archived";
-          display_order?: number;
-          // DEFAULT NOW() at the DB level, but writable — there is no
-          // updated_at trigger anywhere in this schema, so a route that wants
-          // the column to mean anything has to set it (as PATCH
-          // /api/seasons/[id] does). Same shape as widget_configs.
-          updated_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["seasons"]["Insert"]>;
         Relationships: [];
       };
       session_templates: {
@@ -507,13 +470,6 @@ export type Database = {
           schedule_group_id: string;
           org_id: string;
           template_id: string | null;
-          // Added in 027_seasons.sql. Nullable and explicit — season membership
-          // is never inferred from valid_from/valid_until.
-          season_id: string | null;
-          // Added in 028_session_features.sql. Two independent publishing
-          // decisions; the copy behind both lives in session_features.
-          is_event: boolean;
-          in_brochure: boolean;
           rrule: string;
           // Local wall-clock date/time, stored as literal UTC-labelled digits
           // with no real timezone meaning (034_remove_timezone.sql). Read with
@@ -535,72 +491,18 @@ export type Database = {
           | "created_at"
           | "updated_at"
           | "template_id"
-          | "season_id"
-          | "is_event"
-          | "in_brochure"
           | "valid_until"
           | "location_detail"
           | "source"
           | "is_active"
         > & {
           template_id?: string | null;
-          season_id?: string | null;
-          is_event?: boolean;
-          in_brochure?: boolean;
           valid_until?: string | null;
           location_detail?: string | null;
           source?: "manual" | "imported";
           is_active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
-        Relationships: [];
-      };
-      // Added in 028_session_features.sql — the shared copy behind both the
-      // event calendar and the brochure. 1:1 with sessions; the toggles that
-      // decide where it appears live on sessions itself.
-      session_features: {
-        Row: {
-          id: string;
-          session_id: string;
-          org_id: string;
-          title: string | null;
-          summary: string | null;
-          description: string | null;
-          image_url: string | null;
-          link_url: string | null;
-          link_label: string | null;
-          event_category: string | null;
-          accent_color: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["session_features"]["Row"],
-          | "id"
-          | "created_at"
-          | "updated_at"
-          | "title"
-          | "summary"
-          | "description"
-          | "image_url"
-          | "link_url"
-          | "link_label"
-          | "event_category"
-          | "accent_color"
-        > & {
-          title?: string | null;
-          summary?: string | null;
-          description?: string | null;
-          image_url?: string | null;
-          link_url?: string | null;
-          link_label?: string | null;
-          event_category?: string | null;
-          accent_color?: string | null;
-          // Writable for the same reason as seasons/widget_configs — there is
-          // no updated_at trigger anywhere in this schema.
-          updated_at?: string;
-        };
-        Update: Partial<Database["public"]["Tables"]["session_features"]["Insert"]>;
         Relationships: [];
       };
       session_spaces: {
@@ -658,7 +560,7 @@ export type Database = {
           time_range_end: string;
           program_ids: string[] | null;
           custom_title: string | null;
-          allowed_templates: ("grid" | "list" | "map" | "floorplan" | "events")[];
+          allowed_templates: ("grid" | "list" | "map" | "floorplan")[];
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -691,7 +593,7 @@ export type Database = {
           time_range_end?: string;
           program_ids?: string[] | null;
           custom_title?: string | null;
-          allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "events")[];
+          allowed_templates?: ("grid" | "list" | "map" | "floorplan")[];
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;
@@ -817,131 +719,6 @@ export type Database = {
         Update: Partial<
           Database["public"]["Tables"]["staff_invitations"]["Insert"]
         >;
-        Relationships: [];
-      };
-      // Added in 031_brochures.sql.
-      brochures: {
-        Row: {
-          id: string;
-          org_id: string;
-          // SET NULL on season delete — the artifact outlives its planning period.
-          season_id: string | null;
-          // NULL = org-wide, matching widget_configs' scoping convention.
-          facility_id: string | null;
-          title: string;
-          subtitle: string | null;
-          slug: string;
-          cover_image_url: string | null;
-          intro_copy: string | null;
-          accent_color: string | null;
-          status: "draft" | "published" | "archived";
-          published_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["brochures"]["Row"],
-          | "id"
-          | "created_at"
-          | "updated_at"
-          | "season_id"
-          | "facility_id"
-          | "subtitle"
-          | "cover_image_url"
-          | "intro_copy"
-          | "accent_color"
-          | "status"
-          | "published_at"
-        > & {
-          season_id?: string | null;
-          facility_id?: string | null;
-          subtitle?: string | null;
-          cover_image_url?: string | null;
-          intro_copy?: string | null;
-          accent_color?: string | null;
-          status?: "draft" | "published" | "archived";
-          published_at?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["brochures"]["Insert"]>;
-        Relationships: [];
-      };
-      brochure_sections: {
-        Row: {
-          id: string;
-          brochure_id: string;
-          org_id: string;
-          title: string;
-          blurb: string | null;
-          display_order: number;
-          layout: "list" | "grid" | "feature";
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["brochure_sections"]["Row"],
-          "id" | "created_at" | "updated_at" | "blurb" | "display_order" | "layout"
-        > & {
-          blurb?: string | null;
-          display_order?: number;
-          layout?: "list" | "grid" | "feature";
-        };
-        Update: Partial<Database["public"]["Tables"]["brochure_sections"]["Insert"]>;
-        Relationships: [];
-      };
-      brochure_entries: {
-        Row: {
-          id: string;
-          // Denormalized: both invariants that matter (one entry per source,
-          // tombstone lookup) are brochure-wide, not section-wide.
-          brochure_id: string;
-          // NULL when unfiled — a deleted section must not take tombstones with it.
-          section_id: string | null;
-          org_id: string;
-          source_type: "session" | "schedule_group" | "custom";
-          session_id: string | null;
-          schedule_group_id: string | null;
-          // Snapshot at pull time, then owned by the entry.
-          title: string;
-          description: string | null;
-          image_url: string | null;
-          link_url: string | null;
-          link_label: string | null;
-          // 'dismissed' is a tombstone, not a deletion — it stops a re-pull
-          // resurrecting something a human removed.
-          status: "included" | "dismissed";
-          display_order: number;
-          source_pulled_at: string | null;
-          created_at: string;
-          updated_at: string;
-        };
-        Insert: Omit<
-          Database["public"]["Tables"]["brochure_entries"]["Row"],
-          | "id"
-          | "created_at"
-          | "updated_at"
-          | "section_id"
-          | "session_id"
-          | "schedule_group_id"
-          | "description"
-          | "image_url"
-          | "link_url"
-          | "link_label"
-          | "status"
-          | "display_order"
-          | "source_pulled_at"
-        > & {
-          section_id?: string | null;
-          session_id?: string | null;
-          schedule_group_id?: string | null;
-          description?: string | null;
-          image_url?: string | null;
-          link_url?: string | null;
-          link_label?: string | null;
-          status?: "included" | "dismissed";
-          display_order?: number;
-          source_pulled_at?: string | null;
-        };
-        Update: Partial<Database["public"]["Tables"]["brochure_entries"]["Insert"]>;
         Relationships: [];
       };
     };

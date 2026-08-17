@@ -1,6 +1,6 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, MonitorSmartphone, Printer, Layers, Check } from "lucide-react";
+import { CalendarDays, MonitorSmartphone, Layers, Check } from "lucide-react";
 import { PLANS, type PlanTier } from "@/lib/stripe/plans";
 
 /**
@@ -10,7 +10,7 @@ import { PLANS, type PlanTier } from "@/lib/stripe/plans";
  */
 export const metadata: Metadata = {
   description:
-    "Build your drop-in schedule once and publish it everywhere: your own website, a printable month calendar, and a seasonal program guide. Built for pools, arenas and community centres.",
+    "Build your drop-in schedule once and publish it everywhere: your own website and an embeddable widget. Built for pools, arenas and community centres.",
 };
 
 /**
@@ -27,17 +27,12 @@ const features = [
   {
     icon: CalendarDays,
     title: "Enter it once",
-    desc: "Recurring sessions, seasons, departments and rooms — described once, not retyped every term. Change a time and every place it appears changes with it.",
+    desc: "Recurring sessions, departments and rooms — described once, not retyped every term. Change a time and every place it appears changes with it.",
   },
   {
     icon: MonitorSmartphone,
     title: "Embed it in your own site",
     desc: "A schedule widget that drops into the website you already have, styled to your colours. No redirect, no second place for residents to look.",
-  },
-  {
-    icon: Printer,
-    title: "Print what you already print",
-    desc: "A month-at-a-glance event calendar for the wall and a seasonal program guide, generated from the same schedule instead of retyped into Word.",
   },
   {
     icon: Layers,
@@ -79,8 +74,8 @@ export default function HomePage() {
           </h1>
           <p className="text-lg sm:text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
             Pools, arenas and community centres use Dropin to keep one schedule
-            up to date — and publish it to their website, their wall and their
-            program guide from the same place.
+            up to date — and publish it to their website and an embeddable
+            widget from the same place.
           </p>
 
           <div className="flex flex-col sm:flex-row gap-3 justify-center">
@@ -107,9 +102,9 @@ export default function HomePage() {
             Built for the people who keep the schedule current
           </h2>
           <p className="text-gray-600 mb-10 max-w-2xl">
-            Most centres keep the same schedule in three places — a website, a
-            printed sheet and a seasonal guide — and change it in each one by
-            hand. Dropin keeps one and produces the rest.
+            Most centres keep the same schedule in more than one place — a
+            website and a front-desk sheet — and change it in each one by
+            hand. Dropin keeps one and publishes the rest.
           </p>
 
           <div className="grid sm:grid-cols-2 gap-6">

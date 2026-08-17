@@ -7,18 +7,17 @@ import { getWeekEnd, getMonthGridRange, toSessionTime } from "@/lib/utils/dates"
 /**
  * The one query key family for expanded sessions.
  *
- * Every schedule surface — weekly grid/list/map, the floorplan, the month
- * event calendar — reads through this, and every mutation invalidates the bare
- * prefix `["schedule-range"]`. Keep it that way: a view that fetches under its
- * own key stops refreshing when a session is placed from another view, and the
+ * Every schedule surface — weekly grid/list/map, the floorplan — reads
+ * through this, and every mutation invalidates the bare prefix
+ * `["schedule-range"]`. Keep it that way: a view that fetches under its own
+ * key stops refreshing when a session is placed from another view, and the
  * failure is silent (stale data, no error), which is exactly the kind of bug
  * that survives review.
  */
 export const SCHEDULE_RANGE_KEY = "schedule-range";
 
 async function fetchExpandedSessions(params: RangeExpandParams): Promise<ExpandedSession[]> {
-  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId, seasonId, eventsOnly } =
-    params;
+  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId } = params;
 
   const url = new URL("/api/sessions/expand", window.location.origin);
   url.searchParams.set("rangeStart", rangeStart.toISOString());
@@ -27,8 +26,6 @@ async function fetchExpandedSessions(params: RangeExpandParams): Promise<Expande
   if (facilityId) url.searchParams.set("facilityId", facilityId);
   if (departmentId) url.searchParams.set("departmentId", departmentId);
   if (scheduleGroupId) url.searchParams.set("scheduleGroupId", scheduleGroupId);
-  if (seasonId) url.searchParams.set("seasonId", seasonId);
-  if (eventsOnly) url.searchParams.set("eventsOnly", "true");
 
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -48,10 +45,6 @@ interface ScheduleScope {
   facilityId?: string;
   departmentId?: string;
   scheduleGroupId?: string;
-  /** Narrows to sessions explicitly assigned to one season. Orthogonal to the scope filters above. */
-  seasonId?: string;
-  /** Only sessions flagged is_event. What the event calendar asks for. */
-  eventsOnly?: boolean;
 }
 
 interface UseScheduleRangeOptions extends ScheduleScope {
@@ -71,8 +64,6 @@ export function useScheduleRange({
   facilityId,
   departmentId,
   scheduleGroupId,
-  seasonId,
-  eventsOnly,
   rangeStart,
   rangeEnd,
 }: UseScheduleRangeOptions) {
@@ -92,8 +83,6 @@ export function useScheduleRange({
         facilityId,
         departmentId,
         scheduleGroupId,
-        seasonId,
-        eventsOnly,
         rangeStart: sessionRangeStart.toISOString(),
         rangeEnd: sessionRangeEnd.toISOString(),
       },
@@ -106,8 +95,6 @@ export function useScheduleRange({
         facilityId,
         departmentId,
         scheduleGroupId,
-        seasonId,
-        eventsOnly,
       }),
     staleTime: 60_000,
     enabled: !!(orgId || facilityId || scheduleGroupId),
@@ -151,38 +138,24 @@ export function useMonthSchedule({ month, ...scope }: UseMonthScheduleOptions) {
 interface UseTemplateScheduleOptions extends ScheduleScope {
   template: ScheduleTemplate;
   weekStart: Date;
-  /** Any date inside the month in view. Both anchors come from `useScheduleAnchor`. */
-  month: Date;
+  /** Kept for callers that still track a month anchor alongside the week; unused now that every template is week-shaped. */
+  month?: Date;
 }
 
 /**
  * The fetch a surface needs for whichever template it is currently rendering.
  *
- * Four surfaces mount `ScheduleView` — the command centre, the widget, the
- * public facility page, and the schedule-group page — and every one of them
- * has to change shape when the viewer picks the events calendar: a month-grid
- * range instead of a week, and only the sessions staff flagged. Leaving that
- * to each call site is four chances to fetch a week's worth of data for a
- * month-shaped view, and the symptom (a calendar that's empty after the first
- * row) looks like missing data rather than a wrong range.
- *
- * `eventsOnly` is forced on for the events template rather than merely
- * defaulted: a month of an org-wide schedule is thousands of occurrences, and
- * "show me everything on a month grid" is not a view anyone can read.
+ * Every surface that mounts `ScheduleView` — the command centre, the widget,
+ * the public facility page — shares this one fetch rather than each
+ * reimplementing "a week of this scope's sessions".
  */
 export function useTemplateSchedule({
-  template,
   weekStart,
-  month,
   ...scope
 }: UseTemplateScheduleOptions) {
-  const isEvents = template === "events";
-  const monthRange = getMonthGridRange(month);
-
   return useScheduleRange({
     ...scope,
-    eventsOnly: isEvents || scope.eventsOnly,
-    rangeStart: isEvents ? monthRange.start : weekStart,
-    rangeEnd: isEvents ? monthRange.end : getWeekEnd(weekStart),
+    rangeStart: weekStart,
+    rangeEnd: getWeekEnd(weekStart),
   });
 }

@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     template: "%s | Dropin",
   },
   description:
-    "Build your drop-in schedule once and publish it everywhere: your own website, a printable month calendar, and a seasonal program guide.",
+    "Build your drop-in schedule once and publish it everywhere: your own website and an embeddable widget.",
   metadataBase: new URL(
     process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
   ),

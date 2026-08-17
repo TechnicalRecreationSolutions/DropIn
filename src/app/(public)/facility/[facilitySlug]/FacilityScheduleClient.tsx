@@ -26,12 +26,10 @@ export default function FacilityScheduleClient({ facilityId, allowedTemplates }:
     month,
   });
 
-  const isEvents = view === "events";
-
   return (
     <div className="bg-white">
       <ScheduleHeaderBar
-        title={isEvents ? "Events" : "Weekly Schedule"}
+        title="Weekly Schedule"
         view={view}
         onChange={setView}
         allowedViews={allowedTemplates}
@@ -46,11 +44,7 @@ export default function FacilityScheduleClient({ facilityId, allowedTemplates }:
           <div className="flex items-center justify-center py-16 text-red-500 text-sm">
             Could not load schedule. Please try again.
           </div>
-        ) : !isEvents && (!sessions || sessions.length === 0) ? (
-          // The events calendar renders its own empty state *inside* the view,
-          // below its month navigator. Short-circuiting it here the way an empty
-          // week is short-circuited would strand a visitor on a quiet month
-          // with no control to page out of it.
+        ) : !sessions || sessions.length === 0 ? (
           <div className="text-center py-16 text-gray-400">
             <p className="text-sm font-medium">No drop-in sessions this week</p>
             <p className="text-xs mt-1">Try navigating to another week.</p>

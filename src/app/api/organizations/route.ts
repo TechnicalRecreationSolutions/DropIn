@@ -44,10 +44,9 @@ function emptyToNull<T extends z.ZodType>(schema: T) {
  * the real control — this check exists so a member gets a 403 with an
  * explanation instead of a confusing "0 rows updated" success.
  *
- * **`slug` is not editable.** It is the org's public URL (`/org/[orgSlug]`)
- * and is baked into every widget embed a centre has already pasted into their
- * own website. Renaming the org must not silently 404 those. Changing it needs
- * a redirect story first, which is a feature in its own right.
+ * **`slug` is not editable.** It is a stable identifier baked into whatever
+ * has already referenced this org. Changing it needs a redirect story first,
+ * which is a feature in its own right.
  */
 export async function PATCH(request: Request) {
   const supabase = await createClient();

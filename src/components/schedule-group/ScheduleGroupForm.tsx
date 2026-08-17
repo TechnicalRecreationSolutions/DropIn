@@ -31,16 +31,6 @@ interface DepartmentOption {
   name: string;
 }
 
-interface SeasonOption {
-  id: string;
-  name: string;
-  starts_on: string;
-  ends_on: string;
-}
-
-/** Sentinel picker value meaning "not tied to a season's dates". */
-const CUSTOM_DATES = "";
-
 export default function ScheduleGroupForm({
   facilityId,
   departmentId: defaultDepartmentId,
@@ -66,8 +56,6 @@ export default function ScheduleGroupForm({
   const [loading, setLoading] = useState(false);
   const [facilities, setFacilities] = useState<FacilityOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
-  const [seasons, setSeasons] = useState<SeasonOption[]>([]);
-  const [seasonId, setSeasonId] = useState(CUSTOM_DATES);
 
   // The org's facilities, for the picker. Org-wide, so fetched once.
   useEffect(() => {
@@ -75,14 +63,6 @@ export default function ScheduleGroupForm({
       .then((res) => res.json())
       .then((data) => setFacilities(data.facilities ?? []))
       .catch(() => setFacilities([]));
-  }, []);
-
-  // The org's seasons, for the dates picker. Org-wide, so fetched once.
-  useEffect(() => {
-    fetch("/api/seasons")
-      .then((res) => res.json())
-      .then((data) => setSeasons(data.seasons ?? []))
-      .catch(() => setSeasons([]));
   }, []);
 
   // Departments are scoped to whichever facility is currently selected —
@@ -114,18 +94,6 @@ export default function ScheduleGroupForm({
     // A department belongs to one facility, so switching facilities always
     // clears it rather than carrying over an id that no longer applies.
     setForm((prev) => ({ ...prev, facility_id: e.target.value, department_id: "" }));
-  }
-
-  function handleSeasonChange(e: React.ChangeEvent<HTMLSelectElement>) {
-    const id = e.target.value;
-    setSeasonId(id);
-    if (id === CUSTOM_DATES) return;
-    const season = seasons.find((s) => s.id === id);
-    if (!season) return;
-    // A one-time prefill, not a binding — starts_on/ends_on are plain columns
-    // on schedule_groups (no season_id FK), so this just copies the dates
-    // across. Editing them afterward doesn't move the picker back to "Custom".
-    setForm((prev) => ({ ...prev, starts_on: season.starts_on, ends_on: season.ends_on }));
   }
 
   async function handleSubmit(e: React.FormEvent) {
@@ -232,16 +200,6 @@ export default function ScheduleGroupForm({
             <option value="published">Published</option>
           </select>
           <p className="text-xs text-gray-500 mt-1">Only published schedules are visible on the public schedule page and widget.</p>
-        </div>
-
-        <div>
-          <label htmlFor="season_id" className={labelClass}>
-            Season <span className="font-normal text-gray-400">(optional — fills in the dates below)</span>
-          </label>
-          <select id="season_id" name="season_id" value={seasonId} onChange={handleSeasonChange} className={fieldClass}>
-            <option value={CUSTOM_DATES}>Custom dates</option>
-            {seasons.map((s) => <option key={s.id} value={s.id}>{s.name}</option>)}
-          </select>
         </div>
 
         <div className="grid grid-cols-2 gap-4">

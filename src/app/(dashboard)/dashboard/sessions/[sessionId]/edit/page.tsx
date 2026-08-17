@@ -16,21 +16,12 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail, is_event, in_brochure")
+    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail")
     .eq("id", sessionId)
     .eq("org_id", orgContext.org.id)
     .single();
 
   if (!session) notFound();
-
-  // The form's feature section has to load the *stored* state, not defaults:
-  // it posts whatever is on screen, so a form that rendered both toggles off
-  // would quietly un-feature an event the moment anyone edited its start time.
-  const { data: feature } = await supabase
-    .from("session_features")
-    .select("summary")
-    .eq("session_id", sessionId)
-    .maybeSingle();
 
   // Relational select — cast needed until Supabase CLI generates types with FK relations
   const { data: scheduleGroup } = await supabase
@@ -111,9 +102,6 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
           validUntil: session.valid_until ?? "",
           spaceIds,
           locationDetail: session.location_detail ?? "",
-          isEvent: session.is_event,
-          inBrochure: session.in_brochure,
-          featureSummary: feature?.summary ?? "",
         }}
         redirectTo={commandCentreHref}
       />

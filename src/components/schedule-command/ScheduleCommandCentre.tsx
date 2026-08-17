@@ -34,46 +34,32 @@ import RescheduleConfirmDialog, {
   type RescheduleTarget,
 } from "@/components/schedule/editing/RescheduleConfirmDialog";
 import DeleteSessionDialog from "@/components/schedule/editing/DeleteSessionDialog";
-import FeatureSessionDialog, {
-  type FeatureSubmitValues,
-} from "@/components/schedule/editing/FeatureSessionDialog";
 import OverrideWeekDialog, {
   type OverrideWeekValues,
 } from "@/components/schedule/editing/OverrideWeekDialog";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
 import WidgetConfigurator from "@/components/widget/WidgetConfigurator";
 import { NO_DEPARTMENT, isWorkspaceTab, type WorkspaceTab } from "@/lib/schedule/commandCentreHref";
-import { seasonStartAsDate, type SeasonSummary } from "@/lib/seasons/current";
 import FacilityBoxes from "./FacilityBoxes";
-import SeasonPicker from "./SeasonPicker";
 import ScopePicker from "./ScopePicker";
 import SpacesPanel from "./SpacesPanel";
-import EventsPanel from "./EventsPanel";
 import WorkspaceTabs from "./WorkspaceTabs";
 import type { CommandFacility } from "./types";
 
 interface ScheduleCommandCentreProps {
   orgId: string;
-  orgSlug: string;
-  /** Name and logo for the printed event sheet — the Events tab is where staff print it. */
-  orgName: string;
-  orgLogoUrl: string | null;
   orgPrimaryColor: string;
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
   facilities: CommandFacility[];
-  /** The org's planning periods, newest first. Empty until an org creates one — seasons are optional everywhere. */
-  seasons: SeasonSummary[];
   initialFacilityId: string | null;
   /** A real department id, NO_DEPARTMENT, or null. */
   initialDepartmentId: string | null;
   initialScheduleGroupId: string | null;
-  /** From ?season=, else resolved by lib/seasons/current.ts. Null is a valid, supported state. */
-  initialSeasonId: string | null;
   initialTab: WorkspaceTab;
 }
 
-const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan", "events"];
+const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
 
 /**
  * The schedule command centre — the one place a schedule is viewed and
@@ -94,17 +80,12 @@ const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan", "even
  */
 export default function ScheduleCommandCentre({
   orgId,
-  orgSlug,
-  orgName,
-  orgLogoUrl,
   orgPrimaryColor,
   widgetTemplates,
-  seasons,
   facilities,
   initialFacilityId,
   initialDepartmentId,
   initialScheduleGroupId,
-  initialSeasonId,
   initialTab,
 }: ScheduleCommandCentreProps) {
   const queryClient = useQueryClient();
@@ -114,13 +95,9 @@ export default function ScheduleCommandCentre({
   );
   const [departmentId, setDepartmentId] = useState<string | null>(initialDepartmentId);
   const [scheduleGroupId, setScheduleGroupId] = useState<string | null>(initialScheduleGroupId);
-  const [seasonId, setSeasonId] = useState<string | null>(initialSeasonId);
   const [tab, setTab] = useState<WorkspaceTab>(initialTab);
   const [view, setView] = useState<ScheduleTemplate>(widgetTemplates[0] ?? "grid");
-  // One anchor date, two derived views of it. The events calendar is a month
-  // and the other four are a week, and holding both independently lets them
-  // drift — see the header of useScheduleAnchor for the trap this avoids.
-  const { weekStart, month, setWeekStart, setMonth, setAnchor } = useScheduleAnchor();
+  const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
 
   const [createTarget, setCreateTarget] = useState<AddSessionTarget | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -140,12 +117,6 @@ export default function ScheduleCommandCentre({
   const [rescheduleSubmitting, setRescheduleSubmitting] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
-  const [featuring, setFeaturing] = useState<ExpandedSession | null>(null);
-  const [featureSubmitting, setFeatureSubmitting] = useState(false);
-  const [featureError, setFeatureError] = useState<string | null>(null);
-  const [togglingId, setTogglingId] = useState<string | null>(null);
-  const [toggleError, setToggleError] = useState<string | null>(null);
-
   const [deleting, setDeleting] = useState<ExpandedSession | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [deleteError, setDeleteError] = useState<string | null>(null);
@@ -161,13 +132,6 @@ export default function ScheduleCommandCentre({
   const scheduleGroup = useMemo(
     () => facility?.scheduleGroups.find((g) => g.id === scheduleGroupId) ?? null,
     [facility, scheduleGroupId]
-  );
-  // Explicit selection only — resolveCurrentSeason already ran on the server to
-  // produce initialSeasonId, so re-resolving here would override a deliberate
-  // "No season" back to the current one on every render.
-  const season = useMemo(
-    () => seasons.find((s) => s.id === seasonId) ?? null,
-    [seasons, seasonId]
   );
 
   // Schedules offered by the schedule tier, narrowed by the department tier.
@@ -197,7 +161,6 @@ export default function ScheduleCommandCentre({
     searchParams.get("facility"),
     searchParams.get("department"),
     searchParams.get("schedule"),
-    searchParams.get("season"),
     searchParams.get("tab"),
   ].join("|");
   const appliedScopeRef = useRef(urlScope);
@@ -206,7 +169,7 @@ export default function ScheduleCommandCentre({
     if (urlScope === appliedScopeRef.current) return;
     appliedScopeRef.current = urlScope;
 
-    const [nextFacility, nextDepartment, nextSchedule, nextSeason, nextTab] = urlScope.split("|");
+    const [nextFacility, nextDepartment, nextSchedule, nextTab] = urlScope.split("|");
     // Validated the same way the server does, so a hand-edited or stale URL
     // can't put the editor into a scope this org doesn't have.
     const target = facilities.find((f) => f.id === nextFacility) ?? null;
@@ -221,11 +184,8 @@ export default function ScheduleCommandCentre({
     setScheduleGroupId(
       target?.scheduleGroups.some((g) => g.id === nextSchedule) ? nextSchedule : null
     );
-    // Seasons are org-level, so unlike the tiers above there is nothing to
-    // re-validate against the facility — only that the org owns the season.
-    setSeasonId(seasons.some((s) => s.id === nextSeason) ? nextSeason : null);
     setTab(isWorkspaceTab(nextTab) ? nextTab : "schedule");
-  }, [urlScope, facilities, seasons]);
+  }, [urlScope, facilities]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
@@ -233,7 +193,6 @@ export default function ScheduleCommandCentre({
       ["facility", facilityId],
       ["department", departmentId],
       ["schedule", scheduleGroupId],
-      ["season", seasonId],
       // Schedule is the default, so it stays out of the URL.
       ["tab", tab === "schedule" ? null : tab],
     ] as const) {
@@ -245,20 +204,14 @@ export default function ScheduleCommandCentre({
       facilityId,
       departmentId,
       scheduleGroupId,
-      seasonId,
       tab === "schedule" ? null : tab,
     ].join("|");
-  }, [facilityId, departmentId, scheduleGroupId, seasonId, tab]);
+  }, [facilityId, departmentId, scheduleGroupId, tab]);
 
   // Which view is actually on screen has to be settled before the fetch, not
-  // after it: the events calendar asks for a different range and a different
-  // filter, so a `view` that silently fell back (floorplan without a published
+  // after it: a `view` that silently fell back (floorplan without a published
   // map) would otherwise fetch for the view the user *asked* for rather than
   // the one they get.
-  //
-  // Floorplan needs a single facility with a published map behind it. Events is
-  // deliberately not gated here the way it is in the widget configurator —
-  // staff need to reach an empty calendar to learn the toggle exists.
   const availableViews = ALL_VIEWS.filter(
     (v) => v !== "floorplan" || !!facility?.hasPublishedMap
   );
@@ -308,20 +261,6 @@ export default function ScheduleCommandCentre({
     if (!stillVisible) setScheduleGroupId(null);
   }
 
-  function handleSeasonSelect(nextSeasonId: string | null) {
-    setSeasonId(nextSeasonId);
-    // Deliberately does not move the week. Picking a season is a statement
-    // about what you're planning, not a request to navigate — and yanking the
-    // grid to September while someone reads this week's schedule is
-    // disorienting. SeasonPicker offers the jump instead, when the two disagree.
-  }
-
-  function handleJumpToSeason() {
-    // Moves the anchor itself rather than just the week, so the events calendar
-    // lands on the season's opening month instead of staying where it was.
-    if (season) setAnchor(seasonStartAsDate(season));
-  }
-
   function handleScheduleSelect(nextScheduleGroupId: string | null) {
     setScheduleGroupId(nextScheduleGroupId);
     // Move the department tier to wherever the schedule actually lives, so
@@ -342,34 +281,6 @@ export default function ScheduleCommandCentre({
     setCreateError(null);
     setCreateTarget(target);
   }, []);
-
-  /**
-   * The one-click event toggle. Sends only `is_event`, so the endpoint's partial
-   * semantics leave any existing blurb, image and link untouched — the whole
-   * reason that endpoint is a PATCH rather than a PUT.
-   */
-  const handleToggleEvent = useCallback(
-    async (session: ExpandedSession) => {
-      setToggleError(null);
-      setTogglingId(session.sessionId);
-
-      const res = await fetch("/api/sessions/features", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: session.sessionId, is_event: !session.isEvent }),
-      });
-
-      setTogglingId(null);
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}));
-        setToggleError(data.error ?? "Could not update this session.");
-        return;
-      }
-
-      queryClient.invalidateQueries({ queryKey: [SCHEDULE_RANGE_KEY] });
-    },
-    [queryClient]
-  );
 
   const handleReschedule = useCallback(({ session, dayCode, dayLabel, startTime }: RescheduleRequest) => {
     const durationMinutes = (session.end.getTime() - session.start.getTime()) / 60000;
@@ -395,7 +306,7 @@ export default function ScheduleCommandCentre({
       spaces: facility?.spaces ?? [],
       canCreate,
       // Every schedule-tab layout is scoped to one facility, so its space list
-      // is the right one. EventsPanel narrows this to false.
+      // is the right one.
       canDuplicate: true,
       onAddSession: handleAddSession,
       onDuplicate: (session) => {
@@ -411,28 +322,13 @@ export default function ScheduleCommandCentre({
         setDeleteError(null);
         setDeleting(session);
       },
-      onFeature: (session) => {
-        setFeatureError(null);
-        setFeaturing(session);
-      },
       onOverrideWeek: (session) => {
         setOverrideError(null);
         setOverriding(session);
       },
-      onToggleEvent: handleToggleEvent,
-      togglingSessionId: togglingId,
       deletingSessionId: deletingId,
     }),
-    [
-      scheduleGroup,
-      facility,
-      canCreate,
-      deletingId,
-      togglingId,
-      handleAddSession,
-      handleReschedule,
-      handleToggleEvent,
-    ]
+    [scheduleGroup, facility, canCreate, deletingId, handleAddSession, handleReschedule]
   );
 
   async function handleConfirmCreate(values: CreateSessionValues) {
@@ -462,9 +358,6 @@ export default function ScheduleCommandCentre({
         valid_from: values.validFrom,
         valid_until: values.validUntil,
         space_ids: values.spaceIds,
-        // The picked season is the whole reason it's picked — anything placed
-        // while it's selected belongs to it, so nothing needs backfilling later.
-        season_id: seasonId,
       }),
     });
 
@@ -473,28 +366,6 @@ export default function ScheduleCommandCentre({
       setCreateError(created.error ?? "Could not place this session.");
       setCreateSubmitting(false);
       return;
-    }
-
-    // Placing from a month cell means "put an event here", so the flag is set
-    // in the same gesture rather than leaving staff to find the ⋯ menu on a
-    // session that isn't on the calendar they just placed it into.
-    if (values.isEvent && created.sessionId) {
-      const featureRes = await fetch("/api/sessions/features", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ session_id: created.sessionId, is_event: true }),
-      });
-
-      if (!featureRes.ok) {
-        const data = await featureRes.json().catch(() => ({}));
-        // The session exists either way; say which half failed.
-        setCreateError(
-          `${data.error ?? "Could not add it to the event calendar."} The session itself was placed.`
-        );
-        setCreateSubmitting(false);
-        refresh();
-        return;
-      }
     }
 
     setCreateSubmitting(false);
@@ -525,10 +396,6 @@ export default function ScheduleCommandCentre({
         dtend_time: endTime,
         valid_from: validFrom,
         space_ids: spaceIds,
-        // A duplicate inherits the source session's season, not the picker's.
-        // "Same session, different lane" should land in the same period as the
-        // original even when the picker has moved on to next term.
-        season_id: duplicating.seasonId,
       }),
     });
 
@@ -568,7 +435,6 @@ export default function ScheduleCommandCentre({
         dtend_time: endTime,
         valid_from: validFrom,
         space_ids: addingTime.spaceIds,
-        season_id: addingTime.seasonId,
       }),
     });
 
@@ -618,40 +484,6 @@ export default function ScheduleCommandCentre({
     refresh();
   }
 
-  async function handleConfirmFeature(values: FeatureSubmitValues) {
-    if (!featuring) return;
-    setFeatureSubmitting(true);
-    setFeatureError(null);
-
-    const res = await fetch("/api/sessions/features", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        session_id: featuring.sessionId,
-        is_event: values.isEvent,
-        in_brochure: values.inBrochure,
-        title: values.title,
-        summary: values.summary,
-        description: values.description,
-        image_url: values.imageUrl,
-        link_url: values.linkUrl,
-        link_label: values.linkLabel,
-        event_category: values.eventCategory,
-        accent_color: values.accentColor,
-      }),
-    });
-
-    setFeatureSubmitting(false);
-    if (!res.ok) {
-      const data = await res.json().catch(() => ({}));
-      setFeatureError(data.error ?? "Could not save these details.");
-      return;
-    }
-
-    setFeaturing(null);
-    refresh();
-  }
-
   async function handleConfirmDelete() {
     if (!deleting) return;
     setDeletingId(deleting.sessionId);
@@ -680,8 +512,8 @@ export default function ScheduleCommandCentre({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         // Derived from the clicked occurrence's own date, not the view's
-        // anchor state — the Events tab spans a whole month, so its anchor is
-        // very often a different week than the specific card clicked.
+        // anchor state, so the right week is targeted regardless of where the
+        // anchor currently sits.
         weekStart: localDateString(getWeekStart(overriding.start)),
         action: values.action,
         startTime: values.startTime,
@@ -750,19 +582,6 @@ export default function ScheduleCommandCentre({
         onSelect={handleFacilitySelect}
       />
 
-      {/* Only where the org has actually defined seasons — an org that never
-          creates one never sees an extra control, the same way the department
-          tier hides itself for orgs that keep their schedules flat. */}
-      {seasons.length > 0 && (
-        <SeasonPicker
-          seasons={seasons}
-          selectedSeasonId={seasonId}
-          onChange={handleSeasonSelect}
-          weekStart={weekStart}
-          onJumpToSeason={handleJumpToSeason}
-        />
-      )}
-
       {facility && (
         <ScopePicker
           facility={facility}
@@ -782,18 +601,6 @@ export default function ScheduleCommandCentre({
           onChange={setTab}
           scopeLabel={departmentLabel ?? facility.name}
           facilityName={facility.name}
-        />
-      )}
-
-      {facility && tab === "events" && (
-        <EventsPanel
-          orgId={orgId}
-          orgSlug={orgSlug}
-          orgName={orgName}
-          orgLogoUrl={orgLogoUrl}
-          month={month}
-          onMonthChange={setMonth}
-          editing={editing}
         />
       )}
 
@@ -825,7 +632,6 @@ export default function ScheduleCommandCentre({
         <WidgetConfigurator
           key={`${facility.id}:${realDepartmentId ?? ""}`}
           orgId={orgId}
-          orgSlug={orgSlug}
           facilities={facilities.map((f) => ({ id: f.id, name: f.name }))}
           lockedFacilityId={facility.id}
           lockedDepartmentId={realDepartmentId ?? undefined}
@@ -887,24 +693,6 @@ export default function ScheduleCommandCentre({
             </p>
           )}
 
-          {/* The one-click toggle has no dialog to fail inside, so its error
-              surfaces here rather than vanishing into a console. */}
-          {toggleError && (
-            <p
-              role="alert"
-              className="flex items-center gap-2 px-4 py-2 text-xs text-red-700 bg-red-50 border-b border-red-100"
-            >
-              <span className="flex-1">{toggleError}</span>
-              <button
-                type="button"
-                onClick={() => setToggleError(null)}
-                className="font-medium underline underline-offset-2 shrink-0"
-              >
-                Dismiss
-              </button>
-            </p>
-          )}
-
           <div className="p-3 sm:p-4">
             {isLoading ? (
               <div className="flex items-center justify-center py-16 text-sm text-gray-400">
@@ -953,7 +741,6 @@ export default function ScheduleCommandCentre({
         target={createTarget}
         templates={editing.templates}
         spaces={editing.spaces}
-        season={season}
         onCancel={() => {
           setCreateTarget(null);
           setCreateError(null);
@@ -1000,16 +787,6 @@ export default function ScheduleCommandCentre({
         error={rescheduleError}
       />
 
-      <FeatureSessionDialog
-        session={featuring}
-        onCancel={() => {
-          setFeaturing(null);
-          setFeatureError(null);
-        }}
-        onConfirm={handleConfirmFeature}
-        submitting={featureSubmitting}
-        error={featureError}
-      />
 
       <DeleteSessionDialog
         session={deleting}

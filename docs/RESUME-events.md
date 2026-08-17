@@ -1,5 +1,17 @@
 # Resume here — Seasons / Events / Brochure track
 
+> **REMOVED 2026-08-16.** This entire track — seasons, the event calendar, and
+> the seasonal brochure — was torn out on purpose, the same way scraping was
+> (`supabase/migrations/021_remove_scraping.sql`). Dropin narrowed twice after
+> this track shipped: first to a single-organization tool, then again to cut
+> scope aggressively toward launch. It is not paused and there is nothing here
+> to resume. See `docs/prompts/remove-events-brochure.md` (the removal brief)
+> and `supabase/migrations/036_remove_events_brochure_seasons.sql` (the removal
+> migration) and `docs/PLAN.md` §3a. If a future session asks whether to bring
+> this back, the answer is no — everything below is historical record only.
+
+---
+
 Last session ended **2026-08-09**. Working tree **clean**, `main` **level with
 `origin/main`**, everything committed and pushed.
 

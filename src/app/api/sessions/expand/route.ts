@@ -13,16 +13,14 @@ const QuerySchema = z.object({
   facilityId: z.string().uuid().optional(),
   departmentId: z.string().uuid().optional(),
   scheduleGroupId: z.string().uuid().optional(),
-  seasonId: z.string().uuid().optional(),
-  eventsOnly: z.enum(["true", "false"]).optional(),
 });
 
 /**
- * Widest range a single call may expand. A month grid asks for ~6 weeks; a
- * season view would ask for ~16. Beyond that the cost is unbounded — expansion
- * is O(occurrences), so a year of an org-wide schedule is tens of thousands of
- * objects built and serialized for a view no one can read anyway. Callers that
- * genuinely need more should page by month.
+ * Widest range a single call may expand. A month grid asks for ~6 weeks.
+ * Beyond that the cost is unbounded — expansion is O(occurrences), so a year
+ * of an org-wide schedule is tens of thousands of objects built and
+ * serialized for a view no one can read anyway. Callers that genuinely need
+ * more should page by month.
  */
 const MAX_RANGE_DAYS = 120;
 
@@ -31,7 +29,7 @@ const MAX_RANGE_DAYS = 120;
  *
  * Expands recurring sessions into concrete occurrences over a date range.
  * Used by every schedule surface: the weekly grid/list/map, the floorplan,
- * the month event calendar, the public widget, and the command centre.
+ * the public widget, and the command centre.
  *
  * Query params:
  *   rangeStart        ISO datetime — start of the range (defaults to the current week's Monday)
@@ -41,24 +39,15 @@ const MAX_RANGE_DAYS = 120;
  *   facilityId        Filter to one facility
  *   departmentId      Filter to one department
  *   scheduleGroupId   Filter to one schedule group
- *   seasonId          Filter to sessions explicitly assigned to one season
- *   eventsOnly        "true" to return only sessions flagged is_event
  *
  * At least one of orgId, facilityId, or scheduleGroupId is required to
- * prevent unbounded queries across the entire dataset. seasonId does not
- * satisfy that requirement on its own — it narrows a scope rather than
- * being one, and a season spans every facility in the org.
+ * prevent unbounded queries across the entire dataset.
  *
- * Note that seasonId matches sessions.season_id exactly: sessions left
- * unassigned are excluded even when their dates fall inside the season, which
- * is the point of the column being explicit rather than inferred (see the
- * header of migration 027).
- *
- * RANGE SEMANTICS. This endpoint was week-shaped until the event calendar
- * needed a month, and the old contract was subtly lossy: it snapped whatever
- * you sent to the enclosing Monday–Sunday. Callers now say exactly what they
- * want. `weekStart` alone still behaves precisely as before — it snaps to that
- * week — so nothing that predates the change has to change.
+ * RANGE SEMANTICS. This endpoint was once strictly week-shaped, and the old
+ * contract was subtly lossy: it snapped whatever you sent to the enclosing
+ * Monday–Sunday. Callers now say exactly what they want. `weekStart` alone
+ * still behaves precisely as before — it snaps to that week — so nothing that
+ * predates the change has to change.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
@@ -71,8 +60,6 @@ export async function GET(request: Request) {
     facilityId: searchParams.get("facilityId") ?? undefined,
     departmentId: searchParams.get("departmentId") ?? undefined,
     scheduleGroupId: searchParams.get("scheduleGroupId") ?? undefined,
-    seasonId: searchParams.get("seasonId") ?? undefined,
-    eventsOnly: searchParams.get("eventsOnly") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -90,8 +77,6 @@ export async function GET(request: Request) {
     facilityId,
     departmentId,
     scheduleGroupId,
-    seasonId,
-    eventsOnly,
   } = parsed.data;
 
   if (!orgId && !facilityId && !scheduleGroupId) {
@@ -155,11 +140,7 @@ export async function GET(request: Request) {
         departments ( id, name )
       ),
       session_spaces ( spaces ( id, name, display_order ) ),
-      session_templates ( id, name, color ),
-      session_features (
-        title, summary, description, image_url,
-        link_url, link_label, event_category, accent_color
-      )
+      session_templates ( id, name, color )
     `)
     .eq("is_active", true)
     .lte("valid_from", rangeEnd.toISOString().split("T")[0]);
@@ -173,11 +154,6 @@ export async function GET(request: Request) {
   if (facilityId) query = query.eq("schedule_groups.facility_id", facilityId);
   if (departmentId) query = query.eq("schedule_groups.department_id", departmentId);
   if (scheduleGroupId) query = query.eq("schedule_group_id", scheduleGroupId);
-  if (seasonId) query = query.eq("season_id", seasonId);
-  // The event calendar spans a whole month across every building, which is far
-  // too many occurrences to render as a schedule — it wants only what staff
-  // deliberately flagged as worth showing.
-  if (eventsOnly === "true") query = query.eq("is_event", true);
 
   const { data, error: sessionsError } = await query;
   // Relational select — cast needed until Supabase CLI generates types with FK relations
@@ -214,7 +190,6 @@ export async function GET(request: Request) {
     facilityId,
     departmentId,
     scheduleGroupId,
-    seasonId,
   });
 
   return NextResponse.json({

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { MoreVertical, Pencil, Copy, Clock3, Trash2, Star, CalendarPlus, CalendarMinus, CalendarClock } from "lucide-react";
+import { MoreVertical, Pencil, Copy, Clock3, Trash2, CalendarClock } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { cn } from "@/lib/utils/cn";
 import {
@@ -67,26 +67,6 @@ export default function SessionActionsMenu({
         <DropdownMenuItem onSelect={() => editing.onOverrideWeek(session)}>
           <CalendarClock />
           Override this week…
-        </DropdownMenuItem>
-        {/* One click, no dialog. Separate from "Feature…" below because the
-            common case is flipping the flag on a session whose name and details
-            are already right — writing the blurb is the rarer, deliberate act. */}
-        <DropdownMenuItem
-          onSelect={() => editing.onToggleEvent(session)}
-          disabled={editing.togglingSessionId === session.sessionId}
-        >
-          {session.isEvent ? <CalendarMinus /> : <CalendarPlus />}
-          {editing.togglingSessionId === session.sessionId
-            ? "Saving…"
-            : session.isEvent
-              ? "Remove from event calendar"
-              : "Add to event calendar"}
-        </DropdownMenuItem>
-        <DropdownMenuItem onSelect={() => editing.onFeature(session)}>
-          <Star />
-          {/* Named for the state it leads to, not the verb: once a session is
-              featured, "Feature…" would invite staff to do it twice. */}
-          {session.isEvent || session.inBrochure ? "Featured…" : "Feature…"}
         </DropdownMenuItem>
         {editing.canDuplicate && (
           <DropdownMenuItem onSelect={() => editing.onAddAnotherTime(session)}>

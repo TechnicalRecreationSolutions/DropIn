@@ -11,11 +11,11 @@ import { getAuthedMembership } from "@/lib/auth/membership";
  * schedule in it, so it sits firmly on the structural side.
  *
  * The cascade is entirely in the schema — `departments`, `schedule_groups`,
- * `spaces`, `facility_maps`, `widget_configs` and facility-scoped `brochures`
- * all declare `ON DELETE CASCADE` on `facility_id`, and `sessions` follow
- * their schedule group down. Nothing is deleted here row by row, deliberately: a
- * hand-rolled cascade would need updating every time a table gains a
- * `facility_id`, and would silently miss the one that was forgotten.
+ * `spaces`, `facility_maps` and `widget_configs` all declare `ON DELETE
+ * CASCADE` on `facility_id`, and `sessions` follow their schedule group down.
+ * Nothing is deleted here row by row, deliberately: a hand-rolled cascade
+ * would need updating every time a table gains a `facility_id`, and would
+ * silently miss the one that was forgotten.
  *
  * `analytics_events.facility_id` is `ON DELETE SET NULL` instead, so historical
  * counts survive the building they were recorded against.

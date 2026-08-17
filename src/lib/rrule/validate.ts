@@ -17,7 +17,7 @@ export type RRuleFrequency = "once" | "daily" | "weekly";
  * A single-occurrence rule.
  *
  * Everything in this app is stored as an RRULE, including things that happen
- * exactly once — Halloween Howl, a pool closure, a season launch. Rather than
+ * exactly once — Halloween Howl, a pool closure, a one-day program launch. Rather than
  * introduce a second representation for "not recurring" (which every consumer,
  * from expandSessions to session_exceptions to the drag handler, would then
  * have to branch on), a one-off is a daily rule capped at one occurrence.

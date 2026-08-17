@@ -23,7 +23,6 @@ export default async function WidgetPage() {
       </div>
       <WidgetConfigurator
         orgId={orgContext.org.id}
-        orgSlug={orgContext.org.slug}
         facilities={facilities ?? []}
       />
     </div>

@@ -2,7 +2,7 @@
 
 **Drop-in schedules for sport and recreation centres.**
 
-Dropin is the tool a pool, arena or community centre uses to keep one drop-in schedule up to date and publish it everywhere it needs to appear: an embeddable widget on the centre's own website, a printable month-at-a-glance event calendar, and a seasonal program guide.
+Dropin is the tool a pool, arena or community centre uses to keep one drop-in schedule up to date and publish it everywhere it needs to appear: the centre's own website and an embeddable widget.
 
 > **Scope, as of 2026-08-12.** Dropin was previously built as a consumer-facing *marketplace* — a cross-organization index with city search, sport browse pages and a Mapbox facility map. **That is no longer the product.** Those surfaces were removed so the tool could get to production as one thing done well. The customer is the centre, not the resident. A marketplace may happen later; it is explicitly not what is being built now, so don't reintroduce cross-org discovery without a deliberate decision to revisit it.
 
@@ -18,9 +18,9 @@ For the delivery history, current schema map, and open work, see [`docs/PLAN.md`
 
 ## What problem does this solve?
 
-A centre's drop-in schedule usually lives in three places at once — its website, a sheet printed for the wall, and a seasonal program guide — and each one is edited by hand. They drift, and the version a resident sees is whichever was updated last.
+A centre's drop-in schedule usually lives in more than one place at once — its website and a sheet kept at the front desk — and each one is edited by hand. They drift, and the version a resident sees is whichever was updated last.
 
-Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, which is what pushes staff into rebuilding the same timetable in Word every term. Dropin holds the schedule once and produces the rest from it: an embeddable widget, a printed month calendar, a seasonal guide, and a public page per building. It works *on top of* whatever registration system a centre already runs — no migration required.
+Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, which is what pushes staff into rebuilding the same timetable by hand every term. Dropin holds the schedule once and produces the rest from it: an embeddable widget and a public page per building. It works *on top of* whatever registration system a centre already runs — no migration required.
 
 The visitor-facing side is the centre's **own** audience: its widget on its own site, its public pages. Dropin does not index one centre against another.
 
@@ -47,7 +47,7 @@ Ingestion into a schedule is **manual entry or CSV import only.** An earlier pha
 │  │  A centre's own   │  │  Org Dashboard   │  │   Widget     │  │
 │  │  public pages     │  │  /dashboard/*    │  │ /widget/[id] │  │
 │  │  /facility/[slug] │  │  Schedule + map  │  │ (iframe on   │  │
-│  │  /org/[slug]      │  │  builders        │  │  their site) │  │
+│  │                   │  │  builders        │  │  their site) │  │
 │  └──────────────────┘  └──────────────────┘  └──────────────┘  │
 │                                                                 │
 │  ┌──────────────────────────────────────────────────────────┐   │

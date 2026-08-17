@@ -49,6 +49,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-# Seeded demo session token — never commit (see scripts/verify/seed-demo.mjs)
+# Seeded demo session token — never commit. Was written by
+# scripts/verify/seed-demo.mjs, removed with the seasons/events/brochure
+# track (supabase/migrations/036_remove_events_brochure_seasons.sql); kept
+# ignored in case a future seeder writes the same filename.
 scripts/verify/.demo-cookie.js
 scripts/verify/.probe.mjs

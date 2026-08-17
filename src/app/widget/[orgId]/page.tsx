@@ -42,7 +42,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // predicate is needed (and `status` is not a column on it).
   const { data: org } = await supabase
     .from("organizations_public")
-    .select("id, name, slug")
+    .select("id, name")
     .eq("id", orgId)
     .single();
 
@@ -123,7 +123,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
             )}
           </div>
           <a
-            href={`/org/${org.slug}`}
+            href="/"
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs text-blue-500 hover:text-blue-600 font-medium"

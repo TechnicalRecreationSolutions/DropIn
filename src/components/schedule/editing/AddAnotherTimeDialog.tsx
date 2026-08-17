@@ -29,8 +29,8 @@ interface AddAnotherTimeDialogProps {
 }
 
 /**
- * The complement to DuplicateSessionDialog: same schedule, day(s), space(s)
- * and season as the source session — only the time is asked for. Built for
+ * The complement to DuplicateSessionDialog: same schedule, day(s) and
+ * space(s) as the source session — only the time is asked for. Built for
  * the pattern a pool schedule is actually made of, a room running
  * back-to-back blocks all day with just the lane count changing between
  * them, where re-entering the day and space each time (as duplicate-to-a-

@@ -2,7 +2,6 @@ import { RRule, RRuleSet } from "rrule";
 import type {
   ExpandedSession,
   RangeExpandParams,
-  SessionFeatureContent,
 } from "@/types/schedule.types";
 import type { Database } from "@/types/database.types";
 
@@ -14,7 +13,6 @@ type FacilityRow = Database["public"]["Tables"]["facilities"]["Row"];
 type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
 type SpaceRow = Database["public"]["Tables"]["spaces"]["Row"];
 type SessionTemplateRow = Database["public"]["Tables"]["session_templates"]["Row"];
-type SessionFeatureRow = Database["public"]["Tables"]["session_features"]["Row"];
 
 export type SessionWithRelations = SessionRow & {
   // Nullable: an embedded PostgREST filter (e.g. schedule_groups.department_id=eq...)
@@ -33,12 +31,6 @@ export type SessionWithRelations = SessionRow & {
   session_spaces: { spaces: Pick<SpaceRow, "id" | "name" | "display_order"> | null }[];
   // Null when the session has no template_id, or the template was archived/deleted.
   session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
-  // session_features is 1:1 (UNIQUE session_id), so PostgREST *should* detect a
-  // to-one relationship and embed an object. It falls back to an array when it
-  // can't — which is exactly the kind of difference that shows up only against
-  // the live database, so both shapes are accepted and normalized below rather
-  // than trusted. Absent entirely when the session has never been featured.
-  session_features: SessionFeatureRow | SessionFeatureRow[] | null;
 };
 
 /** One resolved occurrence's time range, plus whether an exception modified it. */
@@ -166,11 +158,6 @@ export function expandSessions(
       .filter((space) => space !== null)
       .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
 
-    // Built once per session rather than per occurrence — a month of a daily
-    // session is ~30 occurrences that would otherwise each allocate an
-    // identical object.
-    const feature = toFeatureContent(session.session_features);
-
     const occurrences = expandOccurrenceTimes(session, exceptions, params);
 
     for (const occ of occurrences) {
@@ -198,13 +185,6 @@ export function expandSessions(
         templateId: session.session_templates?.id ?? null,
         templateName: session.session_templates?.name ?? null,
         templateColor: session.session_templates?.color ?? null,
-        // Read straight off the session row rather than through a join — the
-        // occurrence only needs the id, so that a duplicate keeps the source
-        // session's season instead of inheriting whatever is selected now.
-        seasonId: session.season_id,
-        isEvent: session.is_event,
-        inBrochure: session.in_brochure,
-        feature,
         locationDetail: session.location_detail,
         isModified: occ.isModified,
         modificationNote: occ.modificationNote,
@@ -214,28 +194,6 @@ export function expandSessions(
 
   // Sort chronologically
   return results.sort((a, b) => a.start.getTime() - b.start.getTime());
-}
-
-/**
- * Normalizes the embedded session_features row into the camelCase shape the
- * views consume, accepting either an object or a single-element array (see the
- * note on SessionWithRelations.session_features).
- */
-function toFeatureContent(
-  embedded: SessionFeatureRow | SessionFeatureRow[] | null | undefined
-): SessionFeatureContent | null {
-  const row = Array.isArray(embedded) ? (embedded[0] ?? null) : (embedded ?? null);
-  if (!row) return null;
-  return {
-    title: row.title,
-    summary: row.summary,
-    description: row.description,
-    imageUrl: row.image_url,
-    linkUrl: row.link_url,
-    linkLabel: row.link_label,
-    eventCategory: row.event_category,
-    accentColor: row.accent_color,
-  };
 }
 
 /**

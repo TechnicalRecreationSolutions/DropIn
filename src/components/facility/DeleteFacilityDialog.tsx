@@ -27,11 +27,10 @@ interface DeleteFacilityDialogProps {
  *
  * The typed confirmation is not ceremony. Unlike every other delete in this
  * app, this one cascades through the whole schedule tree — departments,
- * schedule groups, every session in them, spaces, the facility map and any
- * facility-scoped brochure — and there is no undo and no soft-delete column to
- * recover from. Making the destructive button unreachable until the name is
- * typed exactly is the standard defence, and it costs a careless click nothing
- * but a moment.
+ * schedule groups, every session in them, spaces, and the facility map — and
+ * there is no undo and no soft-delete column to recover from. Making the
+ * destructive button unreachable until the name is typed exactly is the
+ * standard defence, and it costs a careless click nothing but a moment.
  *
  * The counts come from the server (`getFacilityDeletionImpact`) rather than
  * being estimated here, so the dialog names real numbers.
@@ -56,7 +55,6 @@ export default function DeleteFacilityDialog({
   if (impact.scheduleGroups > 0) lines.push(plural(impact.scheduleGroups, "schedule"));
   if (impact.sessions > 0) lines.push(plural(impact.sessions, "session"));
   if (impact.spaces > 0) lines.push(plural(impact.spaces, "space"));
-  if (impact.brochures > 0) lines.push(plural(impact.brochures, "brochure"));
 
   async function handleDelete() {
     setSubmitting(true);

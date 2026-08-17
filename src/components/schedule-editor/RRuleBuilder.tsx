@@ -21,9 +21,9 @@ interface RRuleBuilderProps {
   startTime: string;
   /** End time of the session (HH:MM) */
   endTime: string;
-  /** Season start date (YYYY-MM-DD) */
+  /** Recurrence start date (YYYY-MM-DD) */
   validFrom: string;
-  /** Season end date (YYYY-MM-DD) */
+  /** Recurrence end date (YYYY-MM-DD) */
   validUntil: string;
   onRRuleChange: (rrule: string) => void;
   onStartTimeChange: (time: string) => void;
@@ -80,9 +80,8 @@ export default function RRuleBuilder({
   }, [frequency, selectedDays]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // A one-off ends the day it happens. COUNT=1 already caps the recurrence, so
-  // this is belt-and-braces — but valid_until is what the season-overlap query
-  // and the brochure candidacy check read, and an open-ended one-off would show
-  // up as "ongoing" in both.
+  // this is belt-and-braces — but valid_until is what other date-range queries
+  // read, and an open-ended one-off would show up as "ongoing".
   useEffect(() => {
     if (isOnce && validFrom && validUntil !== validFrom) onValidUntilChange(validFrom);
   }, [isOnce, validFrom]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -192,7 +191,7 @@ export default function RRuleBuilder({
         </div>
       </div>
 
-      {/* Dates. A one-off has a date, not a season — showing "starts/ends" for
+      {/* Dates. A one-off has a date, not a range — showing "starts/ends" for
           something that happens once invites an open-ended range around a
           single occurrence, which then reads as ongoing everywhere else. */}
       {isOnce ? (
@@ -208,7 +207,7 @@ export default function RRuleBuilder({
         </div>
       ) : (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Season</p>
+          <p className="text-sm font-medium text-gray-700 mb-2">Dates</p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
               <label className="text-xs text-gray-500 mb-1 block">Starts *</label>

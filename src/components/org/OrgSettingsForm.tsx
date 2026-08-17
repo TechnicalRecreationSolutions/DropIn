@@ -26,8 +26,6 @@ export interface OrgSettingsValues {
 
 interface OrgSettingsFormProps {
   orgId: string;
-  /** Immutable, and shown read-only — it is the public URL. */
-  orgSlug: string;
   logoUrl: string | null;
   defaultValues: OrgSettingsValues;
   /** False for members; the form renders disabled rather than absent. */
@@ -37,9 +35,9 @@ interface OrgSettingsFormProps {
 /**
  * The org profile form.
  *
- * Everything here is read by the *public* side of the app — the org page
- * header, the widget, the printed brochure cover — which is why it isn't
- * filed under an admin/back-office heading. Editing it is publishing.
+ * Everything here is read by the *public* side of the app — each facility
+ * page's header and the embeddable widget — which is why it isn't filed
+ * under an admin/back-office heading. Editing it is publishing.
  *
  * Members see the form filled in but disabled rather than being bounced to a
  * 403 page: knowing what your organization has published is reasonable, and a
@@ -48,7 +46,6 @@ interface OrgSettingsFormProps {
  */
 export default function OrgSettingsForm({
   orgId,
-  orgSlug,
   logoUrl,
   defaultValues,
   canEdit,
@@ -104,7 +101,7 @@ export default function OrgSettingsForm({
         <div>
           <h2 className="text-base font-semibold text-gray-900">Public profile</h2>
           <p className="text-sm text-gray-500 mt-0.5">
-            Shown on your public schedule pages, your widget and your brochures.
+            Shown on your public schedule pages and your widget.
           </p>
         </div>
 
@@ -115,19 +112,6 @@ export default function OrgSettingsForm({
             value={form.name} onChange={handleChange}
             className={fieldClass} placeholder="City of Calgary Recreation"
           />
-        </div>
-
-        <div>
-          <span className={labelClass}>Public address</span>
-          <p className="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2.5 font-mono break-all">
-            {`/org/${orgSlug}`}
-          </p>
-          {/* Not editable: this path is pasted into customers' own websites as
-              a widget embed, so changing it would break links already in the
-              wild. Saying so is better than a field that looks editable. */}
-          <p className="text-xs text-gray-500 mt-1">
-            Fixed — changing it would break links and embeds already published.
-          </p>
         </div>
 
         {/* ImageUpload has no disabled state of its own, and storage RLS would
@@ -142,7 +126,7 @@ export default function OrgSettingsForm({
             kind="org"
             aspect="square"
             label="Logo"
-            hint="Appears on your public schedule pages and printed brochures."
+            hint="Appears on your public schedule pages."
           />
         </fieldset>
 

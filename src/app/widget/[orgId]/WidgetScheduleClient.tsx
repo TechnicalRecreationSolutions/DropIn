@@ -48,7 +48,7 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200">
       <ScheduleHeaderBar
-        title={view === "events" ? "Events" : "Schedule"}
+        title="Schedule"
         view={view}
         onChange={setView}
         allowedViews={allowedTemplates}
@@ -62,9 +62,7 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
         <div className="flex items-center justify-center py-12 text-sm text-red-400">
           Could not load schedule. Please try again.
         </div>
-      ) : view !== "events" && (!sessions || sessions.length === 0) ? (
-        // Events keeps its own in-view empty state so its month navigator
-        // survives a quiet month — see FacilityScheduleClient for the reasoning.
+      ) : !sessions || sessions.length === 0 ? (
         <div className={`text-center py-12 text-sm ${mutedClass}`}>
           No drop-in sessions scheduled this week.
         </div>

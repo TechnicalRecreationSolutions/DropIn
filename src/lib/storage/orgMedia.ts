@@ -25,7 +25,7 @@ export const ALLOWED_IMAGE_TYPES = ["image/jpeg", "image/png", "image/webp", "im
  * adding one here without adding it there produces an upload that fails with a
  * bare RLS denial.
  */
-export type OrgMediaKind = "events" | "brochure" | "facilities" | "schedules" | "org";
+export type OrgMediaKind = "facilities" | "schedules" | "org";
 
 const EXTENSION_BY_TYPE: Record<string, string> = {
   "image/jpeg": "jpg",

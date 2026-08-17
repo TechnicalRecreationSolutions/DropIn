@@ -33,7 +33,6 @@ export default async function OrgSettingsPage() {
 
       <OrgSettingsForm
         orgId={org.id}
-        orgSlug={org.slug}
         logoUrl={org.logo_url}
         canEdit={canEdit}
         defaultValues={{

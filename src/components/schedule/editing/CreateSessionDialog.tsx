@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { CalendarDays } from "lucide-react";
 import {
   Dialog,
   DialogContent,
@@ -14,7 +13,6 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
 import { DAYS } from "@/lib/schedule/weekGeometry";
-import type { SeasonSummary } from "@/lib/seasons/current";
 import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext";
 
 export interface CreateSessionValues {
@@ -24,13 +22,11 @@ export interface CreateSessionValues {
    * `dayCodes` is then irrelevant — the date is `validFrom`.
    */
   once: boolean;
-  /** Flip `is_event` on straight after creating, so an event is one step, not two. */
-  isEvent: boolean;
   dayCodes: string[];
   startTime: string;
   endTime: string;
   validFrom: string;
-  /** null means the session repeats indefinitely (no season end). */
+  /** null means the session repeats indefinitely (no end date). */
   validUntil: string | null;
   /** Empty array means no space assigned. More than one means the session occupies all of them at once (e.g. all 4 lanes for Lap Swim). */
   spaceIds: string[];
@@ -41,8 +37,6 @@ interface CreateSessionDialogProps {
   target: AddSessionTarget | null;
   templates: EditorTemplate[];
   spaces: { id: string; name: string }[];
-  /** The season being planned, when one is selected. Supplies the date defaults; null means today with no end date. */
-  season?: SeasonSummary | null;
   onCancel: () => void;
   onConfirm: (values: CreateSessionValues) => void;
   submitting: boolean;
@@ -55,13 +49,12 @@ interface CreateSessionDialogProps {
  * pre-filled but still adjustable), a day's "+" in Grid/List (template
  * picked here, time entered from scratch), or a template clicked in the
  * rail. Collects everything a session needs — template, spaces, recurrence
- * days, season bounds, start/end time.
+ * days, date bounds, start/end time.
  */
 export default function CreateSessionDialog({
   target,
   templates,
   spaces,
-  season,
   onCancel,
   onConfirm,
   submitting,
@@ -75,7 +68,6 @@ export default function CreateSessionDialog({
   const [validUntil, setValidUntil] = useState("");
   const [spaceIds, setSpaceIds] = useState<string[]>([]);
   const [once, setOnce] = useState(false);
-  const [isEvent, setIsEvent] = useState(false);
 
   // Reseed every field when the dialog opens for a new placement; once open
   // the form is free-form, so this deliberately keys on the target only.
@@ -83,21 +75,17 @@ export default function CreateSessionDialog({
     if (!target) return;
     const template = target.template ?? templates[0];
     const start = target.startTime ?? "09:00";
-    // A dated target came from a month cell, which means one specific day. The
-    // season's range is the right default for a recurring placement and exactly
-    // the wrong one here — it would turn "an event on the 31st" into a series
-    // running to the end of the season.
+    // A dated target came from a month cell — one specific day, not a range.
     const dated = !!target.date;
     // eslint-disable-next-line react-hooks/set-state-in-effect
     setSelectedTemplateId(template?.id ?? "");
     setSelectedDays([target.dayCode]);
     setStartTime(start);
     setEndTime(computeEndTime24(start, template?.default_duration_minutes ?? 60));
-    setValidFrom(dated ? target.date! : defaultValidFrom(season));
-    setValidUntil(dated ? target.date! : (season?.ends_on ?? ""));
+    setValidFrom(dated ? target.date! : localDateString());
+    setValidUntil(dated ? target.date! : "");
     setSpaceIds(target.spaceId ? [target.spaceId] : (template?.default_space_ids ?? []));
     setOnce(dated);
-    setIsEvent(dated);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
@@ -327,37 +315,10 @@ export default function CreateSessionDialog({
           </div>
         )}
 
-        {/* Ticking this is what the brief means by the event toggle defaulting
-            to one-off: a genuine one-off is the overwhelmingly common shape for
-            something worth putting on an events calendar. It only *defaults* —
-            "Weekly" above stays one click away for a featured recurring class. */}
-        <button
-          type="button"
-          onClick={() => {
-            const next = !isEvent;
-            setIsEvent(next);
-            if (next) setOnce(true);
-          }}
-          aria-pressed={isEvent}
-          className={cn(
-            "flex items-center gap-2 text-left rounded-lg border-2 p-3 transition-colors",
-            isEvent ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
-          )}
-        >
-          <CalendarDays className={cn("w-4 h-4 shrink-0", isEvent ? "text-blue-600" : "text-gray-400")} />
-          <span>
-            <span className="block text-sm font-medium text-gray-900">Add to the event calendar</span>
-            <span className="block text-xs text-gray-500">
-              Shows on the month calendar. Write the blurb afterwards from the ⋯ menu.
-            </span>
-          </span>
-        </button>
-
         <p className="text-xs text-gray-500">
           {once
             ? `Creates a single session on ${validFrom || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}.`
             : `Creates one recurring session, every ${dayLabels || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}, starting ${validFrom}${validUntil ? ` through ${validUntil}` : " with no end date"}.`}
-          {season && ` Assigned to ${season.name}.`}
         </p>
 
         {error && (
@@ -372,13 +333,12 @@ export default function CreateSessionDialog({
             onClick={() => onConfirm({
               templateId: selectedTemplateId,
               once,
-              isEvent,
               dayCodes: selectedDays,
               startTime,
               endTime,
               validFrom,
               // A one-off's window is exactly its own day, so it never carries
-              // the season's end date the way a recurring placement does.
+              // an end date the way a recurring placement does.
               validUntil: once ? validFrom : (validUntil || null),
               spaceIds,
             })}
@@ -390,20 +350,6 @@ export default function CreateSessionDialog({
       </DialogContent>
     </Dialog>
   );
-}
-
-/**
- * The start date a new session gets when a season is selected.
- *
- * Not simply the season's start: mid-way through Fall, dating a brand-new class
- * back to September would make it appear retroactively in weeks that have
- * already happened, since expansion clamps to valid_from. The later of today
- * and the season start is the honest default, and it's still editable below.
- */
-function defaultValidFrom(season: SeasonSummary | null | undefined): string {
-  const today = localDateString();
-  if (!season) return today;
-  return season.starts_on > today ? season.starts_on : today;
 }
 
 function computeEndTime24(startTime: string, durationMinutes: number): string {

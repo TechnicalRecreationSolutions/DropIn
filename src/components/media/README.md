@@ -20,12 +20,14 @@ this component. Full reasoning, including what was rejected, is in the header of
 anything here.
 
 ```
-{orgId}/events/…      member-writable    session_features.image_url
-{orgId}/brochure/…    member-writable    Phase D entries
 {orgId}/facilities/…  owner/admin only   facilities.photo_urls[0]
 {orgId}/schedules/…   owner/admin only   schedule_groups.photo_urls[0]
-{orgId}/org/…         owner/admin only   organizations.logo_url  ← no UI yet
+{orgId}/org/…         owner/admin only   organizations.logo_url
 ```
+
+The `events/` and `brochure/` kinds existed here until the seasons/events/brochure
+track was removed (`supabase/migrations/036_remove_events_brochure_seasons.sql`).
+Both were member-writable — every remaining kind is owner/admin only.
 
 ## Why uploads go straight from the browser
 
@@ -67,16 +69,14 @@ the object, deliberately: that URL may already be stored on another record —
 image is worse than leaving a file nobody pays much for.
 
 **Still owed:** a sweep for genuinely unreferenced objects. It needs to diff the
-bucket against four columns (`facilities.photo_urls`,
-`schedule_groups.photo_urls`, `organizations.logo_url`,
-`session_features.image_url`) plus Phase D's brochure entries, so it is worth
-writing once, after the brochure lands rather than before.
+bucket against the three remaining columns (`facilities.photo_urls`,
+`schedule_groups.photo_urls`, `organizations.logo_url`).
 
 ## `organizations.logo_url` — closed
 
-This section used to record a gap: the folder and policy existed, the org public
-page and printed event sheet both rendered the logo, and nothing anywhere set
-it. `/dashboard/settings` now does (`components/org/OrgSettingsForm.tsx`).
+This section used to record a gap: the folder and policy existed, and nothing
+anywhere set the logo. `/dashboard/settings` now does
+(`components/org/OrgSettingsForm.tsx`).
 
 One wrinkle worth knowing if you reuse `ImageUpload` on a role-gated form: it has
 no `disabled` prop. `{orgId}/org/` is owner/admin-only, so a member operating the

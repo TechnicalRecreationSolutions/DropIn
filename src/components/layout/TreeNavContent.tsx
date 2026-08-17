@@ -8,8 +8,6 @@ import {
   LayoutDashboard,
   Database,
   CreditCard,
-  CalendarRange,
-  BookOpen,
   Plus,
   Settings,
   Layers,
@@ -24,16 +22,6 @@ import TreeNavNode from "./TreeNavNode";
 
 export const topLinks = [
   { href: "/dashboard", label: "Overview", icon: LayoutDashboard, exact: true },
-  // Sits above the building list rather than with Data Sources/Billing below:
-  // seasons are what the buildings are scheduled *into*, not a back-office
-  // utility. Deliberately not added to the mobile bottom bar — that's at its
-  // four-item limit, and seasons are reachable there from the command centre's
-  // own picker.
-  { href: "/dashboard/seasons", label: "Seasons", icon: CalendarRange, exact: false },
-  // Directly under Seasons because a brochure is *of* a season — that adjacency
-  // is the relationship. Same reasoning as above for the mobile bottom bar:
-  // still four items there, and building a brochure is desk work.
-  { href: "/dashboard/brochures", label: "Brochures", icon: BookOpen, exact: false },
 ];
 
 export const bottomLinks = [
