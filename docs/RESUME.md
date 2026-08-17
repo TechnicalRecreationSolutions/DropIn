@@ -4,13 +4,15 @@ Open this first; it points at everything else.
 
 > **Newer work exists.** This file was written 2026-08-07 at the end of a
 > **security-remediation** session and is still the authority on security,
-> deployment and launch blockers. Feature work has moved on since: the
-> seasons → events → storage → brochure track (phases A–D) shipped on
-> 2026-08-08/09.
+> deployment and launch blockers. Feature work has moved on well past it
+> since — most recently the schedule list view + sidebar tree, migrations
+> through `035`, all applied.
 >
 > **For where feature work stopped, read
-> [`docs/RESUME-events.md`](RESUME-events.md) instead.** Migrations are now at
-> `032`, all applied. The remaining phase is E, the control centre.
+> [`docs/RESUME-schedule-list-view.md`](RESUME-schedule-list-view.md)
+> instead.** (That doc supersedes `RESUME-events.md`,
+> `RESUME-schedule-input-fixes.md` and `RESUME-timezone-removal.md` — each
+> covers its own completed track, none is the current entry point anymore.)
 
 ---
 
