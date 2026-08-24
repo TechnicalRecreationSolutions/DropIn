@@ -17,6 +17,9 @@ interface TreeNavNodeProps {
   expandable?: boolean;
   expanded?: boolean;
   onToggleExpand?: () => void;
+  /** Renders as an inert, muted row instead of a link — e.g. a menu item with nothing to scope to yet. */
+  disabled?: boolean;
+  disabledReason?: string;
 }
 
 /**
@@ -37,14 +40,37 @@ export default function TreeNavNode({
   expandable,
   expanded,
   onToggleExpand,
+  disabled,
+  disabledReason,
 }: TreeNavNodeProps) {
+  const rowContent = (
+    <>
+      <Icon className="size-3.5 shrink-0 opacity-70" />
+      <span className="truncate">{label}</span>
+
+      <span className="ml-auto flex items-center gap-1.5 shrink-0">
+        {isPublished === false && (
+          <span
+            className="size-1.5 rounded-full bg-sidebar-foreground/30"
+            title="Draft — not published"
+          />
+        )}
+        {badge !== undefined && (
+          <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
+        )}
+      </span>
+    </>
+  );
+
   return (
     <div
       className={cn(
         "group flex items-center gap-0.5 rounded-md text-sm transition-colors",
-        isActive
-          ? "bg-sidebar-accent text-sidebar-accent-foreground"
-          : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+        disabled
+          ? "text-sidebar-foreground/30 cursor-not-allowed"
+          : isActive
+            ? "bg-sidebar-accent text-sidebar-accent-foreground"
+            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
       style={{ paddingLeft: `${depth * 14 + 8}px` }}
     >
@@ -63,22 +89,19 @@ export default function TreeNavNode({
           <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
         </button>
       )}
-      <Link href={href} className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0">
-        <Icon className="size-3.5 shrink-0 opacity-70" />
-        <span className="truncate">{label}</span>
-
-        <span className="ml-auto flex items-center gap-1.5 shrink-0">
-          {isPublished === false && (
-            <span
-              className="size-1.5 rounded-full bg-sidebar-foreground/30"
-              title="Draft — not published"
-            />
-          )}
-          {badge !== undefined && (
-            <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
-          )}
+      {disabled ? (
+        <span
+          className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0"
+          title={disabledReason}
+          aria-disabled="true"
+        >
+          {rowContent}
         </span>
-      </Link>
+      ) : (
+        <Link href={href} className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0">
+          {rowContent}
+        </Link>
+      )}
     </div>
   );
 }

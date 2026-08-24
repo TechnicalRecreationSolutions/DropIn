@@ -4,17 +4,19 @@ import { Plus, Building2 } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
-import { NO_DEPARTMENT, isWorkspaceTab } from "@/lib/schedule/commandCentreHref";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
 import type { CommandFacility, CommandScheduleGroup } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
 /**
  * The schedule command centre — where staff spend most of their time. Every
- * building, every schedule inside it, and all four widget layouts live on
- * this one route; there is no separate "builder" page to open, because the
- * views rendered here are the widget's own components running in edit mode
- * (see components/schedule/editing/).
+ * building and every schedule inside it live on this one route; there is no
+ * separate "builder" page to open, because the views rendered here are the
+ * widget's own components running in edit mode (see
+ * components/schedule/editing/). Spaces, the floorplan editor, and the
+ * widget configurator each live on their own dedicated route
+ * (/dashboard/spaces, /dashboard/map, /dashboard/widget) rather than as
+ * tabs here.
  *
  * Everything the editor needs for the whole org is fetched once, server
  * side, so switching building/schedule/view is instant local state rather
@@ -32,16 +34,7 @@ import type { ScheduleTemplate } from "@/types/schedule.types";
  */
 export const unstable_instant = { prefetch: "static" };
 
-interface SchedulePageProps {
-  searchParams: Promise<{
-    facility?: string;
-    department?: string;
-    schedule?: string;
-    tab?: string;
-  }>;
-}
-
-export default function SchedulePage({ searchParams }: SchedulePageProps) {
+export default function SchedulePage() {
   return (
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
@@ -49,7 +42,7 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
         <div>
           <h1 className="text-2xl font-bold text-gray-900">Manage</h1>
           <p className="text-gray-500 mt-1">
-            Pick a building — its schedules, spaces, floorplan, and widget all live here.
+            Pick a building, then a schedule, to place and edit sessions.
           </p>
         </div>
         <Link
@@ -62,24 +55,18 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
       </div>
 
       <Suspense fallback={<CommandCentreSkeleton />}>
-        <CommandCentreBody searchParams={searchParams} />
+        <CommandCentreBody />
       </Suspense>
     </div>
   );
 }
 
-async function CommandCentreBody({ searchParams }: SchedulePageProps) {
+async function CommandCentreBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();
-  const {
-    facility: facilityParam,
-    department: departmentParam,
-    schedule: scheduleParam,
-    tab: tabParam,
-  } = await searchParams;
 
   // The editor's whole shape for this org — small, bounded lists, so one
   // round of parallel queries beats a fetch per building switch.
@@ -105,12 +92,15 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     // Relational select — cast needed until Supabase CLI generates types with FK relations
     supabase
       .from("schedule_groups")
-      .select("id, name, status, schedule_type, facility_id, department_id, departments ( name )")
+      .select(
+        "id, name, status, schedule_type, facility_id, department_id, departments ( name ), starts_on, ends_on, updated_at, published_at"
+      )
       .eq("org_id", orgId)
       .order("display_order", { ascending: true }) as unknown as Promise<{
       data: {
         id: string; name: string; status: "draft" | "published"; schedule_type: string | null;
         facility_id: string; department_id: string | null; departments: { name: string } | null;
+        starts_on: string | null; ends_on: string | null; updated_at: string; published_at: string | null;
       }[] | null;
     }>,
     supabase
@@ -197,27 +187,13 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
           templates: templatesByScheduleGroup.get(g.id) ?? [],
           settingsHref: `${base}/edit`,
           manageTemplatesHref: `${base}/session-templates`,
+          startsOn: g.starts_on,
+          endsOn: g.ends_on,
+          updatedAt: g.updated_at,
+          publishedAt: g.published_at,
         };
       }),
   }));
-
-  // Deep links are validated against what this org actually owns, so a
-  // stale or hand-edited URL falls back rather than showing an empty editor.
-  const initialFacility = facilities.find((f) => f.id === facilityParam) ?? null;
-  const initialFacilityId = initialFacility?.id ?? null;
-
-  const initialScheduleGroupId = initialFacility?.scheduleGroups.some((g) => g.id === scheduleParam)
-    ? (scheduleParam as string)
-    : null;
-
-  // NO_DEPARTMENT is a real, selectable filter, but only where the facility
-  // has departments to distinguish it from — otherwise the tier never renders.
-  const departmentParamIsValid =
-    !!initialFacility &&
-    initialFacility.departments.length > 0 &&
-    (departmentParam === NO_DEPARTMENT ||
-      initialFacility.departments.some((d) => d.id === departmentParam));
-  const initialDepartmentId = departmentParamIsValid ? (departmentParam as string) : null;
 
   const widgetTemplates = (widgetConfig?.allowed_templates as ScheduleTemplate[] | null) ?? [
     "grid",
@@ -227,14 +203,9 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
 
   return (
     <ScheduleCommandCentre
-      orgId={orgId}
       orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
       widgetTemplates={widgetTemplates}
       facilities={facilities}
-      initialFacilityId={initialFacilityId}
-      initialDepartmentId={initialDepartmentId}
-      initialScheduleGroupId={initialScheduleGroupId}
-      initialTab={isWorkspaceTab(tabParam) ? tabParam : "schedule"}
     />
   );
 }

@@ -10,36 +10,28 @@
 /** Sentinel department for schedules in a facility that has departments but that belong to none. */
 export const NO_DEPARTMENT = "none";
 
-/**
- * Which workspace tab to land on. Omitted means Schedule, the default.
- *
- * Defined here rather than beside the tab strip because `page.tsx` is a
- * server component: a plain array exported from a `"use client"` module
- * arrives there as a client-reference stub, not a real array, and calling
- * `.includes` on it throws at request time.
- */
-export type WorkspaceTab = "schedule" | "spaces" | "map" | "widget";
-
-export const WORKSPACE_TABS: WorkspaceTab[] = ["schedule", "spaces", "map", "widget"];
-
-export function isWorkspaceTab(value: string | undefined): value is WorkspaceTab {
-  return !!value && (WORKSPACE_TABS as string[]).includes(value);
-}
-
 export function commandCentreHref(scope: {
   facilityId?: string | null;
   /** A real department id, or NO_DEPARTMENT. */
   departmentId?: string | null;
   scheduleGroupId?: string | null;
-  tab?: WorkspaceTab;
 }): string {
   const params = new URLSearchParams();
   if (scope.facilityId) params.set("facility", scope.facilityId);
   if (scope.departmentId) params.set("department", scope.departmentId);
   if (scope.scheduleGroupId) params.set("schedule", scope.scheduleGroupId);
-  if (scope.tab && scope.tab !== "schedule") params.set("tab", scope.tab);
   const query = params.toString();
   return query ? `/dashboard/schedule?${query}` : "/dashboard/schedule";
+}
+
+/** Link to the dedicated Spaces page, optionally scoped to a facility. */
+export function spacesHref(facilityId?: string | null): string {
+  return facilityId ? `/dashboard/spaces?facility=${facilityId}` : "/dashboard/spaces";
+}
+
+/** Link to the dedicated Map (floorplan editor) page, optionally scoped to a facility. */
+export function mapHref(facilityId?: string | null): string {
+  return facilityId ? `/dashboard/map?facility=${facilityId}` : "/dashboard/map";
 }
 
 /**

@@ -422,6 +422,39 @@ export type Database = {
         >;
         Relationships: [];
       };
+      // Added in 037_schedule_week_reviews.sql. Sparse by design — a row only
+      // exists once a week has been explicitly reviewed; a missing row for a
+      // given (schedule_group_id, week_start) is implicitly 'pending'. See
+      // that migration's header for why there's no persisted "week" entity.
+      schedule_week_reviews: {
+        Row: {
+          id: string;
+          org_id: string;
+          schedule_group_id: string;
+          week_start: string;
+          status: "pending" | "approved" | "needs_changes";
+          note: string | null;
+          reviewed_by: string | null;
+          reviewed_at: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["schedule_week_reviews"]["Row"],
+          "id" | "status" | "note" | "reviewed_by" | "reviewed_at" | "created_at" | "updated_at"
+        > & {
+          status?: "pending" | "approved" | "needs_changes";
+          note?: string | null;
+          reviewed_by?: string | null;
+          reviewed_at?: string | null;
+          created_at?: string;
+          updated_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["schedule_week_reviews"]["Insert"]
+        >;
+        Relationships: [];
+      };
       session_templates: {
         Row: {
           id: string;
@@ -543,6 +576,34 @@ export type Database = {
         };
         Update: Partial<
           Database["public"]["Tables"]["session_exceptions"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      // Added in 039_session_conflict_dismissals.sql. Only the dismissal is
+      // persisted — the conflict itself is computed on demand by
+      // findOrgConflicts() (src/lib/sessions/conflicts.ts). session_a_id is
+      // always the lexically-lower id (CHECK constraint), matching that
+      // function's pairKey ordering.
+      session_conflict_dismissals: {
+        Row: {
+          id: string;
+          org_id: string;
+          session_a_id: string;
+          session_b_id: string;
+          note: string | null;
+          dismissed_by: string | null;
+          dismissed_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_conflict_dismissals"]["Row"],
+          "id" | "note" | "dismissed_by" | "dismissed_at"
+        > & {
+          note?: string | null;
+          dismissed_by?: string | null;
+          dismissed_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["session_conflict_dismissals"]["Insert"]
         >;
         Relationships: [];
       };
@@ -721,6 +782,34 @@ export type Database = {
         >;
         Relationships: [];
       };
+      // Added in 038_activity_log.sql. Written only by the log_activity()
+      // trigger on facilities/departments/spaces/schedule_groups/sessions/
+      // session_templates — never inserted from application code directly.
+      activity_log: {
+        Row: {
+          id: string;
+          org_id: string;
+          actor_user_id: string | null;
+          actor_email: string | null;
+          table_name: string;
+          row_id: string;
+          action: "insert" | "update" | "delete";
+          entity_label: string | null;
+          changed_fields: string[] | null;
+          before: Json | null;
+          after: Json | null;
+          reverted_at: string | null;
+          reverted_by: string | null;
+          created_at: string;
+        };
+        // No Insert type — rows only ever come from the log_activity()
+        // trigger (SECURITY DEFINER), which bypasses PostgREST entirely.
+        Insert: never;
+        // reverted_at/reverted_by are the only columns ever written after
+        // the fact, and only via the revert_activity() RPC, not a PATCH.
+        Update: never;
+        Relationships: [];
+      };
     };
     Views: {
       // World-readable projection of active organizations
@@ -775,6 +864,13 @@ export type Database = {
       sweep_rate_limits: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      // Undoes a single activity_log entry (038_activity_log.sql). Raises
+      // (→ a PostgREST error) if the caller isn't an owner/admin of that
+      // entry's org, or if it was already reverted.
+      revert_activity: {
+        Args: { p_activity_id: string };
+        Returns: undefined;
       };
     };
     Enums: {

@@ -1,30 +1,45 @@
 "use client";
 
 import Link from "next/link";
-import { createClient } from "@/lib/supabase/client";
-import { useRouter } from "next/navigation";
-import { LogOut, ChevronDown, Menu } from "lucide-react";
-import { useState } from "react";
-import type { Organization, OrgMembership } from "@/types/app.types";
+import { Menu, Bell, ClipboardList, Settings, Sun, Moon } from "lucide-react";
+import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 
-interface DashboardTopbarProps {
-  org: Organization;
-  membership: OrgMembership;
+const THEME_KEY = "dropin-theme";
+
+/**
+ * Flips `.dark` on <html> and persists the choice. Deliberately minimal (no
+ * next-themes) — most dashboard pages still hardcode gray/white Tailwind
+ * classes instead of the semantic tokens in globals.css, so this only
+ * correctly re-themes the chrome and any newly-built cards, not the whole
+ * app. See docs/RESUME-layout-rework.md for the full dark-mode rollout.
+ */
+function useThemeToggle() {
+  const [isDark, setIsDark] = useState(false);
+
+  useEffect(() => {
+    const stored = localStorage.getItem(THEME_KEY);
+    const prefersDark = window.matchMedia?.("(prefers-color-scheme: dark)").matches;
+    const dark = stored ? stored === "dark" : !!prefersDark;
+    document.documentElement.classList.toggle("dark", dark);
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- reading an external system (localStorage/matchMedia) that isn't available during SSR
+    setIsDark(dark);
+  }, []);
+
+  function toggle() {
+    const next = !isDark;
+    document.documentElement.classList.toggle("dark", next);
+    localStorage.setItem(THEME_KEY, next ? "dark" : "light");
+    setIsDark(next);
+  }
+
+  return { isDark, toggle };
 }
 
-export default function DashboardTopbar({ org, membership }: DashboardTopbarProps) {
-  const router = useRouter();
-  const [menuOpen, setMenuOpen] = useState(false);
+export default function DashboardTopbar() {
   const { open: openTreeSheet } = useMobileTreeSheet();
-
-  async function handleSignOut() {
-    const supabase = createClient();
-    await supabase.auth.signOut();
-    router.push("/");
-    router.refresh();
-  }
+  const { isDark, toggle } = useThemeToggle();
 
   return (
     <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
@@ -43,32 +58,73 @@ export default function DashboardTopbar({ org, membership }: DashboardTopbarProp
 
       <div className="hidden lg:block" />
 
-      {/* Right: org + user menu */}
-      <div className="relative">
-        <button
-          onClick={() => setMenuOpen(!menuOpen)}
-          className="flex items-center gap-2 text-sm text-gray-700 hover:text-gray-900 py-2"
-        >
-          <span className="hidden sm:block font-medium">{org.name}</span>
-          <span className="text-xs text-gray-500 capitalize">{membership.role}</span>
-          <ChevronDown className="w-4 h-4 text-gray-400" />
-        </button>
+      {/* Right: icon row + theme toggle. Bell (notifications) has no backend
+          yet — see docs/RESUME-layout-rework.md. Clipboard (activity log) is
+          wired up — see 038_activity_log.sql. */}
+      <div className="flex items-center gap-1 sm:gap-3">
+        <IconButton title="Notifications — coming soon" disabled>
+          <Bell className="size-[18px]" />
+        </IconButton>
+        <Link href="/dashboard/activity">
+          <IconButton as="span" title="Activity log">
+            <ClipboardList className="size-[18px]" />
+          </IconButton>
+        </Link>
+        <Link href="/dashboard/settings">
+          <IconButton as="span" title="Organization settings">
+            <Settings className="size-[18px]" />
+          </IconButton>
+        </Link>
 
-        {menuOpen && (
-          <>
-            <div className="fixed inset-0 z-10" onClick={() => setMenuOpen(false)} />
-            <div className="absolute right-0 top-full mt-1 w-48 bg-white rounded-lg shadow-lg border border-gray-100 z-20 py-1">
-              <button
-                onClick={handleSignOut}
-                className="w-full flex items-center gap-2 px-4 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                <LogOut className="w-4 h-4" />
-                Sign out
-              </button>
-            </div>
-          </>
-        )}
+        <button
+          type="button"
+          onClick={toggle}
+          aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
+          aria-pressed={isDark}
+          className="relative w-11 h-6 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors shrink-0"
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow flex items-center justify-center transition-transform ${
+              isDark ? "translate-x-5" : "translate-x-0"
+            }`}
+          >
+            {isDark ? (
+              <Moon className="size-3 text-gray-700" />
+            ) : (
+              <Sun className="size-3 text-gray-500" />
+            )}
+          </span>
+        </button>
       </div>
     </header>
+  );
+}
+
+function IconButton({
+  children,
+  title,
+  disabled,
+  as: As = "button",
+}: {
+  children: React.ReactNode;
+  title: string;
+  disabled?: boolean;
+  as?: "button" | "span";
+}) {
+  const className =
+    "inline-flex items-center justify-center size-8 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed";
+
+  if (As === "span") {
+    return (
+      <span title={title} className={className}>
+        {children}
+      </span>
+    );
+  }
+
+  return (
+    <button type="button" title={title} disabled={disabled} className={className}>
+      {children}
+    </button>
   );
 }

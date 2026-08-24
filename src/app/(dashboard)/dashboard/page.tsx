@@ -3,17 +3,33 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
-import { Building2, Calendar, ArrowRight, Plus } from "lucide-react";
+import {
+  Building2,
+  Calendar,
+  ArrowRight,
+  Plus,
+  CheckCircle2,
+  MonitorSmartphone,
+  AlertTriangle,
+  ClipboardList,
+  PieChart,
+  Users,
+  Building,
+  TrendingUp,
+} from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardPageSkeleton as DashboardOverviewSkeleton } from "@/components/layout/DashboardChromeSkeletons";
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
-import { localDateString } from "@/lib/utils/dates";
+import { localDateString, daysAgoIso } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import ScheduleListSection, {
   type ScheduleListRow,
 } from "@/components/schedule-list/ScheduleListSection";
+import { StatCard } from "@/components/dashboard/StatCard";
+import { VizPlaceholder } from "@/components/dashboard/VizPlaceholder";
+import { findOrgConflicts } from "@/lib/sessions/conflicts";
 
 /**
  * Validated for instant client-side navigation: Next.js checks at build time
@@ -85,7 +101,17 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
   const selectedFacility =
     facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null;
 
-  const [scheduleGroupsRes, recentFacilitiesRes, recentScheduleGroupsRes] = await Promise.allSettled([
+  const thirtyDaysAgo = daysAgoIso(30);
+
+  const [
+    scheduleGroupsRes,
+    recentFacilitiesRes,
+    recentScheduleGroupsRes,
+    allScheduleGroupsRes,
+    widgetViewsRes,
+    activityCountRes,
+    conflictsRes,
+  ] = await Promise.allSettled([
     selectedFacility
       ? supabase
           .from("schedule_groups")
@@ -108,7 +134,41 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
       .limit(6),
+    // Org-wide published/total counts for the "Published" stat card — a
+    // separate lightweight query from the facility-scoped list above.
+    supabase.from("schedule_groups").select("status").eq("org_id", orgId),
+    // Widget-view count for the "Widget views" stat card. analytics_events
+    // is written by the embed on every load but nothing has read it until now.
+    supabase
+      .from("analytics_events")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("event_type", "widget_view")
+      .gte("occurred_at", thirtyDaysAgo),
+    // Activity log count for the "Activity log" stat card (038_activity_log.sql).
+    supabase
+      .from("activity_log")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .gte("created_at", thirtyDaysAgo),
+    // Conflicts stat card (039_session_conflict_dismissals.sql) — computed
+    // on demand, not from a persisted count; see findOrgConflicts().
+    findOrgConflicts(supabase, orgId),
   ]);
+
+  const allStatuses =
+    allScheduleGroupsRes.status === "fulfilled"
+      ? ((allScheduleGroupsRes.value.data as { status: "draft" | "published" }[] | null) ?? [])
+      : [];
+  const publishedCount = allStatuses.filter((s) => s.status === "published").length;
+  const totalScheduleCount = allStatuses.length;
+
+  const widgetViews =
+    widgetViewsRes.status === "fulfilled" ? (widgetViewsRes.value.count ?? 0) : 0;
+  const activityCount =
+    activityCountRes.status === "fulfilled" ? (activityCountRes.value.count ?? 0) : 0;
+  const conflictCount =
+    conflictsRes.status === "fulfilled" ? conflictsRes.value.filter((c) => !c.dismissed).length : 0;
 
   type ScheduleGroupRow = {
     id: string;
@@ -224,6 +284,24 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
         </p>
       </div>
 
+      {/* Org-wide stat row — all four are real. */}
+      {!isNew && (
+        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+          <StatCard
+            icon={CheckCircle2}
+            label="Published"
+            value={`${publishedCount}/${totalScheduleCount}`}
+          />
+          <StatCard icon={MonitorSmartphone} label="Widget views (30d)" value={String(widgetViews)} />
+          <Link href="/dashboard/conflicts" className="block rounded-xl transition-opacity hover:opacity-80">
+            <StatCard icon={AlertTriangle} label="Conflicts" value={String(conflictCount)} />
+          </Link>
+          <Link href="/dashboard/activity" className="block rounded-xl transition-opacity hover:opacity-80">
+            <StatCard icon={ClipboardList} label="Activity (30d)" value={String(activityCount)} />
+          </Link>
+        </div>
+      )}
+
       {/* Quick actions for new orgs */}
       {isNew && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
@@ -306,6 +384,37 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             <Plus className="w-4 h-4" />
             Add a facility
           </Link>
+        </div>
+      )}
+
+      {/* Chart grid — every slot here is a placeholder. No charting library
+          is installed and none of these have an aggregation query behind
+          them yet; see docs/RESUME-layout-rework.md for what each needs. */}
+      {!isNew && (
+        <div>
+          <h2 className="text-sm font-semibold text-gray-900 mb-3">Reporting</h2>
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <VizPlaceholder
+              icon={PieChart}
+              title="Schedule Completion Rate"
+              description="Needs a charting library + a published-vs-draft-over-time query"
+            />
+            <VizPlaceholder
+              icon={Users}
+              title="Department Performance"
+              description="Needs a charting library + a definition of “performance” for this domain"
+            />
+            <VizPlaceholder
+              icon={Building}
+              title="Facility Usage"
+              description="Needs a charting library + a per-facility analytics_events breakdown"
+            />
+            <VizPlaceholder
+              icon={TrendingUp}
+              title="Widget Traffic Trends"
+              description="Needs a charting library + a time-bucketed analytics_events query"
+            />
+          </div>
         </div>
       )}
     </div>

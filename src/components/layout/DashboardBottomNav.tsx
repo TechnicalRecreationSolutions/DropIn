@@ -21,8 +21,6 @@ import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
  */
 const navLinks = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
-  // The workspace is more than a week view now — schedules, spaces, map, and
-  // widget for a building all live there.
   { href: "/dashboard/schedule", label: "Manage", icon: Calendar },
 ];
 

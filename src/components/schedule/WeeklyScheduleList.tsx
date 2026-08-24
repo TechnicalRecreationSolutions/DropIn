@@ -9,7 +9,7 @@ import {
   formatDayFull,
   nowAsSessionTime,
 } from "@/lib/utils/dates";
-import { sessionDayIndex } from "@/lib/schedule/weekGeometry";
+import { dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
@@ -40,10 +40,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
   // A dead "Add session" on every day is worse than none — the command centre
   // explains in the rail why placing is unavailable.
   const canAdd = !!editing?.canCreate && editing.templates.length > 0;
-  const [activeDayIndex, setActiveDayIndex] = useState<number>(() => {
-    const d = new Date().getDay();
-    return d === 0 ? 6 : d - 1; // 0=Mon ... 6=Sun
-  });
+  const [activeDayIndex, setActiveDayIndex] = useState<number>(() => dayIndexFromDate(new Date()));
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {

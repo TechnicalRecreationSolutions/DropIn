@@ -14,6 +14,12 @@ export interface CommandScheduleGroup {
   /** Rename / publish / sport-category form. The old detail page is gone — it redirected here. */
   settingsHref: string;
   manageTemplatesHref: string;
+  /** The schedule's own live-date range — bounds the week list. Either may be null (open-ended). */
+  startsOn: string | null;
+  endsOn: string | null;
+  updatedAt: string;
+  /** Set only on the draft→published transition (migration 035) — feeds deriveScheduleStatus. */
+  publishedAt: string | null;
 }
 
 /** A bookable location — the thing sessions are placed into and the map is drawn from. */

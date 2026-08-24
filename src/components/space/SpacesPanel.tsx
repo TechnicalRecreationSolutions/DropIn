@@ -3,10 +3,11 @@
 import Link from "next/link";
 import { MapPin, Plus, Pencil, Eye, EyeOff } from "lucide-react";
 import { NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
-import type { CommandFacility } from "./types";
+import type { CommandSpace } from "@/components/schedule-command/types";
 
 interface SpacesPanelProps {
-  facility: CommandFacility;
+  /** Only the fields this panel actually reads — a full `CommandFacility` satisfies this too. */
+  facility: { id: string; name: string; spaces: CommandSpace[] };
   /** A real department id, NO_DEPARTMENT, or null for the whole building. */
   departmentId: string | null;
   departmentLabel: string | null;
@@ -14,12 +15,9 @@ interface SpacesPanelProps {
 
 /**
  * The bookable locations sessions attach to — lanes, courts, studios.
- *
- * Lives here rather than on its own page because spaces and sessions are
- * the same job: you add Lane 7 *because* you're about to schedule something
- * in it, and the Map and Schedule tabs both drop straight onto spaces. The
- * list follows the scope above it, so picking a department shows that
- * department's spaces and creates new ones inside it.
+ * Backs the dedicated Spaces page (`/dashboard/spaces/page.tsx`) — it used
+ * to also render inline as a command-centre tab, but Spaces, Map, and
+ * Widget each moved to their own top-level route.
  */
 export default function SpacesPanel({ facility, departmentId, departmentLabel }: SpacesPanelProps) {
   const realDepartmentId = departmentId && departmentId !== NO_DEPARTMENT ? departmentId : null;

@@ -1,4 +1,4 @@
-import { getOrgContext } from "@/lib/auth/session";
+import { getOrgContext, getUser } from "@/lib/auth/session";
 import TreeNav from "./TreeNav";
 import DashboardTopbar from "./DashboardTopbar";
 import MobileTreeSheetContents from "./MobileTreeSheetContents";
@@ -20,30 +20,36 @@ import MobileTreeSheetContents from "./MobileTreeSheetContents";
 export async function TreeNavSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  const user = await getUser();
 
-  return <TreeNav orgId={orgContext.org.id} orgName={orgContext.org.name} />;
+  return (
+    <TreeNav
+      orgId={orgContext.org.id}
+      orgName={orgContext.org.name}
+      userEmail={user?.email ?? null}
+      role={orgContext.membership.role}
+    />
+  );
 }
 
 export async function TopbarSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
-  return (
-    <DashboardTopbar
-      org={orgContext.org}
-      membership={orgContext.membership}
-    />
-  );
+  return <DashboardTopbar />;
 }
 
 export async function MobileSheetSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  const user = await getUser();
 
   return (
     <MobileTreeSheetContents
       orgId={orgContext.org.id}
       orgName={orgContext.org.name}
+      userEmail={user?.email ?? null}
+      role={orgContext.membership.role}
     />
   );
 }

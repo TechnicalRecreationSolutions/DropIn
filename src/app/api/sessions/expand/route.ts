@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
-import { getWeekStart, getWeekEnd, toSessionTime } from "@/lib/utils/dates";
+import { getWeekStart, getWeekEnd, toSessionTime, sessionWeekStart } from "@/lib/utils/dates";
+import type { ExpandedSession } from "@/types/schedule.types";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -192,13 +193,84 @@ export async function GET(request: Request) {
     scheduleGroupId,
   });
 
+  const visible = await filterUnapprovedPublicWeeks(supabase, expanded);
+
   return NextResponse.json({
-    data: expanded.map((s) => ({
+    data: visible.map((s) => ({
       ...s,
       start: s.start.toISOString(),
       end: s.end.toISOString(),
     })),
     rangeStart: rangeStart.toISOString(),
     rangeEnd: rangeEnd.toISOString(),
+  });
+}
+
+/**
+ * Hides occurrences that fall in a week no admin has approved yet (migration
+ * 037) — but only from callers outside the org that owns the schedule. Staff
+ * viewing their own org's data (the command centre) must keep seeing every
+ * week regardless of review status; that's the whole point of a review step.
+ *
+ * A session is a recurring template, not a per-week row, so this can't be a
+ * row-level RLS policy the way `sessions_public_read_active` gates by
+ * schedule_groups.status — it has to run after expansion, against each
+ * occurrence's own calendar week.
+ */
+async function filterUnapprovedPublicWeeks(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  expanded: ExpandedSession[]
+): Promise<ExpandedSession[]> {
+  if (expanded.length === 0) return expanded;
+
+  const distinctOrgIds = [...new Set(expanded.map((s) => s.orgId))];
+
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  let isSuperadmin = false;
+  let callerOrgIds: string[] = [];
+  if (user) {
+    // app_metadata only — see migration 022. user_metadata is user-writable
+    // and reading it here would let any signed-in visitor bypass every
+    // schedule's week-approval gate with a single auth.updateUser() call.
+    isSuperadmin = (user.app_metadata as { role?: string } | null)?.role === "superadmin";
+    if (!isSuperadmin) {
+      const { data: memberships } = await supabase
+        .from("org_memberships")
+        .select("org_id")
+        .eq("user_id", user.id);
+      callerOrgIds = (memberships ?? []).map((m) => m.org_id);
+    }
+  }
+  if (isSuperadmin) return expanded;
+
+  const publicOrgIds = distinctOrgIds.filter((orgId) => !callerOrgIds.includes(orgId));
+  if (publicOrgIds.length === 0) return expanded;
+
+  const publicScheduleGroupIds = [
+    ...new Set(
+      expanded.filter((s) => publicOrgIds.includes(s.orgId)).map((s) => s.scheduleGroupId)
+    ),
+  ];
+
+  const { data: reviews } = await supabase
+    .from("schedule_week_reviews")
+    .select("schedule_group_id, week_start, status")
+    .in("schedule_group_id", publicScheduleGroupIds);
+
+  const approvedWeeks = new Set(
+    (reviews ?? [])
+      .filter((r) => r.status === "approved")
+      .map((r) => `${r.schedule_group_id}:${r.week_start}`)
+  );
+
+  return expanded.filter((s) => {
+    if (!publicOrgIds.includes(s.orgId)) return true;
+    // sessionWeekStart reads UTC getters, the correct convention for a
+    // session-Date occurrence (see rrule/README.md) — not a viewer-local one.
+    const weekStartKey = sessionWeekStart(s.start).toISOString().slice(0, 10);
+    return approvedWeeks.has(`${s.scheduleGroupId}:${weekStartKey}`);
   });
 }

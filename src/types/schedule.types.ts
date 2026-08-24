@@ -100,7 +100,7 @@ export type RangeExpandParams = {
 
 /** Grid position for rendering in the weekly schedule grid */
 export type GridPosition = {
-  /** Column index (0 = Monday ... 6 = Sunday) */
+  /** Column index (0 = Sunday ... 6 = Saturday) */
   dayIndex: number;
   /** Minutes from the grid's start time (e.g. 360 = 6:00 AM if grid starts at midnight) */
   startMinute: number;

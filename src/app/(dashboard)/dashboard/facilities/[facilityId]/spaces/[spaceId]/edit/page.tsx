@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { spacesHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -45,8 +45,8 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
       <Breadcrumb
         items={[
           { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: commandCentreHref({ facilityId }) },
-          { label: space.name, href: commandCentreHref({ facilityId }) },
+          { label: facility.name, href: spacesHref(facilityId) },
+          { label: space.name, href: spacesHref(facilityId) },
           { label: "Edit" },
         ]}
       />
@@ -66,8 +66,8 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
           capacity: space.capacity,
           is_published: space.is_published,
         }}
-        // Back to the Spaces tab this was launched from.
-        redirectTo={commandCentreHref({ facilityId, tab: "spaces" })}
+        // Back to the Spaces page this was launched from.
+        redirectTo={spacesHref(facilityId)}
       />
     </div>
   );

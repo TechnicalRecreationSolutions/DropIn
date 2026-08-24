@@ -73,33 +73,32 @@ export interface WeekDay {
 }
 
 export const DAYS: WeekDay[] = [
+  { code: "SU", label: "Sunday", short: "Sun" },
   { code: "MO", label: "Monday", short: "Mon" },
   { code: "TU", label: "Tuesday", short: "Tue" },
   { code: "WE", label: "Wednesday", short: "Wed" },
   { code: "TH", label: "Thursday", short: "Thu" },
   { code: "FR", label: "Friday", short: "Fri" },
   { code: "SA", label: "Saturday", short: "Sat" },
-  { code: "SU", label: "Sunday", short: "Sun" },
 ];
 
 /**
- * Day-of-week index where 0=Monday...6=Sunday, matching DAYS' order, for a
+ * Day-of-week index where 0=Sunday...6=Saturday, matching DAYS' order, for a
  * **viewer-owned** date (e.g. "today", a week-navigator date) — runtime-local
- * `getDay()`. Use `sessionDayIndex` for a session occurrence instead.
+ * `getDay()` already returns 0=Sunday...6=Saturday, so this is a direct
+ * passthrough. Use `sessionDayIndex` for a session occurrence instead.
  */
 export function dayIndexFromDate(date: Date): number {
-  const d = date.getDay();
-  return d === 0 ? 6 : d - 1;
+  return date.getDay();
 }
 
 /**
- * Day-of-week index where 0=Monday...6=Sunday, for a **session occurrence**
+ * Day-of-week index where 0=Sunday...6=Saturday, for a **session occurrence**
  * — UTC getters (see rrule/README.md), so it's filed under the weekday it
  * actually runs on regardless of the runtime's own zone.
  */
 export function sessionDayIndex(date: Date): number {
-  const d = zonedDayOfWeek(date);
-  return d === 0 ? 6 : d - 1;
+  return zonedDayOfWeek(date);
 }
 
 export function timeStringToMinutes(time: string): number {

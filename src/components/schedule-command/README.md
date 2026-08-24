@@ -1,12 +1,11 @@
 # Command centre (`/dashboard/schedule`)
 
-The one page a staff member lives on. Everything about a building — its departments,
-schedules, sessions, spaces, floorplan, and embed config — is **state on this single route**,
-not separate pages.
+The page a staff member lives on to place and edit sessions. A building's departments and
+schedules are **state on this single route**, not separate pages — but Spaces, the floorplan
+editor, and the widget configurator each live on their own dedicated route now
+(`/dashboard/spaces`, `/dashboard/map`, `/dashboard/widget`), not as tabs here.
 
 ## What it replaced
-
-Four layers collapsed into one:
 
 | Was | Now |
 |---|---|
@@ -14,67 +13,65 @@ Four layers collapsed into one:
 | Facility page (Overview / Spaces / Map / Widget tabs) | `redirect()` → here |
 | Department page (Overview / Spaces / Widget tabs) | `redirect()` → here |
 | Schedule-group page → **Open builder** → builder route | `redirect()` → here; builder deleted |
+| Schedule/Spaces/Map/Widget tab strip on this page | Spaces and Map became their own top-level pages; Widget already had one |
 
-Each of those re-derived the same context and made you click through two or three screens
-before reaching any actual work. Here the context is picked once, at the top, and every tool
-operates on it.
-
-Every link into this page is built by `lib/schedule/commandCentreHref.ts` — including the
-`tab` param. Use it rather than assembling the query string; it's the single definition of
-what "open this thing" means.
+Every link into this page is built by `lib/schedule/commandCentreHref.ts`. Use it rather than
+assembling the query string; it's the single definition of what "open this schedule" means.
+The same file also exports `spacesHref()`/`mapHref()` for the two pages that split off — a
+facility-scoped link into either just needs `?facility=`.
 
 ## Layout
 
 ```
-Manage
-[ Panorama ] [ Test Rec Centre ] [ + Add facility ]      ← buildings (sidebar picks these too)
-DEPARTMENTS   [ All ] [ Aquatics 1 ] [ No department 1 ] [ + New department ]
-SCHEDULES     [ All ] [ Lap Swim ] [ + New schedule ]                        [⚙ Settings]
-─────────────────────────────────────────────────────────────
- Schedule │ Spaces │ Map │ Widget                          ← workspace tabs
+  ▓ Lap Swim  [Published]                          [⚙ Settings]
+  [ Upcoming ] [ Past ]
+  Sun, Aug 16 – Sat, Aug 22   This week          6 sessions  ›
+  Sun, Aug 23 – Sat, Aug 29                       No sessions ›
+  ...
 ```
 
-**Settings** always edits the narrowest *real* thing in scope — the schedule if one is
-picked, else the department, else the facility. One control replaces three pages' worth of
-"Edit …" buttons.
+Building/department/schedule scope is **not** state on this page at all — it lives entirely in
+the sidebar (`SidebarFilters.tsx`), read here straight off `?facility=`, `?department=`,
+`?schedule=`. This page used to also render a facility-box grid and department/schedule chip
+rows above a workspace tab strip (`FacilityBoxes`/`ScopePicker`/`WorkspaceTabs`, since
+removed); picking scope in two places, and switching jobs via tabs instead of navigation, were
+both things this and the later split-out rework got rid of.
 
-Tabs follow the scope, with two deliberate exceptions worth knowing:
-
-- **Map is per building.** A floorplan belongs to a facility, so the tab ignores the
-  department filter and says so on screen.
-- **Widget follows facility *and* department**, because `widget_configs` is keyed on both —
-  that's how a department gets its own embed and colors.
-
-The Schedule tab is **hidden rather than unmounted** when another tab is active. Flipping to
-Spaces to add Lane 7 and back must not lose the week you were on, the layout you were in, or
-refetch the schedule. The other tabs hold no state worth preserving and unmount freely.
+**Settings** edits the selected schedule directly — it lives in the week list's own header
+(`WeekListPanel`) rather than following a "narrowest thing in scope" fallback, since this page
+requires a real schedule to be picked before it shows anything.
 
 ## Scope: building → department → schedule
 
+Picked entirely in the sidebar (`SidebarFilters.tsx` — three dropdowns), not on this page.
+`NO_DEPARTMENT` is a sentinel, not an id: there's nothing to filter on server-side, so that one
+scope fetches the facility and drops departmented sessions client-side. This page only ever
+*reads* the resulting `?facility=&department=&schedule=`, validating it against what the org
+actually owns (a stale or hand-edited URL falls back rather than showing an empty editor) — see
+"Data flow" below for exactly how. `department` narrows which schedules the sidebar offers;
+this page itself only ever needs `facility` and `schedule` once a schedule is picked.
+
+Without a schedule picked, this page shows a prompt to pick one from the sidebar rather than a
+merged, browse-only view across schedules — that broader browsing still exists on the Overview
+page's schedule list and on each schedule's own public page, just not here.
+
+## A week list, then the editor
+
 ```
-[ Panorama ] [ Test Rec Centre ] [ + Add facility ]          ← buildings
-DEPARTMENTS   [ All ] [ Aquatics 3 ] [ Fitness 2 ] [ No department 1 ]
-SCHEDULES     [ All ] [ Lap Swim ] [ Fun Swim ] [ + New ]
+  ▓ Lap Swim  [Active]                                    [⚙ Settings]
+  [ Upcoming ] [ Past ]
+  Sun, Aug 16 – Sat, Aug 22   This week          6 sessions  ›
+  ...
 ```
 
-Each tier is a real scope, not just a filter for the one below it — a department shows
-everything running across it that week, which is the view a department head wants. Placing
-sessions needs exactly one `schedule_group_id`, so editing switches on at the last tier;
-broader scopes stay view + duplicate + delete.
+Once a schedule is picked, this page lands on `WeekListPanel` — every Sunday–Saturday week is
+a row, not a single continuous navigator. "Upcoming" (default) starts at the current week
+regardless of the schedule's own `starts_on`; "Past" goes backward from the week before it.
+Each direction stops at the schedule's own `starts_on`/`ends_on` where set, else pages 12 weeks
+at a time via "Load more" — each page is its own bounded fetch (`/api/sessions/expand` caps a
+single request at 120 days), not one growing range.
 
-The department tier renders **only when the building has departments**, so orgs that keep
-their schedules flat never see an empty layer. Where departments do exist, schedules that
-belong to none get a `No department` chip — and only when there are some.
-
-Selecting a schedule pulls the department tier to wherever that schedule actually lives, so
-the chips always read as a true path to it (this is what makes a deep link from the tree nav
-land with the right department highlighted). Selecting a department drops the schedule if it
-no longer belongs, rather than silently editing something the chips no longer show.
-
-`NO_DEPARTMENT` is a sentinel, not an id: there's nothing to filter on server-side, so that
-one scope fetches the facility and drops departmented sessions client-side.
-
-## The Schedule tab
+Clicking a week opens the editor:
 
 ```
 ┌─────────────┬────────────────────────────────────────────┐
@@ -84,9 +81,19 @@ one scope fetches the facility and drops departmented sessions client-side.
 └─────────────┴────────────────────────────────────────────┘
 ```
 
+pinned to that week, with a "← All weeks" link back to the list. The `WeekNavigator`
+prev/next arrows inside this view still work as before — the list is how you *arrive* at a
+week, prev/next is still how you nudge from it. Which week is open lives in `?week=`
+(mirrored via `history.replaceState` — see "Data flow"), so a specific week is linkable and
+refresh-safe.
+
+**Weeks run Sunday–Saturday app-wide**, not just in this list — `getWeekStart`/`getWeekEnd`
+(`src/lib/utils/dates.ts`) and the `DAYS` array (`src/lib/schedule/weekGeometry.ts`) are the
+two sources every time-axis view, the drag-and-drop day mapping, and the public widget derive
+their day order from.
+
 On a phone the schedule panel comes **first** (`order-1`) and the template rail drops below
-it — the schedule is what staff came for; the rail is a tool. The building boxes are styled
-to match the overview's Quick build tiles so the two read as the same control.
+it — the schedule is what staff came for; the rail is a tool.
 
 ## Why the views are the widget's own
 
@@ -96,9 +103,12 @@ render — wrapped in a `ScheduleEditingProvider`. See
 and no separate editor markup, so a layout can't look right while building and wrong when
 embedded.
 
-All four widget layouts are offered here even when an org has switched some off for
-visitors; a switched-off one shows an amber notice linking to widget settings. Staff should
-be able to *check* a layout before enabling it.
+All four widget layouts (Grid/List/Map/Floorplan) are offered here even when an org has
+switched some off for visitors; a switched-off one shows an amber notice linking to
+`/dashboard/widget`. Staff should be able to *check* a layout before enabling it. Floorplan
+only appears once the selected facility has a **published** map (`facility.hasPublishedMap`,
+drawn on the separate `/dashboard/map` page) — this is the widget's read-only floorplan
+*view*, not the shape-drawing editor.
 
 > A fifth workspace tab, **Events** — an org-wide month calendar of sessions
 > flagged `is_event`, with its own print output — existed here until the
@@ -116,7 +126,9 @@ be able to *check* a layout before enabling it.
 Everything structural (facilities, schedules, spaces, templates, published maps, widget
 colors) is fetched **once, server-side** in `page.tsx` and passed down, because those lists
 are small and bounded per org. Switching building or schedule is therefore instant local
-state, not a round trip.
+state, not a round trip. Spaces and published-map data are still fetched here even though
+their editors moved out — `editing.spaces` feeds the create/duplicate/reschedule dialogs, and
+`hasPublishedMap` gates the Floorplan *view* (see above).
 
 Only the sessions in view are client-fetched, via the shared `useTemplateSchedule` /
 `/api/sessions/expand` pipeline the widget uses. Every mutation posts to the same
@@ -128,25 +140,26 @@ layouts reflect a change immediately without refetching per layout.
 user clicked rather than the one they actually get when a view falls back (floorplan without
 a published map).
 
-Editor state is mirrored into `?facility=&schedule=` with `history.replaceState` —
-linkable and refresh-safe, without a navigation that would remount the page. The adopt and
-mirror effects both enumerate that param list; **adding a param means editing both**, or the
-two effects fight and the URL flickers back to the old value.
+`facility`/`department`/`schedule` are read straight off `useSearchParams()` on every
+render (`useMemo`, validated against the `facilities` prop) — there's no local state for them
+to keep in sync, since nothing on this page can change them anymore. `week` is the one piece
+of scope this page still owns locally, and it *is* mirrored into `?week=` with
+`history.replaceState` — linkable and refresh-safe, without a navigation that would remount
+the page.
 
 ## Files
 
 | File | Role |
 |---|---|
-| `ScheduleCommandCentre.tsx` | Owns all state, all mutations, and the editing API handed to the views. |
-| `FacilityBoxes.tsx` | The large building boxes. |
-| `ScopePicker.tsx` | The department and schedule chip tiers. |
-| `WorkspaceTabs.tsx` | The Schedule/Spaces/Map/Widget strip. |
-| `SpacesPanel.tsx` | Scope-filtered space list (was the facility and department pages' Spaces tab). |
-| `types.ts` | The shape `page.tsx` assembles server-side. |
+| `ScheduleCommandCentre.tsx` | Owns `week` state, all mutations, and the editing API handed to the views. |
+| `WeekListPanel.tsx` | The week list a selected schedule lands on — filter, pagination, per-window session counts. |
+| `types.ts` | The shape `page.tsx` assembles server-side (also used by `/dashboard/spaces` and `/dashboard/map`, which build a lighter subset of the same shapes). |
 
-Map and Widget mount the existing `MapEditorClient` and `WidgetConfigurator` unchanged —
-they were already self-contained client components, so absorbing those pages was a matter of
-handing them the right scope.
+`SpacesPanel.tsx` moved to `../space/SpacesPanel.tsx` — it now backs `/dashboard/spaces`
+exclusively. Map and Widget mount `MapEditorClient` and `WidgetConfigurator` directly on
+`/dashboard/map` and `/dashboard/widget` — both were already self-contained client
+components, so splitting them out was a matter of handing them the right scope on their own
+route instead of this one.
 
 ## Which routes survived
 
@@ -157,7 +170,7 @@ handing them the right scope.
 | `…/schedule-groups/[id]` | `redirect()` into here, scoped |
 | `…/schedule-groups/[id]/builder` | deleted |
 | `…/facilities` | kept — the facility index |
-| `…/*/edit`, `…/*/new`, `…/session-templates/*` | kept — they're forms, reached from here and returning here |
+| `…/*/edit`, `…/*/new`, `…/session-templates/*` | kept — they're forms, reached from here (or from `/dashboard/spaces`) and returning there |
 
 ## Gotchas
 
@@ -165,17 +178,17 @@ handing them the right scope.
   lives directly under the facility. `page.tsx` builds both hrefs — don't assume one.
 - `schedule_type === "continuous"` means always-open hours, not placed sessions. Editing is
   disabled for those with an explanation, rather than offering a "+" that can't work.
-- Floorplan only appears when the selected facility has a **published** `facility_maps` row.
+- The Floorplan *view* only appears when the selected facility has a **published**
+  `facility_maps` row — that's drawn on `/dashboard/map`, a separate page from this one.
 - The sidebar marks a facility active by the `facility` **query param**, not by pathname —
-  every building now shares one route, so pathname alone can't tell them apart.
+  every building shares this one schedule route, so pathname alone can't tell them apart.
+  `/dashboard/spaces` and `/dashboard/map` follow the same convention.
 - **Arriving here from a link while already here does not remount the component.** The
-  sidebar, breadcrumbs, and "Open schedule" all point at this same route, so
-  `ScheduleCommandCentre` adopts incoming search params in an effect rather than only from
-  its `initial*` props. Without that the link appears to do nothing and the URL-mirroring
-  effect rewrites it straight back. `appliedScopeRef` keeps the adopt and mirror effects
-  from fighting.
-- **Don't export plain values from a `"use client"` module into `page.tsx`.** `WorkspaceTab`
-  and its list live in `lib/schedule/commandCentreHref.ts` for exactly this reason: an array
-  exported from the tab component arrives in the server component as a client-reference
-  stub, and `.includes` throws at request time. Types are fine (erased); runtime values are
-  not.
+  sidebar, breadcrumbs, and "Open schedule" all point at this same route.
+  `facility`/`department`/`schedule` handle this for free (they're read straight off
+  `useSearchParams()`, which updates on a real navigation regardless of remounting), but
+  `week` is local state and needs the adopt effect to notice the URL changed and pull it in —
+  without that the link appears to do nothing and the mirror effect rewrites it straight back.
+  `appliedStateRef` keeps the adopt and mirror effects from fighting; `schedule` stays in its
+  tracked key even though nothing local reads it, purely so switching schedules resets `week`
+  back to its default.

@@ -1,24 +1,26 @@
 "use client";
 
 import Link from "next/link";
-import { usePathname } from "next/navigation";
 import { MapPin } from "lucide-react";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import TreeNavContent, { bottomLinks } from "./TreeNavContent";
-import TreeNavNode from "./TreeNavNode";
+import SidebarNav from "./SidebarNav";
+import SidebarProfile from "./SidebarProfile";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 
 interface MobileTreeSheetContentsProps {
   orgId: string;
   orgName: string;
+  userEmail: string | null;
+  role: string;
 }
 
-/** The org-specific body of the mobile sheet. Closes the sheet on navigation. */
+/** The org-specific body of the mobile sheet — mirrors the desktop sidebar. Closes the sheet on navigation. */
 export default function MobileTreeSheetContents({
   orgId,
   orgName,
+  userEmail,
+  role,
 }: MobileTreeSheetContentsProps) {
-  const pathname = usePathname();
   const { close } = useMobileTreeSheet();
 
   return (
@@ -37,24 +39,9 @@ export default function MobileTreeSheetContents({
         <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
       </SheetHeader>
 
-      <TreeNavContent orgId={orgId} onNavigate={close} />
+      <SidebarNav orgId={orgId} onNavigate={close} />
 
-      <div className="px-2 py-3 border-t border-sidebar-border space-y-0.5 shrink-0">
-        {bottomLinks.map((item) => {
-          const isActive = pathname.startsWith(item.href);
-          return (
-            <div key={item.href} onClick={close}>
-              <TreeNavNode
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                depth={0}
-                isActive={isActive}
-              />
-            </div>
-          );
-        })}
-      </div>
+      <SidebarProfile userEmail={userEmail} role={role} onNavigate={close} />
     </>
   );
 }

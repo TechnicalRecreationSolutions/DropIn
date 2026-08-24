@@ -4,11 +4,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { CalendarPlus, ExternalLink, Info } from "lucide-react";
+import { ArrowLeft, CalendarPlus, ExternalLink, Info } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
 import { useTemplateSchedule, SCHEDULE_RANGE_KEY } from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
-import { localDateString, getWeekStart, sessionTimeString } from "@/lib/utils/dates";
+import { localDateString, parseDate, getWeekStart, sessionTimeString } from "@/lib/utils/dates";
 import { buildRRuleString } from "@/lib/rrule/validate";
 import { DAYS, timeStringToMinutes, minutesToTimeString, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -37,36 +37,32 @@ import DeleteSessionDialog from "@/components/schedule/editing/DeleteSessionDial
 import OverrideWeekDialog, {
   type OverrideWeekValues,
 } from "@/components/schedule/editing/OverrideWeekDialog";
-import MapEditorClient from "@/components/facility-maps/MapEditorClient";
-import WidgetConfigurator from "@/components/widget/WidgetConfigurator";
-import { NO_DEPARTMENT, isWorkspaceTab, type WorkspaceTab } from "@/lib/schedule/commandCentreHref";
-import FacilityBoxes from "./FacilityBoxes";
-import ScopePicker from "./ScopePicker";
-import SpacesPanel from "./SpacesPanel";
-import WorkspaceTabs from "./WorkspaceTabs";
+import WeekListPanel from "./WeekListPanel";
+import WeekReviewBar from "./WeekReviewBar";
 import type { CommandFacility } from "./types";
 
 interface ScheduleCommandCentreProps {
-  orgId: string;
   orgPrimaryColor: string;
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
   facilities: CommandFacility[];
-  initialFacilityId: string | null;
-  /** A real department id, NO_DEPARTMENT, or null. */
-  initialDepartmentId: string | null;
-  initialScheduleGroupId: string | null;
-  initialTab: WorkspaceTab;
 }
 
 const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
 
 /**
  * The schedule command centre — the one place a schedule is viewed and
- * built. It replaces the old two-step "open the schedule group, then open
- * its builder" flow: building, schedule, view, and week are all state on
- * this single page, so switching any of them is instant and nothing is
- * hidden behind another route.
+ * built. Building, department, and schedule scope are no longer state on
+ * this page at all: they come entirely from the sidebar (`?facility=`,
+ * `?department=`, `?schedule=`), read straight off the URL. This page only
+ * still owns `week` — which week's editor is open, if any. Spaces, the
+ * floorplan editor, and the widget configurator each moved to their own
+ * dedicated routes (`/dashboard/spaces`, `/dashboard/map`,
+ * `/dashboard/widget`) rather than living here as tabs.
+ *
+ * This page is week-first: once a schedule is selected, it lands on a list
+ * of weeks (`WeekListPanel`) rather than a single continuous navigator.
+ * Clicking a week opens that week in the same editor as before.
  *
  * Crucially the editor is not a look-alike of the widget — it *is* the
  * widget. The same `ScheduleView` the public embed renders is mounted here
@@ -79,25 +75,42 @@ const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
  * view reflects a change immediately without refetching per view.
  */
 export default function ScheduleCommandCentre({
-  orgId,
   orgPrimaryColor,
   widgetTemplates,
   facilities,
-  initialFacilityId,
-  initialDepartmentId,
-  initialScheduleGroupId,
-  initialTab,
 }: ScheduleCommandCentreProps) {
   const queryClient = useQueryClient();
+  const searchParams = useSearchParams();
 
-  const [facilityId, setFacilityId] = useState<string | null>(
-    () => initialFacilityId ?? facilities[0]?.id ?? null
+  // Scope is derived straight from the URL on every render — it can only
+  // change by navigating in from the sidebar (there's no picker on this page
+  // anymore to change it locally), so there's nothing to keep in sync. This
+  // replicates the same validation page.tsx does server-side: a stale or
+  // hand-edited URL falls back rather than showing an empty editor.
+  const facilityParam = searchParams.get("facility");
+  const scheduleParam = searchParams.get("schedule");
+
+  const facility = useMemo(
+    () => facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null,
+    [facilities, facilityParam]
   );
-  const [departmentId, setDepartmentId] = useState<string | null>(initialDepartmentId);
-  const [scheduleGroupId, setScheduleGroupId] = useState<string | null>(initialScheduleGroupId);
-  const [tab, setTab] = useState<WorkspaceTab>(initialTab);
+  const scheduleGroup = useMemo(
+    () => facility?.scheduleGroups.find((g) => g.id === scheduleParam) ?? null,
+    [facility, scheduleParam]
+  );
+
+  // `week` is the only scope this page still owns locally — it switches
+  // instantly (no navigation) and is mirrored into the URL so it's
+  // linkable/refresh-safe, same reasoning the old facility/department/
+  // schedule mirroring used.
+  const [weekParam, setWeekParam] = useState<string | null>(searchParams.get("week"));
   const [view, setView] = useState<ScheduleTemplate>(widgetTemplates[0] ?? "grid");
-  const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
+  // `weekParam` (URL-mirrored) is the one source of truth for which week is
+  // open — this hook is only still needed for `month`, which every current
+  // template ignores but ScheduleView's props still require (see its doc
+  // comment). The editor's actual week is derived from `weekParam` below.
+  const { month, setMonth } = useScheduleAnchor();
+  const editorWeekStart = weekParam ? getWeekStart(parseDate(weekParam)) : getWeekStart(new Date());
 
   const [createTarget, setCreateTarget] = useState<AddSessionTarget | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -125,88 +138,27 @@ export default function ScheduleCommandCentre({
   const [overrideSubmitting, setOverrideSubmitting] = useState(false);
   const [overrideError, setOverrideError] = useState<string | null>(null);
 
-  const facility = useMemo(
-    () => facilities.find((f) => f.id === facilityId) ?? null,
-    [facilities, facilityId]
-  );
-  const scheduleGroup = useMemo(
-    () => facility?.scheduleGroups.find((g) => g.id === scheduleGroupId) ?? null,
-    [facility, scheduleGroupId]
-  );
-
-  // Schedules offered by the schedule tier, narrowed by the department tier.
-  const visibleSchedules = useMemo(() => {
-    const all = facility?.scheduleGroups ?? [];
-    if (departmentId === null) return all;
-    if (departmentId === NO_DEPARTMENT) return all.filter((g) => !g.departmentId);
-    return all.filter((g) => g.departmentId === departmentId);
-  }, [facility, departmentId]);
-
-  // Scope changes two ways, and both have to work.
-  //
-  // From a chip on this page: local state, mirrored into the URL with
-  // replaceState so the state is linkable without a navigation that would
-  // cost a round trip.
-  //
-  // From a link elsewhere pointing at this same route — the sidebar, a
-  // breadcrumb, "Open schedule": that's a client-side navigation which does
-  // *not* remount this component, so the incoming params have to be adopted
-  // explicitly. Without this the sidebar appears to do nothing and the
-  // mirror below immediately rewrites the URL back to the old scope.
-  //
-  // The ref tracks whichever scope was last reconciled, so the two effects
-  // don't fight each other.
-  const searchParams = useSearchParams();
-  const urlScope = [
-    searchParams.get("facility"),
-    searchParams.get("department"),
-    searchParams.get("schedule"),
-    searchParams.get("tab"),
-  ].join("|");
-  const appliedScopeRef = useRef(urlScope);
+  // `schedule` stays in the tracked key purely so switching schedules from
+  // the sidebar resets `week` back to its URL default even when it doesn't
+  // literally appear in the new URL (e.g. two schedules' bare "?schedule="
+  // links look identical to `week` otherwise).
+  const urlState = [scheduleParam, searchParams.get("week")].join("|");
+  const appliedStateRef = useRef(urlState);
 
   useEffect(() => {
-    if (urlScope === appliedScopeRef.current) return;
-    appliedScopeRef.current = urlScope;
-
-    const [nextFacility, nextDepartment, nextSchedule, nextTab] = urlScope.split("|");
-    // Validated the same way the server does, so a hand-edited or stale URL
-    // can't put the editor into a scope this org doesn't have.
-    const target = facilities.find((f) => f.id === nextFacility) ?? null;
-    const departmentValid =
-      !!target &&
-      target.departments.length > 0 &&
-      (nextDepartment === NO_DEPARTMENT ||
-        target.departments.some((d) => d.id === nextDepartment));
-
-    setFacilityId(target?.id ?? facilities[0]?.id ?? null);
-    setDepartmentId(departmentValid ? nextDepartment : null);
-    setScheduleGroupId(
-      target?.scheduleGroups.some((g) => g.id === nextSchedule) ? nextSchedule : null
-    );
-    setTab(isWorkspaceTab(nextTab) ? nextTab : "schedule");
-  }, [urlScope, facilities]);
+    if (urlState === appliedStateRef.current) return;
+    appliedStateRef.current = urlState;
+    const [, nextWeek] = urlState.split("|");
+    setWeekParam(nextWeek || null);
+  }, [urlState]);
 
   useEffect(() => {
     const url = new URL(window.location.href);
-    for (const [key, value] of [
-      ["facility", facilityId],
-      ["department", departmentId],
-      ["schedule", scheduleGroupId],
-      // Schedule is the default, so it stays out of the URL.
-      ["tab", tab === "schedule" ? null : tab],
-    ] as const) {
-      if (value) url.searchParams.set(key, value);
-      else url.searchParams.delete(key);
-    }
+    if (weekParam) url.searchParams.set("week", weekParam);
+    else url.searchParams.delete("week");
     window.history.replaceState(null, "", url.toString());
-    appliedScopeRef.current = [
-      facilityId,
-      departmentId,
-      scheduleGroupId,
-      tab === "schedule" ? null : tab,
-    ].join("|");
-  }, [facilityId, departmentId, scheduleGroupId, tab]);
+    appliedStateRef.current = [scheduleParam, weekParam].join("|");
+  }, [weekParam, scheduleParam]);
 
   // Which view is actually on screen has to be settled before the fetch, not
   // after it: a `view` that silently fell back (floorplan without a published
@@ -217,65 +169,29 @@ export default function ScheduleCommandCentre({
   );
   const activeView = availableViews.includes(view) ? view : availableViews[0];
 
-  // Narrowest scope wins. "No department" has no id to filter on server-side,
-  // so it fetches the facility and drops the departmented sessions here.
-  const isUndepartmented = departmentId === NO_DEPARTMENT;
-  const { data: fetched, isLoading, isError } = useTemplateSchedule({
+  // A continuous schedule is always-open hours rather than placed sessions,
+  // so there is nothing to build into it, and no week editor makes sense.
+  const isContinuous = scheduleGroup?.scheduleType === "continuous";
+  const canCreate = !!scheduleGroup && !isContinuous;
+  const inWeekEditor = !!scheduleGroup && !isContinuous && !!weekParam;
+
+  // Only the week editor fetches a week's sessions — the list above it does
+  // its own lighter, per-window fetch (WeekListPanel).
+  const { data: sessions, isLoading, isError } = useTemplateSchedule({
     template: activeView,
-    facilityId: facilityId ?? undefined,
-    departmentId: isUndepartmented ? undefined : (departmentId ?? undefined),
-    scheduleGroupId: scheduleGroupId ?? undefined,
-    weekStart,
+    facilityId: inWeekEditor ? (facility?.id ?? undefined) : undefined,
+    scheduleGroupId: inWeekEditor ? (scheduleGroup?.id ?? undefined) : undefined,
+    weekStart: editorWeekStart,
     month,
   });
-
-  const sessions = useMemo(
-    () =>
-      isUndepartmented && !scheduleGroupId
-        ? (fetched ?? []).filter((s) => s.departmentId === null)
-        : fetched,
-    [fetched, isUndepartmented, scheduleGroupId]
-  );
 
   function refresh() {
     queryClient.invalidateQueries({ queryKey: [SCHEDULE_RANGE_KEY] });
   }
 
-  function handleFacilitySelect(nextFacilityId: string) {
-    setFacilityId(nextFacilityId);
-    // Departments and schedules each belong to exactly one facility, so
-    // neither pick can survive the switch.
-    setDepartmentId(null);
-    setScheduleGroupId(null);
+  function handleSelectWeek(nextWeekStart: Date) {
+    setWeekParam(localDateString(nextWeekStart));
   }
-
-  function handleDepartmentSelect(nextDepartmentId: string | null) {
-    setDepartmentId(nextDepartmentId);
-    // Keep the schedule only if it still lives under the new filter,
-    // rather than silently editing something the tiers no longer show.
-    const stillVisible =
-      nextDepartmentId === null ||
-      (nextDepartmentId === NO_DEPARTMENT
-        ? !scheduleGroup?.departmentId
-        : scheduleGroup?.departmentId === nextDepartmentId);
-    if (!stillVisible) setScheduleGroupId(null);
-  }
-
-  function handleScheduleSelect(nextScheduleGroupId: string | null) {
-    setScheduleGroupId(nextScheduleGroupId);
-    // Move the department tier to wherever the schedule actually lives, so
-    // the chips always read as a true path to it. Skipped where the facility
-    // has no departments and the tier isn't rendered at all.
-    const next = facility?.scheduleGroups.find((g) => g.id === nextScheduleGroupId);
-    if (next && facility && facility.departments.length > 0) {
-      setDepartmentId(next.departmentId ?? NO_DEPARTMENT);
-    }
-  }
-
-  // A continuous schedule is always-open hours rather than placed sessions,
-  // so there is nothing to build into it from here.
-  const isContinuous = scheduleGroup?.scheduleType === "continuous";
-  const canCreate = !!scheduleGroup && !isContinuous;
 
   const handleAddSession = useCallback((target: AddSessionTarget) => {
     setCreateError(null);
@@ -536,7 +452,7 @@ export default function ScheduleCommandCentre({
   function handleTemplateClick(template: EditorTemplate) {
     // Views without a time axis have no drop position, so a clicked
     // template opens the dialog on the day already in focus.
-    const today = DAYS[new Date().getDay() === 0 ? 6 : new Date().getDay() - 1];
+    const today = DAYS[new Date().getDay()];
     handleAddSession({ dayCode: today.code, dayLabel: today.label, template });
   }
 
@@ -547,195 +463,124 @@ export default function ScheduleCommandCentre({
   // to drag until the scope narrows to one schedule with templates in it.
   const dragEnabled = activeView === "map" && canCreate && editing.templates.length > 0;
 
-  // The header names the narrowest scope in view, so the panel always says
-  // what it's actually showing.
-  const departmentLabel =
-    departmentId === NO_DEPARTMENT
-      ? "No department"
-      : (facility?.departments.find((d) => d.id === departmentId)?.name ?? null);
-  const headerTitle =
-    scheduleGroup?.name ?? departmentLabel ?? facility?.name ?? "Schedule";
-
-  // NO_DEPARTMENT is a filter, not a row — anything that needs a real
-  // department id (widget config, space creation) has to reject it.
-  const realDepartmentId =
-    departmentId && departmentId !== NO_DEPARTMENT ? departmentId : null;
-
-  // "Settings" always edits the narrowest real thing in scope, so one
-  // control covers what used to be three pages' worth of edit buttons.
-  const scopeSettingsHref = scheduleGroup
-    ? scheduleGroup.settingsHref
-    : realDepartmentId && facility
-      ? `/dashboard/facilities/${facility.id}/departments/${realDepartmentId}/edit`
-      : facility
-        ? `/dashboard/facilities/${facility.id}/edit`
-        : null;
-  const scopeSettingsLabel = scheduleGroup
-    ? scheduleGroup.name
-    : (departmentLabel ?? facility?.name ?? "");
-
   return (
     <OrgThemeProvider primaryColor={orgPrimaryColor} className="space-y-5">
-      <FacilityBoxes
-        facilities={facilities}
-        selectedFacilityId={facilityId}
-        onSelect={handleFacilitySelect}
-      />
-
-      {facility && (
-        <ScopePicker
-          facility={facility}
-          departmentId={departmentId}
-          selectedSchedule={scheduleGroup}
-          visibleSchedules={visibleSchedules}
-          onDepartmentChange={handleDepartmentSelect}
-          onScheduleChange={handleScheduleSelect}
-          settingsHref={scopeSettingsHref}
-          settingsLabel={scopeSettingsLabel}
-        />
-      )}
-
-      {facility && (
-        <WorkspaceTabs
-          tab={tab}
-          onChange={setTab}
-          scopeLabel={departmentLabel ?? facility.name}
-          facilityName={facility.name}
-        />
-      )}
-
-      {facility && tab === "spaces" && (
-        <SpacesPanel
-          facility={facility}
-          departmentId={departmentId}
-          departmentLabel={departmentLabel}
-        />
-      )}
-
-      {facility && tab === "map" && (
-        <div className="space-y-3">
-          <p className="text-sm text-gray-500">
-            The floorplan visitors see for {facility.name}. Drawn per building, so it ignores the
-            department filter above.
-          </p>
-          {/* Keyed on the facility so switching buildings rebuilds the editor
-              rather than leaving the previous building's shapes on canvas. */}
-          <MapEditorClient
-            key={facility.id}
-            facilityId={facility.id}
-            spaces={facility.spaces.map((s) => ({ id: s.id, name: s.name }))}
-          />
-        </div>
-      )}
-
-      {facility && tab === "widget" && (
-        <WidgetConfigurator
-          key={`${facility.id}:${realDepartmentId ?? ""}`}
-          orgId={orgId}
-          facilities={facilities.map((f) => ({ id: f.id, name: f.name }))}
-          lockedFacilityId={facility.id}
-          lockedDepartmentId={realDepartmentId ?? undefined}
-        />
-      )}
-
-      {/* Hidden rather than unmounted: flipping to Spaces to add Lane 7 and
-          back must not lose the week you were on, the layout you were in, or
-          refetch the schedule. The other tabs unmount freely — they hold no
-          state worth preserving. */}
-      <div className={tab === "schedule" ? undefined : "hidden"}>
-      <ScheduleDndProvider editing={dragEnabled ? editing : null}>
-      <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
-        <div className="order-2 lg:order-1 space-y-3">
-          <TemplateRail
-            templates={editing.templates}
-            manageTemplatesHref={scheduleGroup?.manageTemplatesHref ?? null}
-            draggable={dragEnabled}
-            onTemplateClick={canCreate && !dragEnabled ? handleTemplateClick : undefined}
-          />
-
-          {!scheduleGroup && facility && (
-            <p className="text-xs text-gray-500 px-1">
-              {departmentLabel ?? facility.name} has {visibleSchedules.length}{" "}
-              {visibleSchedules.length === 1 ? "schedule" : "schedules"}, all shown together.{" "}
-              {visibleSchedules.length > 0 &&
-                `Pick ${visibleSchedules.length === 1 ? "it" : "one"} above to start placing sessions.`}
+      <>
+        {!scheduleGroup ? (
+          <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
+            <p className="text-sm text-gray-500">
+              Pick a schedule from the sidebar to see its weeks.
             </p>
-          )}
-
-          {isContinuous && (
-            <p className="text-xs text-gray-500 px-1">
-              This schedule is set up as always-open, so it has no placed sessions. Change its hours
-              from <Link href={scheduleGroup.settingsHref} className="text-blue-600 hover:text-blue-700">its settings</Link>.
-            </p>
-          )}
-        </div>
-
-        <div className="order-1 lg:order-2 rounded-xl border border-gray-200 overflow-hidden bg-white">
-          <ScheduleHeaderBar
-            title={headerTitle}
-            view={activeView}
-            onChange={setView}
-            allowedViews={availableViews}
-          />
-
-          {viewIsOffInWidget && (
-            <p className="flex items-center gap-2 px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
-              <Info className="w-3.5 h-3.5 shrink-0" />
-              <span className="flex-1">
-                Visitors can&rsquo;t switch to this layout — it&rsquo;s off for your widget.
-              </span>
-              <Link
-                href="/dashboard/widget"
-                className="font-medium underline underline-offset-2 shrink-0 inline-flex items-center gap-1"
-              >
-                Turn on <ExternalLink className="w-3 h-3" />
-              </Link>
-            </p>
-          )}
-
-          <div className="p-3 sm:p-4">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-16 text-sm text-gray-400">
-                Loading schedule…
-              </div>
-            ) : isError ? (
-              <div className="flex items-center justify-center py-16 text-sm text-red-500">
-                Could not load this schedule. Please refresh.
-              </div>
-            ) : (
-              <ScheduleEditingProvider value={editing}>
-                <ScheduleView
-                  template={activeView}
-                  sessions={sessions ?? []}
-                  weekStart={weekStart}
-                  onWeekChange={setWeekStart}
-                  month={month}
-                  onMonthChange={setMonth}
-                  facilityId={facilityId ?? undefined}
-                />
-              </ScheduleEditingProvider>
-            )}
           </div>
-
-          {canCreate && (
-            <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+        ) : isContinuous ? (
+          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
+            <p className="text-sm text-gray-500">
+              {scheduleGroup.name} is set up as always-open, so it has no placed sessions. Change
+              its hours from{" "}
+              <Link href={scheduleGroup.settingsHref} className="text-blue-600 hover:text-blue-700">
+                its settings
+              </Link>
+              .
+            </p>
+          </div>
+        ) : !weekParam ? (
+          <WeekListPanel
+            scheduleGroup={scheduleGroup}
+            facilityId={facility!.id}
+            onSelectWeek={handleSelectWeek}
+          />
+        ) : (
+          <ScheduleDndProvider editing={dragEnabled ? editing : null}>
+            <div className="space-y-3">
               <button
                 type="button"
-                onClick={() =>
-                  handleAddSession({ dayCode: DAYS[0].code, dayLabel: DAYS[0].label })
-                }
-                disabled={editing.templates.length === 0}
-                className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                onClick={() => setWeekParam(null)}
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
               >
-                <CalendarPlus className="w-4 h-4" />
-                Add a session to {scheduleGroup.name}
+                <ArrowLeft className="w-3.5 h-3.5" />
+                All weeks
               </button>
+
+              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
+                <div className="order-2 lg:order-1 space-y-3">
+                  <TemplateRail
+                    templates={editing.templates}
+                    manageTemplatesHref={scheduleGroup.manageTemplatesHref}
+                    draggable={dragEnabled}
+                    onTemplateClick={canCreate && !dragEnabled ? handleTemplateClick : undefined}
+                  />
+                </div>
+
+                <div className="order-1 lg:order-2 rounded-xl border border-gray-200 overflow-hidden bg-white">
+                  <WeekReviewBar scheduleGroupId={scheduleGroup.id} weekStart={editorWeekStart} />
+
+                  <ScheduleHeaderBar
+                    title={scheduleGroup.name}
+                    view={activeView}
+                    onChange={setView}
+                    allowedViews={availableViews}
+                  />
+
+                  {viewIsOffInWidget && (
+                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
+                      <Info className="w-3.5 h-3.5 shrink-0" />
+                      <span className="flex-1">
+                        Visitors can&rsquo;t switch to this layout — it&rsquo;s off for your widget.
+                      </span>
+                      <Link
+                        href="/dashboard/widget"
+                        className="font-medium underline underline-offset-2 shrink-0 inline-flex items-center gap-1"
+                      >
+                        Turn on <ExternalLink className="w-3 h-3" />
+                      </Link>
+                    </p>
+                  )}
+
+                  <div className="p-3 sm:p-4">
+                    {isLoading ? (
+                      <div className="flex items-center justify-center py-16 text-sm text-gray-400">
+                        Loading schedule…
+                      </div>
+                    ) : isError ? (
+                      <div className="flex items-center justify-center py-16 text-sm text-red-500">
+                        Could not load this schedule. Please refresh.
+                      </div>
+                    ) : (
+                      <ScheduleEditingProvider value={editing}>
+                        <ScheduleView
+                          template={activeView}
+                          sessions={sessions ?? []}
+                          weekStart={editorWeekStart}
+                          onWeekChange={handleSelectWeek}
+                          month={month}
+                          onMonthChange={setMonth}
+                          facilityId={facility?.id}
+                        />
+                      </ScheduleEditingProvider>
+                    )}
+                  </div>
+
+                  {canCreate && (
+                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                      <button
+                        type="button"
+                        onClick={() =>
+                          handleAddSession({ dayCode: DAYS[0].code, dayLabel: DAYS[0].label })
+                        }
+                        disabled={editing.templates.length === 0}
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                      >
+                        <CalendarPlus className="w-4 h-4" />
+                        Add a session to {scheduleGroup.name}
+                      </button>
+                    </div>
+                  )}
+                </div>
+              </div>
             </div>
-          )}
-        </div>
-      </div>
-      </ScheduleDndProvider>
-      </div>
+          </ScheduleDndProvider>
+        )}
+      </>
 
       <CreateSessionDialog
         target={createTarget}

@@ -81,6 +81,20 @@ export function minutesOfDayIn(date: Date): number {
   return date.getUTCHours() * 60 + date.getUTCMinutes();
 }
 
+/**
+ * The Sunday (midnight, in the same UTC-slot convention session occurrence
+ * Dates use) that a session occurrence falls in — read via UTC getters, like
+ * `zonedDayOfWeek`, so it buckets by the weekday the session actually runs on
+ * rather than the reader's runtime-local day. Use for grouping occurrences by
+ * week (e.g. counting sessions per week in a week list); use `getWeekStart`
+ * instead for viewer-owned dates (a week navigator's anchor, "today").
+ */
+export function sessionWeekStart(date: Date): Date {
+  const start = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  start.setUTCDate(start.getUTCDate() - start.getUTCDay());
+  return start;
+}
+
 export function formatDate(date: Date): string {
   return format(date, "MMM d, yyyy");
 }
@@ -94,11 +108,11 @@ export function formatDayFull(date: Date): string {
 }
 
 export function getWeekStart(date: Date): Date {
-  return startOfWeek(date, { weekStartsOn: 1 }); // Monday
+  return startOfWeek(date, { weekStartsOn: 0 }); // Sunday
 }
 
 export function getWeekEnd(date: Date): Date {
-  return endOfWeek(date, { weekStartsOn: 1 }); // Sunday
+  return endOfWeek(date, { weekStartsOn: 0 }); // Saturday
 }
 
 export function nextWeek(date: Date): Date {
@@ -127,11 +141,11 @@ export function prevMonth(date: Date): Date {
 
 /**
  * The range a month *grid* actually displays: the calendar cells run from the
- * Monday on or before the 1st to the Sunday on or after the last day, so a
+ * Sunday on or before the 1st to the Saturday on or after the last day, so a
  * grid fetching only `getMonthStart`–`getMonthEnd` renders its leading and
  * trailing cells empty even when sessions exist on those days.
  *
- * Weeks start Monday here, matching getWeekStart and the weekly grid.
+ * Weeks start Sunday here, matching getWeekStart and the weekly grid.
  */
 export function getMonthGridRange(date: Date): { start: Date; end: Date } {
   return {
@@ -157,6 +171,11 @@ export function parseDate(iso: string): Date {
  */
 export function localDateString(date: Date = new Date()): string {
   return format(date, "yyyy-MM-dd");
+}
+
+/** ISO instant N days before now — for `.gte("occurred_at", ...)`-style query windows. */
+export function daysAgoIso(days: number, from: Date = new Date()): string {
+  return new Date(from.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
 /**
