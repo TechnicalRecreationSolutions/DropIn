@@ -4,6 +4,8 @@ import { createClient } from "@/lib/supabase/server";
 import { expandSessions, type SessionWithRelations } from "@/lib/rrule/expand";
 import { getWeekStart, getWeekEnd, toSessionTime, sessionWeekStart } from "@/lib/utils/dates";
 import type { ExpandedSession } from "@/types/schedule.types";
+import type { User } from "@supabase/supabase-js";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -87,6 +89,21 @@ export async function GET(request: Request) {
     );
   }
 
+  const supabase = await createClient();
+
+  // No auth requirement on this endpoint at all — unlike every other costly
+  // route in the app, so it needs its own rate limit rather than inheriting
+  // safety from an auth check. Keyed on user id when signed in (so one
+  // abusive account can't throttle everyone behind its office NAT); IP
+  // otherwise, which is the only identity a public widget/facility visitor has.
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  const rateLimitKey = user?.id ?? (await getClientIp());
+  if (!(await checkRateLimit("sessionsExpand", rateLimitKey))) {
+    return rateLimitResponse("sessionsExpand");
+  }
+
   // An explicit rangeStart is taken literally — both it and weekStart, when
   // supplied, are already in the session-Date convention (see useScheduleRange,
   // the only internal caller). Without either we fall back to the enclosing
@@ -127,8 +144,6 @@ export async function GET(request: Request) {
     );
   }
 
-  const supabase = await createClient();
-
   // Build sessions query with schedule group + facility + department join
   let query = supabase
     .from("sessions")
@@ -166,7 +181,7 @@ export async function GET(request: Request) {
   }
 
   if (!sessions || sessions.length === 0) {
-    return NextResponse.json({ data: [] });
+    return withCacheHeaders(NextResponse.json({ data: [] }), !user);
   }
 
   // Fetch exceptions for all sessions in the range
@@ -193,17 +208,43 @@ export async function GET(request: Request) {
     scheduleGroupId,
   });
 
-  const visible = await filterUnapprovedPublicWeeks(supabase, expanded);
+  const visible = await filterUnapprovedPublicWeeks(supabase, expanded, user);
 
-  return NextResponse.json({
-    data: visible.map((s) => ({
-      ...s,
-      start: s.start.toISOString(),
-      end: s.end.toISOString(),
-    })),
-    rangeStart: rangeStart.toISOString(),
-    rangeEnd: rangeEnd.toISOString(),
-  });
+  return withCacheHeaders(
+    NextResponse.json({
+      data: visible.map((s) => ({
+        ...s,
+        start: s.start.toISOString(),
+        end: s.end.toISOString(),
+      })),
+      rangeStart: rangeStart.toISOString(),
+      rangeEnd: rangeEnd.toISOString(),
+    }),
+    !user
+  );
+}
+
+/**
+ * Caching is safe only for the anonymous response. `filterUnapprovedPublicWeeks`
+ * already collapses every anonymous caller down to the same publicly-visible
+ * data for a given query string — but an authenticated org member sees their
+ * own org's unapproved weeks too, and that response must never end up in a
+ * shared cache where a later anonymous request for the identical URL could be
+ * served someone else's staff-only view.
+ *
+ * 30s is imperceptible for a schedule (nothing here needs sub-minute
+ * freshness) but cuts both DB load and the blast radius of a request flood by
+ * orders of magnitude — this is the endpoint every widget/public schedule
+ * load hits, and it has no auth requirement to fall back on.
+ */
+function withCacheHeaders(response: NextResponse, isPublic: boolean): NextResponse {
+  response.headers.set(
+    "Cache-Control",
+    isPublic
+      ? "public, max-age=30, s-maxage=30, stale-while-revalidate=60"
+      : "private, no-store"
+  );
+  return response;
 }
 
 /**
@@ -219,15 +260,12 @@ export async function GET(request: Request) {
  */
 async function filterUnapprovedPublicWeeks(
   supabase: Awaited<ReturnType<typeof createClient>>,
-  expanded: ExpandedSession[]
+  expanded: ExpandedSession[],
+  user: User | null
 ): Promise<ExpandedSession[]> {
   if (expanded.length === 0) return expanded;
 
   const distinctOrgIds = [...new Set(expanded.map((s) => s.orgId))];
-
-  const {
-    data: { user },
-  } = await supabase.auth.getUser();
 
   let isSuperadmin = false;
   let callerOrgIds: string[] = [];

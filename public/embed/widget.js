@@ -1,9 +1,21 @@
 (function () {
   "use strict";
 
-  var BASE_URL = "https://dropin.app";
+  // Derived from the loading <script> tag's own `src` rather than hardcoded,
+  // so this file works unmodified on prod, a future custom domain, or a local
+  // test server — `script.src` is already the absolute URL the browser
+  // resolved and fetched this file from, for either the tags found below or
+  // one handed in via the `dropin:init` event.
+  function resolveBaseUrl(script) {
+    try {
+      return new URL(script.src, window.location.href).origin;
+    } catch (_) {
+      return "https://dropin.app";
+    }
+  }
 
   function init(script) {
+    var BASE_URL = resolveBaseUrl(script);
     var orgId = script.getAttribute("data-org-id");
     var facilityId = script.getAttribute("data-facility-id") || "";
     var theme = script.getAttribute("data-theme") || "light";

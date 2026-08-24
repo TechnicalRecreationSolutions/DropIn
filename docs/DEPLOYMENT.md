@@ -200,6 +200,13 @@ Load each of these and check the browser console is free of
 - A facility page, and an org page with its event calendar.
 - The embedded widget, **framed on a different origin** — not just opened
   directly. Framing is the whole point of `frame-ancestors *` on `/widget`.
+  Still outstanding as of this writing. Until recently this test would have
+  exercised a mismatched path anyway: `public/embed/widget.js` hardcoded
+  `BASE_URL = "https://dropin.app"` independently of the `NEXT_PUBLIC_APP_URL`
+  the dashboard's snippet generator used, so a script tag copied from
+  `/dashboard/widget` pointed its `<script src>` at the real deployment but
+  its *iframe* at `dropin.app` regardless. Fixed — the script now derives its
+  origin from its own `src` at runtime, so the two can no longer disagree.
 - `/dashboard/widget` — the preview pane. See the trap below.
 
 **Known trap:** `frame-src 'self'` assumes `NEXT_PUBLIC_APP_URL` matches the

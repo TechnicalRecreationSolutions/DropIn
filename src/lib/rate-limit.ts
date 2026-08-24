@@ -29,6 +29,13 @@ export const RATE_LIMITS = {
   onboardOrg: { limit: 5, windowSeconds: 600 },
   /** Public, called once per widget load. Generous, but bounded. */
   analytics: { limit: 60, windowSeconds: 60 },
+  /** Every schedule surface (widget, public facility page, dashboard command
+   *  centre) calls this on load and again on every week/month/template
+   *  switch, so legitimate use can fire several calls in quick succession.
+   *  Generous, but still caps a scripted flood — each call is a multi-table
+   *  join plus RRULE expansion, and unlike the routes above this one has no
+   *  auth requirement at all. */
+  sessionsExpand: { limit: 180, windowSeconds: 60 },
   /** Creates Stripe customers and checkout sessions — a paid API. */
   checkout: { limit: 10, windowSeconds: 300 },
   /** Parses a 10 MB spreadsheet in memory. CPU-bound. */
