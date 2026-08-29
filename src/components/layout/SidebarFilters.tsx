@@ -85,39 +85,25 @@ export default function SidebarFilters({
         ))}
       </FilterSelect>
 
-      <div className="flex items-center gap-1.5">
-        <div className="flex-1 min-w-0">
-          <FilterSelect
-            icon={Layers}
-            value={hasDepartments ? (selection.departmentId ?? ALL) : ALL}
-            placeholder="No departments"
-            disabled={!hasDepartments}
-            onValueChange={(value) =>
-              onChange({ ...selection, departmentId: value === ALL ? null : value, scheduleGroupId: null })
-            }
-          >
-            <SelectItem value={ALL}>All departments</SelectItem>
-            {departments.map((d) => (
-              <SelectItem key={d.id} value={d.id}>
-                {d.name}
-              </SelectItem>
-            ))}
-            {scheduleGroups.some((g) => !g.department_id) && (
-              <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
-            )}
-          </FilterSelect>
-        </div>
-        {/* The only entry point left for adding a department now that the
-            schedule page's chip-row pickers (which used to offer "+ New
-            department") are gone. */}
-        <Link
-          href="/dashboard/departments/new"
-          title="Add a department"
-          className="shrink-0 inline-flex items-center justify-center size-8 rounded-lg text-sidebar-foreground/50 hover:text-sidebar-foreground hover:bg-sidebar-accent transition-colors"
-        >
-          <Plus className="size-3.5" />
-        </Link>
-      </div>
+      <FilterSelect
+        icon={Layers}
+        value={hasDepartments ? (selection.departmentId ?? ALL) : ALL}
+        placeholder="No departments"
+        disabled={!hasDepartments}
+        onValueChange={(value) =>
+          onChange({ ...selection, departmentId: value === ALL ? null : value, scheduleGroupId: null })
+        }
+      >
+        <SelectItem value={ALL}>All departments</SelectItem>
+        {departments.map((d) => (
+          <SelectItem key={d.id} value={d.id}>
+            {d.name}
+          </SelectItem>
+        ))}
+        {scheduleGroups.some((g) => !g.department_id) && (
+          <SelectItem value={NO_DEPARTMENT}>No department</SelectItem>
+        )}
+      </FilterSelect>
 
       <FilterSelect
         icon={CalendarDays}

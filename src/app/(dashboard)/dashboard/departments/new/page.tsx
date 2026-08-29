@@ -3,6 +3,7 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import DepartmentForm from "@/components/department/DepartmentForm";
+import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 
 export default async function NewDepartmentPage() {
   const orgContext = await getOrgContext();
@@ -19,7 +20,7 @@ export default async function NewDepartmentPage() {
     <div className="max-w-2xl mx-auto">
       <Breadcrumb
         items={[
-          { label: "Facilities", href: "/dashboard/facilities" },
+          { label: "Departments", href: departmentsHref() },
           { label: "New department" },
         ]}
       />

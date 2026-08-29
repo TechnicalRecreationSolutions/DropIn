@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { useQueryClient } from "@tanstack/react-query";
 
 interface FacilityOption {
@@ -21,7 +21,7 @@ interface DepartmentFormProps {
     description?: string;
     is_published?: boolean;
   };
-  /** Where to send staff after a successful save. Defaults to the created department's facility page. */
+  /** Where to send staff after a successful save. Defaults to the Departments page for the created department's facility. */
   redirectTo?: string;
 }
 
@@ -88,7 +88,7 @@ export default function DepartmentForm({
     }
 
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
-    router.push(redirectTo ?? commandCentreHref({ facilityId }));
+    router.push(redirectTo ?? departmentsHref(facilityId));
     router.refresh();
   }
 

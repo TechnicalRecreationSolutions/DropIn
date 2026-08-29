@@ -2,10 +2,12 @@
 
 import {
   LayoutDashboard,
+  Building2,
   CalendarDays,
   Clock,
   MonitorSmartphone,
   DoorOpen,
+  Layers,
   Map as MapIcon,
   Database,
   Settings,
@@ -14,7 +16,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref, sessionsHref } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
 
 interface SidebarMenuProps {
@@ -52,6 +54,18 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
       exact: true,
     },
     {
+      href: "/dashboard/facilities",
+      label: "Facilities",
+      icon: Building2,
+    },
+    {
+      href: departmentsHref(selection.facilityId),
+      label: "Departments",
+      icon: Layers,
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
+    },
+    {
       href: commandCentreHref({
         facilityId: selection.facilityId,
         departmentId: selection.departmentId,
@@ -74,16 +88,16 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
       disabledReason: needsFacility,
     },
     {
-      href: "/dashboard/widget",
-      label: "Widget",
-      icon: MonitorSmartphone,
-    },
-    {
       href: spacesHref(selection.facilityId),
       label: "Spaces",
       icon: DoorOpen,
       disabled: !hasFacility,
       disabledReason: needsFacility,
+    },
+    {
+      href: "/dashboard/widget",
+      label: "Widget",
+      icon: MonitorSmartphone,
     },
     {
       href: mapHref(selection.facilityId),

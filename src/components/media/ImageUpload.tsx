@@ -100,11 +100,11 @@ export default function ImageUpload({
       <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
 
       {value ? (
-        <div className="relative inline-block">
+        <div className={cn("relative", aspect === "wide" ? "w-full max-w-xs" : "w-24")}>
           <div
             className={cn(
               "relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50",
-              aspect === "wide" ? "w-full max-w-xs aspect-video" : "w-24 h-24"
+              aspect === "wide" ? "w-full aspect-video" : "w-24 h-24"
             )}
           >
             <OrgImage src={value} alt="" sizes="320px" className="object-cover" />

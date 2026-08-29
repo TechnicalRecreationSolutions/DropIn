@@ -1,5 +1,5 @@
 import { notFound } from "next/navigation";
-import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
@@ -38,9 +38,8 @@ export default async function EditDepartmentPage({ params }: EditDepartmentPageP
     <div className="max-w-2xl mx-auto">
       <Breadcrumb
         items={[
-          { label: "Facilities", href: "/dashboard/facilities" },
-          { label: facility.name, href: commandCentreHref({ facilityId }) },
-          { label: department.name, href: `/dashboard/facilities/${facilityId}/departments/${departmentId}` },
+          { label: "Departments", href: departmentsHref(facilityId) },
+          { label: department.name },
           { label: "Edit" },
         ]}
       />
@@ -57,7 +56,7 @@ export default async function EditDepartmentPage({ params }: EditDepartmentPageP
           description: department.description ?? "",
           is_published: department.is_published,
         }}
-        redirectTo={`/dashboard/facilities/${facilityId}/departments/${departmentId}`}
+        redirectTo={departmentsHref(facilityId)}
       />
     </div>
   );

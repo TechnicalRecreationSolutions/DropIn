@@ -12,6 +12,7 @@ node scripts/verify/verify-h.mjs   # schedule list: published_at + modified trac
 node scripts/verify/verify-i.mjs   # per-week schedule review + public visibility gate (7 assertions)
 node scripts/verify/verify-j.mjs   # activity log + revert (migration 038, 21 assertions)
 node scripts/verify/verify-k.mjs   # conflict manager + dismissals (migration 039, 21 assertions)
+node scripts/verify/verify-m.mjs   # departments page + facilities edit link (32 assertions)
 ```
 
 `verify-b`/`verify-c`/`verify-d` (events calendar + featuring, storage bucket
@@ -60,12 +61,26 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 | `verify-i` | Per-week schedule review (`schedule_week_reviews`, migration 037): a pending (unreviewed) week of a published schedule is hidden from anonymous reads, `approved` makes it public, `needs_changes` hides it again, staff (org admin) sees the week regardless of review status throughout, and a plain `member` is rejected (403) from writing a review |
 | `verify-j` | Activity log (`activity_log`, migration 038): create/edit a facility logs insert/update rows with the actor's email, label and `changed_fields`; a session insert's pure `updated_at` bump to its parent `schedule_groups` row (migration 035's touch trigger) is *not* logged, while the session insert itself is; a plain `member` is rejected (403) from `revert_activity`, an org owner/admin can revert an update (value actually restored), undo a create (row deleted) and undo a delete (row restored with its original id); reverting the same entry twice is rejected; a second org's admin reads zero rows querying the table directly, proving the RLS policy rather than just the route's own filter; and deleting a whole org (cascading through a live facility, which itself fires `log_activity()` again) doesn't FK-violate against `activity_log`'s own `org_id` column — the regression that first surfaced this suite failing everything |
 | `verify-k` | Conflict manager (`findOrgConflicts()`, `session_conflict_dismissals`, migration 039): two sessions inserted directly (bypassing the write-time gate, the same way `/api/import/commit` does) show up as an active conflict via `GET /api/conflicts`, including when both belong to a *draft* schedule group; a non-overlapping same-space session is a negative control and never appears; a plain `member` (not just an admin) can dismiss and restore; reassigning one session to a free space via `POST /api/sessions` resolves the conflict for real (it disappears, not just shows dismissed); deactivating a session resolves its conflicts too; `POST /api/conflicts/dismiss` 404s if either session belongs to another org; and a second org's admin reads zero rows of the first org's dismissals querying `session_conflict_dismissals` directly, proving the RLS policy itself |
+| `verify-m` | Departments page (`/dashboard/departments`, `/api/departments`) and the Facilities list's edit link: the rendered department list shows a created department's name/description/Draft badge and the survivor department (positive control) alongside it; a plain `member` gets 403 on create/update/delete while an org1 admin succeeds; the edit page is prefilled server-side; publishing + renaming via PATCH is reflected on a re-fetch of the list; a cross-org PATCH 404s; delete removes the department while the survivor remains; a second org's admin reads zero rows of org1's departments directly, proving RLS rather than just route filtering; `/dashboard/facilities` links each card to its edit page; and a cross-org facility edit request gets the not-found body with zero facility data, not a hard 404 — see the soft-404 note below |
 
 `verify-e` also reads the deletion-impact counts back out of the **flight
 payload** of the rendered edit page, because the dialog they feed is closed on
 first render and so contributes nothing to the DOM. Its fixture uses four
 different numbers (2 departments, 1 group, 4 sessions, 3 spaces) for the reason
 in rule 1 below: four fields all reading `1` would pass even transposed.
+
+**Soft-404s under `cacheComponents` (PPR):** several dashboard edit pages
+(`/dashboard/facilities/[facilityId]/edit`, likely others with the same
+`loading.tsx`-above-`notFound()` shape) answer a cross-org or missing id with
+HTTP 200 and the not-found page's body, not a real 404 — the Suspense boundary
+above the route commits the response before `notFound()` resolves, same
+mechanism `docs/SECURITY.md`/[[feedback_soft404_cache_components]] documents
+for the public `/facility/[slug]` family. `verify-m`'s cross-org facility-edit
+check asserts the safe half of that (zero rows, no data leak) rather than a
+status code that isn't actually 404 here. Don't "fix" this by deleting the
+`loading.tsx` boundary — verified elsewhere in this repo to break
+`next build` outright, since these routes have no `generateStaticParams` and
+lose their only prerenderable shell.
 
 ## Teardown
 

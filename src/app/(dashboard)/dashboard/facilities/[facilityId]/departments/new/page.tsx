@@ -1,6 +1,6 @@
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import DepartmentForm from "@/components/department/DepartmentForm";
-import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 
 interface NewDepartmentPageProps {
   params: Promise<{ facilityId: string }>;
@@ -13,8 +13,7 @@ export default async function NewDepartmentPage({ params }: NewDepartmentPagePro
     <div className="max-w-2xl mx-auto">
       <Breadcrumb
         items={[
-          { label: "Facilities", href: "/dashboard/facilities" },
-          { label: "Facility", href: commandCentreHref({ facilityId }) },
+          { label: "Departments", href: departmentsHref(facilityId) },
           { label: "New department" },
         ]}
       />
@@ -27,7 +26,7 @@ export default async function NewDepartmentPage({ params }: NewDepartmentPagePro
 
       <DepartmentForm
         facilityId={facilityId}
-        redirectTo={commandCentreHref({ facilityId })}
+        redirectTo={departmentsHref(facilityId)}
       />
     </div>
   );

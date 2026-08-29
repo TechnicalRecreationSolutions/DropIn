@@ -40,6 +40,11 @@ export function spacesHref(facilityId?: string | null): string {
   return facilityId ? `/dashboard/spaces?facility=${facilityId}` : "/dashboard/spaces";
 }
 
+/** Link to the dedicated Departments page, optionally scoped to a facility. */
+export function departmentsHref(facilityId?: string | null): string {
+  return facilityId ? `/dashboard/departments?facility=${facilityId}` : "/dashboard/departments";
+}
+
 /** Link to the dedicated Map (floorplan editor) page, optionally scoped to a facility. */
 export function mapHref(facilityId?: string | null): string {
   return facilityId ? `/dashboard/map?facility=${facilityId}` : "/dashboard/map";
