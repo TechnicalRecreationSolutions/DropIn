@@ -4,8 +4,10 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { Eye, EyeOff, Undo2, Redo2, Smartphone, X } from "lucide-react";
 import ShapeCanvas, { type EditableShape, type EditableContextElement } from "./ShapeCanvas";
-import ShapePalette, { type ContextKind } from "./ShapePalette";
+import ShapePalette from "./ShapePalette";
+import ShapeAssignmentList from "./ShapeAssignmentList";
 import FacilityMapSvg from "./renderer/FacilityMapSvg";
+import { placementRect, type ArmedPlacement, type ContextItem } from "./placement";
 import type { ShapePreset } from "@/lib/facility-shapes/presets";
 
 interface MapEditorClientProps {
@@ -26,16 +28,13 @@ interface MapState {
 }
 
 const HISTORY_LIMIT = 50;
-/** Default context-element footprints in meters. */
-const ZONE_SIZE_M = { w: 6, h: 4 };
-const ENTRANCE_SIZE_M = { w: 3, h: 1.2 };
 
 /**
- * Facility map authoring UI — drag presets and context scenery onto the
- * canvas (rendered by the same engine visitors see), edit with
- * snap/undo/keyboard support, then publish. Follows the dashboard's
- * authoring convention: local editing state, saved via fetch() to REST
- * routes, then invalidating the relevant query keys.
+ * Facility map authoring UI — arm a preset or context item in ShapePalette,
+ * then tap the canvas (rendered by the same engine visitors see) to place
+ * it there. Placed shapes support snap/undo/keyboard editing, then publish.
+ * Follows the dashboard's authoring convention: local editing state, saved
+ * via fetch() to REST routes, then invalidating the relevant query keys.
  *
  * Spaces are created inline when a preset needs more than exist — placing
  * a 6-lane pool on a facility with no spaces just works (names "Lane 1…6"
@@ -65,6 +64,10 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   const [creatingMap, setCreatingMap] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
   const [publishPrompt, setPublishPrompt] = useState<{ unpublished: { id: string; name: string }[] } | null>(null);
+  // Which palette card is armed for tap-to-place — stays set after a
+  // placement so several of the same shape can be dropped in a row; the
+  // user cancels via the card, Escape, or picking something else.
+  const [armed, setArmed] = useState<ArmedPlacement | null>(null);
 
   // History: refs hold the machinery (mutated in handlers only); a version
   // counter re-renders the undo/redo buttons.
@@ -229,6 +232,10 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
       } else if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === "y") {
         e.preventDefault();
         redo();
+      } else if (e.key === "Escape") {
+        // Global, not just canvas-focused — armed a card by clicking it,
+        // focus can still be on that button when Escape is pressed.
+        setArmed((current) => (current ? null : current));
       }
     }
     window.addEventListener("keydown", handleKey);
@@ -323,8 +330,11 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     return data.facilityMap as FacilityMapRow;
   }
 
-  function handlePlacePreset(preset: ShapePreset, dropFraction: { x: number; y: number }) {
-    return enqueuePlacement(() => placePreset(preset, dropFraction));
+  /** Fires when the canvas is tapped while a palette card is armed. */
+  function handleCanvasPlace(dropFraction: { x: number; y: number }) {
+    if (!armed) return;
+    if (armed.kind === "preset") enqueuePlacement(() => placePreset(armed.preset, dropFraction));
+    else enqueuePlacement(() => placeContext(armed.item, dropFraction));
   }
 
   async function placePreset(preset: ShapePreset, dropFraction: { x: number; y: number }) {
@@ -338,10 +348,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
       return;
     }
 
-    const width = Math.min(0.9, preset.widthM / map.canvas_width);
-    const height = Math.min(0.9, preset.heightM / map.canvas_height);
-    const x = Math.min(1 - width, Math.max(0, dropFraction.x - width / 2));
-    const y = Math.min(1 - height, Math.max(0, dropFraction.y - height / 2));
+    const rect = placementRect(preset.widthM, preset.heightM, map.canvas_width, map.canvas_height, dropFraction);
 
     // A single-lane preset (laneCount 1) is just a group of one — same
     // shape, no groupId/laneIndex, matching every standalone shape today.
@@ -349,10 +356,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     const newShapes: EditableShape[] = Array.from({ length: preset.laneCount }, (_, i) => ({
       key: crypto.randomUUID(),
       space_id: targetSpaces[i].id,
-      x,
-      y,
-      width,
-      height,
+      ...rect,
       rotation: 0,
       label: groupId ? targetSpaces[i].name : preset.label,
       presetKey: preset.key,
@@ -363,26 +367,17 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     applyCommitted((current) => ({ ...current, shapes: [...current.shapes, ...newShapes] }));
   }
 
-  function handlePlaceContext(kind: ContextKind, dropFraction: { x: number; y: number }) {
-    return enqueuePlacement(() => placeContext(kind, dropFraction));
-  }
-
-  async function placeContext(kind: ContextKind, dropFraction: { x: number; y: number }) {
+  async function placeContext(item: ContextItem, dropFraction: { x: number; y: number }) {
     const map = await ensureFacilityMap();
     if (!map) return;
 
-    const size = kind === "entrance" ? ENTRANCE_SIZE_M : ZONE_SIZE_M;
-    const width = Math.min(0.9, size.w / map.canvas_width);
-    const height = Math.min(0.9, size.h / map.canvas_height);
+    const rect = placementRect(item.widthM, item.heightM, map.canvas_width, map.canvas_height, dropFraction);
     const next: EditableContextElement = {
       key: crypto.randomUUID(),
-      kind,
-      x: Math.min(1 - width, Math.max(0, dropFraction.x - width / 2)),
-      y: Math.min(1 - height, Math.max(0, dropFraction.y - height / 2)),
-      width,
-      height,
+      kind: item.kind,
+      ...rect,
       rotation: 0,
-      label: kind === "entrance" ? null : "Zone",
+      label: item.kind === "entrance" ? null : "Zone",
     };
     applyCommitted((current) => ({ ...current, contexts: [...current.contexts, next] }));
   }
@@ -545,8 +540,10 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   const allSpacesPlaced = spaces.length > 0 && spaces.every((s) => assignedSpaceIds.has(s.id));
 
   return (
-    <div className="space-y-4">
-      <div className="flex items-center justify-between gap-3 flex-wrap">
+    <div className="max-w-[1000px] mx-auto space-y-4">
+      {/* One toolbar strip instead of a floating caption + floating buttons —
+          reads as a single control bar for the editor below it. */}
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
         <p className="text-sm text-gray-500">
           Build a map of this facility — visitors will tap it to see what&apos;s happening where.
         </p>
@@ -599,37 +596,60 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
         </div>
       </div>
 
-      <ShapeCanvas
-        canvasWidth={canvasWidth}
-        canvasHeight={canvasHeight}
-        shapes={shapes}
-        contextElements={contexts}
-        spaces={spaces}
-        onChange={(nextShapes, nextContexts) => applyLive({ shapes: nextShapes, contexts: nextContexts })}
-        onCommit={commit}
-        onDuplicate={handleDuplicate}
-      />
+      {/* Canvas and palette side by side on wide screens: the palette is
+          what you reach for on every placement, so it's sticky next to the
+          canvas rather than trailing below it. The placed-shape settings
+          list and Save button live in the LEFT column, stacked directly
+          under the canvas — not as a full-width row below the whole grid,
+          which (when the palette column runs taller than the canvas, as it
+          usually does with 5 categories of presets) left a large dead gap
+          between the canvas and that list. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_260px] gap-4 items-start">
+        <div className="space-y-4">
+          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3">
+            <ShapeCanvas
+              canvasWidth={canvasWidth}
+              canvasHeight={canvasHeight}
+              shapes={shapes}
+              contextElements={contexts}
+              spaces={spaces}
+              onChange={(nextShapes, nextContexts) => applyLive({ shapes: nextShapes, contexts: nextContexts })}
+              onCommit={commit}
+              onDuplicate={handleDuplicate}
+              armed={armed}
+              onPlace={handleCanvasPlace}
+              onCancelArm={() => setArmed(null)}
+            />
+          </div>
 
-      <ShapePalette
-        disabled={creatingMap}
-        onPlace={handlePlacePreset}
-        onPlaceContext={handlePlaceContext}
-      />
-      {allSpacesPlaced && (
-        <p className="text-xs text-gray-400 -mt-2">
-          All existing spaces are placed — dropping another preset creates new spaces automatically.
-        </p>
-      )}
+          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
 
-      {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+          <ShapeAssignmentList
+            shapes={shapes}
+            contextElements={contexts}
+            spaces={spaces}
+            onChange={(nextShapes, nextContexts) => applyLive({ shapes: nextShapes, contexts: nextContexts })}
+            onCommit={commit}
+          />
 
-      <button
-        onClick={handleSave}
-        disabled={!dirty || saving || !facilityMap}
-        className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-      >
-        {saving ? "Saving…" : "Save map"}
-      </button>
+          <button
+            onClick={handleSave}
+            disabled={!dirty || saving || !facilityMap}
+            className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {saving ? "Saving…" : "Save map"}
+          </button>
+        </div>
+
+        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+          <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
+          {allSpacesPlaced && (
+            <p className="text-xs text-gray-400 mt-2">
+              All existing spaces are placed — placing another preset creates new spaces automatically.
+            </p>
+          )}
+        </div>
+      </div>
 
       {/* Visitor preview — the map exactly as the public floorplan renders it, at phone width. */}
       {showPreview && (

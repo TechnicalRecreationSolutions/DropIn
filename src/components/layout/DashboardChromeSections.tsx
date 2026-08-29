@@ -26,6 +26,7 @@ export async function TreeNavSection() {
     <TreeNav
       orgId={orgContext.org.id}
       orgName={orgContext.org.name}
+      orgLogoUrl={orgContext.org.logo_url}
       userEmail={user?.email ?? null}
       role={orgContext.membership.role}
     />
@@ -48,6 +49,7 @@ export async function MobileSheetSection() {
     <MobileTreeSheetContents
       orgId={orgContext.org.id}
       orgName={orgContext.org.name}
+      orgLogoUrl={orgContext.org.logo_url}
       userEmail={user?.email ?? null}
       role={orgContext.membership.role}
     />

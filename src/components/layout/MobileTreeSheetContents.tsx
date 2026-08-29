@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { MapPin } from "lucide-react";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
+import OrgImage from "@/components/media/OrgImage";
 import SidebarNav from "./SidebarNav";
 import SidebarProfile from "./SidebarProfile";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
@@ -10,6 +11,7 @@ import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 interface MobileTreeSheetContentsProps {
   orgId: string;
   orgName: string;
+  orgLogoUrl: string | null;
   userEmail: string | null;
   role: string;
 }
@@ -18,6 +20,7 @@ interface MobileTreeSheetContentsProps {
 export default function MobileTreeSheetContents({
   orgId,
   orgName,
+  orgLogoUrl,
   userEmail,
   role,
 }: MobileTreeSheetContentsProps) {
@@ -36,7 +39,14 @@ export default function MobileTreeSheetContents({
             Dropin
           </Link>
         </SheetTitle>
-        <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
+        <div className="flex items-center gap-2 min-w-0">
+          {orgLogoUrl && (
+            <span className="relative size-5 rounded shrink-0 overflow-hidden bg-sidebar-accent">
+              <OrgImage src={orgLogoUrl} alt="" sizes="20px" className="object-cover" />
+            </span>
+          )}
+          <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
+        </div>
       </SheetHeader>
 
       <SidebarNav orgId={orgId} onNavigate={close} />

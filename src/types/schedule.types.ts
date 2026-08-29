@@ -79,7 +79,7 @@ export type ExpandedSession = {
 };
 
 /** Which visual layout a schedule is rendered as. */
-export type ScheduleTemplate = "grid" | "list" | "map" | "floorplan";
+export type ScheduleTemplate = "grid" | "list" | "map" | "floorplan" | "board";
 
 /**
  * Parameters for expanding sessions across a date range.

@@ -1,76 +1,59 @@
-import { createClient } from "@/lib/supabase/server";
+import { notFound, redirect } from "next/navigation";
+import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
-import SessionForm from "@/components/schedule-editor/SessionForm";
+import { createClient } from "@/lib/supabase/server";
+import SessionTemplateForm from "@/components/session-template/SessionTemplateForm";
 
-interface NewSessionPageProps {
-  searchParams: Promise<{ scheduleGroupId?: string }>;
+interface NewSessionTemplatePageProps {
+  searchParams: Promise<{ schedule?: string }>;
 }
 
-export default async function NewSessionPage({ searchParams }: NewSessionPageProps) {
-  const { scheduleGroupId } = await searchParams;
+export default async function NewSessionTemplatePage({ searchParams }: NewSessionTemplatePageProps) {
+  const { schedule: scheduleGroupId } = await searchParams;
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
+  // A template always belongs to a schedule — without one there's nothing
+  // to attach it to, so send staff back to pick a schedule first.
+  if (!scheduleGroupId) redirect("/dashboard/sessions");
+
   const supabase = await createClient();
 
-  // Relational select — cast needed until Supabase CLI generates types with FK relations
-  const { data: allScheduleGroups } = await supabase
+  const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select(
-      "id, name, facility_id, activity_type, age_group, skill_level, max_participants, cost_notes, description, photo_urls, facilities(name)"
-    )
+    .select("id, name, facility_id, department_id")
+    .eq("id", scheduleGroupId)
     .eq("org_id", orgContext.org.id)
-    .order("name") as unknown as {
-      data: {
-        id: string; name: string; facility_id: string;
-        activity_type: "drop_in" | "registered" | "open_gym";
-        age_group: string | null; skill_level: string | null;
-        max_participants: number | null; cost_notes: string | null;
-        description: string | null; photo_urls: string[] | null;
-        facilities: { name: string } | null;
-      }[] | null
-    };
+    .single();
 
-  const scheduleGroupList = (allScheduleGroups ?? []).map((sg) => ({
-    id: sg.id,
-    name: sg.name,
-    facility_id: sg.facility_id,
-    facility_name: sg.facilities?.name ?? "Unknown facility",
-    activity_type: sg.activity_type,
-    age_group: sg.age_group,
-    skill_level: sg.skill_level,
-    max_participants: sg.max_participants,
-    cost_notes: sg.cost_notes,
-    description: sg.description,
-    photo_urls: sg.photo_urls ?? [],
-  }));
+  if (!scheduleGroup) notFound();
 
-  const scoped = scheduleGroupId
-    ? scheduleGroupList.find((sg) => sg.id === scheduleGroupId)
-    : undefined;
-
-  const { data: allSpaces } = await supabase
+  const { data: spaces } = await supabase
     .from("spaces")
-    .select("id, name, facility_id")
-    .eq("org_id", orgContext.org.id)
+    .select("id, name")
+    .eq("facility_id", scheduleGroup.facility_id)
     .order("display_order", { ascending: true });
 
+  const redirectTo = sessionsHref({
+    facilityId: scheduleGroup.facility_id,
+    departmentId: scheduleGroup.department_id ?? NO_DEPARTMENT,
+    scheduleGroupId: scheduleGroup.id,
+  });
+
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Add session</h1>
+    <div className="max-w-2xl mx-auto">
+      <div className="mb-6">
+        <h1 className="text-2xl font-bold text-gray-900">New session template</h1>
         <p className="text-gray-500 mt-1">
-          {scoped
-            ? `Define a recurring time for ${scoped.name} at ${scoped.facility_name}.`
-            : "Define a recurring schedule for one of your schedules."}
+          Define a reusable activity — its name, color, default duration, and usual space — once,
+          then reuse it when building out {scheduleGroup.name}&rsquo;s schedule.
         </p>
       </div>
-      <SessionForm
-        orgId={orgContext.org.id}
-        canEditScheduleDetails={["owner", "admin"].includes(orgContext.membership.role)}
-        scheduleGroups={scoped ? [scoped] : scheduleGroupList}
-        defaultScheduleGroupId={scoped?.id}
-        spaces={allSpaces ?? []}
+
+      <SessionTemplateForm
+        scheduleGroupId={scheduleGroup.id}
+        spaces={spaces ?? []}
+        redirectTo={redirectTo}
       />
     </div>
   );

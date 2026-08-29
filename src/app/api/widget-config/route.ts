@@ -15,13 +15,13 @@ const DEFAULT_CONFIG = {
   time_range_end: "22:00",
   program_ids: null as string[] | null,
   custom_title: null as string | null,
-  allowed_templates: ["grid", "list", "map"] as ("grid" | "list" | "map" | "floorplan")[],
+  allowed_templates: ["grid", "list", "map"] as ("grid" | "list" | "map" | "floorplan" | "board")[],
 };
 
 const UpdateConfigSchema = z.object({
   facilityId: z.string().uuid().nullish(),
   departmentId: z.string().uuid().nullish(),
-  allowedTemplates: z.array(z.enum(["grid", "list", "map", "floorplan"])).min(1).optional(),
+  allowedTemplates: z.array(z.enum(["grid", "list", "map", "floorplan", "board"])).min(1).optional(),
   primaryColor: z.string().min(1).optional(),
   secondaryColor: z.string().min(1).optional(),
   customTitle: z.string().nullable().optional(),

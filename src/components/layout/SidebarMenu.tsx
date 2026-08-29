@@ -14,7 +14,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
 
 interface SidebarMenuProps {
@@ -63,9 +63,15 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
       disabledReason: needsFacility,
     },
     {
-      href: "/dashboard/sessions",
+      href: sessionsHref({
+        facilityId: selection.facilityId,
+        departmentId: selection.departmentId,
+        scheduleGroupId: selection.scheduleGroupId,
+      }),
       label: "Sessions",
       icon: Clock,
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
     },
     {
       href: "/dashboard/widget",

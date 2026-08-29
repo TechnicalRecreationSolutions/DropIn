@@ -49,6 +49,9 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
+# supabase CLI local state
+supabase/.temp/
+
 # Seeded demo session token — never commit. Was written by
 # scripts/verify/seed-demo.mjs, removed with the seasons/events/brochure
 # track (supabase/migrations/036_remove_events_brochure_seasons.sql); kept

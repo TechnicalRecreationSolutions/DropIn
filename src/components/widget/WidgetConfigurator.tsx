@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useEffect } from "react";
 import { useQuery } from "@tanstack/react-query";
-import { Check, Copy, Code2, Eye, LayoutGrid, List, Columns3, Image as ImageIcon } from "lucide-react";
+import { Check, Copy, Code2, Eye, LayoutGrid, List, Columns3, Image as ImageIcon, Table2 } from "lucide-react";
 
 interface WidgetConfiguratorProps {
   orgId: string;
@@ -13,7 +13,7 @@ interface WidgetConfiguratorProps {
 }
 
 type Theme = "light" | "dark";
-type Template = "grid" | "list" | "map" | "floorplan";
+type Template = "grid" | "list" | "map" | "floorplan" | "board";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
 
@@ -21,6 +21,7 @@ const TEMPLATE_OPTIONS: { value: Template; label: string; icon: typeof LayoutGri
   { value: "grid", label: "Grid", icon: LayoutGrid },
   { value: "list", label: "List", icon: List },
   { value: "map", label: "Map", icon: Columns3 },
+  { value: "board", label: "Board", icon: Table2 },
   { value: "floorplan", label: "Floorplan", icon: ImageIcon },
 ];
 

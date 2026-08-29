@@ -29,6 +29,9 @@ export function useFacilityMap(facilityId: string) {
     queryKey: ["facility-map", facilityId],
     queryFn: () => fetchFacilityMap(facilityId),
     staleTime: 60_000,
+    // A staff edit (re-published map, moved hotspot) should reach a
+    // visitor's already-open floorplan without them reloading the page.
+    refetchInterval: 60_000,
     enabled: !!facilityId,
   });
 }

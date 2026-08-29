@@ -32,6 +32,10 @@ interface ScheduleListSectionProps {
   facilityName: string;
   rows: ScheduleListRow[];
   newScheduleHref: string;
+  /** Overrides the "{facility} has no schedules yet" copy — for when `rows`
+   *  arrives already narrowed by a department/schedule filter, so an empty
+   *  list means "none match the filter", not "this facility is empty". */
+  emptyMessage?: string;
 }
 
 type FilterValue = "all" | "active" | "draft";
@@ -70,6 +74,7 @@ export default function ScheduleListSection({
   facilityName,
   rows,
   newScheduleHref,
+  emptyMessage,
 }: ScheduleListSectionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -195,10 +200,10 @@ export default function ScheduleListSection({
           <CalendarX2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
           <p className="text-sm text-gray-500">
             {rows.length === 0
-              ? `${facilityName} has no schedules yet.`
+              ? (emptyMessage ?? `${facilityName} has no schedules yet.`)
               : "Nothing matches this filter."}
           </p>
-          {rows.length === 0 && (
+          {rows.length === 0 && !emptyMessage && (
             <Link
               href={newScheduleHref}
               className="inline-block mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"

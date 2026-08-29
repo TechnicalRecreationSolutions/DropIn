@@ -1,68 +1,41 @@
 "use client";
 
-import { useState } from "react";
+import { Waves, Square, Snowflake, Building2, MapPin, DoorOpen, type LucideIcon } from "lucide-react";
 import { SHAPE_PRESETS, SHAPE_PRESET_CATEGORIES, type ShapePreset } from "@/lib/facility-shapes/presets";
-import { pointToCanvasFraction } from "./ShapeCanvas";
-
-export type ContextKind = "zone" | "entrance";
-
-const CONTEXT_ITEMS: { kind: ContextKind; label: string; hint: string }[] = [
-  { kind: "zone", label: "Zone", hint: "Non-bookable area like a lobby or change rooms" },
-  { kind: "entrance", label: "Entrance", hint: "Marks where visitors come in" },
-];
+import { CONTEXT_ITEMS, armedKey, type ArmedPlacement } from "./placement";
 
 interface ShapePaletteProps {
   disabled: boolean;
-  onPlace: (preset: ShapePreset, dropFraction: { x: number; y: number }) => void;
-  onPlaceContext: (kind: ContextKind, dropFraction: { x: number; y: number }) => void;
+  armed: ArmedPlacement | null;
+  onArm: (next: ArmedPlacement | null) => void;
 }
 
+const CATEGORY_ICONS: Record<ShapePreset["category"], LucideIcon> = {
+  pool: Waves,
+  court: Square,
+  rink: Snowflake,
+  generic: Building2,
+};
+
+const CONTEXT_ICONS = {
+  zone: MapPin,
+  entrance: DoorOpen,
+} satisfies Record<(typeof CONTEXT_ITEMS)[number]["kind"], LucideIcon>;
+
 /**
- * Preset shape palette — pointer-based drag (not native HTML5 DnD) to match
- * the rest of the app's pointer-event convention and get mobile parity for
- * free. Dragging a card tracks the pointer with a small floating preview;
- * releasing over the canvas (identified via the `data-shape-canvas`
- * attribute set on ShapeCanvas's root element) places a new shape there.
- * Converting the preset's real-world size into a canvas-fraction width/
- * height happens in the caller (MapEditorClient), which is the one that
- * knows the canvas's dimensions.
+ * Preset picker — tap a card to arm it, then tap the canvas to place it
+ * there (ShapeCanvas shows a live sizing ghost while armed; Escape or
+ * tapping the armed card again cancels). Replaces an earlier
+ * press-and-drag-across-the-viewport gesture: two independent taps are far
+ * more reliable on mobile — the canvas can be a full scroll away from this
+ * palette — and this model is keyboard-reachable, which a raw pointer drag
+ * never was. Real-world dimensions are always visible, not hidden behind a
+ * hover `title` that never fires on touch. A small icon per category gives
+ * the list something to scan by shape rather than reading every label.
  */
-export default function ShapePalette({ disabled, onPlace, onPlaceContext }: ShapePaletteProps) {
-  const [dragLabel, setDragLabel] = useState<string | null>(null);
-  const [dragPos, setDragPos] = useState<{ x: number; y: number } | null>(null);
-
-  /** Shared pointer-drag: track a floating chip, then fire `place` if dropped on the canvas. */
-  function startDrag(
-    e: React.PointerEvent,
-    label: string,
-    place: (dropFraction: { x: number; y: number }) => void,
-    ignoreDisabled = false
-  ) {
-    if (disabled && !ignoreDisabled) return;
-    e.preventDefault();
-    setDragLabel(label);
-    setDragPos({ x: e.clientX, y: e.clientY });
-
-    function handleMove(moveEvent: PointerEvent) {
-      setDragPos({ x: moveEvent.clientX, y: moveEvent.clientY });
-    }
-
-    function handleUp(upEvent: PointerEvent) {
-      window.removeEventListener("pointermove", handleMove);
-      window.removeEventListener("pointerup", handleUp);
-
-      const target = document.elementFromPoint(upEvent.clientX, upEvent.clientY);
-      const canvasEl = target?.closest<HTMLElement>('[data-shape-canvas="true"]');
-      if (canvasEl) {
-        place(pointToCanvasFraction(canvasEl, upEvent.clientX, upEvent.clientY));
-      }
-
-      setDragLabel(null);
-      setDragPos(null);
-    }
-
-    window.addEventListener("pointermove", handleMove);
-    window.addEventListener("pointerup", handleUp);
+export default function ShapePalette({ disabled, armed, onArm }: ShapePaletteProps) {
+  function toggle(next: ArmedPlacement) {
+    onArm(armed && armedKey(armed) === armedKey(next) ? null : next);
   }
 
   return (
@@ -70,21 +43,24 @@ export default function ShapePalette({ disabled, onPlace, onPlaceContext }: Shap
       {SHAPE_PRESET_CATEGORIES.map((category) => {
         const presets = SHAPE_PRESETS.filter((p) => p.category === category.value);
         if (presets.length === 0) return null;
+        const Icon = CATEGORY_ICONS[category.value];
         return (
           <div key={category.value} className="mb-3">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">{category.label}</p>
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+              <Icon className="w-3.5 h-3.5" />
+              {category.label}
+            </p>
             <div className="flex flex-wrap gap-2">
               {presets.map((preset) => (
-                <button
+                <PresetCard
                   key={preset.key}
-                  type="button"
-                  onPointerDown={(e) => startDrag(e, preset.label, (f) => onPlace(preset, f))}
+                  icon={Icon}
+                  active={!!armed && armedKey(armed) === armedKey({ kind: "preset", preset })}
                   disabled={disabled}
-                  className="px-3 py-2 text-xs font-medium bg-white border border-gray-300 rounded-lg text-gray-700 hover:border-blue-400 hover:text-blue-600 transition-colors disabled:opacity-40 disabled:cursor-not-allowed touch-none"
-                  title={`${preset.widthM}m × ${preset.heightM}m`}
-                >
-                  {preset.label}
-                </button>
+                  label={preset.label}
+                  dims={`${preset.widthM}×${preset.heightM}m`}
+                  onClick={() => toggle({ kind: "preset", preset })}
+                />
               ))}
             </div>
           </div>
@@ -97,33 +73,65 @@ export default function ShapePalette({ disabled, onPlace, onPlaceContext }: Shap
         <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Context</p>
         <div className="flex flex-wrap gap-2">
           {CONTEXT_ITEMS.map((item) => (
-            <button
+            <PresetCard
               key={item.kind}
-              type="button"
-              onPointerDown={(e) => startDrag(e, item.label, (f) => onPlaceContext(item.kind, f), true)}
-              className="px-3 py-2 text-xs font-medium bg-gray-50 border border-dashed border-gray-300 rounded-lg text-gray-600 hover:border-blue-400 hover:text-blue-600 transition-colors touch-none"
-              title={item.hint}
-            >
-              {item.label}
-            </button>
+              icon={CONTEXT_ICONS[item.kind]}
+              active={!!armed && armedKey(armed) === armedKey({ kind: "context", item })}
+              disabled={false}
+              dashed
+              label={item.label}
+              dims={item.hint}
+              onClick={() => toggle({ kind: "context", item })}
+            />
           ))}
         </div>
       </div>
 
-      {dragLabel && dragPos && (
-        <div
-          className="fixed z-50 pointer-events-none px-3 py-2 text-xs font-medium bg-blue-600 text-white rounded-lg shadow-lg opacity-90"
-          style={{ left: dragPos.x + 12, top: dragPos.y + 12 }}
-        >
-          {dragLabel}
-        </div>
-      )}
-
       <p className="text-xs text-gray-400 mt-2">
         {disabled
-          ? "Every space is placed — you can still add zones and an entrance."
-          : "Press and drag an item onto the canvas above."}
+          ? "Setting up this floor plan…"
+          : armed
+            ? `Tap the map above to place a ${armed.kind === "preset" ? armed.preset.label : armed.item.label}. Tap it again or press Escape to cancel.`
+            : "Tap a shape, then tap the map above to place it."}
       </p>
     </div>
+  );
+}
+
+function PresetCard({
+  icon: Icon,
+  active,
+  disabled,
+  dashed,
+  label,
+  dims,
+  onClick,
+}: {
+  icon: LucideIcon;
+  active: boolean;
+  disabled: boolean;
+  dashed?: boolean;
+  label: string;
+  dims: string;
+  onClick: () => void;
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      disabled={disabled}
+      aria-pressed={active}
+      className={`flex flex-col items-start gap-1 px-3 py-2 rounded-lg border text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+        active
+          ? "bg-blue-600 border-blue-600 text-white"
+          : dashed
+            ? "bg-gray-50 border-dashed border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600"
+            : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
+      }`}
+    >
+      <Icon className={`w-4 h-4 ${active ? "text-white" : "text-gray-400"}`} />
+      <span className="text-xs font-medium">{label}</span>
+      <span className={`text-[10px] ${active ? "text-blue-100" : "text-gray-400"}`}>{dims}</span>
+    </button>
   );
 }

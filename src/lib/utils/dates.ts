@@ -178,6 +178,14 @@ export function daysAgoIso(days: number, from: Date = new Date()): string {
   return new Date(from.getTime() - days * 24 * 60 * 60 * 1000).toISOString();
 }
 
+/** A millisecond duration as "45s" or "3m 12s" — for widget/facility time-on-page stats. */
+export function formatDurationShort(ms: number): string {
+  const totalSeconds = Math.round(ms / 1000);
+  const minutes = Math.floor(totalSeconds / 60);
+  const seconds = totalSeconds % 60;
+  return minutes > 0 ? `${minutes}m ${seconds}s` : `${seconds}s`;
+}
+
 /**
  * Re-encodes a real Date's **runtime-local** calendar/clock reading into the
  * convention a session Date uses: those same digits stored in the UTC slots

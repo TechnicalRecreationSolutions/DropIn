@@ -10,8 +10,11 @@ const TrackSchema = z.object({
   event: z.string().max(64),
   orgId: z.string().uuid(),
   facilityId: z.string().uuid().nullable().optional(),
+  scheduleGroupId: z.string().uuid().nullable().optional(),
   referrer: z.string().url().nullable().optional(),
   pathname: z.string().max(1024).nullable().optional(),
+  viewTemplate: z.enum(["grid", "list", "map", "floorplan", "board"]).nullable().optional(),
+  durationMs: z.number().int().min(0).max(24 * 60 * 60 * 1000).nullable().optional(),
 });
 
 /**
@@ -50,7 +53,7 @@ export async function POST(request: Request) {
 
   // pathname is accepted for forward-compatibility with the embed script but
   // analytics_events has no column for it yet — not stored.
-  const { event, orgId, facilityId, referrer } = parsed.data;
+  const { event, orgId, facilityId, scheduleGroupId, referrer, viewTemplate, durationMs } = parsed.data;
 
   // Hash IP with a daily salt — never store raw IPs. rawIp is resolved at the
   // top of the handler, where it also keys the rate limit.
@@ -69,7 +72,14 @@ export async function POST(request: Request) {
     .digest("hex");
 
   // Validate event_type against the DB CHECK constraint values
-  const allowedEvents = ["widget_view", "program_click", "facility_view", "schedule_view"] as const;
+  const allowedEvents = [
+    "widget_view",
+    "program_click",
+    "facility_view",
+    "schedule_view",
+    "view_change",
+    "session_duration",
+  ] as const;
   if (!(allowedEvents as readonly string[]).includes(event)) {
     return NextResponse.json({ error: "Unknown event type" }, { status: 400 });
   }
@@ -78,12 +88,15 @@ export async function POST(request: Request) {
     const admin = createAdminClient();
     await admin.from("analytics_events").insert({
       // Cast justified by the allowedEvents.includes() check above, which
-      // already guarantees `event` is one of the four literal values.
+      // already guarantees `event` is one of the six literal values.
       event_type: event as (typeof allowedEvents)[number],
       org_id: orgId,
       facility_id: facilityId ?? null,
+      schedule_group_id: scheduleGroupId ?? null,
       ip_hash: ipHash,
       referrer_url: referrer ?? null,
+      view_template: viewTemplate ?? null,
+      duration_ms: durationMs ?? null,
       // user_agent from request headers — stored for device-type aggregation only
       user_agent: headersList.get("user-agent")?.slice(0, 512) ?? null,
     });

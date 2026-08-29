@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTemplateSchedule } from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
+import { useScheduleAnalytics } from "@/hooks/useScheduleAnalytics";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import type { ScheduleTemplate } from "@/types/schedule.types";
@@ -29,6 +30,11 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
     weekStart,
     month,
   });
+
+  // viewEvent is null here — widget.js already fires widget_view once per
+  // embed load from the parent page; this hook only needs to report
+  // template switches and time-on-widget, not a second initial view.
+  useScheduleAnalytics({ viewEvent: null, orgId, facilityId, view });
 
   // Notify parent frame of height changes for auto-resize
   useEffect(() => {

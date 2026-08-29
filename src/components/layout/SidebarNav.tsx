@@ -3,7 +3,14 @@
 import { useMemo, useState } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { useNavTree } from "@/hooks/useNavTree";
-import { NO_DEPARTMENT, commandCentreHref, spacesHref, mapHref } from "@/lib/schedule/commandCentreHref";
+import {
+  NO_DEPARTMENT,
+  commandCentreHref,
+  scopeQueryString,
+  spacesHref,
+  mapHref,
+  sessionsHref,
+} from "@/lib/schedule/commandCentreHref";
 import SidebarFilters from "./SidebarFilters";
 import SidebarMenu from "./SidebarMenu";
 
@@ -35,11 +42,13 @@ function urlFacilityId(pathname: string, params: URLSearchParams): string | null
  */
 function scopedHrefForPath(pathname: string, selection: SidebarSelection): string | null {
   if (pathname === "/dashboard") {
-    return selection.facilityId ? `/dashboard?facility=${selection.facilityId}` : "/dashboard";
+    const query = scopeQueryString(selection);
+    return query ? `/dashboard?${query}` : "/dashboard";
   }
   if (pathname.startsWith("/dashboard/schedule")) return commandCentreHref(selection);
   if (pathname.startsWith("/dashboard/spaces")) return spacesHref(selection.facilityId);
   if (pathname.startsWith("/dashboard/map")) return mapHref(selection.facilityId);
+  if (pathname.startsWith("/dashboard/sessions")) return sessionsHref(selection);
   return null;
 }
 

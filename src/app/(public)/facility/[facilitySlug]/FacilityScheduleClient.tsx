@@ -3,11 +3,13 @@
 import { useState } from "react";
 import { useTemplateSchedule } from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
+import { useScheduleAnalytics } from "@/hooks/useScheduleAnalytics";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
 interface FacilityScheduleClientProps {
+  orgId: string;
   facilityId: string;
   allowedTemplates: ScheduleTemplate[];
 }
@@ -16,7 +18,7 @@ interface FacilityScheduleClientProps {
  * Client boundary for the public facility schedule.
  * Wraps ScheduleView with week-navigation state and TanStack Query data.
  */
-export default function FacilityScheduleClient({ facilityId, allowedTemplates }: FacilityScheduleClientProps) {
+export default function FacilityScheduleClient({ orgId, facilityId, allowedTemplates }: FacilityScheduleClientProps) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
   const { data: sessions, isLoading, isError } = useTemplateSchedule({
@@ -25,6 +27,10 @@ export default function FacilityScheduleClient({ facilityId, allowedTemplates }:
     weekStart,
     month,
   });
+
+  // This page has no embed script fronting it — it fires its own
+  // facility_view directly, unlike the widget iframe.
+  useScheduleAnalytics({ viewEvent: "facility_view", orgId, facilityId, view });
 
   return (
     <div className="bg-white">

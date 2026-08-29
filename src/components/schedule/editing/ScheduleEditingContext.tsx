@@ -101,5 +101,5 @@ export function useScheduleEditing(): ScheduleEditingApi | null {
 
 /** Where a session's full edit form lives — the one place that URL is built. */
 export function sessionEditHref(session: ExpandedSession): string {
-  return `/dashboard/sessions/${session.sessionId}/edit`;
+  return `/dashboard/schedule/sessions/${session.sessionId}/edit`;
 }

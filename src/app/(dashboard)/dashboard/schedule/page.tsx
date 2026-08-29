@@ -3,6 +3,7 @@ import Link from "next/link";
 import { Plus, Building2 } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
+import { sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
 import type { CommandFacility, CommandScheduleGroup } from "@/components/schedule-command/types";
@@ -46,7 +47,7 @@ export default function SchedulePage() {
           </p>
         </div>
         <Link
-          href="/dashboard/sessions/new"
+          href="/dashboard/schedule/sessions/new"
           className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
         >
           <Plus className="w-4 h-4" />
@@ -186,7 +187,11 @@ async function CommandCentreBody() {
           departmentName: g.departments?.name ?? null,
           templates: templatesByScheduleGroup.get(g.id) ?? [],
           settingsHref: `${base}/edit`,
-          manageTemplatesHref: `${base}/session-templates`,
+          manageTemplatesHref: sessionsHref({
+            facilityId: f.id,
+            departmentId: g.department_id ?? undefined,
+            scheduleGroupId: g.id,
+          }),
           startsOn: g.starts_on,
           endsOn: g.ends_on,
           updatedAt: g.updated_at,

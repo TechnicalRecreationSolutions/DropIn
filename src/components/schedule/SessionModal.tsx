@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useRef } from "react";
 import { X, Clock, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
@@ -19,6 +20,30 @@ interface SessionModalProps {
  */
 export default function SessionModal({ session, onClose, onDelete, isDeleting }: SessionModalProps) {
   const sport = getSportCategory(session.sportCategory);
+
+  // Fires once per open, and only for visitors — `onDelete` is only ever
+  // passed by the dashboard command centre's staff preview, and a staff
+  // member checking their own schedule isn't a "click" worth counting.
+  const trackedKey = useRef<string | null>(null);
+  useEffect(() => {
+    if (onDelete || trackedKey.current === session.key) return;
+    trackedKey.current = session.key;
+    fetch("/api/analytics/track", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        event: "program_click",
+        orgId: session.orgId,
+        facilityId: session.facilityId,
+        scheduleGroupId: session.scheduleGroupId,
+        referrer: document.referrer || null,
+        pathname: window.location.pathname,
+      }),
+      keepalive: true,
+    }).catch(() => {});
+    // Only re-fires when a different session opens in the same mounted modal.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [session.key]);
 
   return (
     <>

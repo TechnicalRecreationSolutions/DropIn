@@ -9,27 +9,23 @@ import {
   ArrowRight,
   Plus,
   CheckCircle2,
-  MonitorSmartphone,
   AlertTriangle,
   ClipboardList,
-  PieChart,
-  Users,
-  Building,
-  TrendingUp,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { DashboardPageSkeleton as DashboardOverviewSkeleton } from "@/components/layout/DashboardChromeSkeletons";
-import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
+import { NO_DEPARTMENT, commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
-import { localDateString, daysAgoIso } from "@/lib/utils/dates";
+import { localDateString, daysAgoIso, formatDurationShort } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import ScheduleListSection, {
   type ScheduleListRow,
 } from "@/components/schedule-list/ScheduleListSection";
 import { StatCard } from "@/components/dashboard/StatCard";
-import { VizPlaceholder } from "@/components/dashboard/VizPlaceholder";
+import { AnalyticsTicker, type TickerStat } from "@/components/dashboard/analytics/AnalyticsTicker";
 import { findOrgConflicts } from "@/lib/sessions/conflicts";
+import { getAnalyticsSummary } from "@/lib/analytics/queries";
 
 /**
  * Validated for instant client-side navigation: Next.js checks at build time
@@ -45,7 +41,7 @@ import { findOrgConflicts } from "@/lib/sessions/conflicts";
 export const unstable_instant = { prefetch: "static" };
 
 interface DashboardPageProps {
-  searchParams: Promise<{ facility?: string }>;
+  searchParams: Promise<{ facility?: string; department?: string; schedule?: string }>;
 }
 
 export default function DashboardPage({ searchParams }: DashboardPageProps) {
@@ -86,7 +82,11 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();
-  const { facility: facilityParam } = await searchParams;
+  const {
+    facility: facilityParam,
+    department: departmentParam,
+    schedule: scheduleParam,
+  } = await searchParams;
 
   // Ordered by name to match the sidebar tree — "the first facility" means
   // the same building in both places.
@@ -107,9 +107,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     scheduleGroupsRes,
     recentFacilitiesRes,
     recentScheduleGroupsRes,
-    allScheduleGroupsRes,
-    widgetViewsRes,
-    activityCountRes,
+    activityLogRes,
     conflictsRes,
   ] = await Promise.allSettled([
     selectedFacility
@@ -134,41 +132,22 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       .eq("org_id", orgId)
       .order("updated_at", { ascending: false })
       .limit(6),
-    // Org-wide published/total counts for the "Published" stat card — a
-    // separate lightweight query from the facility-scoped list above.
-    supabase.from("schedule_groups").select("status").eq("org_id", orgId),
-    // Widget-view count for the "Widget views" stat card. analytics_events
-    // is written by the embed on every load but nothing has read it until now.
-    supabase
-      .from("analytics_events")
-      .select("id", { count: "exact", head: true })
-      .eq("org_id", orgId)
-      .eq("event_type", "widget_view")
-      .gte("occurred_at", thirtyDaysAgo),
-    // Activity log count for the "Activity log" stat card (038_activity_log.sql).
+    // Raw rows, not a head count — the "Activity (30d)" stat card is scoped
+    // to the current facility/department/schedule filter in JS below.
+    // activity_log spans six tables (038_activity_log.sql) with no
+    // facility_id column of its own, so each row is matched against the id
+    // sets the facility/department/schedule-scoped queries below produce.
     supabase
       .from("activity_log")
-      .select("id", { count: "exact", head: true })
+      .select("table_name, row_id")
       .eq("org_id", orgId)
-      .gte("created_at", thirtyDaysAgo),
+      .gte("created_at", thirtyDaysAgo)
+      .limit(5000),
     // Conflicts stat card (039_session_conflict_dismissals.sql) — computed
-    // on demand, not from a persisted count; see findOrgConflicts().
+    // on demand, not from a persisted count; see findOrgConflicts(). Also
+    // scoped to the current filter in JS below.
     findOrgConflicts(supabase, orgId),
   ]);
-
-  const allStatuses =
-    allScheduleGroupsRes.status === "fulfilled"
-      ? ((allScheduleGroupsRes.value.data as { status: "draft" | "published" }[] | null) ?? [])
-      : [];
-  const publishedCount = allStatuses.filter((s) => s.status === "published").length;
-  const totalScheduleCount = allStatuses.length;
-
-  const widgetViews =
-    widgetViewsRes.status === "fulfilled" ? (widgetViewsRes.value.count ?? 0) : 0;
-  const activityCount =
-    activityCountRes.status === "fulfilled" ? (activityCountRes.value.count ?? 0) : 0;
-  const conflictCount =
-    conflictsRes.status === "fulfilled" ? conflictsRes.value.filter((c) => !c.dismissed).length : 0;
 
   type ScheduleGroupRow = {
     id: string;
@@ -188,25 +167,121 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       ? ((scheduleGroupsRes.value.data as unknown as ScheduleGroupRow[] | null) ?? [])
       : [];
 
-  const scheduleIds = scheduleGroupRows.map((g) => g.id);
-  const { data: sessionRows } =
-    scheduleIds.length > 0
-      ? await supabase
-          .from("sessions")
-          .select("schedule_group_id")
-          .eq("org_id", orgId)
-          .eq("is_active", true)
-          .in("schedule_group_id", scheduleIds)
-      : { data: [] as { schedule_group_id: string }[] };
+  // Narrow to the sidebar's department/schedule filters, same params
+  // commandCentreHref uses — the facility filter above already scoped the
+  // query itself.
+  const departmentFiltered = departmentParam
+    ? scheduleGroupRows.filter((g) =>
+        departmentParam === NO_DEPARTMENT
+          ? !g.department_id
+          : g.department_id === departmentParam
+      )
+    : scheduleGroupRows;
+  const visibleScheduleGroupRows = scheduleParam
+    ? departmentFiltered.filter((g) => g.id === scheduleParam)
+    : departmentFiltered;
+
+  const scheduleIds = visibleScheduleGroupRows.map((g) => g.id);
+  const departmentRowId =
+    departmentParam && departmentParam !== NO_DEPARTMENT ? departmentParam : null;
+
+  const [{ data: sessionRows }, { data: spaceRows }, { data: templateRows }, analyticsSummary] =
+    await Promise.all([
+      scheduleIds.length > 0
+        ? supabase
+            .from("sessions")
+            .select("id, schedule_group_id")
+            .eq("org_id", orgId)
+            .eq("is_active", true)
+            .in("schedule_group_id", scheduleIds)
+        : Promise.resolve({ data: [] as { id: string; schedule_group_id: string }[] }),
+      // Spaces don't belong to a single schedule — only facility/department
+      // narrow them, same as the sidebar filter itself does.
+      selectedFacility
+        ? supabase
+            .from("spaces")
+            .select("id, department_id")
+            .eq("org_id", orgId)
+            .eq("facility_id", selectedFacility.id)
+        : Promise.resolve({ data: [] as { id: string; department_id: string | null }[] }),
+      scheduleIds.length > 0
+        ? supabase.from("session_templates").select("id").in("schedule_group_id", scheduleIds)
+        : Promise.resolve({ data: [] as { id: string }[] }),
+      // Org-wide, not scoped to the facility/department/schedule filter above
+      // — the ticker is a rotating org-level pulse, same spirit as the old
+      // "Widget views" card, and links through to the full breakdown.
+      getAnalyticsSummary(supabase, orgId, 30),
+    ]);
 
   const sessionCounts = new Map<string, number>();
   for (const s of sessionRows ?? []) {
     sessionCounts.set(s.schedule_group_id, (sessionCounts.get(s.schedule_group_id) ?? 0) + 1);
   }
 
+  // Id sets the "Activity (30d)" and "Conflicts" cards below match
+  // activity_log/findOrgConflicts rows against, so both follow the exact
+  // same facility/department/schedule scope as the rest of the page.
+  const visibleScheduleIdSet = new Set(scheduleIds);
+  const visibleSessionIdSet = new Set((sessionRows ?? []).map((s) => s.id));
+  const visibleSpaceIdSet = new Set(
+    (spaceRows ?? [])
+      .filter((s) =>
+        !departmentParam
+          ? true
+          : departmentParam === NO_DEPARTMENT
+            ? !s.department_id
+            : s.department_id === departmentParam
+      )
+      .map((s) => s.id)
+  );
+  const visibleTemplateIdSet = new Set((templateRows ?? []).map((t) => t.id));
+
+  function matchesCurrentScope(row: { table_name: string; row_id: string }): boolean {
+    switch (row.table_name) {
+      case "facilities":
+        return !departmentParam && !scheduleParam && row.row_id === selectedFacility?.id;
+      case "departments":
+        return !scheduleParam && departmentRowId !== null && row.row_id === departmentRowId;
+      case "schedule_groups":
+        return visibleScheduleIdSet.has(row.row_id);
+      case "sessions":
+        return visibleSessionIdSet.has(row.row_id);
+      case "spaces":
+        return !scheduleParam && visibleSpaceIdSet.has(row.row_id);
+      case "session_templates":
+        return visibleTemplateIdSet.has(row.row_id);
+      default:
+        return false;
+    }
+  }
+
+  const publishedCount = visibleScheduleGroupRows.filter((g) => g.status === "published").length;
+  const totalScheduleCount = visibleScheduleGroupRows.length;
+  const tickerStats: TickerStat[] = [
+    { label: "Widget views (30d)", value: String(analyticsSummary.views) },
+    { label: "Clicks (30d)", value: String(analyticsSummary.clicks) },
+    {
+      label: "Avg. time on schedule",
+      value: analyticsSummary.avgDurationMs !== null ? formatDurationShort(analyticsSummary.avgDurationMs) : "—",
+    },
+  ];
+  const activityCount =
+    activityLogRes.status === "fulfilled"
+      ? (activityLogRes.value.data ?? []).filter(matchesCurrentScope).length
+      : 0;
+  const conflictCount =
+    conflictsRes.status === "fulfilled"
+      ? conflictsRes.value.filter(
+          (c) =>
+            !c.dismissed &&
+            (visibleScheduleIdSet.has(c.sessionA.scheduleGroupId) ||
+              visibleScheduleIdSet.has(c.sessionB.scheduleGroupId))
+        ).length
+      : 0;
+
   const today = localDateString();
   const scheduleListRows: ScheduleListRow[] = selectedFacility
-    ? scheduleGroupRows.map((g) => {
+    ? visibleScheduleGroupRows.map((g) => {
         const sport = getSportCategory(g.sport_category);
         return {
           id: g.id,
@@ -284,7 +359,8 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
         </p>
       </div>
 
-      {/* Org-wide stat row — all four are real. */}
+      {/* Stat row — all four are real, and scoped to the current
+          facility/department/schedule filter, same as the list below. */}
       {!isNew && (
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           <StatCard
@@ -292,7 +368,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             label="Published"
             value={`${publishedCount}/${totalScheduleCount}`}
           />
-          <StatCard icon={MonitorSmartphone} label="Widget views (30d)" value={String(widgetViews)} />
+          <AnalyticsTicker stats={tickerStats} />
           <Link href="/dashboard/conflicts" className="block rounded-xl transition-opacity hover:opacity-80">
             <StatCard icon={AlertTriangle} label="Conflicts" value={String(conflictCount)} />
           </Link>
@@ -338,6 +414,11 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           facilityName={selectedFacility.name}
           rows={scheduleListRows}
           newScheduleHref={`/dashboard/facilities/${selectedFacility.id}/schedule-groups/new`}
+          emptyMessage={
+            departmentParam || scheduleParam
+              ? "Nothing matches the selected filters."
+              : undefined
+          }
         />
       )}
 
@@ -384,37 +465,6 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             <Plus className="w-4 h-4" />
             Add a facility
           </Link>
-        </div>
-      )}
-
-      {/* Chart grid — every slot here is a placeholder. No charting library
-          is installed and none of these have an aggregation query behind
-          them yet; see docs/RESUME-layout-rework.md for what each needs. */}
-      {!isNew && (
-        <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Reporting</h2>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            <VizPlaceholder
-              icon={PieChart}
-              title="Schedule Completion Rate"
-              description="Needs a charting library + a published-vs-draft-over-time query"
-            />
-            <VizPlaceholder
-              icon={Users}
-              title="Department Performance"
-              description="Needs a charting library + a definition of “performance” for this domain"
-            />
-            <VizPlaceholder
-              icon={Building}
-              title="Facility Usage"
-              description="Needs a charting library + a per-facility analytics_events breakdown"
-            />
-            <VizPlaceholder
-              icon={TrendingUp}
-              title="Widget Traffic Trends"
-              description="Needs a charting library + a time-bucketed analytics_events query"
-            />
-          </div>
         </div>
       )}
     </div>

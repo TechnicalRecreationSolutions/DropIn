@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { useFacilityMap } from "@/hooks/useFacilityMap";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
@@ -52,33 +52,54 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   const { data, isLoading, isError } = useFacilityMap(facilityId);
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
 
+  // Ticks every 30s so a visitor who leaves the tab open doesn't get stuck
+  // looking at the live/soon status from whenever the page happened to load —
+  // without this, nothing ever re-renders the component and `now` freezes.
+  const [now, setNow] = useState(() => nowAsSessionTime());
+  useEffect(() => {
+    const id = setInterval(() => setNow(nowAsSessionTime()), 30_000);
+    return () => clearInterval(id);
+  }, []);
+
   const todaysRange = useMemo(() => {
-    const todayKey = sessionDateString(nowAsSessionTime());
+    const todayKey = sessionDateString(now);
     const todaysSessions = sessions.filter((s) => sessionDateString(s.start) === todayKey);
     if (todaysSessions.length === 0) return DEFAULT_RANGE;
 
     const starts = todaysSessions.map((s) => minutesOfDayIn(s.start));
     const ends = todaysSessions.map((s) => minutesOfDayIn(s.end));
     return { startMinutes: Math.min(...starts), endMinutes: Math.max(...ends) };
-  }, [sessions]);
+  }, [sessions, now]);
 
-  const nowMinutes = minutesOfDayIn(nowAsSessionTime());
-  const [scrubMinutes, setScrubMinutes] = useState<number>(() =>
-    Math.min(todaysRange.endMinutes, Math.max(todaysRange.startMinutes, nowMinutes))
-  );
+  const nowMinutes = minutesOfDayIn(now);
+  const clampToRange = (minutes: number) =>
+    Math.min(todaysRange.endMinutes, Math.max(todaysRange.startMinutes, minutes));
 
-  const isViewingNow = scrubMinutes === nowMinutes;
+  // null = actively following "now" (each tick moves scrubMinutes forward);
+  // a number = the visitor dragged the scrubber, pinning it to that time
+  // until they hit "Now" again. Deriving scrubMinutes instead of syncing it
+  // via an effect means the tick above needs no setState of its own.
+  const [manualMinutes, setManualMinutes] = useState<number | null>(null);
+  const scrubMinutes = manualMinutes ?? clampToRange(nowMinutes);
+  const isViewingNow = manualMinutes === null;
+
+  function handleScrub(minutes: number) {
+    setManualMinutes(minutes);
+  }
+
+  function handleJumpToNow() {
+    setManualMinutes(null);
+  }
 
   // The session-Date-convention instant at which the wall clock reads
-  // `scrubMinutes` today — today's date comes from nowAsSessionTime(), the
+  // `scrubMinutes` today — today's date comes from the ticking `now`, the
   // time-of-day is overwritten to the scrub position.
   const scrubDate = useMemo(() => {
-    const today = nowAsSessionTime();
     return new Date(Date.UTC(
-      today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate(),
+      now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate(),
       Math.floor(scrubMinutes / 60), scrubMinutes % 60
     ));
-  }, [scrubMinutes]);
+  }, [scrubMinutes, now]);
 
   const viewedTimeLabel = formatSessionTime(scrubDate);
 
@@ -264,10 +285,8 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
         valueMinutes={scrubMinutes}
         isNow={isViewingNow}
         nowMinutes={nowMinutes}
-        onChange={setScrubMinutes}
-        onJumpToNow={() =>
-          setScrubMinutes(Math.min(todaysRange.endMinutes, Math.max(todaysRange.startMinutes, nowMinutes)))
-        }
+        onChange={handleScrub}
+        onJumpToNow={handleJumpToNow}
       />
 
       {selectedHotspot && (

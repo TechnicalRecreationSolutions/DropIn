@@ -50,7 +50,7 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const { data: spaces } = await supabase
     .from("spaces")
-    .select("id, name, facility_id")
+    .select("id, name, facility_id, department_id")
     .eq("org_id", orgContext.org.id)
     .order("display_order", { ascending: true });
 
@@ -82,6 +82,7 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
           id: scheduleGroup.id,
           name: scheduleGroup.name,
           facility_id: scheduleGroup.facility_id,
+          department_id: scheduleGroup.department_id,
           facility_name: scheduleGroup.facilities?.name ?? "Unknown facility",
           activity_type: scheduleGroup.activity_type,
           age_group: scheduleGroup.age_group,

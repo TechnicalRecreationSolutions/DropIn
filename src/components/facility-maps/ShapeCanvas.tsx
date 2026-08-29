@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Trash2, RotateCw, Copy } from "lucide-react";
 import FacilityMapSvg from "./renderer/FacilityMapSvg";
 import type { RenderShape, RenderContextElement } from "./renderer/types";
+import { armedLabel, armedSizeMeters, placementRect, type ArmedPlacement } from "./placement";
 import {
   resizeFromOppositeCorner,
   angleFromCenter,
@@ -55,6 +56,12 @@ interface ShapeCanvasProps {
   onCommit: () => void;
   /** Duplicate needs a Space for the copy, which only the caller can arrange. */
   onDuplicate: (shape: EditableShape) => void;
+  /** Set while a palette item is armed — shows a live sizing ghost under the cursor. */
+  armed: ArmedPlacement | null;
+  /** Fires on a background click while armed, with the tap's canvas-fraction position. */
+  onPlace: (dropFraction: Point) => void;
+  /** Escape while armed cancels placement instead of (or in addition to) deselecting. */
+  onCancelArm: () => void;
 }
 
 interface Point {
@@ -100,6 +107,13 @@ interface EditUnit {
  * (Shift = full grid cell), Delete removes, Ctrl/Cmd+D duplicates, Escape
  * deselects. Every gesture end calls onCommit so the owner can push an
  * undo step; live drag frames go through onChange only.
+ *
+ * Placement: while `armed` is set (a palette card tapped in ShapePalette),
+ * a dashed sizing ghost follows the pointer and a background tap fires
+ * `onPlace` with that tap's canvas-fraction position — the owner does the
+ * actual placement (space provisioning etc.) and decides whether to stay
+ * armed. Escape while armed cancels via `onCancelArm` instead of
+ * deselecting.
  */
 export default function ShapeCanvas({
   canvasWidth,
@@ -110,10 +124,14 @@ export default function ShapeCanvas({
   onChange,
   onCommit,
   onDuplicate,
+  armed,
+  onPlace,
+  onCancelArm,
 }: ShapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [guides, setGuides] = useState<{ v: number | null; h: number | null }>({ v: null, h: null });
+  const [ghostAt, setGhostAt] = useState<Point | null>(null);
 
   const spaceNameById = useMemo(() => new Map(spaces.map((s) => [s.id, s.name])), [spaces]);
 
@@ -218,6 +236,29 @@ export default function ShapeCanvas({
       x: (e.clientX - rect.left) / rect.width,
       y: (e.clientY - rect.top) / rect.height,
     };
+  }
+
+  // ---- Armed placement (tap a palette card, tap here) -----------------------
+
+  function handleContainerPointerMove(e: React.PointerEvent) {
+    if (!armed) return;
+    setGhostAt(pointFromEvent(e));
+  }
+
+  function handleContainerPointerDown(e: React.PointerEvent) {
+    // Units call stopPropagation() on their own pointerDown, so this only
+    // fires for a genuine background tap.
+    if (armed) {
+      onPlace(pointFromEvent(e));
+      return;
+    }
+    setSelectedKey(null);
+  }
+
+  let ghostRect: { x: number; y: number; width: number; height: number } | null = null;
+  if (armed && ghostAt) {
+    const { widthM, heightM } = armedSizeMeters(armed);
+    ghostRect = placementRect(widthM, heightM, canvasWidth, canvasHeight, ghostAt);
   }
 
   // ---- Snap targets --------------------------------------------------------
@@ -366,6 +407,11 @@ export default function ShapeCanvas({
   // ---- Keyboard ------------------------------------------------------------
 
   function handleKeyDown(e: React.KeyboardEvent) {
+    if (armed && e.key === "Escape") {
+      e.preventDefault();
+      onCancelArm();
+      return;
+    }
     if (!selectedUnit) return;
     const stepX = (e.shiftKey ? GRID_METERS : NUDGE_METERS) / canvasWidth;
     const stepY = (e.shiftKey ? GRID_METERS : NUDGE_METERS) / canvasHeight;
@@ -408,7 +454,6 @@ export default function ShapeCanvas({
   // ---- Render --------------------------------------------------------------
 
   const isEmpty = shapes.length === 0 && contextElements.length === 0;
-  const assignedSpaceIds = new Set(shapes.map((s) => s.space_id));
 
   return (
     <div>
@@ -417,9 +462,17 @@ export default function ShapeCanvas({
         data-shape-canvas="true"
         tabIndex={0}
         onKeyDown={handleKeyDown}
-        onPointerDown={() => setSelectedKey(null)}
-        aria-label="Facility map canvas — select a shape, then use arrow keys to nudge, Delete to remove"
-        className="relative w-full rounded-xl overflow-hidden select-none touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+        onPointerDown={handleContainerPointerDown}
+        onPointerMove={handleContainerPointerMove}
+        onPointerLeave={() => setGhostAt(null)}
+        aria-label={
+          armed
+            ? `Facility map canvas — tap to place ${armedLabel(armed)}, Escape to cancel`
+            : "Facility map canvas — select a shape, then use arrow keys to nudge, Delete to remove"
+        }
+        className={`relative w-full rounded-xl overflow-hidden select-none touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+          armed ? "cursor-crosshair" : ""
+        }`}
         style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
       >
         <FacilityMapSvg
@@ -429,6 +482,23 @@ export default function ShapeCanvas({
           shapes={renderShapes}
           contextElements={renderContext}
         />
+
+        {/* Live sizing preview while a palette card is armed. */}
+        {ghostRect && armed && (
+          <div
+            className="absolute rounded border-2 border-dashed border-blue-500 bg-blue-500/15 pointer-events-none flex items-start justify-center"
+            style={{
+              left: `${ghostRect.x * 100}%`,
+              top: `${ghostRect.y * 100}%`,
+              width: `${ghostRect.width * 100}%`,
+              height: `${ghostRect.height * 100}%`,
+            }}
+          >
+            <span className="mt-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-600 text-white rounded whitespace-nowrap">
+              {armedLabel(armed)}
+            </span>
+          </div>
+        )}
 
         {/* Alignment guides */}
         {guides.v !== null && (
@@ -520,8 +590,8 @@ export default function ShapeCanvas({
             <div className="text-center px-6">
               <p className="text-sm font-semibold text-gray-500">Build your facility</p>
               <p className="text-xs text-gray-400 mt-1 max-w-xs">
-                Drag a pool, court, or room from the palette below onto this canvas. Add zones like
-                &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
+                Tap a pool, court, or room in the palette below, then tap here to place it. Add zones
+                like &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
               </p>
             </div>
           </div>
@@ -532,94 +602,6 @@ export default function ShapeCanvas({
         Click a shape to select it — drag to move, use the handles to rotate and resize, arrow keys
         to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges.
       </p>
-
-      {(shapes.length > 0 || contextElements.length > 0) && (
-        <div className="mt-4 space-y-2">
-          {shapes.map((shape) => (
-            <div key={shape.key} className="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 flex-wrap">
-              <select
-                value={shape.space_id}
-                onChange={(e) => {
-                  onChange(
-                    shapes.map((s) => (s.key === shape.key ? { ...s, space_id: e.target.value } : s)),
-                    contextElements
-                  );
-                  onCommit();
-                }}
-                className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              >
-                {spaces.map((s) => (
-                  <option key={s.id} value={s.id} disabled={s.id !== shape.space_id && assignedSpaceIds.has(s.id)}>
-                    {s.name}
-                  </option>
-                ))}
-              </select>
-              <input
-                type="text"
-                value={shape.label ?? ""}
-                onChange={(e) =>
-                  onChange(
-                    shapes.map((s) => (s.key === shape.key ? { ...s, label: e.target.value || null } : s)),
-                    contextElements
-                  )
-                }
-                onBlur={onCommit}
-                placeholder="Label override (optional)"
-                className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(shapes.filter((s) => s.key !== shape.key), contextElements);
-                  onCommit();
-                }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                aria-label="Remove shape"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-
-          {contextElements.map((ctx) => (
-            <div key={ctx.key} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 flex-wrap">
-              <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 w-20 shrink-0">
-                {ctx.kind === "entrance" ? "Entrance" : "Zone"}
-              </span>
-              <input
-                type="text"
-                value={ctx.label ?? ""}
-                onChange={(e) =>
-                  onChange(
-                    shapes,
-                    contextElements.map((c) => (c.key === ctx.key ? { ...c, label: e.target.value || null } : c))
-                  )
-                }
-                onBlur={onCommit}
-                placeholder={ctx.kind === "entrance" ? "Entrance" : "e.g. Lobby, Change Rooms"}
-                className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-              />
-              <button
-                type="button"
-                onClick={() => {
-                  onChange(shapes, contextElements.filter((c) => c.key !== ctx.key));
-                  onCommit();
-                }}
-                className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
-                aria-label="Remove context element"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
-          ))}
-        </div>
-      )}
     </div>
   );
-}
-
-/** Converts a client-space point to a 0..1 fraction of the given canvas element's rect. */
-export function pointToCanvasFraction(canvasEl: HTMLElement, clientX: number, clientY: number): Point {
-  const rect = canvasEl.getBoundingClientRect();
-  return { x: (clientX - rect.left) / rect.width, y: (clientY - rect.top) / rect.height };
 }

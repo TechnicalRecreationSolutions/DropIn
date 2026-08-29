@@ -48,7 +48,7 @@ interface ScheduleCommandCentreProps {
   facilities: CommandFacility[];
 }
 
-const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "floorplan"];
+const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorplan"];
 
 /**
  * The schedule command centre — the one place a schedule is viewed and
@@ -219,10 +219,14 @@ export default function ScheduleCommandCentre({
   const editing: ScheduleEditingApi = useMemo(
     () => ({
       templates: scheduleGroup?.templates ?? [],
-      spaces: facility?.spaces ?? [],
+      // Scoped to the schedule's own department — a schedule under Aquatics
+      // should only offer pool spaces, not every space in the building (e.g.
+      // a tennis court). Spaces with no department of their own stay
+      // available to every schedule in the facility, mirroring SpacesPanel.
+      spaces: (facility?.spaces ?? []).filter(
+        (s) => s.departmentId === null || s.departmentId === (scheduleGroup?.departmentId ?? null)
+      ),
       canCreate,
-      // Every schedule-tab layout is scoped to one facility, so its space list
-      // is the right one.
       canDuplicate: true,
       onAddSession: handleAddSession,
       onDuplicate: (session) => {

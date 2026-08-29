@@ -1,6 +1,6 @@
 "use client";
 
-import { LayoutGrid, List, Columns3, Image as ImageIcon } from "lucide-react";
+import { LayoutGrid, List, Columns3, Image as ImageIcon, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -16,6 +16,7 @@ const OPTIONS: { value: ScheduleTemplate; label: string; icon: typeof Columns3 }
   { value: "grid", label: "Grid", icon: LayoutGrid },
   { value: "list", label: "List", icon: List },
   { value: "map", label: "Map", icon: Columns3 },
+  { value: "board", label: "Board", icon: Table2 },
   { value: "floorplan", label: "Floorplan", icon: ImageIcon },
 ];
 

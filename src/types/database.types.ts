@@ -621,7 +621,7 @@ export type Database = {
           time_range_end: string;
           program_ids: string[] | null;
           custom_title: string | null;
-          allowed_templates: ("grid" | "list" | "map" | "floorplan")[];
+          allowed_templates: ("grid" | "list" | "map" | "floorplan" | "board")[];
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -654,7 +654,7 @@ export type Database = {
           time_range_end?: string;
           program_ids?: string[] | null;
           custom_title?: string | null;
-          allowed_templates?: ("grid" | "list" | "map" | "floorplan")[];
+          allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "board")[];
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;
@@ -731,24 +731,31 @@ export type Database = {
             | "widget_view"
             | "program_click"
             | "facility_view"
-            | "schedule_view";
+            | "schedule_view"
+            | "view_change"
+            | "session_duration";
           // Renamed from program_id in 011_collapse_program_into_schedule_group.sql
           schedule_group_id: string | null;
           facility_id: string | null;
           referrer_url: string | null;
           user_agent: string | null;
           ip_hash: string | null;
+          // Added in 041_widget_analytics_expansion.sql
+          view_template: "grid" | "list" | "map" | "floorplan" | "board" | null;
+          duration_ms: number | null;
           occurred_at: string;
         };
         Insert: Omit<
           Database["public"]["Tables"]["analytics_events"]["Row"],
-          "id" | "occurred_at" | "schedule_group_id" | "facility_id" | "referrer_url" | "user_agent" | "ip_hash"
+          "id" | "occurred_at" | "schedule_group_id" | "facility_id" | "referrer_url" | "user_agent" | "ip_hash" | "view_template" | "duration_ms"
         > & {
           schedule_group_id?: string | null;
           facility_id?: string | null;
           referrer_url?: string | null;
           user_agent?: string | null;
           ip_hash?: string | null;
+          view_template?: "grid" | "list" | "map" | "floorplan" | "board" | null;
+          duration_ms?: number | null;
         };
         // No UPDATE policy exists for this table — writes are insert-only
         // from the public tracking endpoint.
@@ -840,11 +847,15 @@ export type Database = {
             | "widget_view"
             | "program_click"
             | "facility_view"
-            | "schedule_view";
+            | "schedule_view"
+            | "view_change"
+            | "session_duration";
           schedule_group_id: string | null;
           facility_id: string | null;
+          view_template: "grid" | "list" | "map" | "floorplan" | "board" | null;
           day: string;
           event_count: number;
+          avg_duration_ms: number | null;
         };
         Relationships: [];
       };

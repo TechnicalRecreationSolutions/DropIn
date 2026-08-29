@@ -3,8 +3,11 @@ import { Building2, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { mapHref } from "@/lib/schedule/commandCentreHref";
-import FacilityPicker from "@/components/facilities/FacilityPicker";
+import type { Database } from "@/types/database.types";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
+import FloorplanOverview, {
+  type FloorplanOverviewFacility,
+} from "@/components/facility-maps/FloorplanOverview";
 
 interface MapPageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -36,6 +39,8 @@ export default async function MapPage({ searchParams }: MapPageProps) {
     .filter((s) => s.facility_id === facility.id)
     .map((s) => ({ id: s.id, name: s.name }));
 
+  const overviewFacilities = await buildOverviewFacilities(supabase, orgId, facilityRows, spaceRows ?? []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -45,13 +50,94 @@ export default async function MapPage({ searchParams }: MapPageProps) {
         </p>
       </div>
 
-      <FacilityPicker facilities={facilityRows} activeFacilityId={facility.id} hrefFor={mapHref} />
+      <FloorplanOverview facilities={overviewFacilities} activeFacilityId={facility.id} hrefFor={mapHref} />
 
       {/* Keyed on the facility so switching buildings rebuilds the editor
           rather than leaving the previous building's shapes on canvas. */}
       <MapEditorClient key={facility.id} facilityId={facility.id} spaces={spaces} />
     </div>
   );
+}
+
+/**
+ * Batches every facility's map + hotspots + context elements into the small
+ * read-only render shape FloorplanOverview needs, so the org's buildings can
+ * be scanned as a grid instead of clicked through one at a time. Skipped
+ * entirely by the caller for single-facility orgs (FloorplanOverview also
+ * no-ops in that case, kept as a second guard against a wasted round trip).
+ */
+async function buildOverviewFacilities(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  orgId: string,
+  facilityRows: { id: string; name: string }[],
+  spaceRows: { id: string; name: string; facility_id: string }[]
+): Promise<FloorplanOverviewFacility[]> {
+  if (facilityRows.length < 2) return [];
+
+  const { data: mapRows } = await supabase
+    .from("facility_maps")
+    .select("id, facility_id, canvas_width, canvas_height, is_published")
+    .eq("org_id", orgId);
+
+  const mapIds = (mapRows ?? []).map((m) => m.id);
+  let hotspotRows: Database["public"]["Tables"]["space_hotspots"]["Row"][] = [];
+  let contextRows: Database["public"]["Tables"]["map_context_elements"]["Row"][] = [];
+  if (mapIds.length > 0) {
+    const [hotspotsRes, contextsRes] = await Promise.all([
+      supabase.from("space_hotspots").select("*").in("facility_map_id", mapIds),
+      supabase.from("map_context_elements").select("*").in("facility_map_id", mapIds),
+    ]);
+    hotspotRows = hotspotsRes.data ?? [];
+    contextRows = contextsRes.data ?? [];
+  }
+
+  const spaceNameById = new Map(spaceRows.map((s) => [s.id, s.name]));
+  const spaceCountByFacility = new Map<string, number>();
+  for (const s of spaceRows) {
+    spaceCountByFacility.set(s.facility_id, (spaceCountByFacility.get(s.facility_id) ?? 0) + 1);
+  }
+
+  return facilityRows.map((facility) => {
+    const mapRow = (mapRows ?? []).find((m) => m.facility_id === facility.id);
+    const hotspots = mapRow ? hotspotRows.filter((h) => h.facility_map_id === mapRow.id) : [];
+    const contexts = mapRow ? contextRows.filter((c) => c.facility_map_id === mapRow.id) : [];
+
+    return {
+      id: facility.id,
+      name: facility.name,
+      spaceCount: spaceCountByFacility.get(facility.id) ?? 0,
+      map: mapRow
+        ? {
+            canvasWidth: mapRow.canvas_width,
+            canvasHeight: mapRow.canvas_height,
+            isPublished: mapRow.is_published,
+          }
+        : null,
+      shapes: hotspots.map((h) => ({
+        key: h.id,
+        spaceId: h.space_id,
+        x: Number(h.x),
+        y: Number(h.y),
+        width: Number(h.width),
+        height: Number(h.height),
+        rotation: Number(h.rotation),
+        presetKey: h.preset_key,
+        displayName: h.label ?? spaceNameById.get(h.space_id) ?? "",
+        groupId: h.group_id,
+        laneIndex: h.lane_index,
+      })),
+      contextElements: contexts.map((c) => ({
+        key: c.id,
+        kind: c.kind,
+        x: Number(c.x),
+        y: Number(c.y),
+        width: Number(c.width),
+        height: Number(c.height),
+        rotation: Number(c.rotation),
+        label: c.label,
+      })),
+    };
+  });
 }
 
 function NoFacilities() {

@@ -27,6 +27,7 @@ interface SessionFormProps {
     name: string;
     facility_id: string;
     facility_name: string;
+    department_id: string | null;
     /** The schedule's own descriptive fields — shared by every session under
      *  it, so editing them here edits the schedule, not just this session. */
     activity_type: "drop_in" | "registered" | "open_gym";
@@ -37,7 +38,7 @@ interface SessionFormProps {
     description: string | null;
     photo_urls: string[];
   }[];
-  spaces: { id: string; name: string; facility_id: string }[];
+  spaces: { id: string; name: string; facility_id: string; department_id: string | null }[];
   defaultScheduleGroupId?: string;
   /** Present when editing an existing session instead of creating a new one. */
   sessionId?: string;
@@ -132,7 +133,17 @@ export default function SessionForm({
 
   const selectedGroup = scheduleGroups.find((sg) => sg.id === scheduleGroupId);
   const selectedFacilityId = selectedGroup?.facility_id;
-  const facilitySpaces = spaces.filter((s) => s.facility_id === selectedFacilityId);
+  const selectedDepartmentId = selectedGroup?.department_id ?? null;
+  // Scoped to the schedule's own department — otherwise every space in the
+  // building shows up here, e.g. a tennis court in an Aquatics session's
+  // space picker. Spaces with no department of their own (department_id
+  // null) stay available to every schedule in the facility, mirroring
+  // SpacesPanel's "whole building" treatment of unassigned spaces.
+  const facilitySpaces = spaces.filter(
+    (s) =>
+      s.facility_id === selectedFacilityId &&
+      (s.department_id === null || s.department_id === selectedDepartmentId)
+  );
 
   // Skips the second request entirely for the common case of a session saved
   // without touching its schedule's program details. Compared against

@@ -4,6 +4,7 @@ import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
 import WeeklyScheduleGrid from "./WeeklyScheduleGrid";
 import WeeklyScheduleList from "./WeeklyScheduleList";
 import WeeklyScheduleMap from "./WeeklyScheduleMap";
+import WeeklyScheduleBoard from "./WeeklyScheduleBoard";
 import FloorplanView from "./FloorplanView";
 
 interface ScheduleViewProps {
@@ -38,6 +39,8 @@ export default function ScheduleView({
       return <WeeklyScheduleList sessions={sessions} weekStart={weekStart} onWeekChange={onWeekChange} />;
     case "map":
       return <WeeklyScheduleMap sessions={sessions} weekStart={weekStart} onWeekChange={onWeekChange} />;
+    case "board":
+      return <WeeklyScheduleBoard sessions={sessions} weekStart={weekStart} onWeekChange={onWeekChange} />;
     case "floorplan":
       if (!facilityId) {
         return <WeeklyScheduleGrid sessions={sessions} weekStart={weekStart} onWeekChange={onWeekChange} />;

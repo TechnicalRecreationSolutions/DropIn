@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
+import OrgImage from "@/components/media/OrgImage";
 import WidgetScheduleClient from "./WidgetScheduleClient";
 
 interface WidgetPageProps {
@@ -42,7 +43,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // predicate is needed (and `status` is not a column on it).
   const { data: org } = await supabase
     .from("organizations_public")
-    .select("id, name")
+    .select("id, name, logo_url")
     .eq("id", orgId)
     .single();
 
@@ -85,13 +86,13 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
 
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
 
-  const validTemplates = ["grid", "list", "map", "floorplan"] as const;
-  function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan")[] {
+  const validTemplates = ["grid", "list", "map", "floorplan", "board"] as const;
+  function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan" | "board")[] {
     if (!value) return [];
     return value
       .split(",")
       .map((t) => t.trim())
-      .filter((t): t is "grid" | "list" | "map" | "floorplan" => (validTemplates as readonly string[]).includes(t));
+      .filter((t): t is "grid" | "list" | "map" | "floorplan" | "board" => (validTemplates as readonly string[]).includes(t));
   }
 
   const previewList = parseTemplateList(previewTemplates);
@@ -112,15 +113,22 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
       <OrgThemeProvider primaryColor={primaryColor}>
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
-          <div>
-            <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
-              {org.name}
-            </p>
-            {facility && (
-              <h2 className={`text-sm font-semibold ${isDark ? "text-white" : "text-gray-900"}`}>
-                {facility.name}{department ? ` · ${department.name}` : ""}
-              </h2>
+          <div className="flex items-center gap-2.5 min-w-0">
+            {org.logo_url && (
+              <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-gray-200 bg-white">
+                <OrgImage src={org.logo_url} alt="" sizes="32px" className="object-contain" />
+              </span>
             )}
+            <div className="min-w-0">
+              <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+                {org.name}
+              </p>
+              {facility && (
+                <h2 className={`text-sm font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                  {facility.name}{department ? ` · ${department.name}` : ""}
+                </h2>
+              )}
+            </div>
           </div>
           <a
             href="/"

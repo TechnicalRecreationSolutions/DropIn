@@ -6,6 +6,7 @@ import { cacheLife } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
+import OrgImage from "@/components/media/OrgImage";
 import FacilityScheduleClient from "./FacilityScheduleClient";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -63,7 +64,7 @@ async function getFacilityPageData(facilitySlug: string) {
     // public route to link to (see docs/PLAN.md §3a), so this is display-only.
     supabase
       .from("organizations_public")
-      .select("name")
+      .select("name, logo_url")
       .eq("id", facility.org_id)
       .maybeSingle(),
   ]);
@@ -122,7 +123,14 @@ export default async function FacilityDetailPage({ params }: PageProps) {
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-8">
         {/* Left: Schedule + heading */}
         <div>
-          <h1 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-1">{facility.name}</h1>
+          <div className="flex items-center gap-3 mb-1">
+            {org?.logo_url && (
+              <span className="relative size-10 sm:size-12 rounded-lg shrink-0 overflow-hidden border border-gray-200 bg-white">
+                <OrgImage src={org.logo_url} alt={`${org.name} logo`} sizes="48px" className="object-contain" />
+              </span>
+            )}
+            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{facility.name}</h1>
+          </div>
           <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
             <MapPin className="w-4 h-4 shrink-0" />
             <span>{facility.address_line1}, {facility.city}, {facility.province} {facility.postal_code}</span>
@@ -134,7 +142,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
           {/* Weekly schedule — client component for interactivity */}
           <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-gray-200 overflow-hidden">
-            <FacilityScheduleClient facilityId={facility.id} allowedTemplates={allowedTemplates} />
+            <FacilityScheduleClient orgId={facility.org_id} facilityId={facility.id} allowedTemplates={allowedTemplates} />
           </OrgThemeProvider>
         </div>
 

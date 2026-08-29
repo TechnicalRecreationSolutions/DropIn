@@ -9,7 +9,7 @@ There are two experiences built on one rendering engine:
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Builder** (`MapEditorClient`, `ShapeCanvas`, `ShapePalette`) | Dashboard → Facility → Map tab | Admins drag presets and context scenery onto a canvas, arrange them, and publish. |
+| **Builder** (`MapEditorClient`, `ShapeCanvas`, `ShapePalette`, `ShapeAssignmentList`) | Dashboard → Facility → Map tab | Admins tap a preset or context item to arm it, tap the canvas to place it, arrange the result, and publish. Canvas and palette sit side by side (palette sticky) on wide screens; the per-shape space/label list is a separate, secondary section further down the page. |
 | **Viewer** (`src/components/schedule/FloorplanView.tsx`) | Public schedule "floorplan" template + widget embeds | Visitors see the map with live/soon/free status, tap a space for details, and preview other times today. |
 
 Both draw through **`renderer/FacilityMapSvg`** — see [`renderer/README.md`](./renderer/README.md)
@@ -28,6 +28,16 @@ for the engine's architecture and how to add a new preset. Because there is one 
 
 ## Builder behaviors worth knowing
 
+- **Tap-to-arm placement** — tapping a card in `ShapePalette` arms it (`placement.ts`'s
+  `ArmedPlacement`); `ShapeCanvas` then shows a live dashed sizing ghost under the
+  cursor/finger and places on the next background tap there, computed by the shared
+  `placementRect()` helper so the preview never lies about where a shape lands.
+  Placement stays armed after a drop so several of the same shape can be placed in a
+  row; the palette card toggles it off, as does Escape (global, not just
+  canvas-focused) or arming something else. Replaced an earlier press-and-drag gesture
+  that required dragging across the whole viewport to the canvas — unreliable on
+  mobile — and that hid a preset's real-world dimensions behind a hover `title`,
+  which never fires on touch.
 - **Inline space provisioning** — placing a preset that needs more Spaces than exist
   creates them automatically (unpublished, named "Lane N" for lanes). No dead-end
   "add spaces first" error.
