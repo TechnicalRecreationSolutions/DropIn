@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 
 interface SessionTemplateFormProps {
-  scheduleGroupId: string;
+  facilityId: string;
+  /** Null means facility-wide — reusable by every schedule in the building. */
+  departmentId: string | null;
   templateId?: string;
   spaces: { id: string; name: string }[];
   defaultValues?: {
@@ -34,7 +36,8 @@ const PRESET_COLORS = [
 ];
 
 export default function SessionTemplateForm({
-  scheduleGroupId,
+  facilityId,
+  departmentId,
   templateId,
   spaces,
   defaultValues,
@@ -74,7 +77,7 @@ export default function SessionTemplateForm({
         method: isEditing ? "PATCH" : "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          ...(isEditing ? {} : { schedule_group_id: scheduleGroupId }),
+          ...(isEditing ? {} : { facility_id: facilityId, department_id: departmentId }),
           name,
           color: color || null,
           default_duration_minutes: duration,

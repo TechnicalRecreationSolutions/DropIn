@@ -1,11 +1,15 @@
 import { redirect } from "next/navigation";
 
 interface NewSessionTemplatePageProps {
-  params: Promise<{ scheduleGroupId: string }>;
+  params: Promise<{ facilityId: string; departmentId: string }>;
 }
 
-/** Session templates live at /dashboard/sessions/new now — see the list route's redirect stub one level up. */
+/**
+ * Session templates live at /dashboard/sessions/new now, scoped by
+ * facility/department rather than schedule — see the list route's redirect
+ * stub one level up.
+ */
 export default async function NewSessionTemplatePage({ params }: NewSessionTemplatePageProps) {
-  const { scheduleGroupId } = await params;
-  redirect(`/dashboard/sessions/new?schedule=${scheduleGroupId}`);
+  const { facilityId, departmentId } = await params;
+  redirect(`/dashboard/sessions/new?facility=${facilityId}&department=${departmentId}`);
 }

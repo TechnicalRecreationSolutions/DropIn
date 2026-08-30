@@ -204,9 +204,15 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             .eq("org_id", orgId)
             .eq("facility_id", selectedFacility.id)
         : Promise.resolve({ data: [] as { id: string; department_id: string | null }[] }),
-      scheduleIds.length > 0
-        ? supabase.from("session_templates").select("id").in("schedule_group_id", scheduleIds)
-        : Promise.resolve({ data: [] as { id: string }[] }),
+      // Templates don't belong to a single schedule — only facility/department
+      // narrow them, same as spaces just above.
+      selectedFacility
+        ? supabase
+            .from("session_templates")
+            .select("id, department_id")
+            .eq("org_id", orgId)
+            .eq("facility_id", selectedFacility.id)
+        : Promise.resolve({ data: [] as { id: string; department_id: string | null }[] }),
       // Org-wide, not scoped to the facility/department/schedule filter above
       // — the ticker is a rotating org-level pulse, same spirit as the old
       // "Widget views" card, and links through to the full breakdown.
@@ -234,7 +240,17 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       )
       .map((s) => s.id)
   );
-  const visibleTemplateIdSet = new Set((templateRows ?? []).map((t) => t.id));
+  const visibleTemplateIdSet = new Set(
+    (templateRows ?? [])
+      .filter((t) =>
+        !departmentParam
+          ? true
+          : departmentParam === NO_DEPARTMENT
+            ? !t.department_id
+            : t.department_id === departmentParam
+      )
+      .map((t) => t.id)
+  );
 
   function matchesCurrentScope(row: { table_name: string; row_id: string }): boolean {
     switch (row.table_name) {

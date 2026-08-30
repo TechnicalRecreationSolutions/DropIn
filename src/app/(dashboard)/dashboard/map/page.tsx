@@ -50,7 +50,9 @@ export default async function MapPage({ searchParams }: MapPageProps) {
         </p>
       </div>
 
-      <FloorplanOverview facilities={overviewFacilities} activeFacilityId={facility.id} hrefFor={mapHref} />
+      <div className="max-w-[1000px] mx-auto">
+        <FloorplanOverview facilities={overviewFacilities} activeFacilityId={facility.id} hrefFor={mapHref} />
+      </div>
 
       {/* Keyed on the facility so switching buildings rebuilds the editor
           rather than leaving the previous building's shapes on canvas. */}

@@ -19,9 +19,11 @@ const DuplicateSchema = z.object({
  *
  * Copies the schedule group's own fields (sport/cost/age/skill governance
  * fields — see migration 013's header for why those live here and not on
- * templates) and its session_templates + their session_template_spaces, so
- * the "usual activities" palette is ready to place from immediately.
- * Deliberately does NOT copy sessions: they're tied to the old date range,
+ * templates). Does NOT copy session_templates: since migration 042,
+ * templates belong to a department (or the whole facility), not a single
+ * schedule, so the duplicate — landing in the same department — already
+ * sees the same "usual activities" palette with nothing to copy.
+ * Deliberately does NOT copy sessions either: they're tied to the old date range,
  * and the whole reason to duplicate is to place fresh ones into the new
  * range via the existing template-click builder flow — carrying old
  * occurrences over would just be more to delete. The copy always starts as
@@ -95,56 +97,6 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
       },
       { status: 500 }
     );
-  }
-
-  // Best-effort: the schedule group itself is the useful part of a
-  // duplicate, so a template-copy failure doesn't undo it — staff can
-  // always rebuild templates by hand from the new (empty) schedule.
-  const { data: templates } = await supabase
-    .from("session_templates")
-    .select("id, name, color, default_duration_minutes, display_order")
-    .eq("schedule_group_id", id)
-    .eq("is_active", true);
-
-  if (templates && templates.length > 0) {
-    const { data: newTemplates } = await supabase
-      .from("session_templates")
-      .insert(
-        templates.map((t) => ({
-          org_id: membership.org_id,
-          schedule_group_id: created.id,
-          name: t.name,
-          color: t.color,
-          default_duration_minutes: t.default_duration_minutes,
-          display_order: t.display_order,
-        }))
-      )
-      .select("id");
-
-    if (newTemplates && newTemplates.length === templates.length) {
-      const { data: templateSpaceRows } = await supabase
-        .from("session_template_spaces")
-        .select("session_template_id, space_id")
-        .in(
-          "session_template_id",
-          templates.map((t) => t.id)
-        );
-
-      if (templateSpaceRows && templateSpaceRows.length > 0) {
-        const oldToNewTemplateId = new Map(
-          templates.map((t, i) => [t.id, newTemplates[i].id])
-        );
-        const newTemplateSpaceRows = templateSpaceRows.flatMap((r) => {
-          const newTemplateId = oldToNewTemplateId.get(r.session_template_id);
-          return newTemplateId
-            ? [{ session_template_id: newTemplateId, space_id: r.space_id, org_id: membership.org_id }]
-            : [];
-        });
-        if (newTemplateSpaceRows.length > 0) {
-          await supabase.from("session_template_spaces").insert(newTemplateSpaceRows);
-        }
-      }
-    }
   }
 
   return NextResponse.json({ scheduleGroup: created }, { status: 201 });

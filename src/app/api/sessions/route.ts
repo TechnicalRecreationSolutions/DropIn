@@ -46,7 +46,7 @@ export async function POST(request: Request) {
   // Confirm the schedule belongs to this org
   const { data: scheduleGroup } = await supabase
     .from("schedule_groups")
-    .select("id, facility_id")
+    .select("id, facility_id, department_id")
     .eq("id", fields.schedule_group_id)
     .eq("org_id", membership.org_id)
     .single();
@@ -66,17 +66,22 @@ export async function POST(request: Request) {
     }
   }
 
-  // A template must belong to the same schedule group the session is being placed under —
-  // templates are scoped to one schedule group, not shared org-wide.
+  // A template must belong to the same facility as the schedule it's being
+  // placed under, and either be facility-wide (department_id null) or match
+  // the schedule's own department — templates are scoped per department (or
+  // shared facility-wide), not per schedule.
   if (fields.template_id) {
     const { data: template } = await supabase
       .from("session_templates")
-      .select("id")
+      .select("id, department_id")
       .eq("id", fields.template_id)
-      .eq("schedule_group_id", fields.schedule_group_id)
+      .eq("facility_id", scheduleGroup.facility_id)
       .single();
 
-    if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
+    const usable =
+      !!template && (template.department_id === null || template.department_id === scheduleGroup.department_id);
+
+    if (!usable) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
   }
 
   const conflict = await findSessionConflict(supabase, {

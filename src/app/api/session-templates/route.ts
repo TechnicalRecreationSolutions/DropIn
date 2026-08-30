@@ -4,7 +4,10 @@ import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
 
 const CreateSessionTemplateSchema = z.object({
-  schedule_group_id: z.string().uuid(),
+  facility_id: z.string().uuid(),
+  // Null/omitted means facility-wide — reusable by every schedule in the
+  // facility, not just one department. Mirrors spaces.department_id.
+  department_id: z.string().uuid().nullish(),
   name: z.string().min(1),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
   default_duration_minutes: z.number().int().positive(),
@@ -12,8 +15,8 @@ const CreateSessionTemplateSchema = z.object({
 });
 
 /**
- * GET /api/session-templates?scheduleGroupId=... — list templates for a schedule group.
- * POST /api/session-templates — create a template under a schedule group owned by the caller's org.
+ * GET /api/session-templates?facilityId=...&departmentId=... — list templates for a facility (optionally narrowed to a department).
+ * POST /api/session-templates — create a template under a facility (optionally scoped to a department) owned by the caller's org.
  */
 export async function GET(request: Request) {
   const supabase = await createClient();
@@ -21,7 +24,8 @@ export async function GET(request: Request) {
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
   const { searchParams } = new URL(request.url);
-  const scheduleGroupId = searchParams.get("scheduleGroupId");
+  const facilityId = searchParams.get("facilityId");
+  const departmentId = searchParams.get("departmentId");
 
   let query = supabase
     .from("session_templates")
@@ -30,7 +34,8 @@ export async function GET(request: Request) {
     .eq("is_active", true)
     .order("display_order", { ascending: true });
 
-  if (scheduleGroupId) query = query.eq("schedule_group_id", scheduleGroupId);
+  if (facilityId) query = query.eq("facility_id", facilityId);
+  if (departmentId) query = query.eq("department_id", departmentId);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "Could not load session templates" }, { status: 500 });
@@ -55,23 +60,36 @@ export async function POST(request: Request) {
   const parsed = CreateSessionTemplateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  // Verify the schedule group belongs to the caller's own org.
-  const { data: scheduleGroup } = await supabase
-    .from("schedule_groups")
-    .select("id, facility_id")
-    .eq("id", parsed.data.schedule_group_id)
+  // Verify the facility belongs to the caller's own org.
+  const { data: facility } = await supabase
+    .from("facilities")
+    .select("id")
+    .eq("id", parsed.data.facility_id)
     .eq("org_id", membership.org_id)
     .maybeSingle();
 
-  if (!scheduleGroup) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+  if (!facility) return NextResponse.json({ error: "Facility not found" }, { status: 404 });
 
-  // Every default space must belong to the same facility as the schedule group.
+  // The department, if given, must belong to that same facility.
+  if (parsed.data.department_id) {
+    const { data: department } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("id", parsed.data.department_id)
+      .eq("facility_id", parsed.data.facility_id)
+      .eq("org_id", membership.org_id)
+      .maybeSingle();
+
+    if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
+  }
+
+  // Every default space must belong to the same facility as the template.
   if (parsed.data.default_space_ids.length > 0) {
     const { data: validSpaces } = await supabase
       .from("spaces")
       .select("id")
       .in("id", parsed.data.default_space_ids)
-      .eq("facility_id", scheduleGroup.facility_id);
+      .eq("facility_id", parsed.data.facility_id);
 
     if ((validSpaces?.length ?? 0) !== parsed.data.default_space_ids.length) {
       return NextResponse.json({ error: "One or more spaces not found at this facility" }, { status: 404 });
@@ -82,7 +100,8 @@ export async function POST(request: Request) {
     .from("session_templates")
     .insert({
       org_id: membership.org_id,
-      schedule_group_id: parsed.data.schedule_group_id,
+      facility_id: parsed.data.facility_id,
+      department_id: parsed.data.department_id ?? null,
       name: parsed.data.name,
       color: parsed.data.color ?? null,
       default_duration_minutes: parsed.data.default_duration_minutes,

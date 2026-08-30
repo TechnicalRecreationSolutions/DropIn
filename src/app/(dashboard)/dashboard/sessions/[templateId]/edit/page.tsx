@@ -13,9 +13,11 @@ type SessionTemplateRow = {
   name: string;
   color: string | null;
   default_duration_minutes: number;
-  schedule_group_id: string;
+  facility_id: string;
+  department_id: string | null;
   session_template_spaces: { space_id: string }[];
-  schedule_groups: { id: string; name: string; facility_id: string; department_id: string | null } | null;
+  facilities: { id: string; name: string } | null;
+  departments: { id: string; name: string } | null;
 };
 
 export default async function EditSessionTemplatePage({ params }: EditSessionTemplatePageProps) {
@@ -29,26 +31,26 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
   const { data: template } = await supabase
     .from("session_templates")
     .select(
-      "id, name, color, default_duration_minutes, schedule_group_id, session_template_spaces ( space_id ), schedule_groups ( id, name, facility_id, department_id )"
+      "id, name, color, default_duration_minutes, facility_id, department_id, session_template_spaces ( space_id ), facilities ( id, name ), departments ( id, name )"
     )
     .eq("id", templateId)
     .eq("org_id", orgContext.org.id)
     .single() as unknown as { data: SessionTemplateRow | null };
 
-  if (!template || !template.schedule_groups) notFound();
+  if (!template || !template.facilities) notFound();
 
-  const scheduleGroup = template.schedule_groups;
+  const facility = template.facilities;
+  const department = template.departments;
 
   const { data: spaces } = await supabase
     .from("spaces")
     .select("id, name")
-    .eq("facility_id", scheduleGroup.facility_id)
+    .eq("facility_id", facility.id)
     .order("display_order", { ascending: true });
 
   const redirectTo = sessionsHref({
-    facilityId: scheduleGroup.facility_id,
-    departmentId: scheduleGroup.department_id ?? NO_DEPARTMENT,
-    scheduleGroupId: scheduleGroup.id,
+    facilityId: facility.id,
+    departmentId: department?.id ?? NO_DEPARTMENT,
   });
 
   return (
@@ -62,7 +64,8 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
       </div>
 
       <SessionTemplateForm
-        scheduleGroupId={scheduleGroup.id}
+        facilityId={facility.id}
+        departmentId={department?.id ?? null}
         templateId={template.id}
         spaces={spaces ?? []}
         defaultValues={{

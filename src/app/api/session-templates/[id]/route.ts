@@ -40,24 +40,18 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   if (default_space_ids && default_space_ids.length > 0) {
     const { data: template } = await supabase
       .from("session_templates")
-      .select("schedule_group_id")
+      .select("facility_id")
       .eq("id", id)
       .eq("org_id", membership.org_id)
       .maybeSingle();
 
     if (!template) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
 
-    const { data: scheduleGroup } = await supabase
-      .from("schedule_groups")
-      .select("facility_id")
-      .eq("id", template.schedule_group_id)
-      .maybeSingle();
-
     const { data: validSpaces } = await supabase
       .from("spaces")
       .select("id")
       .in("id", default_space_ids)
-      .eq("facility_id", scheduleGroup?.facility_id ?? "");
+      .eq("facility_id", template.facility_id);
 
     if ((validSpaces?.length ?? 0) !== default_space_ids.length) {
       return NextResponse.json({ error: "One or more spaces not found at this facility" }, { status: 404 });

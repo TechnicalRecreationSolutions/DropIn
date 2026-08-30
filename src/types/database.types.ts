@@ -459,7 +459,8 @@ export type Database = {
         Row: {
           id: string;
           org_id: string;
-          schedule_group_id: string;
+          facility_id: string;
+          department_id: string | null;
           name: string;
           color: string | null;
           default_duration_minutes: number;
@@ -470,8 +471,9 @@ export type Database = {
         };
         Insert: Omit<
           Database["public"]["Tables"]["session_templates"]["Row"],
-          "id" | "created_at" | "updated_at" | "color" | "display_order" | "is_active"
+          "id" | "created_at" | "updated_at" | "department_id" | "color" | "display_order" | "is_active"
         > & {
+          department_id?: string | null;
           color?: string | null;
           display_order?: number;
           is_active?: boolean;

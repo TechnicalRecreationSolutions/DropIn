@@ -3,7 +3,7 @@ import { DoorOpen, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { spacesHref } from "@/lib/schedule/commandCentreHref";
-import FacilityPicker from "@/components/facilities/FacilityPicker";
+import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import SpacesPanel from "@/components/space/SpacesPanel";
 
 interface SpacesPageProps {
@@ -25,7 +25,11 @@ export default async function SpacesPage({ searchParams }: SpacesPageProps) {
   const { facility: facilityParam } = await searchParams;
 
   const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
-    supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
+    supabase
+      .from("facilities")
+      .select("id, name, city, province, is_published, photo_urls")
+      .eq("org_id", orgId)
+      .order("name"),
     supabase
       .from("spaces")
       .select("id, name, capacity, is_published, facility_id, department_id")
@@ -47,6 +51,11 @@ export default async function SpacesPage({ searchParams }: SpacesPageProps) {
       departmentId: s.department_id,
     }));
 
+  const facilityCards = facilityRows.map((f) => {
+    const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
+    return { ...f, meta: `${count} space${count !== 1 ? "s" : ""}` };
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -56,8 +65,8 @@ export default async function SpacesPage({ searchParams }: SpacesPageProps) {
         </p>
       </div>
 
-      <FacilityPicker
-        facilities={facilityRows}
+      <FacilityCardPicker
+        facilities={facilityCards}
         activeFacilityId={facility.id}
         hrefFor={spacesHref}
       />

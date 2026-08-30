@@ -3,7 +3,7 @@ import { Layers, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
-import FacilityPicker from "@/components/facilities/FacilityPicker";
+import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentsPanel from "@/components/department/DepartmentsPanel";
 
 interface DepartmentsPageProps {
@@ -27,7 +27,11 @@ export default async function DepartmentsPage({ searchParams }: DepartmentsPageP
   const { facility: facilityParam } = await searchParams;
 
   const [{ data: facilityRows }, { data: departmentRows }] = await Promise.all([
-    supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
+    supabase
+      .from("facilities")
+      .select("id, name, city, province, is_published, photo_urls")
+      .eq("org_id", orgId)
+      .order("name"),
     supabase
       .from("departments")
       .select("id, name, description, is_published, facility_id")
@@ -48,6 +52,11 @@ export default async function DepartmentsPage({ searchParams }: DepartmentsPageP
       is_published: d.is_published,
     }));
 
+  const facilityCards = facilityRows.map((f) => {
+    const count = (departmentRows ?? []).filter((d) => d.facility_id === f.id).length;
+    return { ...f, meta: `${count} department${count !== 1 ? "s" : ""}` };
+  });
+
   return (
     <div className="space-y-6">
       <div>
@@ -57,8 +66,8 @@ export default async function DepartmentsPage({ searchParams }: DepartmentsPageP
         </p>
       </div>
 
-      <FacilityPicker
-        facilities={facilityRows}
+      <FacilityCardPicker
+        facilities={facilityCards}
         activeFacilityId={facility.id}
         hrefFor={departmentsHref}
       />
