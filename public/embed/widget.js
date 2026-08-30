@@ -18,6 +18,7 @@
     var BASE_URL = resolveBaseUrl(script);
     var orgId = script.getAttribute("data-org-id");
     var facilityId = script.getAttribute("data-facility-id") || "";
+    var departmentId = script.getAttribute("data-department-id") || "";
     var theme = script.getAttribute("data-theme") || "light";
     var containerSelector = script.getAttribute("data-container") || "#dropin-widget";
     var height = script.getAttribute("data-height") || "600";
@@ -37,6 +38,7 @@
     var src = BASE_URL + "/widget/" + encodeURIComponent(orgId);
     var params = [];
     if (facilityId) params.push("facilityId=" + encodeURIComponent(facilityId));
+    if (departmentId) params.push("departmentId=" + encodeURIComponent(departmentId));
     if (theme && theme !== "light") params.push("theme=" + encodeURIComponent(theme));
     if (params.length) src += "?" + params.join("&");
 

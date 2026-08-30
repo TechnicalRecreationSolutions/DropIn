@@ -16,7 +16,7 @@ import {
 } from "lucide-react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
 
 interface SidebarMenuProps {
@@ -95,7 +95,12 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
       disabledReason: needsFacility,
     },
     {
-      href: "/dashboard/widget",
+      href: widgetHref({
+        facilityId: selection.facilityId,
+        // The widget picker has no "no department" option — only carry
+        // over a real department id, never the NO_DEPARTMENT sentinel.
+        departmentId: selection.departmentId !== NO_DEPARTMENT ? selection.departmentId : null,
+      }),
       label: "Widget",
       icon: MonitorSmartphone,
     },

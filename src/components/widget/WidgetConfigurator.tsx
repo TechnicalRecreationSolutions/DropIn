@@ -10,6 +10,9 @@ interface WidgetConfiguratorProps {
   /** When set, the widget config is locked to this facility/department scope — hides the pickers. */
   lockedFacilityId?: string;
   lockedDepartmentId?: string;
+  /** Pre-selects the pickers (e.g. from the sidebar's current facility/department) without hiding them. */
+  initialFacilityId?: string;
+  initialDepartmentId?: string;
 }
 
 type Theme = "light" | "dark";
@@ -30,10 +33,12 @@ export default function WidgetConfigurator({
   facilities,
   lockedFacilityId,
   lockedDepartmentId,
+  initialFacilityId,
+  initialDepartmentId,
 }: WidgetConfiguratorProps) {
   const scopeLocked = !!lockedFacilityId;
-  const [facilityId, setFacilityId] = useState<string>(lockedFacilityId ?? "");
-  const [departmentId, setDepartmentId] = useState<string>(lockedDepartmentId ?? "");
+  const [facilityId, setFacilityId] = useState<string>(lockedFacilityId ?? initialFacilityId ?? "");
+  const [departmentId, setDepartmentId] = useState<string>(lockedDepartmentId ?? initialDepartmentId ?? "");
   const [theme, setTheme] = useState<Theme>("light");
   const [height, setHeight] = useState<string>("600");
   const [copied, setCopied] = useState(false);

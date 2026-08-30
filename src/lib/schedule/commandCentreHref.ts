@@ -50,6 +50,12 @@ export function mapHref(facilityId?: string | null): string {
   return facilityId ? `/dashboard/map?facility=${facilityId}` : "/dashboard/map";
 }
 
+/** Link to the Widget configurator, optionally pre-selecting a facility/department. */
+export function widgetHref(scope: ScopeSelection): string {
+  const query = scopeQueryString(scope);
+  return query ? `/dashboard/widget?${query}` : "/dashboard/widget";
+}
+
 /** Link to the dedicated Session templates page, optionally scoped to a facility/department/schedule. */
 export function sessionsHref(scope: ScopeSelection): string {
   const query = scopeQueryString(scope);
