@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, MapPin } from "lucide-react";
+import { Menu, X, CalendarDays } from "lucide-react";
 
 /**
  * Top navigation for all public-facing pages.
@@ -18,16 +18,18 @@ export default function PublicNav() {
   // aggregator.
   const navLinks = [
     { href: "/#features", label: "Features" },
+    { href: "/#product", label: "Preview" },
     { href: "/#pricing", label: "Pricing" },
+    { href: "/#faq", label: "FAQ" },
   ];
 
   return (
-    <header className="sticky top-0 z-50 bg-white border-b border-gray-100 shadow-sm">
+    <header className="sticky top-0 z-50 bg-white/85 backdrop-blur-sm border-b border-gray-100">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16">
           {/* Logo */}
           <Link href="/" className="flex items-center gap-2 font-bold text-xl text-blue-600">
-            <MapPin className="w-5 h-5" />
+            <CalendarDays className="w-5 h-5" />
             Dropin
           </Link>
 
@@ -56,7 +58,7 @@ export default function PublicNav() {
               href="/signup"
               className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
             >
-              List your facility
+              Get started
             </Link>
           </div>
 
@@ -99,7 +101,7 @@ export default function PublicNav() {
                 onClick={() => setMobileOpen(false)}
                 className="block py-3 px-4 bg-blue-600 text-white text-base font-medium rounded-lg text-center hover:bg-blue-700 transition-colors"
               >
-                List your facility
+                Get started
               </Link>
             </div>
           </nav>

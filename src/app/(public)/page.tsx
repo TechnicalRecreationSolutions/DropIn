@@ -1,7 +1,24 @@
 import type { Metadata } from "next";
 import Link from "next/link";
-import { CalendarDays, MonitorSmartphone, Layers, Check } from "lucide-react";
+import {
+  CalendarDays,
+  MonitorSmartphone,
+  Layers,
+  Check,
+  Waves,
+  CircleDot,
+  Dumbbell,
+  Users,
+  ClipboardList,
+  ShieldAlert,
+  History,
+  Eye,
+  MousePointerClick,
+  Clock,
+} from "lucide-react";
 import { PLANS, type PlanTier } from "@/lib/stripe/plans";
+import FaqSection from "@/components/marketing/FaqSection";
+import WidgetPreview from "@/components/marketing/WidgetPreview";
 
 /**
  * No `title` here on purpose. The root layout's template is "%s | Dropin", so a
@@ -41,11 +58,58 @@ const features = [
   },
 ];
 
-/** Plan tiers in display order. Prices come from the same catalogue billing uses. */
-const TIER_ORDER: PlanTier[] = ["free", "pro", "enterprise"];
+/** What keeps the org side organized, distinct from what a resident sees. */
+const adminHighlights = [
+  {
+    icon: Users,
+    title: "Staff accounts, scoped to what they run",
+    desc: "Give a department coordinator access to their own spaces and sessions — not the whole organization.",
+  },
+  {
+    icon: ClipboardList,
+    title: "Session templates",
+    desc: "Build a recurring session once and drop it into any week, instead of rebuilding it every term.",
+  },
+  {
+    icon: ShieldAlert,
+    title: "Conflicts get flagged, not discovered by a resident",
+    desc: "Two sessions can't quietly claim the same space at the same time — Dropin catches the overlap before it's published.",
+  },
+  {
+    icon: History,
+    title: "A record of who changed what",
+    desc: "Every edit to a facility, schedule or session is logged, with the option to revert it.",
+  },
+];
 
-const planBlurb: Record<PlanTier, string> = {
-  free: "One facility, to see whether it fits.",
+/** Mirrors the shape of /dashboard/analytics — illustrative numbers, not live data. */
+const analyticsStats = [
+  { icon: Eye, label: "Views", value: "1,284" },
+  { icon: MousePointerClick, label: "Session clicks", value: "312" },
+  { icon: Clock, label: "Avg. time on schedule", value: "1m 48s" },
+];
+const weeklyViewBars = [30, 45, 38, 52, 60, 74, 66];
+const topViewed = [
+  { name: "Lane Swim", count: 96 },
+  { name: "Public Skate", count: 71 },
+];
+
+/** Sample rows for the hero's schedule preview card — illustrative, not live data. */
+const sampleSchedule = [
+  { time: "6:00 AM", name: "Lane Swim", tag: "Pool", icon: Waves },
+  { time: "9:30 AM", name: "Aqua Fit", tag: "Pool", icon: Waves },
+  { time: "4:00 PM", name: "Public Skate", tag: "Arena", icon: CircleDot },
+  { time: "6:30 PM", name: "Youth Basketball", tag: "Gym", icon: Dumbbell },
+];
+
+/**
+ * Plan tiers in display order. Prices come from the same catalogue billing
+ * uses. No free tier yet — every org is on a paid plan from day one.
+ */
+type PaidTier = Exclude<PlanTier, "free">;
+const TIER_ORDER: PaidTier[] = ["pro", "enterprise"];
+
+const planBlurb: Record<PaidTier, string> = {
   pro: "For a centre running several buildings.",
   enterprise: "For a city or a large operator.",
 };
@@ -67,37 +131,96 @@ export default function HomePage() {
   return (
     <div>
       {/* ── Hero ─────────────────────────────────────────────────────────── */}
-      <section className="bg-gradient-to-br from-blue-600 to-blue-800 text-white">
-        <div className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28 text-center">
-          <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
-            Your drop-in schedule, everywhere at once
-          </h1>
-          <p className="text-lg sm:text-xl text-blue-100 mb-10 max-w-2xl mx-auto">
-            Pools, arenas and community centres use Dropin to keep one schedule
-            up to date — and publish it to their website and an embeddable
-            widget from the same place.
-          </p>
+      <section className="relative overflow-hidden bg-gradient-to-br from-blue-600 to-blue-800 text-white">
+        <div
+          aria-hidden
+          className="absolute -top-24 -right-24 w-96 h-96 rounded-full bg-white/10 blur-3xl"
+        />
+        <div
+          aria-hidden
+          className="absolute -bottom-32 -left-16 w-80 h-80 rounded-full bg-blue-400/20 blur-3xl"
+        />
+        <div className="relative max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-20 sm:py-28">
+          <div className="flex flex-col lg:flex-row items-center gap-14">
+            <div className="flex-1 text-center lg:text-left">
+              <span className="inline-flex items-center px-3 py-1 rounded-full bg-white/10 border border-white/20 text-xs font-medium text-blue-100 mb-6">
+                For pools, arenas &amp; community centres
+              </span>
+              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-extrabold tracking-tight mb-4">
+                Your drop-in schedule, everywhere at once
+              </h1>
+              <p className="text-lg sm:text-xl text-blue-100 mb-10 max-w-2xl mx-auto lg:mx-0">
+                Keep one schedule up to date — and publish it to your own
+                website and an embeddable widget from the same place.
+              </p>
 
-          <div className="flex flex-col sm:flex-row gap-3 justify-center">
-            <Link
-              href="/signup"
-              className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition-colors"
-            >
-              Start free
-            </Link>
-            <Link
-              href="/login"
-              className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border border-white/40 font-semibold hover:bg-white/10 transition-colors"
-            >
-              Sign in
-            </Link>
+              <div className="flex flex-col sm:flex-row gap-3 justify-center lg:justify-start">
+                <Link
+                  href="/signup"
+                  className="inline-flex items-center justify-center px-8 py-3.5 bg-white text-blue-700 font-semibold rounded-xl hover:bg-blue-50 transition-colors"
+                >
+                  Get started
+                </Link>
+                <Link
+                  href="/login"
+                  className="inline-flex items-center justify-center px-8 py-3.5 rounded-xl border border-white/40 font-semibold hover:bg-white/10 transition-colors"
+                >
+                  Sign in
+                </Link>
+              </div>
+              <p className="mt-5 text-sm text-blue-200">
+                Plans start at $49/month · Cancel anytime
+              </p>
+            </div>
+
+            {/* Schedule preview mockup */}
+            <div className="flex-1 w-full max-w-md">
+              <div className="rounded-2xl bg-white shadow-2xl ring-1 ring-black/5 p-1.5">
+                <div className="rounded-xl bg-gray-50 p-5">
+                  <div className="flex items-center justify-between mb-4">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
+                      <span className="w-2.5 h-2.5 rounded-full bg-green-400" />
+                    </div>
+                    <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide">
+                      This week
+                    </p>
+                  </div>
+                  <div className="space-y-2">
+                    {sampleSchedule.map((row) => (
+                      <div
+                        key={row.name}
+                        className="flex items-center gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2.5"
+                      >
+                        <div className="w-8 h-8 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
+                          <row.icon className="w-4 h-4 text-blue-600" />
+                        </div>
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900 truncate">
+                            {row.name}
+                          </p>
+                          <p className="text-xs text-gray-500">{row.time}</p>
+                        </div>
+                        <span className="text-[11px] font-medium text-blue-700 bg-blue-50 rounded-full px-2 py-1 shrink-0">
+                          {row.tag}
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
           </div>
         </div>
       </section>
 
       {/* ── What it does ──────────────────────────────────────────────────── */}
       <section id="features" className="py-16 sm:py-20 bg-white scroll-mt-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+            Platform
+          </p>
           <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
             Built for the people who keep the schedule current
           </h2>
@@ -107,11 +230,11 @@ export default function HomePage() {
             hand. Dropin keeps one and publishes the rest.
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-6">
             {features.map((item) => (
               <div
                 key={item.title}
-                className="flex gap-4 p-5 rounded-xl border border-gray-100 bg-gray-50"
+                className="flex flex-col gap-3 p-5 rounded-xl border border-gray-100 bg-gray-50 hover:border-blue-100 hover:bg-blue-50/40 transition-colors"
               >
                 <div className="w-11 h-11 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
                   <item.icon className="w-5 h-5 text-blue-600" />
@@ -126,15 +249,112 @@ export default function HomePage() {
         </div>
       </section>
 
+      {/* ── Admin & analytics ────────────────────────────────────────────── */}
+      <section id="admin" className="py-16 sm:py-20 bg-gray-50 scroll-mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="mb-12 max-w-2xl">
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+              For your team
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              Built for the people running it, not just the ones reading it
+            </h2>
+            <p className="text-gray-600">
+              A resident sees a clean schedule. Behind it, your rec
+              coordinators get the structure and oversight to keep it that
+              way without a spreadsheet on the side.
+            </p>
+          </div>
+
+          <div className="grid lg:grid-cols-2 gap-10 items-start">
+            <div className="grid sm:grid-cols-2 gap-5">
+              {adminHighlights.map((item) => (
+                <div key={item.title} className="flex flex-col gap-3">
+                  <div className="w-10 h-10 rounded-xl bg-blue-100 flex items-center justify-center shrink-0">
+                    <item.icon className="w-5 h-5 text-blue-600" />
+                  </div>
+                  <div>
+                    <h3 className="font-semibold text-gray-900 mb-1 text-sm">{item.title}</h3>
+                    <p className="text-sm text-gray-600">{item.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+
+            {/* Analytics mock */}
+            <div className="rounded-xl border border-gray-200 bg-white p-5 shadow-sm">
+              <p className="text-xs font-semibold text-gray-400 uppercase tracking-wide mb-3">
+                Analytics · Last 30 days
+              </p>
+              <div className="grid grid-cols-3 gap-2 mb-4">
+                {analyticsStats.map((s) => (
+                  <div key={s.label} className="bg-gray-50 rounded-lg border border-gray-100 p-3">
+                    <s.icon className="w-4 h-4 text-blue-600 mb-1.5" />
+                    <p className="text-lg font-bold text-gray-900 tabular-nums leading-none">
+                      {s.value}
+                    </p>
+                    <p className="text-[10px] text-gray-500 mt-1 leading-tight">{s.label}</p>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-gray-50 rounded-lg border border-gray-100 p-3 mb-3">
+                <p className="text-[11px] font-medium text-gray-500 mb-2">Views this week</p>
+                <div className="flex items-end gap-1.5 h-14">
+                  {weeklyViewBars.map((h, i) => (
+                    <div
+                      key={i}
+                      style={{ height: `${h}%` }}
+                      className="flex-1 rounded-t bg-blue-200"
+                    />
+                  ))}
+                </div>
+              </div>
+
+              <div className="bg-gray-50 rounded-lg border border-gray-100 divide-y divide-gray-100">
+                {topViewed.map((s) => (
+                  <div key={s.name} className="flex items-center justify-between px-3 py-2 text-sm">
+                    <span className="text-gray-700">{s.name}</span>
+                    <span className="font-medium text-gray-900 tabular-nums">{s.count}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* ── Widget preview ───────────────────────────────────────────────── */}
+      <section id="product" className="py-16 sm:py-20 bg-white scroll-mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="text-center mb-10">
+            <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+              Live preview
+            </p>
+            <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">
+              What visitors see on your site
+            </h2>
+            <p className="text-gray-600 max-w-2xl mx-auto">
+              Five layouts, one schedule behind all of them. Click through
+              the toggle below — it works the same way on your own site.
+            </p>
+          </div>
+          <WidgetPreview />
+        </div>
+      </section>
+
       {/* ── Pricing ───────────────────────────────────────────────────────── */}
       <section id="pricing" className="py-16 sm:py-20 bg-gray-50 scroll-mt-16">
-        <div className="max-w-5xl mx-auto px-4 sm:px-6 lg:px-8">
-          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Pricing</h2>
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3">
+            Pricing
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-2">Simple, per facility</h2>
           <p className="text-gray-600 mb-10">
-            Start free with one facility. Prices in CAD, per month.
+            Prices in CAD, per month. Cancel anytime.
           </p>
 
-          <div className="grid sm:grid-cols-3 gap-5">
+          <div className="grid sm:grid-cols-2 gap-5 max-w-2xl">
             {TIER_ORDER.map((tier) => {
               const plan = PLANS[tier];
               const featured = tier === "pro";
@@ -149,10 +369,8 @@ export default function HomePage() {
                 >
                   <p className="font-semibold text-gray-900">{plan.name}</p>
                   <p className="mt-2 text-3xl font-extrabold text-gray-900">
-                    {plan.priceMonthly === 0 ? "Free" : `$${plan.priceMonthly / 100}`}
-                    {plan.priceMonthly > 0 && (
-                      <span className="text-sm font-medium text-gray-500">/mo</span>
-                    )}
+                    ${plan.priceMonthly / 100}
+                    <span className="text-sm font-medium text-gray-500">/mo</span>
                   </p>
                   <p className="mt-1 text-sm text-gray-500">{planBlurb[tier]}</p>
 
@@ -165,20 +383,38 @@ export default function HomePage() {
                     ))}
                   </ul>
 
-                  <Link
-                    href="/signup"
-                    className={
-                      featured
-                        ? "mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                        : "mt-6 block text-center px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
-                    }
-                  >
-                    {tier === "free" ? "Start free" : `Choose ${plan.name}`}
-                  </Link>
+                  {tier === "enterprise" ? (
+                    <a
+                      href="mailto:hello@dropin.app?subject=Enterprise plan"
+                      className="mt-6 block text-center px-4 py-2.5 rounded-lg border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 transition-colors"
+                    >
+                      Contact us
+                    </a>
+                  ) : (
+                    <Link
+                      href="/signup"
+                      className="mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                    >
+                      Choose {plan.name}
+                    </Link>
+                  )}
                 </div>
               );
             })}
           </div>
+        </div>
+      </section>
+
+      {/* ── FAQ ──────────────────────────────────────────────────────────── */}
+      <section id="faq" className="py-16 sm:py-20 bg-white scroll-mt-16">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8">
+          <p className="text-xs font-semibold text-blue-600 uppercase tracking-wide mb-3 text-center">
+            FAQ
+          </p>
+          <h2 className="text-2xl sm:text-3xl font-bold text-gray-900 mb-10 text-center">
+            Questions
+          </h2>
+          <FaqSection />
         </div>
       </section>
 
@@ -189,8 +425,8 @@ export default function HomePage() {
             Stop retyping the same schedule
           </h2>
           <p className="text-gray-400 mb-8">
-            Set up one facility and publish a schedule in an afternoon. No card
-            required to start.
+            Set up one facility and publish a schedule in an afternoon.
+            Plans start at $49/month.
           </p>
           <Link
             href="/signup"

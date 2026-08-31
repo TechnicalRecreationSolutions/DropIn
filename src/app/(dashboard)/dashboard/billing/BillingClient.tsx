@@ -8,13 +8,11 @@ interface BillingClientProps {
   currentTier: PlanTier;
 }
 
-const PLAN_FEATURES: Record<PlanTier, string[]> = {
-  free: [
-    "1 facility",
-    "5 schedules per facility",
-    "1 staff member",
-    "30 days analytics history",
-  ],
+/** Plans a customer can actually be sold. No free tier yet — see plans.ts. */
+type PaidTier = Exclude<PlanTier, "free">;
+const PAID_TIERS: PaidTier[] = ["pro", "enterprise"];
+
+const PLAN_FEATURES: Record<PaidTier, string[]> = {
   pro: [
     "Up to 5 facilities",
     "Unlimited schedules",
@@ -36,8 +34,8 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
   const [portalLoading, setPortalLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  async function handleUpgrade(tier: PlanTier) {
-    if (tier === "free" || tier === currentTier) return;
+  async function handleUpgrade(tier: PaidTier) {
+    if (tier === currentTier) return;
     setLoading(tier);
     setError(null);
 
@@ -86,11 +84,17 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
         <div className="flex items-center justify-between">
           <div>
             <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Current plan</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">{currentPlan.name}</p>
-            {currentPlan.priceMonthly > 0 && (
-              <p className="text-sm text-gray-500 mt-0.5">
-                ${(currentPlan.priceMonthly / 100).toFixed(0)}/month
-              </p>
+            <p className="text-xl font-bold text-gray-900 mt-1">
+              {currentTier === "free" ? "No active plan" : currentPlan.name}
+            </p>
+            {currentTier === "free" ? (
+              <p className="text-sm text-gray-500 mt-0.5">Choose a plan below to get started.</p>
+            ) : (
+              currentPlan.priceMonthly > 0 && (
+                <p className="text-sm text-gray-500 mt-0.5">
+                  ${(currentPlan.priceMonthly / 100).toFixed(0)}/month
+                </p>
+              )
             )}
           </div>
           {currentTier !== "free" && (
@@ -111,12 +115,11 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
         </div>
       )}
 
-      {/* Plan cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-        {(["free", "pro", "enterprise"] as PlanTier[]).map((tier) => {
+      {/* Plan cards — no free tier to compare against, just the two paid ones */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 max-w-2xl">
+        {PAID_TIERS.map((tier) => {
           const plan = PLANS[tier];
           const isCurrent = tier === currentTier;
-          const isDowngrade = tier === "free" && currentTier !== "free";
           const features = PLAN_FEATURES[tier];
 
           return (
@@ -136,13 +139,12 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
                   <Zap className="w-3.5 h-3.5" /> Most popular
                 </span>
               )}
-              {!isCurrent && tier !== "free" && !isDowngrade && <div className="h-5 mb-2" />}
-              {tier === "free" && !isCurrent && <div className="h-5 mb-2" />}
+              {tier === "enterprise" && !isCurrent && <div className="h-5 mb-2" />}
 
               <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
               <p className="text-2xl font-bold text-gray-900 mt-1">
-                {plan.priceMonthly === 0 ? "Free" : `$${plan.priceMonthly / 100}`}
-                {plan.priceMonthly > 0 && <span className="text-sm font-normal text-gray-500">/mo</span>}
+                ${plan.priceMonthly / 100}
+                <span className="text-sm font-normal text-gray-500">/mo</span>
               </p>
 
               <ul className="mt-4 space-y-2 flex-1">
@@ -158,10 +160,6 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
                 {isCurrent ? (
                   <div className="w-full py-2 text-center text-sm font-medium text-gray-400 bg-gray-50 rounded-lg">
                     Current plan
-                  </div>
-                ) : isDowngrade ? (
-                  <div className="w-full py-2 text-center text-sm font-medium text-gray-400">
-                    Cancel to downgrade
                   </div>
                 ) : tier === "enterprise" ? (
                   <a
