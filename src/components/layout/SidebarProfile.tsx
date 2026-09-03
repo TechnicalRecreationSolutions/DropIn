@@ -9,6 +9,8 @@ interface SidebarProfileProps {
   userEmail: string | null;
   role: string;
   onNavigate?: () => void;
+  /** Icon-only mode for the collapsed sidebar — shows just the avatar and a sign-out icon. */
+  collapsed?: boolean;
 }
 
 /**
@@ -17,7 +19,7 @@ interface SidebarProfileProps {
  * mockup gives the profile its own persistent spot, so the header no longer
  * duplicates it.
  */
-export default function SidebarProfile({ userEmail, role, onNavigate }: SidebarProfileProps) {
+export default function SidebarProfile({ userEmail, role, onNavigate, collapsed }: SidebarProfileProps) {
   const router = useRouter();
   const [signingOut, setSigningOut] = useState(false);
 
@@ -31,6 +33,29 @@ export default function SidebarProfile({ userEmail, role, onNavigate }: SidebarP
   }
 
   const initial = (userEmail ?? "?").trim().charAt(0).toUpperCase() || "?";
+
+  if (collapsed) {
+    return (
+      <div className="px-2 py-4 border-t border-sidebar-border flex flex-col items-center gap-2 shrink-0">
+        <div
+          className="size-9 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm"
+          title={userEmail ?? undefined}
+        >
+          {initial}
+        </div>
+        <button
+          type="button"
+          onClick={handleSignOut}
+          disabled={signingOut}
+          title={signingOut ? "Signing out…" : "Sign out"}
+          aria-label="Sign out"
+          className="inline-flex items-center justify-center size-8 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
+        >
+          <LogOut className="size-3.5" />
+        </button>
+      </div>
+    );
+  }
 
   return (
     <div className="px-4 py-4 border-t border-sidebar-border text-center shrink-0">

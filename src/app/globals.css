@@ -61,12 +61,12 @@
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
   --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.72 0.19 155);
-  --accent-foreground: oklch(0.16 0.02 155);
+  --accent: oklch(0.676 0.176 252);
+  --accent-foreground: oklch(0.16 0.02 252);
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.72 0.19 155);
+  --ring: oklch(0.676 0.176 252);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
@@ -74,15 +74,16 @@
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
   /* The sidebar stays dark in both light and dark canvas modes, matching
-     Supabase's dashboard chrome — it does not flip with the rest of the UI. */
-  --sidebar: oklch(0.19 0.006 285);
+     Supabase's dashboard chrome — it does not flip with the rest of the UI.
+     A dark navy (not black) that shares its hue with the accent blue. */
+  --sidebar: oklch(0.26 0.045 258);
   --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.72 0.19 155);
-  --sidebar-primary-foreground: oklch(0.16 0.02 155);
-  --sidebar-accent: oklch(0.27 0.008 285);
+  --sidebar-primary: oklch(0.676 0.176 252);
+  --sidebar-primary-foreground: oklch(0.16 0.02 252);
+  --sidebar-accent: oklch(0.34 0.055 258);
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.72 0.19 155);
+  --sidebar-ring: oklch(0.676 0.176 252);
 }
 
 .dark {
@@ -98,26 +99,26 @@
   --secondary-foreground: oklch(0.985 0 0);
   --muted: oklch(0.269 0 0);
   --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.72 0.19 155);
-  --accent-foreground: oklch(0.16 0.02 155);
+  --accent: oklch(0.676 0.176 252);
+  --accent-foreground: oklch(0.16 0.02 252);
   --destructive: oklch(0.704 0.191 22.216);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.19 155);
+  --ring: oklch(0.676 0.176 252);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   /* Same values as :root — sidebar is dark regardless of canvas theme. */
-  --sidebar: oklch(0.19 0.006 285);
+  --sidebar: oklch(0.26 0.045 258);
   --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.72 0.19 155);
-  --sidebar-primary-foreground: oklch(0.16 0.02 155);
-  --sidebar-accent: oklch(0.27 0.008 285);
+  --sidebar-primary: oklch(0.676 0.176 252);
+  --sidebar-primary-foreground: oklch(0.16 0.02 252);
+  --sidebar-accent: oklch(0.34 0.055 258);
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.72 0.19 155);
+  --sidebar-ring: oklch(0.676 0.176 252);
 }
 
 @layer base {

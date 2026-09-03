@@ -20,6 +20,8 @@ interface TreeNavNodeProps {
   /** Renders as an inert, muted row instead of a link — e.g. a menu item with nothing to scope to yet. */
   disabled?: boolean;
   disabledReason?: string;
+  /** Icon-only mode for the collapsed sidebar — hides the label and centers the icon. */
+  collapsed?: boolean;
 }
 
 /**
@@ -42,23 +44,28 @@ export default function TreeNavNode({
   onToggleExpand,
   disabled,
   disabledReason,
+  collapsed,
 }: TreeNavNodeProps) {
   const rowContent = (
     <>
       <Icon className="size-3.5 shrink-0 opacity-70" />
-      <span className="truncate">{label}</span>
+      {!collapsed && (
+        <>
+          <span className="truncate">{label}</span>
 
-      <span className="ml-auto flex items-center gap-1.5 shrink-0">
-        {isPublished === false && (
-          <span
-            className="size-1.5 rounded-full bg-sidebar-foreground/30"
-            title="Draft — not published"
-          />
-        )}
-        {badge !== undefined && (
-          <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
-        )}
-      </span>
+          <span className="ml-auto flex items-center gap-1.5 shrink-0">
+            {isPublished === false && (
+              <span
+                className="size-1.5 rounded-full bg-sidebar-foreground/30"
+                title="Draft — not published"
+              />
+            )}
+            {badge !== undefined && (
+              <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
+            )}
+          </span>
+        </>
+      )}
     </>
   );
 
@@ -72,9 +79,9 @@ export default function TreeNavNode({
             ? "bg-sidebar-accent text-sidebar-accent-foreground"
             : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
       )}
-      style={{ paddingLeft: `${depth * 14 + 8}px` }}
+      style={{ paddingLeft: collapsed ? undefined : `${depth * 14 + 8}px` }}
     >
-      {expandable && (
+      {expandable && !collapsed && (
         <button
           type="button"
           onClick={(e) => {
@@ -91,14 +98,24 @@ export default function TreeNavNode({
       )}
       {disabled ? (
         <span
-          className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0"
-          title={disabledReason}
+          className={cn(
+            "flex-1 flex items-center gap-2 py-1.5 min-w-0",
+            collapsed ? "justify-center px-2" : "pr-2 pl-1"
+          )}
+          title={disabledReason ?? (collapsed ? label : undefined)}
           aria-disabled="true"
         >
           {rowContent}
         </span>
       ) : (
-        <Link href={href} className="flex-1 flex items-center gap-2 py-1.5 pr-2 pl-1 min-w-0">
+        <Link
+          href={href}
+          className={cn(
+            "flex-1 flex items-center gap-2 py-1.5 min-w-0",
+            collapsed ? "justify-center px-2" : "pr-2 pl-1"
+          )}
+          title={collapsed ? label : undefined}
+        >
           {rowContent}
         </Link>
       )}

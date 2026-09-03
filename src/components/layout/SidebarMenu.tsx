@@ -24,6 +24,8 @@ interface SidebarMenuProps {
   /** Org has at least one facility — menu items that need a facility scope render disabled otherwise. */
   hasFacility: boolean;
   onNavigate?: () => void;
+  /** Icon-only mode for the collapsed sidebar. */
+  collapsed?: boolean;
 }
 
 interface MenuItem {
@@ -42,7 +44,7 @@ interface MenuItem {
  * has selected, so picking a facility/department/schedule there changes
  * where these links actually go.
  */
-export default function SidebarMenu({ selection, hasFacility, onNavigate }: SidebarMenuProps) {
+export default function SidebarMenu({ selection, hasFacility, onNavigate, collapsed }: SidebarMenuProps) {
   const pathname = usePathname();
   const needsFacility = "Add a facility first to use this.";
 
@@ -134,9 +136,11 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
       }}
     >
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
-          Menu
-        </p>
+        {!collapsed && (
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
+            Menu
+          </p>
+        )}
         <div className="space-y-0.5">
           {menuItems.map((item) => (
             <TreeNavNode
@@ -148,15 +152,18 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
               isActive={isActive(item)}
               disabled={item.disabled}
               disabledReason={item.disabledReason}
+              collapsed={collapsed}
             />
           ))}
         </div>
       </div>
 
       <div>
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
-          Settings
-        </p>
+        {!collapsed && (
+          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
+            Settings
+          </p>
+        )}
         <div className="space-y-0.5">
           {settingsItems.map((item) => (
             <TreeNavNode
@@ -166,6 +173,7 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate }: Side
               icon={item.icon}
               depth={0}
               isActive={isActive(item)}
+              collapsed={collapsed}
             />
           ))}
         </div>

@@ -25,6 +25,8 @@ interface SidebarNavProps {
   orgId: string;
   /** Called whenever a Menu link is clicked — used to close a mobile sheet on navigation. */
   onNavigate?: () => void;
+  /** Icon-only mode for the collapsed desktop sidebar — hides the Filters dropdowns and menu labels. */
+  collapsed?: boolean;
 }
 
 /** Which facility a route is "inside", from the query string or the (redirect-only) legacy path. */
@@ -62,7 +64,7 @@ function scopedHrefForPath(pathname: string, selection: SidebarSelection): strin
  * sidebar reflects where you are), falling back to the org's first facility
  * — same default the Overview page itself uses.
  */
-export default function SidebarNav({ orgId, onNavigate }: SidebarNavProps) {
+export default function SidebarNav({ orgId, onNavigate, collapsed }: SidebarNavProps) {
   const pathname = usePathname();
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -114,18 +116,23 @@ export default function SidebarNav({ orgId, onNavigate }: SidebarNavProps) {
 
   return (
     <div className="flex-1 overflow-y-auto flex flex-col">
-      <SidebarFilters
-        facilities={data?.facilities ?? []}
-        departments={facilityDepartments}
-        scheduleGroups={facilitySchedules}
-        selection={selection}
-        onChange={handleFilterChange}
-      />
-      <div className="border-t border-sidebar-border mx-4" />
+      {!collapsed && (
+        <>
+          <SidebarFilters
+            facilities={data?.facilities ?? []}
+            departments={facilityDepartments}
+            scheduleGroups={facilitySchedules}
+            selection={selection}
+            onChange={handleFilterChange}
+          />
+          <div className="border-t border-sidebar-border mx-4" />
+        </>
+      )}
       <SidebarMenu
         selection={selection}
         hasFacility={(data?.facilities.length ?? 0) > 0}
         onNavigate={onNavigate}
+        collapsed={collapsed}
       />
     </div>
   );
