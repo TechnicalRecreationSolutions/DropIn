@@ -11,22 +11,48 @@ import type { ScheduleTemplate } from "@/types/schedule.types";
 
 const queryClient = new QueryClient();
 
+/** One entry in a multi-schedule widget's visitor-facing filter. */
+export interface WidgetScope {
+  id: string;
+  label: string;
+  facilityId: string;
+  departmentId: string | null;
+  scheduleGroupId: string | null;
+}
+
 interface WidgetScheduleClientProps {
   orgId: string;
   facilityId?: string;
   departmentId?: string;
   theme: "light" | "dark";
   allowedTemplates: ScheduleTemplate[];
+  /** When 2+ entries, the widget shows a facility/department/schedule filter and this list
+   *  drives the data scope instead of the fixed facilityId/departmentId props above. */
+  scopes?: WidgetScope[];
 }
 
-function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplates }: WidgetScheduleClientProps) {
+function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplates, scopes = [] }: WidgetScheduleClientProps) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
+  // A lone configured scope still has to drive the data — it's only the
+  // *picker UI* that needs 2+ options to mean anything. Falling back to the
+  // plain facilityId/departmentId props whenever there's exactly one scope
+  // would silently un-scope the embed instead of applying the org's one
+  // configured filter.
+  const filterable = scopes.length > 1;
+  const [selectedScopeId, setSelectedScopeId] = useState<string>(scopes[0]?.id ?? "");
+  const activeScope = scopes.length > 0 ? (scopes.find((s) => s.id === selectedScopeId) ?? scopes[0]) : undefined;
+
+  const scopedFacilityId = activeScope ? activeScope.facilityId : facilityId;
+  const scopedDepartmentId = activeScope ? (activeScope.departmentId ?? undefined) : departmentId;
+  const scopedScheduleGroupId = activeScope?.scheduleGroupId ?? undefined;
+
   const { data: sessions, isLoading, isError } = useTemplateSchedule({
     template: view,
     orgId,
-    facilityId,
-    departmentId,
+    facilityId: scopedFacilityId,
+    departmentId: scopedDepartmentId,
+    scheduleGroupId: scopedScheduleGroupId,
     weekStart,
     month,
   });
@@ -34,7 +60,7 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   // viewEvent is null here — widget.js already fires widget_view once per
   // embed load from the parent page; this hook only needs to report
   // template switches and time-on-widget, not a second initial view.
-  useScheduleAnalytics({ viewEvent: null, orgId, facilityId, view });
+  useScheduleAnalytics({ viewEvent: null, orgId, facilityId: scopedFacilityId, view });
 
   // Notify parent frame of height changes for auto-resize
   useEffect(() => {
@@ -54,10 +80,13 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200">
       <ScheduleHeaderBar
-        title="Schedule"
+        title={activeScope?.label ?? "Schedule"}
         view={view}
         onChange={setView}
         allowedViews={allowedTemplates}
+        scopeOptions={filterable ? scopes.map((s) => ({ id: s.id, label: s.label })) : undefined}
+        activeScopeId={activeScope?.id}
+        onScopeChange={setSelectedScopeId}
       />
 
       {isLoading ? (
@@ -81,7 +110,7 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
             onWeekChange={setWeekStart}
             month={month}
             onMonthChange={setMonth}
-            facilityId={facilityId}
+            facilityId={scopedFacilityId}
           />
         </div>
       )}

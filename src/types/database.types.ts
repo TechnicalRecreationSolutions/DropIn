@@ -666,6 +666,36 @@ export type Database = {
         >;
         Relationships: [];
       };
+      // Added in 043_widget_config_scopes.sql. Sparse by design — a widget
+      // config with zero rows here has no filter UI and behaves exactly as
+      // before; rows only exist for orgs that opted into the multi-schedule
+      // widget. See that migration's header for the RLS shape.
+      widget_config_scopes: {
+        Row: {
+          id: string;
+          widget_config_id: string;
+          org_id: string;
+          label: string;
+          facility_id: string;
+          department_id: string | null;
+          schedule_group_id: string | null;
+          sort_order: number;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["widget_config_scopes"]["Row"],
+          "id" | "department_id" | "schedule_group_id" | "sort_order" | "created_at"
+        > & {
+          department_id?: string | null;
+          schedule_group_id?: string | null;
+          sort_order?: number;
+          created_at?: string;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["widget_config_scopes"]["Insert"]
+        >;
+        Relationships: [];
+      };
       subscriptions: {
         Row: {
           id: string;

@@ -11,6 +11,10 @@ import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import { localDateString, parseDate, getWeekStart, sessionTimeString } from "@/lib/utils/dates";
 import { buildRRuleString } from "@/lib/rrule/validate";
 import { DAYS, timeStringToMinutes, minutesToTimeString, sessionDayIndex } from "@/lib/schedule/weekGeometry";
+import { NO_DEPARTMENT, commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
+import { getSportCategory } from "@/lib/utils/sport-categories";
+import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule-list/ScheduleListSection";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import ScheduleView from "@/components/schedule/ScheduleView";
@@ -42,6 +46,7 @@ import WeekReviewBar from "./WeekReviewBar";
 import type { CommandFacility } from "./types";
 
 interface ScheduleCommandCentreProps {
+  orgId: string;
   orgPrimaryColor: string;
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
@@ -75,6 +80,7 @@ const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorpla
  * view reflects a change immediately without refetching per view.
  */
 export default function ScheduleCommandCentre({
+  orgId,
   orgPrimaryColor,
   widgetTemplates,
   facilities,
@@ -88,6 +94,7 @@ export default function ScheduleCommandCentre({
   // replicates the same validation page.tsx does server-side: a stale or
   // hand-edited URL falls back rather than showing an empty editor.
   const facilityParam = searchParams.get("facility");
+  const departmentParam = searchParams.get("department");
   const scheduleParam = searchParams.get("schedule");
 
   const facility = useMemo(
@@ -98,6 +105,59 @@ export default function ScheduleCommandCentre({
     () => facility?.scheduleGroups.find((g) => g.id === scheduleParam) ?? null,
     [facility, scheduleParam]
   );
+
+  // The schedule-management list shown once a building is picked but before
+  // (or after clearing) a specific schedule — same rows/actions as the
+  // Overview page's ScheduleListSection, just scoped to this facility's
+  // department filter instead of the Overview's whole-facility view.
+  const manageableSchedules = useMemo(() => {
+    if (!facility) return [];
+    if (!departmentParam) return facility.scheduleGroups;
+    if (departmentParam === NO_DEPARTMENT) return facility.scheduleGroups.filter((g) => !g.departmentId);
+    return facility.scheduleGroups.filter((g) => g.departmentId === departmentParam);
+  }, [facility, departmentParam]);
+
+  const today = localDateString();
+  const scheduleListRows: ScheduleListRow[] = useMemo(
+    () =>
+      manageableSchedules.map((g) => {
+        const sport = getSportCategory(g.sportCategory);
+        return {
+          id: g.id,
+          name: g.name,
+          typeLabel: sport?.label ?? g.sportCategory,
+          typeIcon: sport?.icon ?? "🎯",
+          departmentName: g.departmentName,
+          startsOn: g.startsOn,
+          endsOn: g.endsOn,
+          sessionsCount: g.sessionsCount,
+          scheduleStatus: deriveScheduleStatus(
+            {
+              status: g.status,
+              startsOn: g.startsOn,
+              endsOn: g.endsOn,
+              updatedAt: g.updatedAt,
+              publishedAt: g.publishedAt,
+            },
+            today
+          ),
+          editHref: commandCentreHref({
+            facilityId: facility!.id,
+            departmentId: g.departmentId ?? undefined,
+            scheduleGroupId: g.id,
+          }),
+          previewHref: `/facility/${facility!.slug}`,
+        };
+      }),
+    [manageableSchedules, facility, today]
+  );
+
+  const newScheduleHref =
+    facility && departmentParam && departmentParam !== NO_DEPARTMENT
+      ? `/dashboard/facilities/${facility.id}/departments/${departmentParam}/schedule-groups/new`
+      : facility
+        ? `/dashboard/facilities/${facility.id}/schedule-groups/new`
+        : "/dashboard/facilities";
 
   // `week` is the only scope this page still owns locally — it switches
   // instantly (no navigation) and is mirrored into the URL so it's
@@ -456,8 +516,8 @@ export default function ScheduleCommandCentre({
   function handleTemplateClick(template: EditorTemplate) {
     // Views without a time axis have no drop position, so a clicked
     // template opens the dialog on the day already in focus.
-    const today = DAYS[new Date().getDay()];
-    handleAddSession({ dayCode: today.code, dayLabel: today.label, template });
+    const todayDay = DAYS[new Date().getDay()];
+    handleAddSession({ dayCode: todayDay.code, dayLabel: todayDay.label, template });
   }
 
   if (facilities.length === 0) return null;
@@ -471,11 +531,13 @@ export default function ScheduleCommandCentre({
     <OrgThemeProvider primaryColor={orgPrimaryColor} className="space-y-5">
       <>
         {!scheduleGroup ? (
-          <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-            <p className="text-sm text-gray-500">
-              Pick a schedule from the sidebar to see its weeks.
-            </p>
-          </div>
+          <ScheduleListSection
+            orgId={orgId}
+            facilityName={facility?.name ?? ""}
+            rows={scheduleListRows}
+            newScheduleHref={newScheduleHref}
+            emptyMessage={departmentParam ? "Nothing matches the selected filters." : undefined}
+          />
         ) : isContinuous ? (
           <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
             <p className="text-sm text-gray-500">

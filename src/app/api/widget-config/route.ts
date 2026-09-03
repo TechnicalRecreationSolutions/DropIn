@@ -25,6 +25,19 @@ const UpdateConfigSchema = z.object({
   primaryColor: z.string().min(1).optional(),
   secondaryColor: z.string().min(1).optional(),
   customTitle: z.string().nullable().optional(),
+  // Undefined = leave the saved filter list alone (an appearance-only save
+  // shouldn't wipe it). [] explicitly clears it back to "no filter UI".
+  scopes: z
+    .array(
+      z.object({
+        label: z.string().trim().min(1).max(80),
+        facilityId: z.string().uuid(),
+        departmentId: z.string().uuid().nullish(),
+        scheduleGroupId: z.string().uuid().nullish(),
+      })
+    )
+    .max(20)
+    .optional(),
 });
 
 /**
@@ -49,6 +62,18 @@ export async function GET(request: Request) {
 
   const { data } = await query.maybeSingle();
 
+  // Scopes live on the widget_configs row's own id, not its (org, facility,
+  // department) key — no saved row yet means no filter list to load either.
+  let scopes: Database["public"]["Tables"]["widget_config_scopes"]["Row"][] = [];
+  if (data?.id) {
+    const { data: scopeRows } = await supabase
+      .from("widget_config_scopes")
+      .select("*")
+      .eq("widget_config_id", data.id)
+      .order("sort_order", { ascending: true });
+    scopes = scopeRows ?? [];
+  }
+
   return NextResponse.json({
     config: data ?? {
       org_id: orgId,
@@ -56,6 +81,7 @@ export async function GET(request: Request) {
       department_id: departmentId ?? null,
       ...DEFAULT_CONFIG,
     },
+    scopes,
   });
 }
 
@@ -92,7 +118,7 @@ export async function PATCH(request: Request) {
   const parsed = UpdateConfigSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { facilityId, departmentId, allowedTemplates, primaryColor, secondaryColor, customTitle } = parsed.data;
+  const { facilityId, departmentId, allowedTemplates, primaryColor, secondaryColor, customTitle, scopes } = parsed.data;
 
   // Verify facility/department belong to the caller's own org before scoping a config to them.
   if (facilityId) {
@@ -112,6 +138,77 @@ export async function PATCH(request: Request) {
       .eq("org_id", membership.org_id)
       .maybeSingle();
     if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
+  }
+
+  // Verify every scope entry's facility/department/schedule actually belongs
+  // to the caller's org and that department/schedule sit under the facility
+  // the entry claims — one bad id shouldn't silently pass through as a
+  // legit-looking filter option in the public widget. Where a schedule is
+  // given, its own department_id is the source of truth for the scope's
+  // department (rather than trusting the submitted one), so a scope can name
+  // just a schedule without also having to re-derive its department.
+  let resolvedScopes:
+    | { label: string; facilityId: string; departmentId: string | null; scheduleGroupId: string | null }[]
+    | undefined;
+  if (scopes !== undefined) {
+    const facilityIds = [...new Set(scopes.map((s) => s.facilityId))];
+    const departmentIds = [...new Set(scopes.map((s) => s.departmentId).filter((v): v is string => !!v))];
+    const scheduleGroupIds = [...new Set(scopes.map((s) => s.scheduleGroupId).filter((v): v is string => !!v))];
+
+    const [{ data: scopeFacilities }, { data: scopeDepartments }, { data: scopeScheduleGroups }] = await Promise.all([
+      facilityIds.length
+        ? supabase.from("facilities").select("id").eq("org_id", membership.org_id).in("id", facilityIds)
+        : Promise.resolve({ data: [] as { id: string }[] }),
+      departmentIds.length
+        ? supabase.from("departments").select("id, facility_id").eq("org_id", membership.org_id).in("id", departmentIds)
+        : Promise.resolve({ data: [] as { id: string; facility_id: string }[] }),
+      scheduleGroupIds.length
+        ? supabase
+            .from("schedule_groups")
+            .select("id, facility_id, department_id")
+            .eq("org_id", membership.org_id)
+            .in("id", scheduleGroupIds)
+        : Promise.resolve({ data: [] as { id: string; facility_id: string; department_id: string | null }[] }),
+    ]);
+
+    const validFacilityIds = new Set((scopeFacilities ?? []).map((f) => f.id));
+    const departmentById = new Map((scopeDepartments ?? []).map((d) => [d.id, d]));
+    const scheduleGroupById = new Map((scopeScheduleGroups ?? []).map((sg) => [sg.id, sg]));
+
+    resolvedScopes = [];
+    for (const scope of scopes) {
+      if (!validFacilityIds.has(scope.facilityId)) {
+        return NextResponse.json({ error: "Scope references a facility outside your organization" }, { status: 404 });
+      }
+
+      if (scope.scheduleGroupId) {
+        const sg = scheduleGroupById.get(scope.scheduleGroupId);
+        if (!sg || sg.facility_id !== scope.facilityId) {
+          return NextResponse.json({ error: "Scope references an invalid schedule" }, { status: 404 });
+        }
+        resolvedScopes.push({
+          label: scope.label,
+          facilityId: scope.facilityId,
+          departmentId: sg.department_id,
+          scheduleGroupId: scope.scheduleGroupId,
+        });
+        continue;
+      }
+
+      if (scope.departmentId) {
+        const dept = departmentById.get(scope.departmentId);
+        if (!dept || dept.facility_id !== scope.facilityId) {
+          return NextResponse.json({ error: "Scope references an invalid department" }, { status: 404 });
+        }
+      }
+
+      resolvedScopes.push({
+        label: scope.label,
+        facilityId: scope.facilityId,
+        departmentId: scope.departmentId ?? null,
+        scheduleGroupId: null,
+      });
+    }
   }
 
   const fields: Database["public"]["Tables"]["widget_configs"]["Update"] = {};
@@ -138,5 +235,40 @@ export async function PATCH(request: Request) {
     return NextResponse.json({ error: "Could not save widget config" }, { status: 500 });
   }
 
-  return NextResponse.json({ config: data });
+  // Replace-the-whole-list rather than a diff — the list is short (max 20)
+  // and this keeps sort_order trivially correct without a separate reorder
+  // step. Delete-then-insert only runs when the caller actually sent `scopes`.
+  let scopeRows: Database["public"]["Tables"]["widget_config_scopes"]["Row"][] = [];
+  if (resolvedScopes !== undefined) {
+    const { error: deleteError } = await supabase
+      .from("widget_config_scopes")
+      .delete()
+      .eq("widget_config_id", data.id);
+    if (deleteError) {
+      return NextResponse.json({ error: "Could not save widget filters" }, { status: 500 });
+    }
+
+    if (resolvedScopes.length > 0) {
+      const { data: inserted, error: insertError } = await supabase
+        .from("widget_config_scopes")
+        .insert(
+          resolvedScopes.map((s, index) => ({
+            widget_config_id: data.id,
+            org_id: membership.org_id,
+            label: s.label,
+            facility_id: s.facilityId,
+            department_id: s.departmentId,
+            schedule_group_id: s.scheduleGroupId,
+            sort_order: index,
+          }))
+        )
+        .select("*");
+      if (insertError || !inserted) {
+        return NextResponse.json({ error: "Could not save widget filters" }, { status: 500 });
+      }
+      scopeRows = inserted;
+    }
+  }
+
+  return NextResponse.json({ config: data, scopes: scopeRows });
 }

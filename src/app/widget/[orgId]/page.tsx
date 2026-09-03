@@ -79,12 +79,32 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // unsaved preview passes ?preview=1&templates=grid,list to see a choice
   // before saving — a real embed never sends `preview`, so it always
   // renders the saved value regardless of what's in its query string.
-  let widgetConfigQuery = supabase.from("widget_configs").select("allowed_templates, primary_color").eq("org_id", orgId);
+  let widgetConfigQuery = supabase.from("widget_configs").select("id, allowed_templates, primary_color").eq("org_id", orgId);
   widgetConfigQuery = facility ? widgetConfigQuery.eq("facility_id", facility.id) : widgetConfigQuery.is("facility_id", null);
   widgetConfigQuery = department ? widgetConfigQuery.eq("department_id", department.id) : widgetConfigQuery.is("department_id", null);
   const { data: widgetConfig } = await widgetConfigQuery.maybeSingle();
 
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
+
+  // Multi-schedule filter list — empty for the (default) single-scope embed,
+  // so this is purely additive to existing embeds. RLS already restricts
+  // this anonymous read to scopes whose facility/department/schedule chain
+  // is fully published (migration 043), so no extra filtering is needed here.
+  let scopes: { id: string; label: string; facilityId: string; departmentId: string | null; scheduleGroupId: string | null }[] = [];
+  if (widgetConfig?.id) {
+    const { data: scopeRows } = await supabase
+      .from("widget_config_scopes")
+      .select("id, label, facility_id, department_id, schedule_group_id")
+      .eq("widget_config_id", widgetConfig.id)
+      .order("sort_order", { ascending: true });
+    scopes = (scopeRows ?? []).map((s) => ({
+      id: s.id,
+      label: s.label,
+      facilityId: s.facility_id,
+      departmentId: s.department_id,
+      scheduleGroupId: s.schedule_group_id,
+    }));
+  }
 
   const validTemplates = ["grid", "list", "map", "floorplan", "board"] as const;
   function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan" | "board")[] {
@@ -146,6 +166,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
           departmentId={department?.id}
           theme={theme === "dark" ? "dark" : "light"}
           allowedTemplates={allowedTemplates}
+          scopes={scopes}
         />
       </OrgThemeProvider>
     </div>

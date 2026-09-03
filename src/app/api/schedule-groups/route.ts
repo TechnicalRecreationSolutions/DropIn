@@ -26,9 +26,9 @@ const CreateScheduleGroupSchema = z.object({
 });
 
 /**
- * GET /api/schedule-groups?departmentId=... — list schedule groups
- * (optionally scoped to a department). Used by department/facility pickers
- * (ScheduleGroupForm, WidgetConfigurator).
+ * GET /api/schedule-groups?departmentId=...&facilityId=... — list schedule
+ * groups (optionally scoped to a department and/or facility). Used by
+ * department/facility pickers (ScheduleGroupForm, WidgetConfigurator).
  * POST /api/schedule-groups — create a schedule group under a facility owned
  * by the caller's org. ScheduleGroupForm used to write directly via the
  * Supabase client (unlike departments/spaces); this route brings it in line
@@ -41,7 +41,9 @@ export async function GET(request: Request) {
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const departmentId = new URL(request.url).searchParams.get("departmentId");
+  const params = new URL(request.url).searchParams;
+  const departmentId = params.get("departmentId");
+  const facilityId = params.get("facilityId");
 
   let query = supabase
     .from("schedule_groups")
@@ -49,6 +51,7 @@ export async function GET(request: Request) {
     .eq("org_id", membership.org_id)
     .order("display_order", { ascending: true });
 
+  if (facilityId) query = query.eq("facility_id", facilityId);
   if (departmentId) query = query.eq("department_id", departmentId);
 
   const { data, error } = await query;

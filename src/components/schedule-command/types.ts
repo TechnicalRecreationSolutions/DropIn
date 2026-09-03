@@ -7,6 +7,9 @@ export interface CommandScheduleGroup {
   status: "draft" | "published";
   /** "continuous" schedules are always-open hours, not placed sessions — they have nothing to build. */
   scheduleType: string | null;
+  /** Raw sport_category id — resolved through getSportCategory() for its label/icon. */
+  sportCategory: string;
+  sessionsCount: number;
   /** Null for schedules that sit directly under the facility. */
   departmentId: string | null;
   departmentName: string | null;
@@ -36,6 +39,7 @@ export interface CommandSpace {
 export interface CommandFacility {
   id: string;
   name: string;
+  slug: string;
   isPublished: boolean;
   /** Floorplan can only render where a facility map has been published. */
   hasPublishedMap: boolean;
