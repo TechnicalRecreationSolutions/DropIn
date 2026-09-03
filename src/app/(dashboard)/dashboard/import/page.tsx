@@ -23,8 +23,8 @@ export default function ImportPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Import schedule</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Import schedule</h1>
+        <p className="text-muted-foreground mt-1">
           Upload a CSV file to bulk-import schedules and sessions.
         </p>
       </div>

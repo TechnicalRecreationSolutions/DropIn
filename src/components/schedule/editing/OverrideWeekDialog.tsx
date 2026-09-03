@@ -173,14 +173,14 @@ export default function OverrideWeekDialog({
 }
 
 const inputClass =
-  "w-full px-3 py-2 rounded-lg border border-gray-300 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500";
+  "w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
       {children}
-      {hint && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && <p className="text-xs text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }
@@ -205,13 +205,13 @@ function OptionCard({
       aria-pressed={active}
       className={cn(
         "w-full text-left rounded-lg border-2 p-3 transition-colors flex items-start gap-3",
-        active ? "border-blue-600 bg-blue-50" : "border-gray-200 hover:border-blue-300"
+        active ? "border-blue-600 bg-blue-50" : "border-border hover:border-blue-300"
       )}
     >
-      <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", active ? "text-blue-600" : "text-gray-400")} />
+      <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", active ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground/70")} />
       <span>
-        <span className="block text-sm font-medium text-gray-900">{title}</span>
-        <span className="block text-xs text-gray-500 mt-0.5">{hint}</span>
+        <span className="block text-sm font-medium text-foreground">{title}</span>
+        <span className="block text-xs text-muted-foreground mt-0.5">{hint}</span>
       </span>
     </button>
   );

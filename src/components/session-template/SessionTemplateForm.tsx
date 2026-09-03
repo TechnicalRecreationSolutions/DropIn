@@ -97,11 +97,11 @@ export default function SessionTemplateForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
       <div>
         <label htmlFor="name" className={labelClass}>Template name *</label>
         <input
@@ -137,9 +137,9 @@ export default function SessionTemplateForm({
             type="color"
             value={color}
             onChange={(e) => setColor(e.target.value)}
-            className="w-10 h-10 rounded-lg border border-gray-300"
+            className="w-10 h-10 rounded-lg border border-border"
           />
-          <span className="text-sm text-gray-500 font-mono">{color}</span>
+          <span className="text-sm text-muted-foreground font-mono">{color}</span>
         </div>
       </div>
 
@@ -155,7 +155,7 @@ export default function SessionTemplateForm({
           onChange={(e) => setDurationMinutes(e.target.value)}
           className={fieldClass}
         />
-        <p className="text-xs text-gray-500 mt-1">
+        <p className="text-xs text-muted-foreground mt-1">
           Used to pre-fill the end time when this template is placed on a schedule.
         </p>
       </div>
@@ -163,7 +163,7 @@ export default function SessionTemplateForm({
       <div>
         <p className={labelClass}>Usual spaces</p>
         {spaces.length === 0 ? (
-          <p className="text-sm text-gray-400">No spaces set up for this facility.</p>
+          <p className="text-sm text-muted-foreground/70">No spaces set up for this facility.</p>
         ) : (
           <>
             <div className="flex gap-1.5 flex-wrap">
@@ -178,7 +178,7 @@ export default function SessionTemplateForm({
                       "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                       selected
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-200 text-gray-600 hover:border-blue-300"
+                        : "border-border text-muted-foreground hover:border-blue-300"
                     )}
                     aria-pressed={selected}
                   >
@@ -187,7 +187,7 @@ export default function SessionTemplateForm({
                 );
               })}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Select every space this activity usually occupies at once (e.g. all 4 lanes for Lap Swim).
             </p>
           </>
@@ -202,7 +202,7 @@ export default function SessionTemplateForm({
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           Cancel
         </button>

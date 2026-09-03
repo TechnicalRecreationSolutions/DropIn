@@ -400,10 +400,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Header */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">
+        <h1 className="text-2xl font-bold text-foreground">
           {isNew ? `Welcome back` : selectedFacility ? selectedFacility.name : orgContext.org.name}
         </h1>
-        <p className="text-gray-500 mt-1">
+        <p className="text-muted-foreground mt-1">
           {isNew
             ? "Get started by adding your first facility."
             : selectedFacility
@@ -434,7 +434,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       {/* Quick actions for new orgs */}
       {isNew && (
         <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
-          <h2 className="font-semibold text-gray-900 mb-4">Get started in 3 steps</h2>
+          <h2 className="font-semibold text-foreground mb-4">Get started in 3 steps</h2>
           <div className="space-y-3">
             {[
               { step: 1, label: "Add a facility", desc: "Add your rec centre, pool, or arena", href: "/dashboard/facilities/new" },
@@ -444,16 +444,16 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
               <Link
                 key={item.step}
                 href={item.href}
-                className="flex items-center gap-4 p-3 bg-white rounded-lg border border-blue-100 hover:border-blue-300 transition-colors group"
+                className="flex items-center gap-4 p-3 bg-card rounded-lg border border-blue-100 hover:border-blue-300 transition-colors group"
               >
                 <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
                   {item.step}
                 </span>
                 <div className="flex-1 min-w-0">
-                  <p className="font-medium text-gray-900 text-sm">{item.label}</p>
-                  <p className="text-xs text-gray-500">{item.desc}</p>
+                  <p className="font-medium text-foreground text-sm">{item.label}</p>
+                  <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-500 transition-colors shrink-0" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-blue-500 transition-colors shrink-0" />
               </Link>
             ))}
           </div>
@@ -480,25 +480,25 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           list above only ever covers one building at a time. */}
       {!isNew && recentActivity.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Recent activity</h2>
-          <Card className="divide-y divide-gray-100 py-0">
+          <h2 className="text-sm font-semibold text-foreground mb-3">Recent activity</h2>
+          <Card className="divide-y divide-border py-0">
             {recentActivity.map((item) => {
               const Icon = item.kind === "facility" ? Building2 : Calendar;
               return (
                 <Link
                   key={`${item.kind}_${item.id}`}
                   href={itemHref(item)}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                  className="flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors"
                 >
-                  <Icon className="w-4 h-4 text-gray-400 shrink-0" />
-                  <span className="text-sm font-medium text-gray-900 truncate">{item.name}</span>
+                  <Icon className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                  <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
                   <Badge variant={item.is_published ? "default" : "secondary"} className="shrink-0">
                     {item.is_published ? "Published" : "Draft"}
                   </Badge>
-                  <span className="text-xs text-gray-400 shrink-0 hidden sm:inline">
+                  <span className="text-xs text-muted-foreground/70 shrink-0 hidden sm:inline">
                     {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
                   </span>
-                  <ArrowRight className="w-4 h-4 text-gray-300 ml-auto shrink-0" />
+                  <ArrowRight className="w-4 h-4 text-muted-foreground/70 ml-auto shrink-0" />
                 </Link>
               );
             })}
@@ -507,10 +507,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       )}
 
       {!isNew && !selectedFacility && (
-        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-          <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <h3 className="font-medium text-gray-900 mb-1">No buildings yet</h3>
-          <p className="text-sm text-gray-500 mb-4">Add a facility to start building its schedule.</p>
+        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+          <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+          <h3 className="font-medium text-foreground mb-1">No buildings yet</h3>
+          <p className="text-sm text-muted-foreground mb-4">Add a facility to start building its schedule.</p>
           <Link
             href="/dashboard/facilities/new"
             className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

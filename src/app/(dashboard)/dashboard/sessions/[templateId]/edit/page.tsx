@@ -56,8 +56,8 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Edit session template</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Edit session template</h1>
+        <p className="text-muted-foreground mt-1">
           Changes apply going forward — sessions already placed from this template keep their own
           settings.
         </p>

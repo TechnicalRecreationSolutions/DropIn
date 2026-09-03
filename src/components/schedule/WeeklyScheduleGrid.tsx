@@ -103,7 +103,7 @@ export default function WeeklyScheduleGrid({
               "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
               activeDayIndex === i
                 ? "text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-muted text-muted-foreground hover:bg-muted"
             )}
             style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
           >
@@ -157,12 +157,12 @@ export default function WeeklyScheduleGrid({
                 <div
                   className={cn(
                     "flex-1 p-1.5 flex flex-col gap-1.5 min-h-[56px] rounded-b-lg border border-t-0",
-                    isToday ? "border-blue-100" : "border-gray-200"
+                    isToday ? "border-blue-100" : "border-border"
                   )}
                   style={{ backgroundColor: isToday ? "var(--org-card-bg, #eff6ff)" : "#FBFCFD" }}
                 >
                   {daySessions.length === 0 ? (
-                    <p className="text-center text-xs text-gray-400 opacity-70 py-3">No sessions</p>
+                    <p className="text-center text-xs text-muted-foreground/70 opacity-70 py-3">No sessions</p>
                   ) : (
                     daySessions.map((session) => {
                       const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);

@@ -39,8 +39,8 @@ export default function FacilitiesPage() {
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Facilities</h1>
-          <p className="text-gray-500 mt-1">Physical locations where your schedules run.</p>
+          <h1 className="text-2xl font-bold text-foreground">Facilities</h1>
+          <p className="text-muted-foreground mt-1">Physical locations where your schedules run.</p>
         </div>
         <Link
           href="/dashboard/facilities/new"
@@ -87,10 +87,10 @@ async function FacilitiesGrid() {
 
   if (gridFacilities.length === 0) {
     return (
-      <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <h3 className="font-medium text-gray-900 mb-1">No facilities yet</h3>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <MapPin className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h3 className="font-medium text-foreground mb-1">No facilities yet</h3>
+        <p className="text-sm text-muted-foreground mb-4">
           Add a facility to start building your schedule.
         </p>
         <Link

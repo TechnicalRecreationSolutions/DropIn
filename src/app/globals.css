@@ -60,7 +60,11 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
+  /* Nudged down from shadcn's default 0.556, which lands at 4.6:1 on white and
+     dips under AA once any component adds its own opacity. Every piece of
+     secondary text in the app resolves to this, so the margin is worth having:
+     0.52 measures ~5.2:1. The dark-mode value below is already comfortable. */
+  --muted-foreground: oklch(0.52 0 0);
   --accent: oklch(0.676 0.176 252);
   --accent-foreground: oklch(0.16 0.02 252);
   --destructive: oklch(0.577 0.245 27.325);

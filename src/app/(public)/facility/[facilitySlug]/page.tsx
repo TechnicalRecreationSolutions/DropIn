@@ -108,8 +108,8 @@ export default async function FacilityDetailPage({ params }: PageProps) {
           search index; later it linked to the org's own public page. Both are
           gone (see docs/PLAN.md §3a) — the org name is shown as plain text
           rather than left dangling as a link to nowhere. */}
-      <nav className="text-sm text-gray-500 mb-6">
-        <Link href="/" className="hover:text-gray-700 transition-colors">Home</Link>
+      <nav className="text-sm text-muted-foreground mb-6">
+        <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
         <span className="mx-2">›</span>
         {org && (
           <>
@@ -117,7 +117,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
             <span className="mx-2">›</span>
           </>
         )}
-        <span className="text-gray-900">{facility.name}</span>
+        <span className="text-foreground">{facility.name}</span>
       </nav>
 
       <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-8">
@@ -125,23 +125,23 @@ export default async function FacilityDetailPage({ params }: PageProps) {
         <div>
           <div className="flex items-center gap-3 mb-1">
             {org?.logo_url && (
-              <span className="relative size-10 sm:size-12 rounded-lg shrink-0 overflow-hidden border border-gray-200 bg-white">
+              <span className="relative size-10 sm:size-12 rounded-lg shrink-0 overflow-hidden border border-border bg-card">
                 <OrgImage src={org.logo_url} alt={`${org.name} logo`} sizes="48px" className="object-contain" />
               </span>
             )}
-            <h1 className="text-2xl sm:text-3xl font-bold text-gray-900">{facility.name}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{facility.name}</h1>
           </div>
-          <div className="flex items-center gap-1.5 text-gray-500 text-sm mb-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4">
             <MapPin className="w-4 h-4 shrink-0" />
             <span>{facility.address_line1}, {facility.city}, {facility.province} {facility.postal_code}</span>
           </div>
 
           {facility.description && (
-            <p className="text-gray-600 text-sm mb-6 max-w-2xl">{facility.description}</p>
+            <p className="text-muted-foreground text-sm mb-6 max-w-2xl">{facility.description}</p>
           )}
 
           {/* Weekly schedule — client component for interactivity */}
-          <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-gray-200 overflow-hidden">
+          <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-border overflow-hidden">
             <FacilityScheduleClient orgId={facility.org_id} facilityId={facility.id} allowedTemplates={allowedTemplates} />
           </OrgThemeProvider>
         </div>
@@ -149,53 +149,53 @@ export default async function FacilityDetailPage({ params }: PageProps) {
         {/* Right sidebar: info + schedules list */}
         <aside className="mt-8 lg:mt-0 space-y-5">
           {/* Contact / info card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5 space-y-3">
-            <h2 className="font-semibold text-gray-900">Information</h2>
+          <div className="bg-card rounded-xl border border-border p-5 space-y-3">
+            <h2 className="font-semibold text-foreground">Information</h2>
 
             {facility.phone && (
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <Phone className="w-4 h-4 shrink-0 text-gray-400" />
-                <a href={`tel:${facility.phone}`} className="hover:text-blue-600 transition-colors">
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Phone className="w-4 h-4 shrink-0 text-muted-foreground/70" />
+                <a href={`tel:${facility.phone}`} className="hover:text-blue-600 dark:hover:text-blue-300 transition-colors">
                   {facility.phone}
                 </a>
               </div>
             )}
 
             {facility.website_url && (
-              <div className="flex items-center gap-3 text-sm text-gray-600">
-                <Globe className="w-4 h-4 shrink-0 text-gray-400" />
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Globe className="w-4 h-4 shrink-0 text-muted-foreground/70" />
                 <a
                   href={facility.website_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="hover:text-blue-600 transition-colors truncate"
+                  className="hover:text-blue-600 dark:hover:text-blue-300 transition-colors truncate"
                 >
                   {facility.website_url.replace(/^https?:\/\//, "")}
                 </a>
               </div>
             )}
 
-            <div className="flex items-center gap-3 text-sm text-gray-600">
-              <Clock className="w-4 h-4 shrink-0 text-gray-400" />
+            <div className="flex items-center gap-3 text-sm text-muted-foreground">
+              <Clock className="w-4 h-4 shrink-0 text-muted-foreground/70" />
               <span>{facility.city}, {facility.province}</span>
             </div>
           </div>
 
           {/* Schedules offered */}
           {scheduleGroups && scheduleGroups.length > 0 && (
-            <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h2 className="font-semibold text-gray-900 mb-3">Schedules offered</h2>
+            <div className="bg-card rounded-xl border border-border p-5">
+              <h2 className="font-semibold text-foreground mb-3">Schedules offered</h2>
               <ul className="space-y-2">
                 {scheduleGroups.map((sg) => (
                   <li key={sg.id} className="flex items-start justify-between gap-2 text-sm">
                     <div>
-                      <p className="font-medium text-gray-800">{sg.name}</p>
-                      <p className="text-xs text-gray-500 capitalize">
+                      <p className="font-medium text-foreground">{sg.name}</p>
+                      <p className="text-xs text-muted-foreground capitalize">
                         {sg.activity_type.replace("_", " ")} · {sg.sport_category}
                         {sg.age_group ? ` · ${sg.age_group.replace("_", " ")}` : ""}
                       </p>
                     </div>
-                    <span className="shrink-0 text-sm font-medium text-gray-700">
+                    <span className="shrink-0 text-sm font-medium text-foreground">
                       {sg.cost_cents === 0 ? "Free" : `$${(sg.cost_cents / 100).toFixed(2)}`}
                     </span>
                   </li>
@@ -206,8 +206,8 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
           {/* CTA for orgs */}
           <div className="bg-blue-50 rounded-xl border border-blue-100 p-5 text-center">
-            <p className="text-sm font-medium text-blue-900 mb-1">Are you this facility?</p>
-            <p className="text-xs text-blue-700 mb-3">Claim your page to manage your schedule directly.</p>
+            <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">Are you this facility?</p>
+            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">Claim your page to manage your schedule directly.</p>
             <a
               href="/signup"
               className="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

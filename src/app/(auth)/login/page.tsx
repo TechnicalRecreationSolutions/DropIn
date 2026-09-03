@@ -10,8 +10,8 @@ export default function LoginPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Welcome back</h1>
-        <p className="mt-2 text-sm text-gray-600">
+        <h1 className="text-2xl font-bold text-foreground">Welcome back</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           Sign in to your organization dashboard
         </p>
       </div>

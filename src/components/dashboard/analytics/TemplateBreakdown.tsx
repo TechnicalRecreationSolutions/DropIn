@@ -20,7 +20,7 @@ const TEMPLATE_LABELS: Record<string, string> = {
 /** Which template (grid/list/map/floorplan/board) visitors actually looked at. */
 export function TemplateBreakdown({ data }: { data: { template: string; count: number }[] }) {
   if (data.length === 0) {
-    return <p className="text-sm text-gray-400 py-6 text-center">No view data yet.</p>;
+    return <p className="text-sm text-muted-foreground/70 py-6 text-center">No view data yet.</p>;
   }
 
   const total = data.reduce((sum, d) => sum + d.count, 0);
@@ -32,11 +32,11 @@ export function TemplateBreakdown({ data }: { data: { template: string; count: n
         const color = TEMPLATE_COLORS[d.template] ?? "#898781";
         return (
           <div key={d.template} className="flex items-center gap-3 text-sm">
-            <span className="w-16 shrink-0 text-gray-600">{TEMPLATE_LABELS[d.template] ?? d.template}</span>
-            <div className="flex-1 h-2 rounded-full bg-gray-100 overflow-hidden">
+            <span className="w-16 shrink-0 text-muted-foreground">{TEMPLATE_LABELS[d.template] ?? d.template}</span>
+            <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
               <div className="h-full rounded-full" style={{ width: `${pct}%`, backgroundColor: color }} />
             </div>
-            <span className="w-10 shrink-0 text-right font-medium text-gray-900 tabular-nums">{d.count}</span>
+            <span className="w-10 shrink-0 text-right font-medium text-foreground tabular-nums">{d.count}</span>
           </div>
         );
       })}

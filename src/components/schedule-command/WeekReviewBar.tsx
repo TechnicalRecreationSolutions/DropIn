@@ -48,10 +48,10 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReview
   }
 
   return (
-    <div className="px-4 py-3 border-b border-gray-100 bg-gray-50/60">
+    <div className="px-4 py-3 border-b border-border bg-muted/60">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-gray-500">This week&rsquo;s review:</span>
+          <span className="text-xs font-medium text-muted-foreground">This week&rsquo;s review:</span>
           <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border", meta.className)}>
             {isLoading ? "…" : meta.label}
           </span>
@@ -84,7 +84,7 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReview
               type="button"
               onClick={() => handleClick("pending")}
               disabled={setReview.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-gray-600 bg-white border border-gray-200 hover:bg-gray-100 disabled:opacity-50"
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground bg-card border border-border hover:bg-muted disabled:opacity-50"
             >
               <RotateCcw className="w-3.5 h-3.5" />
               Reset to pending
@@ -100,7 +100,7 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReview
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="What needs to change? (optional)"
-            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-amber-400"
             autoFocus
           />
           <button
@@ -114,7 +114,7 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReview
           <button
             type="button"
             onClick={() => setShowNoteFor(null)}
-            className="px-2 py-1.5 text-xs text-gray-500 hover:text-gray-700"
+            className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             Cancel
           </button>

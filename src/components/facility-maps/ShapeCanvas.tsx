@@ -546,7 +546,7 @@ export default function ShapeCanvas({
                           onDuplicate(unit.shape!);
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-blue-600 hover:border-blue-300 shadow-sm"
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:border-blue-300 shadow-sm"
                         aria-label={`Duplicate ${unit.label}`}
                       >
                         <Copy className="w-3 h-3" />
@@ -559,7 +559,7 @@ export default function ShapeCanvas({
                         removeUnit(unit);
                       }}
                       onPointerDown={(e) => e.stopPropagation()}
-                      className="w-6 h-6 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm"
+                      className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-red-600 hover:border-red-300 shadow-sm"
                       aria-label={`Remove ${unit.label}`}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -568,7 +568,7 @@ export default function ShapeCanvas({
 
                   <div
                     onPointerDown={(e) => startRotate(e, unit)}
-                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-white border border-gray-300 text-gray-500 cursor-grab shadow-sm"
+                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground cursor-grab shadow-sm"
                     aria-label={`Rotate ${unit.label}`}
                   >
                     <RotateCw className="w-3 h-3" />
@@ -588,8 +588,8 @@ export default function ShapeCanvas({
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center px-6">
-              <p className="text-sm font-semibold text-gray-500">Build your facility</p>
-              <p className="text-xs text-gray-400 mt-1 max-w-xs">
+              <p className="text-sm font-semibold text-muted-foreground">Build your facility</p>
+              <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
                 Tap a pool, court, or room in the palette below, then tap here to place it. Add zones
                 like &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
               </p>
@@ -598,7 +598,7 @@ export default function ShapeCanvas({
         )}
       </div>
 
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-muted-foreground/70 mt-2">
         Click a shape to select it — drag to move, use the handles to rotate and resize, arrow keys
         to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges.
       </p>

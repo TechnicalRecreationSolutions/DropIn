@@ -31,8 +31,8 @@ export default function ActivityPage() {
     <div className="max-w-3xl mx-auto">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Activity log</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Activity log</h1>
+        <p className="text-muted-foreground mt-1">
           Every change to your facilities, schedules and sessions, and who made it.
         </p>
       </div>
@@ -88,7 +88,7 @@ async function ActivityLogBody() {
 
 function ActivityLogSkeleton() {
   return (
-    <div className="rounded-xl border border-gray-200 divide-y divide-gray-100" aria-busy="true">
+    <div className="rounded-xl border border-border divide-y divide-border" aria-busy="true">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3">
           <Skeleton className="size-8 shrink-0 rounded-full" />

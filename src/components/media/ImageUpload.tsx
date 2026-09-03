@@ -97,13 +97,13 @@ export default function ImageUpload({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-gray-700 mb-1">{label}</label>
+      <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
 
       {value ? (
         <div className={cn("relative", aspect === "wide" ? "w-full max-w-xs" : "w-24")}>
           <div
             className={cn(
-              "relative overflow-hidden rounded-lg border border-gray-200 bg-gray-50",
+              "relative overflow-hidden rounded-lg border border-border bg-muted",
               aspect === "wide" ? "w-full aspect-video" : "w-24 h-24"
             )}
           >
@@ -113,7 +113,7 @@ export default function ImageUpload({
             type="button"
             onClick={handleRemove}
             aria-label={`Remove ${label.toLowerCase()}`}
-            className="absolute -top-2 -right-2 p-1 rounded-full bg-white border border-gray-300 text-gray-500 hover:text-red-600 hover:border-red-300 shadow-sm transition-colors"
+            className="absolute -top-2 -right-2 p-1 rounded-full bg-card border border-border text-muted-foreground hover:text-red-600 hover:border-red-300 shadow-sm transition-colors"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -136,21 +136,21 @@ export default function ImageUpload({
           disabled={uploading}
           className={cn(
             "w-full flex flex-col items-center justify-center gap-1.5 py-6 px-4 rounded-lg border-2 border-dashed transition-colors disabled:opacity-60",
-            dragging ? "border-blue-400 bg-blue-50" : "border-gray-300 hover:border-blue-300 hover:bg-gray-50"
+            dragging ? "border-blue-400 bg-blue-50" : "border-border hover:border-blue-300 hover:bg-muted"
           )}
         >
           {uploading ? (
             <>
-              <Loader2 className="w-5 h-5 text-blue-600 animate-spin" />
-              <span className="text-sm text-gray-600">Uploading…</span>
+              <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
+              <span className="text-sm text-muted-foreground">Uploading…</span>
             </>
           ) : (
             <>
-              <ImagePlus className="w-5 h-5 text-gray-400" />
-              <span className="text-sm font-medium text-gray-700">
+              <ImagePlus className="w-5 h-5 text-muted-foreground/70" />
+              <span className="text-sm font-medium text-foreground">
                 Choose an image<span className="hidden sm:inline"> or drop one here</span>
               </span>
-              <span className="text-xs text-gray-400">
+              <span className="text-xs text-muted-foreground/70">
                 JPEG, PNG, WebP or AVIF · up to {formatBytes(MAX_UPLOAD_BYTES)}
               </span>
             </>
@@ -177,7 +177,7 @@ export default function ImageUpload({
           {error}
         </p>
       )}
-      {hint && !error && <p className="text-xs text-gray-400 mt-1">{hint}</p>}
+      {hint && !error && <p className="text-xs text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }

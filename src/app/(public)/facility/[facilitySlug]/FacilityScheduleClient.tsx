@@ -33,7 +33,7 @@ export default function FacilityScheduleClient({ orgId, facilityId, allowedTempl
   useScheduleAnalytics({ viewEvent: "facility_view", orgId, facilityId, view });
 
   return (
-    <div className="bg-white">
+    <div className="bg-card">
       <ScheduleHeaderBar
         title="Weekly Schedule"
         view={view}
@@ -43,7 +43,7 @@ export default function FacilityScheduleClient({ orgId, facilityId, allowedTempl
 
       <div className="p-4 sm:p-6">
         {isLoading ? (
-          <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+          <div className="flex items-center justify-center py-16 text-muted-foreground/70 text-sm">
             Loading schedule…
           </div>
         ) : isError ? (
@@ -51,7 +51,7 @@ export default function FacilityScheduleClient({ orgId, facilityId, allowedTempl
             Could not load schedule. Please try again.
           </div>
         ) : !sessions || sessions.length === 0 ? (
-          <div className="text-center py-16 text-gray-400">
+          <div className="text-center py-16 text-muted-foreground/70">
             <p className="text-sm font-medium">No drop-in sessions this week</p>
             <p className="text-xs mt-1">Try navigating to another week.</p>
           </div>

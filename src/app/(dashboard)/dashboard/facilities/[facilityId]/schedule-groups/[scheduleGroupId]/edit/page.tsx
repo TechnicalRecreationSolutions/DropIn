@@ -45,8 +45,8 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Edit schedule</h1>
-        <p className="text-gray-500 mt-1">Update this schedule&apos;s details.</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit schedule</h1>
+        <p className="text-muted-foreground mt-1">Update this schedule&apos;s details.</p>
       </div>
       <ScheduleGroupForm
         facilityId={facilityId}

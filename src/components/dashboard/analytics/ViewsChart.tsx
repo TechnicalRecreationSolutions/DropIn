@@ -9,7 +9,7 @@ const PADDING = 4;
  */
 export function ViewsChart({ data }: { data: { day: string; views: number }[] }) {
   if (data.length === 0) {
-    return <p className="text-sm text-gray-400 py-8 text-center">No widget views yet in this window.</p>;
+    return <p className="text-sm text-muted-foreground/70 py-8 text-center">No widget views yet in this window.</p>;
   }
 
   const max = Math.max(...data.map((d) => d.views), 1);

@@ -27,8 +27,8 @@ export default function WidgetPage({ searchParams }: WidgetPageProps) {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Embed widget</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Embed widget</h1>
+        <p className="text-muted-foreground mt-1">
           Add your drop-in schedule to your website with a single script tag.
         </p>
       </div>

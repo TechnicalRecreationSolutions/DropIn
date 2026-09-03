@@ -45,17 +45,17 @@ export default function WeekListPanel({ scheduleGroup, facilityId, onSelectWeek 
   const meta = SCHEDULE_STATUS_META[status];
 
   return (
-    <div className="rounded-xl border border-gray-200 bg-white overflow-hidden">
-      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100">
+    <div className="rounded-xl border border-border bg-card overflow-hidden">
+      <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="font-semibold text-gray-900 truncate">{scheduleGroup.name}</h2>
+          <h2 className="font-semibold text-foreground truncate">{scheduleGroup.name}</h2>
           <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border", meta.className)}>
             {meta.label}
           </span>
         </div>
         <Link
           href={scheduleGroup.settingsHref}
-          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-gray-600 hover:text-blue-600 hover:bg-gray-50 transition-colors"
+          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:bg-muted transition-colors"
         >
           <Settings2 className="w-3.5 h-3.5" />
           Settings
@@ -71,7 +71,7 @@ export default function WeekListPanel({ scheduleGroup, facilityId, onSelectWeek 
             aria-pressed={filter === value}
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize",
-              filter === value ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+              filter === value ? "bg-gray-900 text-white" : "bg-muted text-muted-foreground hover:bg-muted"
             )}
           >
             {value}
@@ -143,7 +143,7 @@ function WeekListBody({ scheduleGroupId, facilityId, filter, startsOn, endsOn, o
 
   if (weekStarts.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-sm text-gray-400">
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground/70">
         {filter === "past" ? "No earlier weeks." : "No upcoming weeks."}
       </p>
     );
@@ -169,7 +169,7 @@ function WeekListBody({ scheduleGroupId, facilityId, filter, startsOn, endsOn, o
         <button
           type="button"
           onClick={() => setPages((p) => p + 1)}
-          className="w-full py-2.5 text-center text-xs font-medium text-blue-600 hover:text-blue-700"
+          className="w-full py-2.5 text-center text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           {filter === "upcoming" ? "Load more weeks" : "Load earlier weeks"}
         </button>
@@ -227,14 +227,14 @@ function WeekWindow({ scheduleGroupId, facilityId, weekStarts, onSelectWeek }: W
             key={weekStart.toISOString()}
             type="button"
             onClick={() => onSelectWeek(weekStart)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-left hover:bg-gray-50 transition-colors"
+            className="w-full flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-left hover:bg-muted transition-colors"
           >
             <div className="flex items-center gap-2 min-w-0">
-              <span className="text-sm font-medium text-gray-900 truncate">
+              <span className="text-sm font-medium text-foreground truncate">
                 {format(weekStart, "EEE, MMM d")} – {format(weekEnd, "EEE, MMM d, yyyy")}
               </span>
               {isThisWeek && (
-                <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 border border-blue-200">
+                <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 dark:text-blue-300 border border-blue-200">
                   This week
                 </span>
               )}
@@ -242,7 +242,7 @@ function WeekWindow({ scheduleGroupId, facilityId, weekStarts, onSelectWeek }: W
                 {reviewMeta.label}
               </span>
             </div>
-            <div className="shrink-0 flex items-center gap-2 text-xs text-gray-400">
+            <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground/70">
               {isLoading ? "…" : count === 0 ? "No sessions" : `${count} session${count === 1 ? "" : "s"}`}
               <ChevronRight className="w-4 h-4" />
             </div>

@@ -77,7 +77,7 @@ export default function DuplicateSessionDialog({
 
         {spaces.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Spaces</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Spaces</label>
             <div className="flex gap-1.5 flex-wrap">
               {spaces.map((space) => {
                 const selected = spaceIds.includes(space.id);
@@ -90,7 +90,7 @@ export default function DuplicateSessionDialog({
                       "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                       selected
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-200 text-gray-600 hover:border-blue-300"
+                        : "border-border text-muted-foreground hover:border-blue-300"
                     )}
                     aria-pressed={selected}
                   >
@@ -103,7 +103,7 @@ export default function DuplicateSessionDialog({
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Repeats on</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Repeats on</label>
           <div className="flex gap-1.5 flex-wrap">
             {DAYS.map((day) => {
               const selected = selectedDays.includes(day.code);
@@ -116,7 +116,7 @@ export default function DuplicateSessionDialog({
                     "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                     selected
                       ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-200 text-gray-600 hover:border-blue-300"
+                      : "border-border text-muted-foreground hover:border-blue-300"
                   )}
                   aria-pressed={selected}
                 >

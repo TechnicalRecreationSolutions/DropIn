@@ -38,8 +38,8 @@ export default function DepartmentsPage({ searchParams }: DepartmentsPageProps) 
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Departments</h1>
+        <p className="text-muted-foreground mt-1">
           Group related schedules together within a building — e.g. Aquatics, Fitness.
         </p>
       </div>
@@ -110,10 +110,10 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <h1 className="font-medium text-gray-900 mb-1">No buildings yet</h1>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <Layers className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
+        <p className="text-sm text-muted-foreground mb-4">
           Add a facility first — departments belong to a building.
         </p>
         <Link

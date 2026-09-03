@@ -160,7 +160,7 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
               "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
               activeDayIndex === i
                 ? "text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-muted text-muted-foreground hover:bg-muted"
             )}
             style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
           >
@@ -170,10 +170,10 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
         ))}
       </div>
 
-      <h3 className="text-sm font-bold text-gray-900 mt-3">{formatDayFull(activeDay)}</h3>
+      <h3 className="text-sm font-bold text-foreground mt-3">{formatDayFull(activeDay)}</h3>
 
       {columns.length === 0 ? (
-        <div className="text-center py-10 text-sm text-gray-400">
+        <div className="text-center py-10 text-sm text-muted-foreground/70">
           <p>
             {editing
               ? "Add a space to this facility (e.g. Lane 3, Court A) to place sessions on the map."
@@ -188,7 +188,7 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
               {timeLabels.map((t) => (
                 <span
                   key={t.label}
-                  className="absolute right-2 text-xs text-gray-400 -translate-y-2.5"
+                  className="absolute right-2 text-xs text-muted-foreground/70 -translate-y-2.5"
                   style={{ top: t.top + "px" }}
                 >
                   {t.label}
@@ -276,21 +276,21 @@ function MapColumnView({
       <div
         ref={setNodeRef}
         className={cn(
-          "relative border border-t-0 border-gray-200 rounded-b-lg transition-colors",
-          isOver ? "bg-blue-50" : "bg-gray-50"
+          "relative border border-t-0 border-border rounded-b-lg transition-colors",
+          isOver ? "bg-blue-50" : "bg-muted"
         )}
         style={{ height: heightPx + "px" }}
       >
         {Array.from({ length: totalSlots }, (_, i) => (
           <div
             key={i}
-            className={cn("absolute inset-x-0 border-b", i % 2 === 0 ? "border-gray-200" : "border-gray-100")}
+            className={cn("absolute inset-x-0 border-b", i % 2 === 0 ? "border-border" : "border-border")}
             style={{ top: i * SLOT_HEIGHT_PX + "px", height: SLOT_HEIGHT_PX + "px" }}
           />
         ))}
 
         {droppable && column.sessions.length === 0 && (
-          <p className="absolute inset-x-0 top-4 text-xs text-gray-400 text-center px-2">
+          <p className="absolute inset-x-0 top-4 text-xs text-muted-foreground/70 text-center px-2">
             Drop a template here
           </p>
         )}

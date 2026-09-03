@@ -79,7 +79,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
               "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
               activeDayIndex === i
                 ? "text-white"
-                : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+                : "bg-muted text-muted-foreground hover:bg-muted"
             )}
             style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
           >
@@ -98,17 +98,17 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
           return (
             <div key={dayIndex} className={cn(isMobileHidden ? "hidden sm:block" : "block")}>
               <div
-                className={cn("flex items-baseline gap-2 pb-2 border-b-2", !isToday && "border-gray-200")}
+                className={cn("flex items-baseline gap-2 pb-2 border-b-2", !isToday && "border-border")}
                 style={isToday ? { borderColor: "var(--org-accent, #2563eb)" } : undefined}
               >
                 <h3
-                  className={cn("text-sm font-bold", !isToday && "text-gray-900")}
+                  className={cn("text-sm font-bold", !isToday && "text-foreground")}
                   style={isToday ? { color: "var(--org-accent, #2563eb)" } : undefined}
                 >
                   {formatDayFull(day)}
                 </h3>
                 {daySessions.length > 0 && (
-                  <span className="text-xs text-gray-400">
+                  <span className="text-xs text-muted-foreground/70">
                     {daySessions.length} session{daySessions.length === 1 ? "" : "s"}
                   </span>
                 )}
@@ -121,7 +121,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                         dayLabel: DAYS[dayIndex].label,
                       })
                     }
-                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add session
@@ -130,9 +130,9 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
               </div>
 
               {daySessions.length === 0 ? (
-                <p className="text-sm text-gray-400 py-4">No drop-ins scheduled.</p>
+                <p className="text-sm text-muted-foreground/70 py-4">No drop-ins scheduled.</p>
               ) : (
-                <ul className="divide-y divide-gray-100 mt-1">
+                <ul className="divide-y divide-border mt-1">
                   {daySessions.map((session) => {
                     const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
                     const dotColor = session.templateColor ?? "var(--org-primary, #2563eb)";
@@ -142,20 +142,20 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                         <button
                           onClick={() => setSelectedSession(session)}
                           className={cn(
-                            "flex-1 min-w-0 flex items-center gap-3 py-3 text-left hover:bg-gray-50 rounded-lg px-2 -mx-2 transition-colors",
+                            "flex-1 min-w-0 flex items-center gap-3 py-3 text-left hover:bg-muted rounded-lg px-2 -mx-2 transition-colors",
                             isPast && "opacity-50"
                           )}
                         >
                           <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                          <span className="w-24 sm:w-28 shrink-0 text-xs font-medium text-gray-500">
+                          <span className="w-24 sm:w-28 shrink-0 text-xs font-medium text-muted-foreground">
                             {formatSessionTime(session.start)}
                           </span>
                           <span className="flex-1 min-w-0">
-                            <span className="block text-sm font-semibold text-gray-900 truncate">
+                            <span className="block text-sm font-semibold text-foreground truncate">
                               {session.templateName ?? session.scheduleGroupName}
                             </span>
                             {(session.spaceNames.length > 0 || session.locationDetail) && (
-                              <span className="block text-xs text-gray-400 truncate">
+                              <span className="block text-xs text-muted-foreground/70 truncate">
                                 {[session.spaceNames.join(", "), session.locationDetail].filter(Boolean).join(" · ")}
                               </span>
                             )}

@@ -30,8 +30,8 @@ export default async function OnboardingPage() {
   return (
     <div className="w-full max-w-sm">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-gray-900">Set up your organization</h1>
-        <p className="mt-2 text-sm text-gray-600">
+        <h1 className="text-2xl font-bold text-foreground">Set up your organization</h1>
+        <p className="mt-2 text-sm text-muted-foreground">
           You&apos;re signed in, but not yet part of an organization on Dropin. Create one to continue.
         </p>
       </div>

@@ -39,8 +39,8 @@ export default function MapPage({ searchParams }: MapPageProps) {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Floorplan</h1>
-        <p className="text-gray-500 mt-1">The map visitors see for your building. Drawn per building.</p>
+        <h1 className="text-2xl font-bold text-foreground">Floorplan</h1>
+        <p className="text-muted-foreground mt-1">The map visitors see for your building. Drawn per building.</p>
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this
@@ -173,10 +173,10 @@ async function buildOverviewFacilities(
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <h1 className="font-medium text-gray-900 mb-1">No buildings yet</h1>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
+        <p className="text-sm text-muted-foreground mb-4">
           Add a facility first — a floorplan belongs to a building.
         </p>
         <Link

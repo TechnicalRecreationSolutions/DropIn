@@ -165,7 +165,7 @@ export default function ScheduleListSection({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-0.5 bg-gray-100 rounded-lg">
+        <div className="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -174,7 +174,7 @@ export default function ScheduleListSection({
               aria-pressed={filter === f.value}
               className={cn(
                 "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                filter === f.value ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700"
+                filter === f.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {f.label}
@@ -183,7 +183,7 @@ export default function ScheduleListSection({
         </div>
         <Link
           href={newScheduleHref}
-          className="shrink-0 text-xs font-medium text-blue-600 hover:text-blue-700"
+          className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           + New schedule
         </Link>
@@ -197,8 +197,8 @@ export default function ScheduleListSection({
 
       {filteredCurrent.length === 0 ? (
         <Card className="px-5 py-8 text-center">
-          <CalendarX2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">
+          <CalendarX2 className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">
             {rows.length === 0
               ? (emptyMessage ?? `${facilityName} has no schedules yet.`)
               : "Nothing matches this filter."}
@@ -206,7 +206,7 @@ export default function ScheduleListSection({
           {rows.length === 0 && !emptyMessage && (
             <Link
               href={newScheduleHref}
-              className="inline-block mt-3 text-sm font-medium text-blue-600 hover:text-blue-700"
+              className="inline-block mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             >
               Create your first schedule
             </Link>
@@ -228,7 +228,7 @@ export default function ScheduleListSection({
           <button
             type="button"
             onClick={() => setStoredOpen((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-gray-400 hover:text-gray-600"
+            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 hover:text-muted-foreground"
           >
             <ChevronRight className={cn("size-3.5 transition-transform", storedOpen && "rotate-90")} />
             {stored.length} stored {stored.length === 1 ? "schedule" : "schedules"}
@@ -286,7 +286,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
       <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-gray-100 text-left text-xs text-gray-400">
+            <tr className="border-b border-border text-left text-xs text-muted-foreground/70">
               <th className="px-4 py-2.5 font-medium">Type</th>
               <SortableHead label="Description" sortKey="name" active={sortKey} desc={sortDesc} onSort={onSort} />
               <th className="px-4 py-2.5 font-medium hidden sm:table-cell">Department</th>
@@ -297,30 +297,30 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
               <th className="px-4 py-2.5 font-medium text-right">Actions</th>
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-50">
+          <tbody className="divide-y divide-border">
             {rows.map((row) => {
               const meta = SCHEDULE_STATUS_META[row.scheduleStatus];
               return (
-                <tr key={row.id} className="hover:bg-gray-50/60 transition-colors">
+                <tr key={row.id} className="hover:bg-muted/60 transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="text-base" aria-hidden>{row.typeIcon}</span>{" "}
-                    <span className="text-gray-500 text-xs">{row.typeLabel}</span>
+                    <span className="text-muted-foreground text-xs">{row.typeLabel}</span>
                   </td>
-                  <td className="px-4 py-3 font-medium text-gray-900">
-                    <Link href={row.editHref} className="hover:text-blue-600">
+                  <td className="px-4 py-3 font-medium text-foreground">
+                    <Link href={row.editHref} className="hover:text-blue-600 dark:hover:text-blue-300">
                       {row.name}
                     </Link>
                   </td>
-                  <td className="px-4 py-3 text-gray-500 hidden sm:table-cell">
+                  <td className="px-4 py-3 text-muted-foreground hidden sm:table-cell">
                     {row.departmentName ?? "—"}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden sm:table-cell">
+                  <td className="px-4 py-3 text-muted-foreground whitespace-nowrap hidden sm:table-cell">
                     {formatDate(row.startsOn)}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 whitespace-nowrap hidden md:table-cell">
+                  <td className="px-4 py-3 text-muted-foreground whitespace-nowrap hidden md:table-cell">
                     {formatDate(row.endsOn)}
                   </td>
-                  <td className="px-4 py-3 text-gray-500 hidden md:table-cell">{row.sessionsCount}</td>
+                  <td className="px-4 py-3 text-muted-foreground hidden md:table-cell">{row.sessionsCount}</td>
                   <td className="px-4 py-3">
                     <Badge variant="outline" className={meta.className}>
                       {meta.label}
@@ -332,7 +332,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                         href={row.editHref}
                         aria-label={`Edit ${row.name}`}
                         title="Edit"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
                       >
                         <Pencil className="size-3.5" />
                       </Link>
@@ -342,7 +342,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                         rel="noopener noreferrer"
                         aria-label={`Preview ${row.name}`}
                         title="Preview"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
                       >
                         <Eye className="size-3.5" />
                       </a>
@@ -351,7 +351,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                         onClick={() => onDuplicate(row)}
                         aria-label={`Duplicate ${row.name}`}
                         title="Duplicate"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-blue-600"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
                       >
                         <Copy className="size-3.5" />
                       </button>
@@ -360,7 +360,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                         onClick={() => onDelete(row)}
                         aria-label={`Delete ${row.name}`}
                         title="Delete"
-                        className="p-1.5 rounded hover:bg-gray-100 text-gray-500 hover:text-red-600"
+                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-600"
                       >
                         <Trash2 className="size-3.5" />
                       </button>
@@ -398,8 +398,8 @@ function SortableHead({
         type="button"
         onClick={() => onSort(sortKey)}
         className={cn(
-          "inline-flex items-center gap-1 hover:text-gray-700",
-          isActive ? "text-gray-700" : "text-gray-400"
+          "inline-flex items-center gap-1 hover:text-foreground",
+          isActive ? "text-foreground" : "text-muted-foreground/70"
         )}
       >
         {label}

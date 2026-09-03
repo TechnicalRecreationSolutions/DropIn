@@ -24,7 +24,7 @@ export default function DepartmentPicker({ departments, activeDepartmentId, href
   const tabs = [{ id: NO_DEPARTMENT, name: "Facility-wide" }, ...departments];
 
   return (
-    <div className="border-b border-gray-200">
+    <div className="border-b border-border">
       <div className="flex gap-1 overflow-x-auto">
         {tabs.map((tab) => {
           const active = tab.id === activeDepartmentId;
@@ -36,8 +36,8 @@ export default function DepartmentPicker({ departments, activeDepartmentId, href
               className={cn(
                 "px-3 sm:px-4 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors whitespace-nowrap",
                 active
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
               {tab.name}

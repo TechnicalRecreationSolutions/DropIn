@@ -269,11 +269,11 @@ export default function SessionForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-white rounded-xl border border-gray-200 p-6">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-xl border border-border p-6">
       {scheduleGroups.length === 0 && (
         <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
           You need to <Link href="/dashboard/facilities" className="underline font-medium">add a schedule</Link> before creating sessions.
@@ -302,15 +302,15 @@ export default function SessionForm({
           ))}
         </select>
         {isEditing && (
-          <p className="text-xs text-gray-500 mt-1">
+          <p className="text-xs text-muted-foreground mt-1">
             To move this session to a different schedule, delete it and create a new one there.
           </p>
         )}
       </div>
 
       {/* RRule builder handles days, times, and date range */}
-      <div className="border-t border-gray-100 pt-5">
-        <h3 className="text-sm font-semibold text-gray-900 mb-4">Recurrence</h3>
+      <div className="border-t border-border pt-5">
+        <h3 className="text-sm font-semibold text-foreground mb-4">Recurrence</h3>
         <RRuleBuilder
           value={rrule}
           startTime={startTime}
@@ -326,10 +326,10 @@ export default function SessionForm({
       </div>
 
       {/* Space */}
-      <div className="border-t border-gray-100 pt-5">
+      <div className="border-t border-border pt-5">
         <label className={labelClass}>Spaces</label>
         {facilitySpaces.length === 0 ? (
-          <p className="text-sm text-gray-400">No spaces set up for this facility.</p>
+          <p className="text-sm text-muted-foreground/70">No spaces set up for this facility.</p>
         ) : (
           <>
             <div className="flex gap-1.5 flex-wrap">
@@ -344,7 +344,7 @@ export default function SessionForm({
                       "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                       selected
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-200 text-gray-600 hover:border-blue-300"
+                        : "border-border text-muted-foreground hover:border-blue-300"
                     )}
                     aria-pressed={selected}
                   >
@@ -353,18 +353,18 @@ export default function SessionForm({
                 );
               })}
             </div>
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).
             </p>
           </>
         )}
       </div>
 
-      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-gray-100 pt-5">
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-gray-700 hover:text-gray-900">
+      <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-border pt-5">
+        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground">
           <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
           Advanced options
-          <span className="font-normal text-gray-400">
+          <span className="font-normal text-muted-foreground/70">
             (location detail{canEditScheduleDetails ? ", program details" : ""})
           </span>
         </CollapsibleTrigger>
@@ -379,16 +379,16 @@ export default function SessionForm({
               className={fieldClass}
               placeholder="e.g. Enter via the north doors"
             />
-            <p className="text-xs text-gray-500 mt-1">
+            <p className="text-xs text-muted-foreground mt-1">
               Optional free-text note shown alongside the space, e.g. entry instructions.
             </p>
           </div>
 
           {canEditScheduleDetails && (
-          <div className="border-t border-gray-100 pt-5 space-y-5">
+          <div className="border-t border-border pt-5 space-y-5">
             <div>
-              <p className="text-sm font-medium text-gray-700">Program details</p>
-              <p className="text-xs text-gray-500 mt-0.5">
+              <p className="text-sm font-medium text-foreground">Program details</p>
+              <p className="text-xs text-muted-foreground mt-0.5">
                 These describe the schedule itself, not just this session — saving here updates
                 {selectedGroup ? ` every session under “${selectedGroup.name}.”` : " the whole schedule."}
               </p>
@@ -461,7 +461,7 @@ export default function SessionForm({
           </button>
         )}
         <button type="button" onClick={() => router.back()}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
           Cancel
         </button>
         <button type="submit" disabled={loading || deleting || scheduleGroups.length === 0}

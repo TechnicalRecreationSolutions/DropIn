@@ -55,8 +55,8 @@ export default function SessionsPage({ searchParams }: SessionsPageProps) {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Session templates</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Session templates</h1>
+        <p className="text-muted-foreground mt-1">
           Reusable, color-coded activity definitions — build these once per department, then reuse
           them across every schedule in it instead of filling out a form each time.
         </p>
@@ -161,8 +161,8 @@ function TemplateList({
   return (
     <div className="space-y-4">
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <p className="text-sm text-gray-500">
-          For <span className="font-medium text-gray-700">{departmentName ?? "the whole facility"}</span> at{" "}
+        <p className="text-sm text-muted-foreground">
+          For <span className="font-medium text-foreground">{departmentName ?? "the whole facility"}</span> at{" "}
           {facility.name}
         </p>
         <Button size="lg" asChild>
@@ -174,11 +174,11 @@ function TemplateList({
       </div>
 
       {templates.length === 0 ? (
-        <div className="text-center py-12 bg-white rounded-xl border border-gray-200 border-dashed">
-          <p className="text-sm text-gray-500">No session templates yet.</p>
+        <div className="text-center py-12 bg-card rounded-xl border border-border border-dashed">
+          <p className="text-sm text-muted-foreground">No session templates yet.</p>
         </div>
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 divide-y divide-gray-100">
+        <div className="bg-card rounded-xl border border-border divide-y divide-border">
           {templates.map((template) => (
             <div key={template.id} className="flex items-center justify-between px-4 py-3">
               <div className="flex items-center gap-3 min-w-0">
@@ -187,8 +187,8 @@ function TemplateList({
                   style={{ backgroundColor: template.color ?? "#3B82F6" }}
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{template.name}</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
+                  <p className="text-xs text-muted-foreground">
                     {template.default_duration_minutes} min
                     {template.session_template_spaces.length > 0 &&
                       ` · ${template.session_template_spaces.map((r) => r.spaces.name).join(", ")}`}
@@ -212,10 +212,10 @@ function TemplateList({
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <Clock className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <h1 className="font-medium text-gray-900 mb-1">No buildings yet</h1>
-        <p className="text-sm text-gray-500 mb-4">
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <Clock className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
+        <p className="text-sm text-muted-foreground mb-4">
           Add a facility first — session templates belong to one.
         </p>
         <Link

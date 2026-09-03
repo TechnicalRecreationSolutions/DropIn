@@ -96,11 +96,11 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
       <div>
         <label htmlFor="name" className={labelClass}>Facility name *</label>
         <input id="name" name="name" type="text" required value={form.name} onChange={handleChange}
@@ -178,13 +178,13 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
         <input
           id="is_published" name="is_published" type="checkbox"
           checked={form.is_published} onChange={handleChange}
-          className="w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+          className="w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
         />
         <div>
-          <label htmlFor="is_published" className="text-sm font-medium text-gray-700">
+          <label htmlFor="is_published" className="text-sm font-medium text-foreground">
             Publish this facility
           </label>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted-foreground">
             Included on your public schedule pages and embedded widget.
           </p>
         </div>
@@ -198,7 +198,7 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
         <button
           type="button"
           onClick={() => router.back()}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           Cancel
         </button>

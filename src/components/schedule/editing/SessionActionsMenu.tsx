@@ -50,7 +50,7 @@ export default function SessionActionsMenu({
           "rounded transition-opacity disabled:opacity-30",
           variant === "on-card"
             ? "p-0.5 hover:bg-black/10 opacity-60 hover:opacity-100"
-            : "p-1.5 hover:bg-gray-100 text-gray-500 opacity-60 group-hover:opacity-100",
+            : "p-1.5 hover:bg-muted text-muted-foreground opacity-60 group-hover:opacity-100",
           className
         )}
         aria-label={`Actions for ${session.templateName ?? session.scheduleGroupName}`}

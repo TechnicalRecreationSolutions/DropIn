@@ -46,7 +46,7 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
         const Icon = CATEGORY_ICONS[category.value];
         return (
           <div key={category.value} className="mb-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">
+            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
               <Icon className="w-3.5 h-3.5" />
               {category.label}
             </p>
@@ -70,7 +70,7 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
       {/* Context scenery is placeable even when every space is assigned —
           it never consumes a Space. */}
       <div className="mb-3">
-        <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-1.5">Context</p>
+        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Context</p>
         <div className="flex flex-wrap gap-2">
           {CONTEXT_ITEMS.map((item) => (
             <PresetCard
@@ -87,7 +87,7 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
         </div>
       </div>
 
-      <p className="text-xs text-gray-400 mt-2">
+      <p className="text-xs text-muted-foreground/70 mt-2">
         {disabled
           ? "Setting up this floor plan…"
           : armed
@@ -125,13 +125,13 @@ function PresetCard({
         active
           ? "bg-blue-600 border-blue-600 text-white"
           : dashed
-            ? "bg-gray-50 border-dashed border-gray-300 text-gray-600 hover:border-blue-400 hover:text-blue-600"
-            : "bg-white border-gray-300 text-gray-700 hover:border-blue-400 hover:text-blue-600"
+            ? "bg-muted border-dashed border-border text-muted-foreground hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
+            : "bg-card border-border text-foreground hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
       }`}
     >
-      <Icon className={`w-4 h-4 ${active ? "text-white" : "text-gray-400"}`} />
+      <Icon className={`w-4 h-4 ${active ? "text-white" : "text-muted-foreground/70"}`} />
       <span className="text-xs font-medium">{label}</span>
-      <span className={`text-[10px] ${active ? "text-blue-100" : "text-gray-400"}`}>{dims}</span>
+      <span className={`text-[10px] ${active ? "text-blue-100" : "text-muted-foreground/70"}`}>{dims}</span>
     </button>
   );
 }

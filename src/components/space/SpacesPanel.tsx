@@ -37,12 +37,12 @@ export default function SpacesPanel({ facility, departmentId, departmentLabel }:
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Bookable locations in {scopeLabel} that sessions can be placed into.
         </p>
         <Link
           href={newSpaceHref}
-          className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add space
@@ -50,10 +50,10 @@ export default function SpacesPanel({ facility, departmentId, departmentLabel }:
       </div>
 
       {spaces.length === 0 ? (
-        <div className="text-center py-14 bg-white rounded-xl border border-dashed border-gray-300">
-          <MapPin className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <h3 className="font-medium text-gray-900 mb-1">No spaces yet</h3>
-          <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+        <div className="text-center py-14 bg-card rounded-xl border border-dashed border-border">
+          <MapPin className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+          <h3 className="font-medium text-foreground mb-1">No spaces yet</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
             Add a space (e.g. &quot;Lane 3&quot;, &quot;Court A&quot;) to give sessions a specific
             location — the Map view and floorplan both build on these.
           </p>
@@ -70,28 +70,28 @@ export default function SpacesPanel({ facility, departmentId, departmentLabel }:
           {spaces.map((space) => (
             <div
               key={space.id}
-              className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200"
+              className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
             >
-              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-sm font-medium text-gray-900 flex-1 min-w-0 truncate">
+              <MapPin className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+              <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
                 {space.name}
               </span>
               {space.capacity != null && (
-                <span className="text-xs text-gray-400 shrink-0">Cap. {space.capacity}</span>
+                <span className="text-xs text-muted-foreground/70 shrink-0">Cap. {space.capacity}</span>
               )}
               {space.isPublished ? (
                 <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full shrink-0">
                   <Eye className="w-3 h-3" /> Published
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full shrink-0">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full shrink-0">
                   <EyeOff className="w-3 h-3" /> Draft
                 </span>
               )}
               <Link
                 href={`/dashboard/facilities/${facility.id}/spaces/${space.id}/edit`}
                 aria-label={`Edit ${space.name}`}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                className="p-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shrink-0"
               >
                 <Pencil className="w-4 h-4" />
               </Link>

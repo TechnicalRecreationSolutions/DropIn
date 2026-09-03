@@ -18,8 +18,8 @@ export default async function NewDepartmentPage({ params }: NewDepartmentPagePro
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add a department</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Add a department</h1>
+        <p className="text-muted-foreground mt-1">
           A department groups related schedules together (e.g. Aquatics, Fitness).
         </p>
       </div>

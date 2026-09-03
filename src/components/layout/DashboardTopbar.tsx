@@ -42,7 +42,7 @@ export default function DashboardTopbar() {
   const { isDark, toggle } = useThemeToggle();
 
   return (
-    <header className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-card border-b border-border px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
       {/* Left: tree browser trigger on mobile — the sidebar is desktop-only */}
       <div className="lg:hidden flex items-center gap-1">
         <Button
@@ -51,9 +51,9 @@ export default function DashboardTopbar() {
           aria-label="Browse facilities"
           onClick={openTreeSheet}
         >
-          <Menu className="size-5 text-gray-700" />
+          <Menu className="size-5 text-foreground" />
         </Button>
-        <Link href="/" className="text-blue-600 font-bold text-sm">Dropin</Link>
+        <Link href="/" className="text-blue-600 dark:text-blue-400 font-bold text-sm">Dropin</Link>
       </div>
 
       <div className="hidden lg:block" />
@@ -81,17 +81,17 @@ export default function DashboardTopbar() {
           onClick={toggle}
           aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           aria-pressed={isDark}
-          className="relative w-11 h-6 rounded-full bg-gray-200 dark:bg-gray-700 transition-colors shrink-0"
+          className="relative w-11 h-6 rounded-full bg-muted dark:bg-gray-700 transition-colors shrink-0"
         >
           <span
-            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-white shadow flex items-center justify-center transition-transform ${
+            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-card shadow flex items-center justify-center transition-transform ${
               isDark ? "translate-x-5" : "translate-x-0"
             }`}
           >
             {isDark ? (
-              <Moon className="size-3 text-gray-700" />
+              <Moon className="size-3 text-foreground" />
             ) : (
-              <Sun className="size-3 text-gray-500" />
+              <Sun className="size-3 text-muted-foreground" />
             )}
           </span>
         </button>
@@ -112,7 +112,7 @@ function IconButton({
   as?: "button" | "span";
 }) {
   const className =
-    "inline-flex items-center justify-center size-8 rounded-md text-gray-500 hover:text-gray-800 hover:bg-gray-100 transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-gray-500 disabled:cursor-not-allowed";
+    "inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground disabled:cursor-not-allowed";
 
   if (As === "span") {
     return (

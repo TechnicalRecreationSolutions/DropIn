@@ -75,10 +75,10 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   }, []);
 
   const isDark = theme === "dark";
-  const mutedClass = isDark ? "text-gray-400" : "text-gray-400";
+  const mutedClass = isDark ? "text-muted-foreground/70" : "text-muted-foreground/70";
 
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-200">
+    <div className="rounded-xl overflow-hidden border border-border">
       <ScheduleHeaderBar
         title={activeScope?.label ?? "Schedule"}
         view={view}

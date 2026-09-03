@@ -35,8 +35,8 @@ export default async function NewFacilityScheduleGroupPage({ params }: NewFacili
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add a schedule</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Add a schedule</h1>
+        <p className="text-muted-foreground mt-1">
           A schedule is a named activity your facility runs (e.g. &quot;Lane Swim&quot;) with its own cost
           and recurring sessions. Departments are optional — pick one below if this
           facility uses them, or leave it as-is.

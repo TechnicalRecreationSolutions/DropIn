@@ -161,17 +161,17 @@ export default function ActivityLogView({ initialEntries, initialCursor, canReve
       />
 
       {entries.length === 0 ? (
-        <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-          <Clock className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <h2 className="font-medium text-gray-900 mb-1">{hasFilters ? "No matching activity" : "No activity yet"}</h2>
-          <p className="text-sm text-gray-500">
+        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+          <Clock className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+          <h2 className="font-medium text-foreground mb-1">{hasFilters ? "No matching activity" : "No activity yet"}</h2>
+          <p className="text-sm text-muted-foreground">
             {hasFilters
               ? "Try a different filter or search term."
               : "Changes to facilities, schedules and sessions will show up here."}
           </p>
         </div>
       ) : (
-        <Card className={`divide-y divide-gray-100 py-0 ${loadingFiltered ? "opacity-60" : ""}`}>
+        <Card className={`divide-y divide-border py-0 ${loadingFiltered ? "opacity-60" : ""}`}>
           {entries.map((entry) => (
             <ActivityRow
               key={entry.id}
@@ -224,7 +224,7 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[160px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-gray-400" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/70" />
         <Input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
@@ -282,7 +282,7 @@ function FilterBar({
       )}
 
       {hasFilters && (
-        <Button variant="ghost" size="sm" onClick={onClear} className="text-gray-500">
+        <Button variant="ghost" size="sm" onClick={onClear} className="text-muted-foreground">
           <X className="size-3.5" />
           Clear
         </Button>
@@ -309,14 +309,14 @@ function ActivityRow({
 
   return (
     <div className="flex items-start gap-3 px-5 py-3">
-      <div className="mt-0.5 shrink-0 size-7 rounded-full bg-gray-100 flex items-center justify-center">
-        <TableIcon className="size-3.5 text-gray-500" />
+      <div className="mt-0.5 shrink-0 size-7 rounded-full bg-muted flex items-center justify-center">
+        <TableIcon className="size-3.5 text-muted-foreground" />
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-gray-900">
+        <p className="text-sm text-foreground">
           <span className="font-medium">{actor}</span>{" "}
-          <span className="text-gray-500">{action.verb}</span>{" "}
+          <span className="text-muted-foreground">{action.verb}</span>{" "}
           <span className="font-medium">{label}</span>
         </p>
         <div className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1">
@@ -324,7 +324,7 @@ function ActivityRow({
             <ActionIcon className="size-3" />
             {table?.label ?? entry.table_name}
           </Badge>
-          <span className="text-xs text-gray-400" title={new Date(entry.created_at).toLocaleString()}>
+          <span className="text-xs text-muted-foreground/70" title={new Date(entry.created_at).toLocaleString()}>
             {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
           </span>
           {entry.reverted_at && (
@@ -332,7 +332,7 @@ function ActivityRow({
           )}
         </div>
         {entry.action === "update" && entry.changed_fields && entry.changed_fields.length > 0 && (
-          <p className="mt-1 text-xs text-gray-400 truncate">
+          <p className="mt-1 text-xs text-muted-foreground/70 truncate">
             Changed: {entry.changed_fields.join(", ")}
           </p>
         )}

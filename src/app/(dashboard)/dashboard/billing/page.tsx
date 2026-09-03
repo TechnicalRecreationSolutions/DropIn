@@ -23,8 +23,8 @@ export default function BillingPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Billing</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
+        <p className="text-muted-foreground mt-1">
           Manage your Dropin subscription.
         </p>
       </div>

@@ -48,8 +48,8 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Manage</h1>
-          <p className="text-gray-500 mt-1">
+          <h1 className="text-2xl font-bold text-foreground">Manage</h1>
+          <p className="text-muted-foreground mt-1">
             Pick a building, then a schedule, to place and edit sessions.
           </p>
         </div>
@@ -265,10 +265,10 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
 
 function NoFacilities() {
   return (
-    <div className="text-center py-20 bg-white rounded-xl border border-dashed border-gray-300">
-      <Building2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-      <h3 className="font-medium text-gray-900 mb-1">No buildings yet</h3>
-      <p className="text-sm text-gray-500 mb-4">
+    <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
+      <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+      <h3 className="font-medium text-foreground mb-1">No buildings yet</h3>
+      <p className="text-sm text-muted-foreground mb-4">
         Add a facility first — schedules and sessions are built inside one.
       </p>
       <Link

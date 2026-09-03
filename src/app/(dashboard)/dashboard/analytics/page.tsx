@@ -35,8 +35,8 @@ export default function AnalyticsPage() {
     <div className="max-w-5xl mx-auto space-y-8">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Analytics</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Analytics</h1>
+        <p className="text-muted-foreground mt-1">
           How visitors use your published schedule — the embedded widget and your public facility pages, last 30 days.
         </p>
       </div>
@@ -83,7 +83,7 @@ async function AnalyticsBody() {
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">Views over time</h2>
+        <h2 className="text-sm font-semibold text-foreground mb-3">Views over time</h2>
         <Card className="p-5">
           <ViewsChart data={summary.viewsByDay} />
         </Card>
@@ -91,22 +91,22 @@ async function AnalyticsBody() {
 
       <div className="grid md:grid-cols-2 gap-6">
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">What visitors looked at</h2>
+          <h2 className="text-sm font-semibold text-foreground mb-3">What visitors looked at</h2>
           <Card className="p-5">
             <TemplateBreakdown data={summary.templateBreakdown} />
           </Card>
         </div>
 
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Where views came from</h2>
-          <Card className="divide-y divide-gray-100 py-0">
+          <h2 className="text-sm font-semibold text-foreground mb-3">Where views came from</h2>
+          <Card className="divide-y divide-border py-0">
             {summary.topReferrers.length === 0 ? (
-              <p className="text-sm text-gray-400 text-center py-6">No referrer data yet.</p>
+              <p className="text-sm text-muted-foreground/70 text-center py-6">No referrer data yet.</p>
             ) : (
               summary.topReferrers.map((r) => (
                 <div key={r.referrer} className="flex items-center justify-between px-5 py-3 text-sm">
-                  <span className="text-gray-700 truncate">{r.referrer}</span>
-                  <span className="font-medium text-gray-900 tabular-nums shrink-0 ml-3">{r.count}</span>
+                  <span className="text-foreground truncate">{r.referrer}</span>
+                  <span className="font-medium text-foreground tabular-nums shrink-0 ml-3">{r.count}</span>
                 </div>
               ))
             )}
@@ -115,19 +115,19 @@ async function AnalyticsBody() {
       </div>
 
       <div>
-        <h2 className="text-sm font-semibold text-gray-900 mb-3">Most-clicked sessions</h2>
-        <Card className="divide-y divide-gray-100 py-0">
+        <h2 className="text-sm font-semibold text-foreground mb-3">Most-clicked sessions</h2>
+        <Card className="divide-y divide-border py-0">
           {summary.topClickedSchedules.length === 0 ? (
-            <p className="text-sm text-gray-400 text-center py-6">
+            <p className="text-sm text-muted-foreground/70 text-center py-6">
               No clicks yet — this fills in once visitors open a session&apos;s details on your widget or facility page.
             </p>
           ) : (
             summary.topClickedSchedules.map((s) => (
               <div key={s.scheduleGroupId} className="flex items-center justify-between px-5 py-3 text-sm">
-                <span className="text-gray-700 truncate">
+                <span className="text-foreground truncate">
                   {scheduleGroupNames.get(s.scheduleGroupId) ?? "Deleted schedule"}
                 </span>
-                <span className="font-medium text-gray-900 tabular-nums shrink-0 ml-3">{s.count}</span>
+                <span className="font-medium text-foreground tabular-nums shrink-0 ml-3">{s.count}</span>
               </div>
             ))
           )}

@@ -94,7 +94,7 @@ export default function DeleteFacilityDialog({
             {lines.length > 0 ? (
               <>
                 This permanently deletes the facility and everything inside it:{" "}
-                <span className="font-medium text-gray-900">{formatList(lines)}</span>. This
+                <span className="font-medium text-foreground">{formatList(lines)}</span>. This
                 cannot be undone.
               </>
             ) : (
@@ -107,7 +107,7 @@ export default function DeleteFacilityDialog({
         </DialogHeader>
 
         <div>
-          <label htmlFor="delete-confirmation" className="block text-sm font-medium text-gray-700 mb-1">
+          <label htmlFor="delete-confirmation" className="block text-sm font-medium text-foreground mb-1">
             Type <span className="font-semibold">{facilityName}</span> to confirm
           </label>
           <input
@@ -116,7 +116,7 @@ export default function DeleteFacilityDialog({
             autoComplete="off"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             placeholder={facilityName}
           />
         </div>

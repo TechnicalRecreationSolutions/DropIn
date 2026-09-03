@@ -80,18 +80,18 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
   return (
     <div className="space-y-6">
       {/* Current plan */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <div className="bg-card rounded-xl border border-border p-6">
         <div className="flex items-center justify-between">
           <div>
-            <p className="text-xs text-gray-500 font-medium uppercase tracking-wide">Current plan</p>
-            <p className="text-xl font-bold text-gray-900 mt-1">
+            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">Current plan</p>
+            <p className="text-xl font-bold text-foreground mt-1">
               {currentTier === "free" ? "No active plan" : currentPlan.name}
             </p>
             {currentTier === "free" ? (
-              <p className="text-sm text-gray-500 mt-0.5">Choose a plan below to get started.</p>
+              <p className="text-sm text-muted-foreground mt-0.5">Choose a plan below to get started.</p>
             ) : (
               currentPlan.priceMonthly > 0 && (
-                <p className="text-sm text-gray-500 mt-0.5">
+                <p className="text-sm text-muted-foreground mt-0.5">
                   ${(currentPlan.priceMonthly / 100).toFixed(0)}/month
                 </p>
               )
@@ -101,7 +101,7 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
             <button
               onClick={handlePortal}
               disabled={portalLoading}
-              className="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-muted rounded-lg disabled:opacity-50 transition-colors"
             >
               {portalLoading ? "Opening…" : "Manage subscription"}
             </button>
@@ -125,12 +125,12 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
           return (
             <div
               key={tier}
-              className={`bg-white rounded-xl border-2 p-5 flex flex-col ${
-                isCurrent ? "border-blue-500" : "border-gray-200"
+              className={`bg-card rounded-xl border-2 p-5 flex flex-col ${
+                isCurrent ? "border-blue-500" : "border-border"
               }`}
             >
               {isCurrent && (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 mb-2">
+                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Current plan
                 </span>
               )}
@@ -141,15 +141,15 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
               )}
               {tier === "enterprise" && !isCurrent && <div className="h-5 mb-2" />}
 
-              <h3 className="text-lg font-bold text-gray-900">{plan.name}</h3>
-              <p className="text-2xl font-bold text-gray-900 mt-1">
+              <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+              <p className="text-2xl font-bold text-foreground mt-1">
                 ${plan.priceMonthly / 100}
-                <span className="text-sm font-normal text-gray-500">/mo</span>
+                <span className="text-sm font-normal text-muted-foreground">/mo</span>
               </p>
 
               <ul className="mt-4 space-y-2 flex-1">
                 {features.map((f) => (
-                  <li key={f} className="flex items-start gap-2 text-sm text-gray-600">
+                  <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
                     <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
                     {f}
                   </li>
@@ -158,13 +158,13 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
 
               <div className="mt-5">
                 {isCurrent ? (
-                  <div className="w-full py-2 text-center text-sm font-medium text-gray-400 bg-gray-50 rounded-lg">
+                  <div className="w-full py-2 text-center text-sm font-medium text-muted-foreground/70 bg-muted rounded-lg">
                     Current plan
                   </div>
                 ) : tier === "enterprise" ? (
                   <a
                     href="mailto:hello@dropin.app?subject=Enterprise plan"
-                    className="block w-full py-2 text-center text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+                    className="block w-full py-2 text-center text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
                   >
                     Contact us
                   </a>

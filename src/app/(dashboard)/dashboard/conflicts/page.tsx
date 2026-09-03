@@ -30,8 +30,8 @@ export default function ConflictsPage() {
     <div className="max-w-3xl mx-auto">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Conflicts</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Conflicts</h1>
+        <p className="text-muted-foreground mt-1">
           Sessions double-booked into the same space at the same time, and what to do about each one.
         </p>
       </div>

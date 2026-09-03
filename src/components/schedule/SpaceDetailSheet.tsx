@@ -28,8 +28,8 @@ function costLine(session: ExpandedSession): string {
 function DetailRow({ icon: Icon, children }: { icon: typeof Clock; children: React.ReactNode }) {
   return (
     <div className="flex items-center gap-3 text-sm">
-      <Icon className="w-4 h-4 text-gray-400 shrink-0" />
-      <span className="text-gray-700">{children}</span>
+      <Icon className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+      <span className="text-foreground">{children}</span>
     </div>
   );
 }
@@ -60,16 +60,16 @@ export default function SpaceDetailSheet({
       aria-label={spaceName}
     >
       <div
-        className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl"
+        className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl"
         onClick={(e) => e.stopPropagation()}
       >
         <div className="sm:hidden flex justify-center pt-3 pb-1">
-          <div className="w-10 h-1 bg-gray-300 rounded-full" />
+          <div className="w-10 h-1 bg-muted rounded-full" />
         </div>
 
         <div className="flex items-start justify-between p-5 pb-3">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">{spaceName}</h2>
+            <h2 className="text-lg font-bold text-foreground">{spaceName}</h2>
             {!viewingNow && (
               <p className="text-xs font-medium text-amber-700 mt-0.5">
                 Viewing {viewedTimeLabel} — not the current time
@@ -78,7 +78,7 @@ export default function SpaceDetailSheet({
           </div>
           <button
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 -mt-1 -mr-1"
+            className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground/70 -mt-1 -mr-1"
             aria-label="Close"
           >
             <X className="w-5 h-5" />
@@ -94,7 +94,7 @@ export default function SpaceDetailSheet({
               >
                 {viewingNow ? "On now" : `On at ${viewedTimeLabel}`}
               </span>
-              <p className="text-base font-semibold text-gray-900">
+              <p className="text-base font-semibold text-foreground">
                 {liveSession.templateName ?? liveSession.scheduleGroupName}
               </p>
               <DetailRow icon={Clock}>
@@ -115,25 +115,25 @@ export default function SpaceDetailSheet({
               )}
             </>
           ) : (
-            <p className="text-sm text-gray-500">
+            <p className="text-sm text-muted-foreground">
               {viewingNow ? "Free right now." : `Free at ${viewedTimeLabel}.`}
             </p>
           )}
 
           {nextSession && (
-            <div className="pt-3 border-t border-gray-100 space-y-1">
-              <p className="text-[10px] font-bold uppercase tracking-wide text-gray-400">Next up here</p>
-              <p className="text-sm font-semibold text-gray-900">
+            <div className="pt-3 border-t border-border space-y-1">
+              <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">Next up here</p>
+              <p className="text-sm font-semibold text-foreground">
                 {nextSession.templateName ?? nextSession.scheduleGroupName}
               </p>
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted-foreground">
                 Starts {formatSessionTime(nextSession.start)} · {costLine(nextSession)}
               </p>
             </div>
           )}
 
           {!liveSession && !nextSession && (
-            <p className="text-xs text-gray-400">Nothing else scheduled here today.</p>
+            <p className="text-xs text-muted-foreground/70">Nothing else scheduled here today.</p>
           )}
 
           {spaceCapacity != null && (

@@ -21,21 +21,21 @@ export default function WeekNavigator({ weekStart, onWeekChange }: WeekNavigator
     <div className="flex items-center gap-2">
       <button
         onClick={() => onWeekChange(prevWeek(weekStart))}
-        className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+        className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
         aria-label="Previous week"
       >
         <ChevronLeft className="w-5 h-5" />
       </button>
 
       <div className="flex-1 text-center">
-        <p className="text-sm font-semibold text-gray-900">
+        <p className="text-sm font-semibold text-foreground">
           {format(weekStart, "MMM d")} – {format(weekEnd, "MMM d, yyyy")}
         </p>
       </div>
 
       <button
         onClick={() => onWeekChange(nextWeek(weekStart))}
-        className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-600"
+        className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground"
         aria-label="Next week"
       >
         <ChevronRight className="w-5 h-5" />

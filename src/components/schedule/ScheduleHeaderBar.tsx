@@ -102,7 +102,7 @@ export default function ScheduleHeaderBar({
                 onClick={() => onChange(option.value)}
                 className={cn(
                   "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                  active ? "bg-white" : "text-white/90 hover:text-white"
+                  active ? "bg-card" : "text-white/90 hover:text-white"
                 )}
                 style={active ? { color: "var(--org-primary)" } : undefined}
                 aria-pressed={active}

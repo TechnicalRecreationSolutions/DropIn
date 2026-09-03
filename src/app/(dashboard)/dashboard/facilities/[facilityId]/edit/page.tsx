@@ -40,8 +40,8 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Edit facility</h1>
-        <p className="text-gray-500 mt-1">Update this facility&apos;s details.</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit facility</h1>
+        <p className="text-muted-foreground mt-1">Update this facility&apos;s details.</p>
       </div>
 
       <FacilityForm

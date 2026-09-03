@@ -33,10 +33,10 @@ export default function ShapeAssignmentList({
 
   return (
     <div>
-      <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Placed shapes</p>
+      <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-2">Placed shapes</p>
       <div className="space-y-2">
         {shapes.map((shape) => (
-          <div key={shape.key} className="flex items-center gap-2 p-3 bg-white rounded-lg border border-gray-200 flex-wrap">
+          <div key={shape.key} className="flex items-center gap-2 p-3 bg-card rounded-lg border border-border flex-wrap">
             <select
               value={shape.space_id}
               onChange={(e) => {
@@ -46,7 +46,7 @@ export default function ShapeAssignmentList({
                 );
                 onCommit();
               }}
-              className="px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             >
               {spaces.map((s) => (
                 <option key={s.id} value={s.id} disabled={s.id !== shape.space_id && assignedSpaceIds.has(s.id)}>
@@ -65,7 +65,7 @@ export default function ShapeAssignmentList({
               }
               onBlur={onCommit}
               placeholder="Label override (optional)"
-              className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-[140px] px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="button"
@@ -73,7 +73,7 @@ export default function ShapeAssignmentList({
                 onChange(shapes.filter((s) => s.key !== shape.key), contextElements);
                 onCommit();
               }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 transition-colors"
               aria-label="Remove shape"
             >
               <Trash2 className="w-4 h-4" />
@@ -82,8 +82,8 @@ export default function ShapeAssignmentList({
         ))}
 
         {contextElements.map((ctx) => (
-          <div key={ctx.key} className="flex items-center gap-2 p-3 bg-gray-50 rounded-lg border border-gray-200 flex-wrap">
-            <span className="text-xs font-semibold uppercase tracking-wide text-gray-400 w-20 shrink-0">
+          <div key={ctx.key} className="flex items-center gap-2 p-3 bg-muted rounded-lg border border-border flex-wrap">
+            <span className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 w-20 shrink-0">
               {ctx.kind === "entrance" ? "Entrance" : "Zone"}
             </span>
             <input
@@ -97,7 +97,7 @@ export default function ShapeAssignmentList({
               }
               onBlur={onCommit}
               placeholder={ctx.kind === "entrance" ? "Entrance" : "e.g. Lobby, Change Rooms"}
-              className="flex-1 min-w-[140px] px-2 py-1.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="flex-1 min-w-[140px] px-2 py-1.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
             <button
               type="button"
@@ -105,7 +105,7 @@ export default function ShapeAssignmentList({
                 onChange(shapes, contextElements.filter((c) => c.key !== ctx.key));
                 onCommit();
               }}
-              className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors"
+              className="p-1.5 rounded-lg text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 transition-colors"
               aria-label="Remove context element"
             >
               <Trash2 className="w-4 h-4" />

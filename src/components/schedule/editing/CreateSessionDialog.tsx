@@ -130,14 +130,14 @@ export default function CreateSessionDialog({
 
         {!draggedTemplate && (
           <div>
-            <label htmlFor="create-session-template" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="create-session-template" className="block text-sm font-medium text-foreground mb-1">
               Session template
             </label>
             <select
               id="create-session-template"
               value={selectedTemplateId}
               onChange={(e) => handleTemplateChange(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>{t.name} ({t.default_duration_minutes} min)</option>
@@ -148,7 +148,7 @@ export default function CreateSessionDialog({
 
         {spaces.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Spaces</label>
+            <label className="block text-sm font-medium text-foreground mb-1.5">Spaces</label>
             <div className="flex gap-1.5 flex-wrap">
               {spaces.map((space) => {
                 const selected = spaceIds.includes(space.id);
@@ -161,7 +161,7 @@ export default function CreateSessionDialog({
                       "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                       selected
                         ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-gray-200 text-gray-600 hover:border-blue-300"
+                        : "border-border text-muted-foreground hover:border-blue-300"
                     )}
                     aria-pressed={selected}
                   >
@@ -170,12 +170,12 @@ export default function CreateSessionDialog({
                 );
               })}
             </div>
-            <p className="text-xs text-gray-400 mt-1">Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).</p>
           </div>
         )}
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Repeats</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Repeats</label>
           <div className="flex gap-1.5 mb-2">
             <button
               type="button"
@@ -183,7 +183,7 @@ export default function CreateSessionDialog({
               aria-pressed={!once}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                !once ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-blue-300"
+                !once ? "bg-blue-600 border-blue-600 text-white" : "border-border text-muted-foreground hover:border-blue-300"
               )}
             >
               Weekly
@@ -194,7 +194,7 @@ export default function CreateSessionDialog({
               aria-pressed={once}
               className={cn(
                 "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                once ? "bg-blue-600 border-blue-600 text-white" : "border-gray-200 text-gray-600 hover:border-blue-300"
+                once ? "bg-blue-600 border-blue-600 text-white" : "border-border text-muted-foreground hover:border-blue-300"
               )}
             >
               Just once
@@ -206,7 +206,7 @@ export default function CreateSessionDialog({
             the date below, not a weekday pattern. */}
         {!once && (
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1.5">Repeats on</label>
+          <label className="block text-sm font-medium text-foreground mb-1.5">Repeats on</label>
           <div className="flex gap-1.5 flex-wrap">
             {DAYS.map((day) => {
               const selected = selectedDays.includes(day.code);
@@ -219,7 +219,7 @@ export default function CreateSessionDialog({
                     "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
                     selected
                       ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-200 text-gray-600 hover:border-blue-300"
+                      : "border-border text-muted-foreground hover:border-blue-300"
                   )}
                   aria-pressed={selected}
                 >
@@ -236,7 +236,7 @@ export default function CreateSessionDialog({
 
         <div className="grid grid-cols-2 gap-3">
           <div>
-            <label htmlFor="create-session-start-time" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="create-session-start-time" className="block text-sm font-medium text-foreground mb-1">
               Start time
             </label>
             <input
@@ -244,11 +244,11 @@ export default function CreateSessionDialog({
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
-            <label htmlFor="create-session-end-time" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="create-session-end-time" className="block text-sm font-medium text-foreground mb-1">
               End time
             </label>
             <input
@@ -256,7 +256,7 @@ export default function CreateSessionDialog({
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           {!timeValid && (
@@ -266,7 +266,7 @@ export default function CreateSessionDialog({
 
         {once ? (
           <div>
-            <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-gray-700 mb-1">
+            <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-foreground mb-1">
               Date
             </label>
             <input
@@ -279,13 +279,13 @@ export default function CreateSessionDialog({
                 setValidFrom(e.target.value);
                 setValidUntil(e.target.value);
               }}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         ) : (
           <div className="grid grid-cols-2 gap-3">
             <div>
-              <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-gray-700 mb-1">
+              <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-foreground mb-1">
                 Start date
               </label>
               <input
@@ -293,12 +293,12 @@ export default function CreateSessionDialog({
                 type="date"
                 value={validFrom}
                 onChange={(e) => setValidFrom(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div>
-              <label htmlFor="create-session-valid-until" className="block text-sm font-medium text-gray-700 mb-1">
-                End date <span className="font-normal text-gray-400">(optional)</span>
+              <label htmlFor="create-session-valid-until" className="block text-sm font-medium text-foreground mb-1">
+                End date <span className="font-normal text-muted-foreground/70">(optional)</span>
               </label>
               <input
                 id="create-session-valid-until"
@@ -306,7 +306,7 @@ export default function CreateSessionDialog({
                 value={validUntil}
                 min={validFrom}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             {!datesValid && (
@@ -315,7 +315,7 @@ export default function CreateSessionDialog({
           </div>
         )}
 
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           {once
             ? `Creates a single session on ${validFrom || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}.`
             : `Creates one recurring session, every ${dayLabels || "…"}, ${formatTime12(startTime)}–${formatTime12(endTime)}, starting ${validFrom}${validUntil ? ` through ${validUntil}` : " with no end date"}.`}

@@ -43,8 +43,8 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add a space</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Add a space</h1>
+        <p className="text-muted-foreground mt-1">
           A specific bookable location within this facility (e.g. Lane 3, Court A, Studio 2) that
           sessions can be attached to.
         </p>

@@ -40,7 +40,7 @@ export default function DashboardBottomNav() {
         href={item.href}
         className={cn(
           "flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium transition-colors",
-          isActive ? "text-blue-600" : "text-gray-500 hover:text-gray-900"
+          isActive ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground hover:text-foreground"
         )}
       >
         <item.icon className="w-5 h-5" />
@@ -50,13 +50,13 @@ export default function DashboardBottomNav() {
   }
 
   return (
-    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-white border-t border-gray-200 safe-area-pb">
+    <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
       <div className="flex">
         {navLinks.map(renderLink)}
         <button
           type="button"
           onClick={openTreeSheet}
-          className="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium text-gray-500 hover:text-gray-900 transition-colors"
+          className="flex-1 flex flex-col items-center gap-1 py-3 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >
           <Compass className="w-5 h-5" />
           Browse

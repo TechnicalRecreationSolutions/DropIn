@@ -48,10 +48,10 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
 
   if (conflicts.length === 0) {
     return (
-      <div className="text-center py-16 bg-white rounded-xl border border-dashed border-gray-300">
-        <CheckCircle2 className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-        <h2 className="font-medium text-gray-900 mb-1">No conflicts</h2>
-        <p className="text-sm text-gray-500">
+      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <CheckCircle2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h2 className="font-medium text-foreground mb-1">No conflicts</h2>
+        <p className="text-sm text-muted-foreground">
           No two active sessions currently claim the same space at an overlapping time.
         </p>
       </div>
@@ -61,9 +61,9 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
   return (
     <div className="space-y-8">
       {active.length === 0 && (
-        <div className="text-center py-10 bg-white rounded-xl border border-dashed border-gray-300">
-          <CheckCircle2 className="w-8 h-8 text-gray-300 mx-auto mb-2" />
-          <p className="text-sm text-gray-500">No unresolved conflicts — everything below has been dismissed.</p>
+        <div className="text-center py-10 bg-card rounded-xl border border-dashed border-border">
+          <CheckCircle2 className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
+          <p className="text-sm text-muted-foreground">No unresolved conflicts — everything below has been dismissed.</p>
         </div>
       )}
 
@@ -83,7 +83,7 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
 
       {dismissed.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-gray-900 mb-3">Dismissed ({dismissed.length})</h2>
+          <h2 className="text-sm font-semibold text-foreground mb-3">Dismissed ({dismissed.length})</h2>
           <div className="space-y-3">
             {dismissed.map((c) => (
               <ConflictCard
@@ -144,7 +144,7 @@ function ConflictCard({
           <AlertTriangle className="size-3.5 text-amber-600" />
         </div>
         <div className="flex-1 min-w-0">
-          <p className="text-sm text-gray-900">
+          <p className="text-sm text-foreground">
             Both claim <span className="font-medium">{conflict.spaceNames.join(", ")}</span> starting{" "}
             <span className="font-medium">
               {conflict.occurrenceDate} around {conflict.occurrenceTime}
@@ -201,18 +201,18 @@ function ParticipantBlock({
   );
 
   return (
-    <div className="rounded-lg border border-gray-100 p-3 space-y-2">
+    <div className="rounded-lg border border-border p-3 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
-        <span className="text-sm font-medium text-gray-900">{participant.scheduleGroupName}</span>
+        <span className="text-sm font-medium text-foreground">{participant.scheduleGroupName}</span>
         <Badge variant={participant.scheduleGroupStatus === "published" ? "default" : "secondary"}>
           {participant.scheduleGroupStatus === "published" ? "Published" : "Draft"}
         </Badge>
       </div>
-      <p className="text-xs text-gray-500">{participant.spaceNames.join(", ") || "No space"}</p>
+      <p className="text-xs text-muted-foreground">{participant.spaceNames.join(", ") || "No space"}</p>
       <div className="flex flex-wrap gap-2 pt-1">
         <Link
           href={href}
-          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700"
+          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
         >
           <ExternalLink className="size-3" />
           Open
@@ -221,7 +221,7 @@ function ParticipantBlock({
           <button
             type="button"
             onClick={onReassign}
-            className="inline-flex items-center gap-1 text-xs font-medium text-gray-600 hover:text-gray-900"
+            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
           >
             <ArrowLeftRight className="size-3" />
             Move space
@@ -326,9 +326,9 @@ function ReassignDialog({
         </DialogHeader>
 
         {spaces === null ? (
-          <p className="text-sm text-gray-500">Loading spaces…</p>
+          <p className="text-sm text-muted-foreground">Loading spaces…</p>
         ) : spaces.length === 0 ? (
-          <p className="text-sm text-gray-500">No other spaces at this facility to move it to.</p>
+          <p className="text-sm text-muted-foreground">No other spaces at this facility to move it to.</p>
         ) : (
           <Select value={selectedSpaceId} onValueChange={setSelectedSpaceId}>
             <SelectTrigger className="w-full">

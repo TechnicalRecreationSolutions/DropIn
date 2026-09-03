@@ -539,11 +539,11 @@ export default function ScheduleCommandCentre({
             emptyMessage={departmentParam ? "Nothing matches the selected filters." : undefined}
           />
         ) : isContinuous ? (
-          <div className="rounded-xl border border-gray-200 bg-white p-6 text-center">
-            <p className="text-sm text-gray-500">
+          <div className="rounded-xl border border-border bg-card p-6 text-center">
+            <p className="text-sm text-muted-foreground">
               {scheduleGroup.name} is set up as always-open, so it has no placed sessions. Change
               its hours from{" "}
-              <Link href={scheduleGroup.settingsHref} className="text-blue-600 hover:text-blue-700">
+              <Link href={scheduleGroup.settingsHref} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
                 its settings
               </Link>
               .
@@ -561,7 +561,7 @@ export default function ScheduleCommandCentre({
               <button
                 type="button"
                 onClick={() => setWeekParam(null)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-gray-500 hover:text-gray-700"
+                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 All weeks
@@ -577,7 +577,7 @@ export default function ScheduleCommandCentre({
                   />
                 </div>
 
-                <div className="order-1 lg:order-2 rounded-xl border border-gray-200 overflow-hidden bg-white">
+                <div className="order-1 lg:order-2 rounded-xl border border-border overflow-hidden bg-card">
                   <WeekReviewBar scheduleGroupId={scheduleGroup.id} weekStart={editorWeekStart} />
 
                   <ScheduleHeaderBar
@@ -604,7 +604,7 @@ export default function ScheduleCommandCentre({
 
                   <div className="p-3 sm:p-4">
                     {isLoading ? (
-                      <div className="flex items-center justify-center py-16 text-sm text-gray-400">
+                      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground/70">
                         Loading schedule…
                       </div>
                     ) : isError ? (
@@ -627,14 +627,14 @@ export default function ScheduleCommandCentre({
                   </div>
 
                   {canCreate && (
-                    <div className="px-4 py-3 border-t border-gray-100 bg-gray-50/60">
+                    <div className="px-4 py-3 border-t border-border bg-muted/60">
                       <button
                         type="button"
                         onClick={() =>
                           handleAddSession({ dayCode: DAYS[0].code, dayLabel: DAYS[0].label })
                         }
                         disabled={editing.templates.length === 0}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-blue-600 hover:text-blue-700 disabled:opacity-40 disabled:cursor-not-allowed"
+                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <CalendarPlus className="w-4 h-4" />
                         Add a session to {scheduleGroup.name}

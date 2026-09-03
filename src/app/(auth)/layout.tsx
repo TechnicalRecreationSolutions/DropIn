@@ -9,9 +9,9 @@ export default function AuthLayout({
 }) {
   return (
     <Providers>
-      <div className="min-h-screen bg-gray-50 flex flex-col">
+      <div className="min-h-screen bg-muted flex flex-col">
         <header className="px-4 py-5">
-          <Link href="/" className="inline-flex items-center gap-2 text-blue-600 font-bold text-lg">
+          <Link href="/" className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-lg">
             <MapPin className="w-5 h-5" />
             Dropin
           </Link>

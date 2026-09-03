@@ -129,22 +129,22 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   const isDark = theme === "dark";
 
   return (
-    <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
+    <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-card text-foreground"}`}>
       <OrgThemeProvider primaryColor={primaryColor}>
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             {org.logo_url && (
-              <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-gray-200 bg-white">
+              <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-border bg-card">
                 <OrgImage src={org.logo_url} alt="" sizes="32px" className="object-contain" />
               </span>
             )}
             <div className="min-w-0">
-              <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
+              <p className={`text-xs font-medium ${isDark ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
                 {org.name}
               </p>
               {facility && (
-                <h2 className={`text-sm font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
+                <h2 className={`text-sm font-semibold truncate ${isDark ? "text-white" : "text-foreground"}`}>
                   {facility.name}{department ? ` · ${department.name}` : ""}
                 </h2>
               )}
@@ -154,7 +154,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:text-blue-600 font-medium"
+            className="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 font-medium"
           >
             dropin.app ↗
           </a>

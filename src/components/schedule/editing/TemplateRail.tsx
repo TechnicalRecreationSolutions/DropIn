@@ -31,13 +31,13 @@ export default function TemplateRail({
   onTemplateClick,
 }: TemplateRailProps) {
   return (
-    <div className="bg-white rounded-xl border border-gray-200 p-4">
+    <div className="bg-card rounded-xl border border-border p-4">
       <div className="flex items-center justify-between mb-3">
-        <h2 className="text-sm font-semibold text-gray-900">Session templates</h2>
+        <h2 className="text-sm font-semibold text-foreground">Session templates</h2>
         {manageTemplatesHref && (
           <Link
             href={manageTemplatesHref}
-            className="text-xs font-medium text-blue-600 hover:text-blue-700"
+            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
           >
             Manage
           </Link>
@@ -46,7 +46,7 @@ export default function TemplateRail({
 
       {templates.length === 0 ? (
         <div className="text-center py-6">
-          <p className="text-xs text-gray-500 mb-2">
+          <p className="text-xs text-muted-foreground mb-2">
             {manageTemplatesHref
               ? "No templates yet."
               : "Pick a single schedule above to place sessions."}
@@ -54,7 +54,7 @@ export default function TemplateRail({
           {manageTemplatesHref && (
             <Link
               href={manageTemplatesHref}
-              className="text-xs font-medium text-blue-600 hover:text-blue-700"
+              className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
             >
               Create your first template →
             </Link>
@@ -77,7 +77,7 @@ export default function TemplateRail({
       )}
 
       {templates.length > 0 && (
-        <p className="text-xs text-gray-400 mt-4 hidden lg:block">
+        <p className="text-xs text-muted-foreground/70 mt-4 hidden lg:block">
           {draggable
             ? "Drag a template onto a space and time to place it."
             : "Click a template, or a day's +, to place a session."}
@@ -110,15 +110,15 @@ function TemplateCard({
       {...dragProps}
       className={cn(
         "flex-shrink-0 w-40 lg:w-full text-left flex items-center gap-2 px-3 py-2.5 rounded-lg border transition-opacity",
-        dragProps ? "cursor-grab active:cursor-grabbing touch-none" : onClick ? "hover:bg-gray-50" : "",
+        dragProps ? "cursor-grab active:cursor-grabbing touch-none" : onClick ? "hover:bg-muted" : "",
         isDragging ? "opacity-40" : "opacity-100"
       )}
       style={{ borderColor: color, borderLeftWidth: 4 }}
     >
       <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />
       <div className="min-w-0">
-        <p className="text-sm font-medium text-gray-900 truncate">{template.name}</p>
-        <p className="text-xs text-gray-500">{template.default_duration_minutes} min</p>
+        <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
+        <p className="text-xs text-muted-foreground">{template.default_duration_minutes} min</p>
       </div>
     </button>
   );

@@ -44,8 +44,8 @@ export default async function EditDepartmentPage({ params }: EditDepartmentPageP
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Edit department</h1>
-        <p className="text-gray-500 mt-1">Update this department&apos;s details.</p>
+        <h1 className="text-2xl font-bold text-foreground">Edit department</h1>
+        <p className="text-muted-foreground mt-1">Update this department&apos;s details.</p>
       </div>
 
       <DepartmentForm

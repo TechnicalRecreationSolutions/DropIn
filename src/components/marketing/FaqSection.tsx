@@ -28,14 +28,14 @@ const faqs = [
 
 export default function FaqSection() {
   return (
-    <div className="mx-auto max-w-2xl divide-y divide-gray-200">
+    <div className="mx-auto max-w-2xl divide-y divide-border">
       {faqs.map((item) => (
         <Collapsible key={item.q} className="py-4">
           <CollapsibleTrigger className="group flex w-full items-center justify-between gap-4 text-left">
-            <span className="font-medium text-gray-900">{item.q}</span>
-            <Plus className="w-4 h-4 text-gray-400 shrink-0 transition-transform group-data-[state=open]:rotate-45" />
+            <span className="font-medium text-foreground">{item.q}</span>
+            <Plus className="w-4 h-4 text-muted-foreground/70 shrink-0 transition-transform group-data-[state=open]:rotate-45" />
           </CollapsibleTrigger>
-          <CollapsibleContent className="mt-2 text-sm text-gray-600 leading-relaxed">
+          <CollapsibleContent className="mt-2 text-sm text-muted-foreground leading-relaxed">
             {item.a}
           </CollapsibleContent>
         </Collapsible>

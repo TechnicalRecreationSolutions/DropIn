@@ -25,8 +25,8 @@ export default async function NewDepartmentPage() {
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-gray-900">Add a department</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Add a department</h1>
+        <p className="text-muted-foreground mt-1">
           A department groups related schedules together (e.g. Aquatics, Fitness).
         </p>
       </div>
@@ -34,8 +34,8 @@ export default async function NewDepartmentPage() {
       {facilities && facilities.length > 0 ? (
         <DepartmentForm facilities={facilities} />
       ) : (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 text-center">
-          <p className="text-gray-600">You need a facility before you can add a department.</p>
+        <div className="bg-card rounded-xl border border-border p-6 text-center">
+          <p className="text-muted-foreground">You need a facility before you can add a department.</p>
           <Link
             href="/dashboard/facilities/new"
             className="inline-flex mt-4 items-center gap-2 px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

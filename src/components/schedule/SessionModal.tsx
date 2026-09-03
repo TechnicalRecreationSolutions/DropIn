@@ -57,26 +57,26 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
       >
         {/* Sheet (mobile: slides from bottom; desktop: centered card) */}
         <div
-          className="bg-white w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl"
+          className="bg-card w-full sm:max-w-md rounded-t-2xl sm:rounded-2xl shadow-xl"
           onClick={(e) => e.stopPropagation()}
         >
           {/* Drag handle (mobile) */}
           <div className="sm:hidden flex justify-center pt-3 pb-1">
-            <div className="w-10 h-1 bg-gray-300 rounded-full" />
+            <div className="w-10 h-1 bg-muted rounded-full" />
           </div>
 
           {/* Header */}
           <div className="flex items-start justify-between p-5 pb-3">
             <div>
-              <h2 className="text-lg font-bold text-gray-900">{session.templateName ?? session.scheduleGroupName}</h2>
-              <p className="text-sm text-gray-500 capitalize mt-0.5">
+              <h2 className="text-lg font-bold text-foreground">{session.templateName ?? session.scheduleGroupName}</h2>
+              <p className="text-sm text-muted-foreground capitalize mt-0.5">
                 {session.templateName && `${session.scheduleGroupName} · `}
                 {sport?.label ?? session.sportCategory} · {session.activityType.replace("_", " ")}
               </p>
             </div>
             <button
               onClick={onClose}
-              className="p-2 rounded-lg hover:bg-gray-100 transition-colors text-gray-400 -mt-1 -mr-1"
+              className="p-2 rounded-lg hover:bg-muted transition-colors text-muted-foreground/70 -mt-1 -mr-1"
               aria-label="Close"
             >
               <X className="w-5 h-5" />
@@ -86,16 +86,16 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
           {/* Details */}
           <div className="px-5 pb-6 space-y-3">
             <div className="flex items-center gap-3 text-sm">
-              <Clock className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-gray-700">
+              <Clock className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+              <span className="text-foreground">
                 {formatSessionDayFull(session.start)} ·{" "}
                 {formatSessionTime(session.start)} – {formatSessionTime(session.end)}
               </span>
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              <MapPin className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-gray-700">
+              <MapPin className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+              <span className="text-foreground">
                 {[session.facilityName, session.spaceNames.join(", "), session.locationDetail]
                   .filter(Boolean)
                   .join(" · ")}
@@ -103,8 +103,8 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
             </div>
 
             <div className="flex items-center gap-3 text-sm">
-              <DollarSign className="w-4 h-4 text-gray-400 shrink-0" />
-              <span className="text-gray-700">
+              <DollarSign className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+              <span className="text-foreground">
                 {session.costCents === 0
                   ? "Free admission"
                   : `$${(session.costCents / 100).toFixed(2)} drop-in`}
@@ -114,8 +114,8 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
 
             {(session.ageGroup || session.skillLevel) && (
               <div className="flex items-center gap-3 text-sm">
-                <Tag className="w-4 h-4 text-gray-400 shrink-0" />
-                <span className="text-gray-700 capitalize">
+                <Tag className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                <span className="text-foreground capitalize">
                   {[session.ageGroup, session.skillLevel]
                     .filter(Boolean)
                     .map((v) => v!.replace("_", " "))
@@ -126,8 +126,8 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
 
             {session.maxParticipants && (
               <div className="flex items-center gap-3 text-sm">
-                <Users className="w-4 h-4 text-gray-400 shrink-0" />
-                <span className="text-gray-700">Max {session.maxParticipants} participants</span>
+                <Users className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                <span className="text-foreground">Max {session.maxParticipants} participants</span>
               </div>
             )}
 

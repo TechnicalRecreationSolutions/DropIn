@@ -122,7 +122,7 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
       <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
 
       {rows.length === 0 ? (
-        <p className="text-center text-sm text-gray-400 py-10">No sessions scheduled this week.</p>
+        <p className="text-center text-sm text-muted-foreground/70 py-10">No sessions scheduled this week.</p>
       ) : (
         <div className="mt-3 overflow-x-auto">
           <table className="w-full border-collapse" style={{ minWidth: "900px" }}>
@@ -148,8 +148,8 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
                 <tr key={row.startMinute}>
                   <td
                     className={cn(
-                      "align-top text-[11px] font-semibold text-gray-500 pr-2 py-1.5 text-right whitespace-nowrap",
-                      rowIndex % 2 === 1 && "bg-gray-50/60"
+                      "align-top text-[11px] font-semibold text-muted-foreground pr-2 py-1.5 text-right whitespace-nowrap",
+                      rowIndex % 2 === 1 && "bg-muted/60"
                     )}
                   >
                     {formatBandLabel(row.startMinute, row.endMinute)}
@@ -221,7 +221,7 @@ function BoardCell({
   const editingApi = useScheduleEditing();
 
   return (
-    <td className={cn("align-top p-1", shaded && "bg-gray-50/60")}>
+    <td className={cn("align-top p-1", shaded && "bg-muted/60")}>
       <div className="flex flex-col gap-1 min-h-[40px]">
         {sessions.map((session) => {
           const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
@@ -263,7 +263,7 @@ function BoardCell({
           <button
             type="button"
             onClick={onAdd}
-            className="flex-1 min-h-[36px] flex items-center justify-center rounded-md border border-dashed border-gray-200 text-gray-300 hover:text-gray-500 hover:border-gray-300 transition-colors"
+            className="flex-1 min-h-[36px] flex items-center justify-center rounded-md border border-dashed border-border text-muted-foreground/70 hover:text-muted-foreground hover:border-border transition-colors"
             aria-label="Add session"
           >
             <Plus className="w-3.5 h-3.5" />

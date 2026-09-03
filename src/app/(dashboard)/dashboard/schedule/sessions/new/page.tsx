@@ -59,8 +59,8 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-gray-900">Add session</h1>
-        <p className="text-gray-500 mt-1">
+        <h1 className="text-2xl font-bold text-foreground">Add session</h1>
+        <p className="text-muted-foreground mt-1">
           {scoped
             ? `Define a recurring time for ${scoped.name} at ${scoped.facility_name}.`
             : "Define a recurring schedule for one of your schedules."}

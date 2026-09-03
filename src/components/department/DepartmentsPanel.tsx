@@ -57,12 +57,12 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
   return (
     <div className="space-y-4">
       <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted-foreground">
           Groups related schedules together in {facility.name} (e.g. Aquatics, Fitness).
         </p>
         <Link
           href={newDepartmentHref}
-          className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+          className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           <Plus className="w-4 h-4" />
           Add department
@@ -74,10 +74,10 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
       )}
 
       {departments.length === 0 ? (
-        <div className="text-center py-14 bg-white rounded-xl border border-dashed border-gray-300">
-          <Layers className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-          <h3 className="font-medium text-gray-900 mb-1">No departments yet</h3>
-          <p className="text-sm text-gray-500 mb-4 max-w-sm mx-auto">
+        <div className="text-center py-14 bg-card rounded-xl border border-dashed border-border">
+          <Layers className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+          <h3 className="font-medium text-foreground mb-1">No departments yet</h3>
+          <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
             Add a department (e.g. &quot;Aquatics&quot;, &quot;Fitness&quot;) to group related
             schedules — optional, but useful once a building offers more than a few.
           </p>
@@ -94,13 +94,13 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
           {departments.map((department) => (
             <div
               key={department.id}
-              className="flex items-center gap-3 p-4 bg-white rounded-xl border border-gray-200"
+              className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
             >
-              <Layers className="w-4 h-4 text-gray-400 shrink-0" />
+              <Layers className="w-4 h-4 text-muted-foreground/70 shrink-0" />
               <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-gray-900 truncate">{department.name}</p>
+                <p className="text-sm font-medium text-foreground truncate">{department.name}</p>
                 {department.description && (
-                  <p className="text-xs text-gray-500 truncate">{department.description}</p>
+                  <p className="text-xs text-muted-foreground truncate">{department.description}</p>
                 )}
               </div>
               {department.is_published ? (
@@ -108,14 +108,14 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
                   <Eye className="w-3 h-3" /> Published
                 </span>
               ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-gray-500 bg-gray-100 px-2 py-1 rounded-full shrink-0">
+                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full shrink-0">
                   <EyeOff className="w-3 h-3" /> Draft
                 </span>
               )}
               <Link
                 href={`/dashboard/facilities/${facility.id}/departments/${department.id}/edit`}
                 aria-label={`Edit ${department.name}`}
-                className="p-2 rounded-lg text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors shrink-0"
+                className="p-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shrink-0"
               >
                 <Pencil className="w-4 h-4" />
               </Link>
@@ -124,7 +124,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
                 onClick={() => handleDelete(department)}
                 disabled={deletingId === department.id}
                 aria-label={`Delete ${department.name}`}
-                className="p-2 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
+                className="p-2 rounded-lg text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
               >
                 <Trash2 className="w-4 h-4" />
               </button>

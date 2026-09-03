@@ -48,27 +48,27 @@ export default function SignupForm() {
     return (
       <div className="space-y-4 text-center">
         <div className="rounded-lg bg-blue-50 px-4 py-5">
-          <h2 className="text-sm font-semibold text-gray-900">Check your email</h2>
-          <p className="mt-2 text-sm text-gray-600">
+          <h2 className="text-sm font-semibold text-foreground">Check your email</h2>
+          <p className="mt-2 text-sm text-muted-foreground">
             If <span className="font-medium">{email}</span> can receive mail, we&apos;ve sent a
             link to confirm your account. Open it to finish setting up{" "}
             <span className="font-medium">{orgName}</span>.
           </p>
         </div>
-        <p className="text-sm text-gray-600">
+        <p className="text-sm text-muted-foreground">
           Didn&apos;t get it? Check your spam folder, or{" "}
           <button
             type="button"
             onClick={() => { setEmailSent(false); setError(null); }}
-            className="text-blue-600 font-medium hover:underline"
+            className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
           >
             try a different address
           </button>
           .
         </p>
-        <p className="text-center text-sm text-gray-600">
+        <p className="text-center text-sm text-muted-foreground">
           Already confirmed?{" "}
-          <Link href="/login" className="text-blue-600 font-medium hover:underline">
+          <Link href="/login" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
             Sign in
           </Link>
         </p>
@@ -79,7 +79,7 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="orgName" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="orgName" className="block text-sm font-medium text-foreground mb-1">
           Organization name
         </label>
         <input
@@ -88,13 +88,13 @@ export default function SignupForm() {
           required
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="City of Calgary Parks & Recreation"
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
           Work email
         </label>
         <input
@@ -104,13 +104,13 @@ export default function SignupForm() {
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="you@yourorg.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
           Password
         </label>
         <input
@@ -121,7 +121,7 @@ export default function SignupForm() {
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Min. 8 characters"
         />
       </div>
@@ -140,21 +140,21 @@ export default function SignupForm() {
         {loading ? "Creating account…" : "Create account"}
       </button>
 
-      <p className="text-center text-xs text-gray-500">
+      <p className="text-center text-xs text-muted-foreground">
         By creating an account you agree to our{" "}
-        <Link href="/terms" className="underline underline-offset-2 hover:text-gray-700">
+        <Link href="/terms" className="underline underline-offset-2 hover:text-foreground">
           Terms of Service
         </Link>{" "}
         and{" "}
-        <Link href="/privacy" className="underline underline-offset-2 hover:text-gray-700">
+        <Link href="/privacy" className="underline underline-offset-2 hover:text-foreground">
           Privacy Policy
         </Link>
         .
       </p>
 
-      <p className="text-center text-sm text-gray-600">
+      <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-600 font-medium hover:underline">
+        <Link href="/login" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
           Sign in
         </Link>
       </p>

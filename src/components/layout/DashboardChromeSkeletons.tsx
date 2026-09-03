@@ -31,7 +31,7 @@ export function TreeNavSkeleton() {
 export function TopbarSkeleton() {
   return (
     <header
-      className="sticky top-0 z-40 bg-white border-b border-gray-200 px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between"
+      className="sticky top-0 z-40 bg-card border-b border-border px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between"
       aria-hidden
     >
       <Skeleton className="h-8 w-8 rounded lg:hidden" />
@@ -85,7 +85,7 @@ export function DashboardPageSkeleton() {
 export function BottomNavSkeleton() {
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-white border-t border-gray-200 flex"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border flex"
       aria-hidden
     >
       {Array.from({ length: 4 }).map((_, i) => (

@@ -92,15 +92,15 @@ export default function OrgSettingsForm({
   }
 
   const fieldClass =
-    "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-gray-50 disabled:text-gray-500";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+    "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-muted disabled:text-muted-foreground";
+  const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
-      <section className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+      <section className="space-y-5 bg-card rounded-xl border border-border p-6">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Public profile</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h2 className="text-base font-semibold text-foreground">Public profile</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
             Shown on your public schedule pages and your widget.
           </p>
         </div>
@@ -141,10 +141,10 @@ export default function OrgSettingsForm({
         </div>
       </section>
 
-      <section className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+      <section className="space-y-5 bg-card rounded-xl border border-border p-6">
         <div>
-          <h2 className="text-base font-semibold text-gray-900">Contact</h2>
-          <p className="text-sm text-gray-500 mt-0.5">
+          <h2 className="text-base font-semibold text-foreground">Contact</h2>
+          <p className="text-sm text-muted-foreground mt-0.5">
             How the public can reach your organization.
           </p>
         </div>

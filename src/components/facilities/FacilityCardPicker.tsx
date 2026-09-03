@@ -47,10 +47,10 @@ export default function FacilityCardPicker({
             href={hrefFor(facility.id)}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "block rounded-xl border bg-white overflow-hidden transition-all",
+              "block rounded-xl border bg-card overflow-hidden transition-all",
               active
                 ? "border-blue-400 shadow-md ring-1 ring-blue-100"
-                : "border-gray-200 hover:border-blue-300 hover:shadow-sm"
+                : "border-border hover:border-blue-300 hover:shadow-sm"
             )}
           >
             <div className="relative h-28 bg-blue-50 flex items-center justify-center overflow-hidden">
@@ -70,7 +70,7 @@ export default function FacilityCardPicker({
                 <h3
                   className={cn(
                     "font-semibold truncate",
-                    active ? "text-blue-700" : "text-gray-900"
+                    active ? "text-blue-700 dark:text-blue-300" : "text-foreground"
                   )}
                 >
                   {facility.name}
@@ -79,17 +79,17 @@ export default function FacilityCardPicker({
                   (facility.is_published ? (
                     <Eye className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
                   ) : (
-                    <EyeOff className="w-4 h-4 text-gray-300 shrink-0 mt-0.5" />
+                    <EyeOff className="w-4 h-4 text-muted-foreground/70 shrink-0 mt-0.5" />
                   ))}
               </div>
               {facility.city && (
-                <p className="text-xs text-gray-500 mt-0.5">
+                <p className="text-xs text-muted-foreground mt-0.5">
                   {facility.city}
                   {facility.province ? `, ${facility.province}` : ""}
                 </p>
               )}
               {facility.meta && (
-                <p className="text-xs text-gray-500 mt-3">{facility.meta}</p>
+                <p className="text-xs text-muted-foreground mt-3">{facility.meta}</p>
               )}
             </div>
           </Link>

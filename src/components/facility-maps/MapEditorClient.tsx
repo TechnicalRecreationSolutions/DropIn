@@ -531,7 +531,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   // ---- Render --------------------------------------------------------------
 
   if (isLoading) {
-    return <div className="py-12 text-center text-sm text-gray-400">Loading…</div>;
+    return <div className="py-12 text-center text-sm text-muted-foreground/70">Loading…</div>;
   }
 
   const canvasWidth = facilityMap?.canvas_width ?? 25;
@@ -543,15 +543,15 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     <div className="max-w-[1000px] mx-auto space-y-4">
       {/* One toolbar strip instead of a floating caption + floating buttons —
           reads as a single control bar for the editor below it. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap bg-white rounded-xl border border-gray-200 shadow-sm px-4 py-3">
-        <p className="text-sm text-gray-500">
+      <div className="flex items-center justify-between gap-3 flex-wrap bg-card rounded-xl border border-border shadow-sm px-4 py-3">
+        <p className="text-sm text-muted-foreground">
           Build a map of this facility — visitors will tap it to see what&apos;s happening where.
         </p>
         <div className="flex items-center gap-2 shrink-0">
           <button
             onClick={undo}
             disabled={!canUndo}
-            className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+            className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
             aria-label="Undo"
             title="Undo (Ctrl+Z)"
           >
@@ -560,7 +560,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           <button
             onClick={redo}
             disabled={!canRedo}
-            className="p-2 rounded-lg border border-gray-300 text-gray-600 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+            className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
             aria-label="Redo"
             title="Redo (Ctrl+Shift+Z)"
           >
@@ -569,7 +569,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           <button
             onClick={() => setShowPreview(true)}
             disabled={shapes.length === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 disabled:opacity-40 transition-colors"
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
           >
             <Smartphone className="w-4 h-4" /> Preview
           </button>
@@ -578,7 +578,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
               onClick={handleTogglePublish}
               className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
                 facilityMap.is_published
-                  ? "border border-gray-300 text-gray-700 hover:bg-gray-50"
+                  ? "border border-border text-foreground hover:bg-muted"
                   : "bg-blue-600 text-white hover:bg-blue-700"
               }`}
             >
@@ -606,7 +606,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           between the canvas and that list. */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_260px] gap-4 items-start">
         <div className="space-y-4">
-          <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3">
+          <div className="bg-card rounded-2xl border border-border shadow-sm p-3">
             <ShapeCanvas
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
@@ -641,10 +641,10 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           </button>
         </div>
 
-        <div className="bg-white rounded-2xl border border-gray-200 shadow-sm p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
           <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
           {allSpacesPlaced && (
-            <p className="text-xs text-gray-400 mt-2">
+            <p className="text-xs text-muted-foreground/70 mt-2">
               All existing spaces are placed — placing another preset creates new spaces automatically.
             </p>
           )}
@@ -661,21 +661,21 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           aria-label="Visitor preview"
         >
           <div
-            className="bg-white rounded-2xl shadow-xl p-4 w-[390px] max-w-full"
+            className="bg-card rounded-2xl shadow-xl p-4 w-[390px] max-w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-gray-900">How visitors see it</p>
+              <p className="text-sm font-semibold text-foreground">How visitors see it</p>
               <button
                 onClick={() => setShowPreview(false)}
-                className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400"
+                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/70"
                 aria-label="Close preview"
               >
                 <X className="w-4 h-4" />
               </button>
             </div>
             <FacilityMapSvg
-              className="rounded-xl overflow-hidden border border-gray-200"
+              className="rounded-xl overflow-hidden border border-border"
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
               shapes={shapes.map((s) => ({
@@ -702,7 +702,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
                 label: c.label,
               }))}
             />
-            <p className="text-xs text-gray-400 mt-3">
+            <p className="text-xs text-muted-foreground/70 mt-3">
               Live-session highlights appear on the public schedule once sessions are assigned to
               these spaces.
             </p>
@@ -718,12 +718,12 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
           aria-modal="true"
           aria-label="Publish facility map"
         >
-          <div className="bg-white rounded-2xl shadow-xl p-5 max-w-sm w-full">
-            <p className="text-sm font-semibold text-gray-900">
+          <div className="bg-card rounded-2xl shadow-xl p-5 max-w-sm w-full">
+            <p className="text-sm font-semibold text-foreground">
               {publishPrompt.unpublished.length} space
               {publishPrompt.unpublished.length === 1 ? " isn't" : "s aren't"} published yet
             </p>
-            <p className="text-sm text-gray-500 mt-2">
+            <p className="text-sm text-muted-foreground mt-2">
               Unpublished spaces ({publishPrompt.unpublished.map((s) => s.name).join(", ")}) won&apos;t
               show live sessions to visitors, so their shapes on the map would never light up.
             </p>
@@ -736,13 +736,13 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
               </button>
               <button
                 onClick={() => confirmPublish(false)}
-                className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
               >
                 Publish map only
               </button>
               <button
                 onClick={() => setPublishPrompt(null)}
-                className="px-4 py-2 text-gray-500 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors"
+                className="px-4 py-2 text-muted-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
               >
                 Cancel
               </button>

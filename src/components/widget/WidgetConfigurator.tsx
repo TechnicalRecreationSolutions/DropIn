@@ -88,23 +88,23 @@ function ScopeRowEditor({
   );
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto] gap-2 items-start bg-gray-50 rounded-lg p-3">
+    <div className="grid grid-cols-1 sm:grid-cols-[1.2fr_1fr_1fr_1fr_auto] gap-2 items-start bg-muted rounded-lg p-3">
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Label</label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Label</label>
         <input
           type="text"
           value={scope.label}
           onChange={(e) => onChange({ label: e.target.value })}
           placeholder="e.g. Pool"
-          className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-2.5 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">Facility</label>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">Facility</label>
         <select
           value={scope.facilityId}
           onChange={(e) => onChange({ facilityId: e.target.value, departmentId: "", scheduleGroupId: "" })}
-          className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+          className="w-full px-2.5 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
         >
           <option value="">Select…</option>
           {facilities.map((f) => (
@@ -113,14 +113,14 @@ function ScopeRowEditor({
         </select>
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
-          Department <span className="font-normal text-gray-400">(any)</span>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">
+          Department <span className="font-normal text-muted-foreground/70">(any)</span>
         </label>
         <select
           value={scope.departmentId}
           onChange={(e) => onChange({ departmentId: e.target.value, scheduleGroupId: "" })}
           disabled={!scope.facilityId || departments.length === 0}
-          className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full px-2.5 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         >
           <option value="">All departments</option>
           {departments.map((d) => (
@@ -129,14 +129,14 @@ function ScopeRowEditor({
         </select>
       </div>
       <div>
-        <label className="block text-xs font-medium text-gray-500 mb-1">
-          Schedule <span className="font-normal text-gray-400">(any)</span>
+        <label className="block text-xs font-medium text-muted-foreground mb-1">
+          Schedule <span className="font-normal text-muted-foreground/70">(any)</span>
         </label>
         <select
           value={scope.scheduleGroupId}
           onChange={(e) => onChange({ scheduleGroupId: e.target.value })}
           disabled={!scope.facilityId || scheduleGroups.length === 0}
-          className="w-full px-2.5 py-2 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+          className="w-full px-2.5 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
         >
           <option value="">All schedules</option>
           {scheduleGroups.map((sg) => (
@@ -148,7 +148,7 @@ function ScopeRowEditor({
         type="button"
         onClick={onRemove}
         title="Remove this filter"
-        className="self-end mb-0.5 p-2 text-gray-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+        className="self-end mb-0.5 p-2 text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"
       >
         <X className="w-4 h-4" />
       </button>
@@ -388,60 +388,60 @@ export default function WidgetConfigurator({
   return (
     <div className="space-y-6">
       {/* Configuration */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-        <h2 className="text-sm font-semibold text-gray-900">Configuration</h2>
+      <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+        <h2 className="text-sm font-semibold text-foreground">Configuration</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Facility filter — hidden when scope is locked by the current tree node */}
           {scopeLocked ? (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">Scope</label>
-              <p className="px-3 py-2.5 text-sm text-gray-700 bg-gray-100 rounded-lg">
+              <label className="block text-sm font-medium text-foreground mb-1">Scope</label>
+              <p className="px-3 py-2.5 text-sm text-foreground bg-muted rounded-lg">
                 {facilities.find((f) => f.id === facilityId)?.name ?? "This facility"}
                 {lockedDepartmentId && departments.find((d) => d.id === lockedDepartmentId)
                   ? ` › ${departments.find((d) => d.id === lockedDepartmentId)?.name}`
                   : ""}
               </p>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1">
                 This embed is scoped to the facility/department you navigated from.
               </p>
             </div>
           ) : (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Facility <span className="font-normal text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Facility <span className="font-normal text-muted-foreground/70">(optional)</span>
               </label>
               <select
                 value={facilityId}
                 onChange={(e) => handleFacilityChange(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All facilities</option>
                 {facilities.map((f) => (
                   <option key={f.id} value={f.id}>{f.name}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">Show sessions from one facility only.</p>
+              <p className="text-xs text-muted-foreground/70 mt-1">Show sessions from one facility only.</p>
             </div>
           )}
 
           {/* Department filter — only shown once a facility with departments is selected, and never when locked */}
           {!scopeLocked && facilityId && departments.length > 0 && (
             <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">
-                Department <span className="font-normal text-gray-400">(optional)</span>
+              <label className="block text-sm font-medium text-foreground mb-1">
+                Department <span className="font-normal text-muted-foreground/70">(optional)</span>
               </label>
               <select
                 value={departmentId}
                 onChange={(e) => setDepartmentId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 <option value="">All departments</option>
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
-              <p className="text-xs text-gray-400 mt-1">
+              <p className="text-xs text-muted-foreground/70 mt-1">
                 Each facility + department combination has its own embed and appearance.
               </p>
             </div>
@@ -449,7 +449,7 @@ export default function WidgetConfigurator({
 
           {/* Theme */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Theme</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Theme</label>
             <div className="flex gap-2">
               {(["light", "dark"] as Theme[]).map((t) => (
                 <button
@@ -458,7 +458,7 @@ export default function WidgetConfigurator({
                   className={`flex-1 py-2.5 text-sm font-medium rounded-lg border transition-colors capitalize ${
                     theme === t
                       ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      : "border-border text-foreground hover:bg-muted"
                   }`}
                 >
                   {t}
@@ -469,8 +469,8 @@ export default function WidgetConfigurator({
 
           {/* Height */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              Initial height <span className="font-normal text-gray-400">(px)</span>
+            <label className="block text-sm font-medium text-foreground mb-1">
+              Initial height <span className="font-normal text-muted-foreground/70">(px)</span>
             </label>
             <input
               type="number"
@@ -478,20 +478,20 @@ export default function WidgetConfigurator({
               onChange={(e) => setHeight(e.target.value)}
               min={300}
               max={1200}
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
-            <p className="text-xs text-gray-400 mt-1">Auto-adjusts after load.</p>
+            <p className="text-xs text-muted-foreground/70 mt-1">Auto-adjusts after load.</p>
           </div>
         </div>
       </div>
 
       {/* Appearance — persisted to widget_configs */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
-        <h2 className="text-sm font-semibold text-gray-900">Appearance</h2>
+      <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+        <h2 className="text-sm font-semibold text-foreground">Appearance</h2>
 
         {/* Schedule layouts */}
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">Schedule layouts</label>
+          <label className="block text-sm font-medium text-foreground mb-1">Schedule layouts</label>
           {/* Grid, not a flex row: five options at flex-1 each are unreadably
               narrow on a phone. */}
           <div className="grid grid-cols-3 sm:grid-cols-5 gap-2">
@@ -513,7 +513,7 @@ export default function WidgetConfigurator({
                   className={`flex flex-col items-center gap-1 py-2.5 text-sm font-medium rounded-lg border transition-colors disabled:opacity-50 ${
                     checked
                       ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                      : "border-border text-foreground hover:bg-muted"
                   }`}
                 >
                   <Icon className="w-4 h-4" />
@@ -522,7 +522,7 @@ export default function WidgetConfigurator({
               );
             })}
           </div>
-          <p className="text-xs text-gray-400 mt-1">
+          <p className="text-xs text-muted-foreground/70 mt-1">
             Choose which layouts visitors can switch between. Applies to both the embedded widget
             and your public schedule page — the first enabled layout loads by default. Floorplan
             requires a published facility map and a single facility scope.
@@ -531,36 +531,36 @@ export default function WidgetConfigurator({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Primary color</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Primary color</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={primaryColor}
                 onChange={(e) => setPrimaryColor(e.target.value)}
                 disabled={loading}
-                className="w-10 h-10 rounded-lg border border-gray-300 disabled:opacity-50"
+                className="w-10 h-10 rounded-lg border border-border disabled:opacity-50"
               />
-              <span className="text-sm text-gray-500 font-mono">{primaryColor}</span>
+              <span className="text-sm text-muted-foreground font-mono">{primaryColor}</span>
             </div>
           </div>
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Secondary color</label>
+            <label className="block text-sm font-medium text-foreground mb-1">Secondary color</label>
             <div className="flex items-center gap-2">
               <input
                 type="color"
                 value={secondaryColor}
                 onChange={(e) => setSecondaryColor(e.target.value)}
                 disabled={loading}
-                className="w-10 h-10 rounded-lg border border-gray-300 disabled:opacity-50"
+                className="w-10 h-10 rounded-lg border border-border disabled:opacity-50"
               />
-              <span className="text-sm text-gray-500 font-mono">{secondaryColor}</span>
+              <span className="text-sm text-muted-foreground font-mono">{secondaryColor}</span>
             </div>
           </div>
         </div>
 
         <div>
-          <label className="block text-sm font-medium text-gray-700 mb-1">
-            Custom title <span className="font-normal text-gray-400">(optional)</span>
+          <label className="block text-sm font-medium text-foreground mb-1">
+            Custom title <span className="font-normal text-muted-foreground/70">(optional)</span>
           </label>
           <input
             type="text"
@@ -568,7 +568,7 @@ export default function WidgetConfigurator({
             onChange={(e) => setCustomTitle(e.target.value)}
             disabled={loading}
             placeholder="e.g. This Week's Drop-In Schedule"
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
           />
         </div>
 
@@ -594,10 +594,10 @@ export default function WidgetConfigurator({
           Not offered on a scope-locked embed: it's already pinned to one facility/department,
           so there is nothing for a visitor-facing filter to switch between. */}
       {!scopeLocked && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-4">
+        <div className="bg-card rounded-xl border border-border p-6 space-y-4">
           <div>
-            <h2 className="text-sm font-semibold text-gray-900">Filters</h2>
-            <p className="text-xs text-gray-400 mt-1">
+            <h2 className="text-sm font-semibold text-foreground">Filters</h2>
+            <p className="text-xs text-muted-foreground/70 mt-1">
               Add multiple schedules and visitors get a filter to switch between them, right
               inside this one embed — instead of you pasting a separate snippet per facility,
               department, or schedule. Leave empty for a single, unfiltered schedule.
@@ -623,7 +623,7 @@ export default function WidgetConfigurator({
             type="button"
             onClick={addScopeRow}
             disabled={loading}
-            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
+            className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 rounded-lg transition-colors disabled:opacity-50"
           >
             <Plus className="w-4 h-4" />
             Add a filter
@@ -649,7 +649,7 @@ export default function WidgetConfigurator({
             </div>
           )}
           {scopeRows.length > 0 && !scopesDirty && (
-            <p className="text-xs text-gray-400 flex items-center gap-1">
+            <p className="text-xs text-muted-foreground/70 flex items-center gap-1">
               <Check className="w-3.5 h-3.5 text-green-600" /> Live on the widget.
             </p>
           )}
@@ -657,16 +657,16 @@ export default function WidgetConfigurator({
       )}
 
       {/* Code / Preview tabs */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <div className="flex border-b border-gray-200">
+      <div className="bg-card rounded-xl border border-border overflow-hidden">
+        <div className="flex border-b border-border">
           {(["code", "preview"] as const).map((tab) => (
             <button
               key={tab}
               onClick={() => setActiveTab(tab)}
               className={`flex items-center gap-2 px-4 py-3 text-sm font-medium border-b-2 transition-colors -mb-px ${
                 activeTab === tab
-                  ? "border-blue-600 text-blue-600"
-                  : "border-transparent text-gray-500 hover:text-gray-700"
+                  ? "border-blue-600 text-blue-600 dark:text-blue-400"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               }`}
             >
               {tab === "code" ? <Code2 className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
@@ -678,10 +678,10 @@ export default function WidgetConfigurator({
         {activeTab === "code" && (
           <div className="p-4 space-y-3">
             <div className="flex items-center justify-between mb-2">
-              <p className="text-xs text-gray-500">Paste this into your website&apos;s HTML</p>
+              <p className="text-xs text-muted-foreground">Paste this into your website&apos;s HTML</p>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-muted hover:bg-muted rounded-lg transition-colors"
               >
                 {copied ? (
                   <>
@@ -704,10 +704,10 @@ export default function WidgetConfigurator({
 
         {activeTab === "preview" && (
           <div className="p-4">
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-muted-foreground mb-3">
               Live preview — shows your published sessions.
             </p>
-            <div className="rounded-xl overflow-hidden border border-gray-200">
+            <div className="rounded-xl overflow-hidden border border-border">
               <iframe
                 key={previewVersion}
                 src={iframeSrc}

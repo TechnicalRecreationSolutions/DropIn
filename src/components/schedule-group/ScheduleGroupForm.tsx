@@ -145,11 +145,11 @@ export default function ScheduleGroupForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-gray-700 mb-1";
+  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
+  const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-white rounded-xl border border-gray-200 p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
       <div>
         <label htmlFor="name" className={labelClass}>Schedule name *</label>
         <input id="name" name="name" type="text" required value={form.name} onChange={handleChange}
@@ -168,7 +168,7 @@ export default function ScheduleGroupForm({
         </div>
         <div>
           <label htmlFor="department_id" className={labelClass}>
-            Department <span className="font-normal text-gray-400">(optional)</span>
+            Department <span className="font-normal text-muted-foreground/70">(optional)</span>
           </label>
           <select id="department_id" name="department_id" value={form.department_id} onChange={handleChange} className={fieldClass}>
             <option value="">No department</option>
@@ -192,14 +192,14 @@ export default function ScheduleGroupForm({
           value={form.cost_dollars} onChange={handleChange} className={fieldClass} placeholder="0.00" />
       </div>
 
-      <div className="border-t border-gray-100 pt-5 space-y-4">
+      <div className="border-t border-border pt-5 space-y-4">
         <div>
           <label htmlFor="status" className={labelClass}>Status</label>
           <select id="status" name="status" value={form.status} onChange={handleChange} className={fieldClass}>
             <option value="draft">Draft</option>
             <option value="published">Published</option>
           </select>
-          <p className="text-xs text-gray-500 mt-1">Only published schedules are visible on the public schedule page and widget.</p>
+          <p className="text-xs text-muted-foreground mt-1">Only published schedules are visible on the public schedule page and widget.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
@@ -214,7 +214,7 @@ export default function ScheduleGroupForm({
               value={form.ends_on} onChange={handleChange} className={fieldClass} />
           </div>
         </div>
-        <p className="text-xs text-gray-500">
+        <p className="text-xs text-muted-foreground">
           A start date is needed to publish. Leave &ldquo;Ends&rdquo; blank for a
           schedule that just keeps running, like a weekly drop-in — that&rsquo;s
           the common case, not the exception.
@@ -227,7 +227,7 @@ export default function ScheduleGroupForm({
 
       <div className="flex gap-3 pt-2">
         <button type="button" onClick={() => router.back()}
-          className="px-4 py-2.5 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
           Cancel
         </button>
         <button type="submit" disabled={loading}

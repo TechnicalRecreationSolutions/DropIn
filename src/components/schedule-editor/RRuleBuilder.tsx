@@ -108,7 +108,7 @@ export default function RRuleBuilder({
     <div className="space-y-5">
       {/* Frequency */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Repeats</p>
+        <p className="text-sm font-medium text-foreground mb-2">Repeats</p>
         <div className="flex gap-2">
           {[
             { value: "once", label: "Just once" },
@@ -122,7 +122,7 @@ export default function RRuleBuilder({
               className={`px-4 py-2 rounded-lg text-sm font-medium border transition-colors ${
                 frequency === opt.value
                   ? "bg-blue-600 border-blue-600 text-white"
-                  : "border-gray-300 text-gray-700 hover:bg-gray-50"
+                  : "border-border text-foreground hover:bg-muted"
               }`}
             >
               {opt.label}
@@ -134,7 +134,7 @@ export default function RRuleBuilder({
       {/* Day selector — shown for weekly only */}
       {frequency === "weekly" && (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Days *</p>
+          <p className="text-sm font-medium text-foreground mb-2">Days *</p>
           {/* Scrollable chip row on mobile */}
           <div className="flex gap-2 overflow-x-auto pb-1 -mx-1 px-1">
             {DAYS.map((day) => {
@@ -147,7 +147,7 @@ export default function RRuleBuilder({
                   className={`flex-shrink-0 w-11 h-11 rounded-full text-sm font-medium border-2 transition-colors ${
                     selected
                       ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-gray-200 text-gray-600 hover:border-blue-300"
+                      : "border-border text-muted-foreground hover:border-blue-300"
                   }`}
                   aria-pressed={selected}
                   aria-label={day.label}
@@ -165,27 +165,27 @@ export default function RRuleBuilder({
 
       {/* Time range */}
       <div>
-        <p className="text-sm font-medium text-gray-700 mb-2">Time *</p>
+        <p className="text-sm font-medium text-foreground mb-2">Time *</p>
         <div className="flex items-center gap-3">
           <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">Start</label>
+            <label className="text-xs text-muted-foreground mb-1 block">Start</label>
             <input
               type="time"
               value={startTime}
               onChange={(e) => onStartTimeChange(e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
-          <span className="text-gray-400 mt-5">→</span>
+          <span className="text-muted-foreground/70 mt-5">→</span>
           <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">End</label>
+            <label className="text-xs text-muted-foreground mb-1 block">End</label>
             <input
               type="time"
               value={endTime}
               onChange={(e) => onEndTimeChange(e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
@@ -196,37 +196,37 @@ export default function RRuleBuilder({
           single occurrence, which then reads as ongoing everywhere else. */}
       {isOnce ? (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Date *</p>
+          <p className="text-sm font-medium text-foreground mb-2">Date *</p>
           <input
             type="date"
             value={validFrom}
             onChange={(e) => onValidFromChange(e.target.value)}
             required
-            className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
           />
         </div>
       ) : (
         <div>
-          <p className="text-sm font-medium text-gray-700 mb-2">Dates</p>
+          <p className="text-sm font-medium text-foreground mb-2">Dates</p>
           <div className="flex items-center gap-3">
             <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">Starts *</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Starts *</label>
               <input
                 type="date"
                 value={validFrom}
                 onChange={(e) => onValidFromChange(e.target.value)}
                 required
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               />
             </div>
-            <span className="text-gray-400 mt-5">→</span>
+            <span className="text-muted-foreground/70 mt-5">→</span>
             <div className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">Ends (optional)</label>
+              <label className="text-xs text-muted-foreground mb-1 block">Ends (optional)</label>
               <input
                 type="date"
                 value={validUntil}
                 onChange={(e) => onValidUntilChange(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 placeholder="Leave blank to run indefinitely"
               />
             </div>
@@ -236,10 +236,10 @@ export default function RRuleBuilder({
 
       {/* Human-readable summary */}
       <div className="p-3 bg-blue-50 rounded-lg">
-        <p className="text-xs font-medium text-blue-700 mb-0.5">Schedule summary</p>
-        <p className="text-sm text-blue-900 capitalize">{summary}</p>
+        <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-0.5">Schedule summary</p>
+        <p className="text-sm text-blue-900 dark:text-blue-200 capitalize">{summary}</p>
         {startTime && endTime && (
-          <p className="text-sm text-blue-800">
+          <p className="text-sm text-blue-800 dark:text-blue-300">
             {startTime} – {endTime}
             {isOnce
               ? validFrom && ` · On ${validFrom}`

@@ -79,11 +79,11 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
   return (
     <div className="space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-2 text-xs text-gray-500">
+      <div className="flex items-center gap-2 text-xs text-muted-foreground">
         {(["upload", "preview", "done"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span>›</span>}
-            <span className={step === s ? "font-semibold text-blue-600" : ""}>
+            <span className={step === s ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
               {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
             </span>
           </div>
@@ -92,13 +92,13 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
 
       {/* Upload step */}
       {step === "upload" && (
-        <div className="bg-white rounded-xl border border-gray-200 p-6 space-y-5">
+        <div className="bg-card rounded-xl border border-border p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
+            <label className="block text-sm font-medium text-foreground mb-1">
               {facilityLocked ? "Importing into" : "Facility *"}
             </label>
             {facilityLocked ? (
-              <p className="px-3 py-2.5 text-sm text-gray-700 bg-gray-100 rounded-lg">
+              <p className="px-3 py-2.5 text-sm text-foreground bg-muted rounded-lg">
                 {facilities.find((f) => f.id === facilityId)?.name ?? "This facility"}
                 {departmentName ? ` › ${departmentName}` : ""}
               </p>
@@ -106,7 +106,7 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
               <select
                 value={facilityId}
                 onChange={(e) => setFacilityId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
               </select>
@@ -116,21 +116,21 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
           {/* File drop zone */}
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-gray-300 rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
           >
-            <Upload className="w-8 h-8 text-gray-400 mx-auto mb-3" />
+            <Upload className="w-8 h-8 text-muted-foreground/70 mx-auto mb-3" />
             {file ? (
               <div className="flex items-center justify-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600" />
-                <span className="text-sm font-medium text-gray-800">{file.name}</span>
-                <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-gray-400 hover:text-gray-600">
+                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
+                <span className="text-sm font-medium text-foreground">{file.name}</span>
+                <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-muted-foreground/70 hover:text-muted-foreground">
                   <X className="w-4 h-4" />
                 </button>
               </div>
             ) : (
               <>
-                <p className="text-sm font-medium text-gray-700">Click to upload a CSV</p>
-                <p className="text-xs text-gray-400 mt-1">
+                <p className="text-sm font-medium text-foreground">Click to upload a CSV</p>
+                <p className="text-xs text-muted-foreground/70 mt-1">
                   Max 10 MB · 500 rows · in Excel, File → Save As → CSV
                 </p>
               </>
@@ -145,8 +145,8 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
           </div>
 
           {/* Template download hint */}
-          <p className="text-xs text-gray-500">
-            Columns: <code className="bg-gray-100 px-1 rounded">program_name, sport_category, days, start_time, end_time, season_start</code> (optional: activity_type, season_end, cost, location_detail)
+          <p className="text-xs text-muted-foreground">
+            Columns: <code className="bg-muted px-1 rounded">program_name, sport_category, days, start_time, end_time, season_start</code> (optional: activity_type, season_end, cost, location_detail)
           </p>
 
           {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
@@ -166,28 +166,28 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-gray-900">{preview.length} rows · {errorCount} with errors</p>
-              <p className="text-xs text-gray-500">{preview.length - errorCount} rows will be imported</p>
+              <p className="text-sm font-medium text-foreground">{preview.length} rows · {errorCount} with errors</p>
+              <p className="text-xs text-muted-foreground">{preview.length - errorCount} rows will be imported</p>
             </div>
-            <button onClick={() => setStep("upload")} className="text-sm text-gray-500 hover:text-gray-700 underline">
+            <button onClick={() => setStep("upload")} className="text-sm text-muted-foreground hover:text-foreground underline">
               Back
             </button>
           </div>
 
-          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+          <div className="bg-card rounded-xl border border-border overflow-hidden">
             <div className="overflow-x-auto max-h-96">
               <table className="w-full text-xs">
-                <thead className="bg-gray-50 border-b border-gray-200 sticky top-0">
+                <thead className="bg-muted border-b border-border sticky top-0">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Status</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Schedule</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Sport</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Days</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Time</th>
-                    <th className="px-3 py-2 text-left font-medium text-gray-600">Season</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Schedule</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sport</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Days</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Time</th>
+                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Season</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-gray-100">
+                <tbody className="divide-y divide-border">
                   {preview.map((row) => (
                     <tr key={row._index} className={row._errors.length > 0 ? "bg-red-50" : ""}>
                       <td className="px-3 py-2">
@@ -199,11 +199,11 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
                           <CheckCircle className="w-4 h-4 text-green-500" />
                         )}
                       </td>
-                      <td className="px-3 py-2 font-medium text-gray-800">{row.program_name}</td>
-                      <td className="px-3 py-2 text-gray-600">{row.sport_category}</td>
-                      <td className="px-3 py-2 text-gray-600">{row.days}</td>
-                      <td className="px-3 py-2 text-gray-600">{row.start_time}–{row.end_time}</td>
-                      <td className="px-3 py-2 text-gray-600">{row.season_start}{row.season_end ? ` → ${row.season_end}` : ""}</td>
+                      <td className="px-3 py-2 font-medium text-foreground">{row.program_name}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.sport_category}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.days}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.start_time}–{row.end_time}</td>
+                      <td className="px-3 py-2 text-muted-foreground">{row.season_start}{row.season_end ? ` → ${row.season_end}` : ""}</td>
                     </tr>
                   ))}
                 </tbody>
@@ -225,10 +225,10 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
 
       {/* Done step */}
       {step === "done" && result && (
-        <div className="bg-white rounded-xl border border-gray-200 p-10 text-center">
+        <div className="bg-card rounded-xl border border-border p-10 text-center">
           <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-gray-900 mb-1">Import complete</h3>
-          <p className="text-gray-500 text-sm">
+          <h3 className="text-lg font-bold text-foreground mb-1">Import complete</h3>
+          <p className="text-muted-foreground text-sm">
             {result.scheduleGroupsCreated} schedule{result.scheduleGroupsCreated !== 1 ? "s" : ""} and{" "}
             {result.sessionsCreated} session{result.sessionsCreated !== 1 ? "s" : ""} created.
           </p>
@@ -238,7 +238,7 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
               View schedule
             </button>
             <button onClick={() => { setStep("upload"); setFile(null); setPreview([]); setResult(null); }}
-              className="px-4 py-2 border border-gray-300 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-50 transition-colors">
+              className="px-4 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
               Import more
             </button>
           </div>

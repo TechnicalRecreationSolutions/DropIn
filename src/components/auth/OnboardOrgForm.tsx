@@ -42,7 +42,7 @@ export default function OnboardOrgForm({ suggestedName = "" }: { suggestedName?:
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="orgName" className="block text-sm font-medium text-gray-700 mb-1">
+        <label htmlFor="orgName" className="block text-sm font-medium text-foreground mb-1">
           Organization name
         </label>
         <input
@@ -51,7 +51,7 @@ export default function OnboardOrgForm({ suggestedName = "" }: { suggestedName?:
           required
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
-          className="w-full px-3 py-2.5 border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="City of Calgary Parks & Recreation"
         />
       </div>

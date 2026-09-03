@@ -100,7 +100,7 @@ export default function TimeControl({
         onClick={onJumpToNow}
         disabled={isNow || !nowInRange}
         className={`text-[10px] font-bold uppercase tracking-wide px-2.5 py-1.5 rounded-full transition-colors shrink-0 ${
-          isNow || !nowInRange ? "bg-gray-100 text-gray-400" : "text-white"
+          isNow || !nowInRange ? "bg-muted text-muted-foreground/70" : "text-white"
         }`}
         style={
           isNow || !nowInRange ? undefined : { backgroundColor: "var(--org-accent, #2563eb)" }
@@ -123,12 +123,12 @@ export default function TimeControl({
         aria-valuenow={valueMinutes}
         aria-valuetext={minutesToTime(valueMinutes)}
       >
-        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full bg-gray-200" />
+        <div className="absolute top-1/2 -translate-y-1/2 left-0 right-0 h-1.5 rounded-full bg-muted" />
 
         {hourTicks.map((m) => (
           <div
             key={m}
-            className="absolute top-1/2 -translate-y-1/2 w-px h-3 bg-gray-300"
+            className="absolute top-1/2 -translate-y-1/2 w-px h-3 bg-muted"
             style={{ left: `${((m - startMinutes) / range) * 100}%` }}
             aria-hidden="true"
           />
@@ -158,7 +158,7 @@ export default function TimeControl({
 
       <span
         className={`text-xs font-semibold whitespace-nowrap tabular-nums shrink-0 ${
-          isNow ? "text-gray-600" : "text-amber-700"
+          isNow ? "text-muted-foreground" : "text-amber-700"
         }`}
         aria-live="polite"
       >

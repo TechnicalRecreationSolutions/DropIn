@@ -97,25 +97,25 @@ export default function WidgetPreview() {
 
   return (
     <div className="mx-auto max-w-xl">
-      <p className="text-center text-sm text-gray-600 mb-4 h-10 flex items-center justify-center">
+      <p className="text-center text-sm text-muted-foreground mb-4 h-10 flex items-center justify-center">
         {active.caption}
       </p>
 
       {/* Browser chrome to sell "this lives on your own site" */}
-      <div className="rounded-t-xl bg-gray-100 border border-gray-200 border-b-0 px-4 py-2.5 flex items-center gap-3">
+      <div className="rounded-t-xl bg-muted border border-border border-b-0 px-4 py-2.5 flex items-center gap-3">
         <div className="flex items-center gap-1.5">
           <span className="w-2.5 h-2.5 rounded-full bg-red-400" />
           <span className="w-2.5 h-2.5 rounded-full bg-yellow-400" />
           <span className="w-2.5 h-2.5 rounded-full bg-green-400" />
         </div>
-        <div className="flex-1 bg-white rounded-md border border-gray-200 px-3 py-1 text-xs text-gray-400">
+        <div className="flex-1 bg-card rounded-md border border-border px-3 py-1 text-xs text-muted-foreground/70">
           yourcentre.ca/schedule
         </div>
       </div>
 
-      <div className="border border-gray-200 rounded-b-xl bg-white p-4 sm:p-6 shadow-lg">
+      <div className="border border-border rounded-b-xl bg-card p-4 sm:p-6 shadow-lg">
         {/* The widget itself */}
-        <div className="rounded-xl overflow-hidden border border-gray-200">
+        <div className="rounded-xl overflow-hidden border border-border">
           <div className="bg-blue-600 px-3 sm:px-4 py-3 flex items-center justify-between gap-2 sm:gap-3 flex-wrap">
             <h3 className="text-white font-semibold text-sm">Drop-in Schedule</h3>
             <div className="inline-flex gap-0.5 rounded-full p-0.5 bg-white/20">
@@ -129,7 +129,7 @@ export default function WidgetPreview() {
                     onClick={() => setView(option.value)}
                     className={cn(
                       "flex items-center gap-1.5 px-2 sm:px-2.5 py-1 rounded-full text-xs font-medium transition-colors",
-                      isActive ? "bg-white text-blue-700" : "text-white/90 hover:text-white"
+                      isActive ? "bg-card text-blue-700 dark:text-blue-300" : "text-white/90 hover:text-white"
                     )}
                     aria-pressed={isActive}
                     aria-label={option.label}
@@ -142,22 +142,22 @@ export default function WidgetPreview() {
             </div>
           </div>
 
-          <div className="p-3 sm:p-4 bg-gray-50 min-h-[220px]">
+          <div className="p-3 sm:p-4 bg-muted min-h-[220px]">
             {view === "grid" && (
               <div className="grid grid-cols-5 gap-1.5">
                 {days.map((day) => (
                   <div key={day} className="min-w-0">
-                    <p className="text-[11px] font-semibold text-gray-500 text-center mb-1.5">
+                    <p className="text-[11px] font-semibold text-muted-foreground text-center mb-1.5">
                       {day}
                     </p>
                     <div className="space-y-1">
                       {gridSessions[day].map((s) => (
                         <div
                           key={s.name}
-                          className="bg-white border border-gray-100 rounded-md px-1 py-1.5 text-center"
+                          className="bg-card border border-border rounded-md px-1 py-1.5 text-center"
                         >
-                          <s.icon className="w-3 h-3 text-blue-600 mx-auto mb-0.5" />
-                          <p className="text-[9px] leading-tight text-gray-700 truncate">
+                          <s.icon className="w-3 h-3 text-blue-600 dark:text-blue-400 mx-auto mb-0.5" />
+                          <p className="text-[9px] leading-tight text-foreground truncate">
                             {s.name}
                           </p>
                         </div>
@@ -173,18 +173,18 @@ export default function WidgetPreview() {
                 {listSessions.map((row, i) => (
                   <div key={i}>
                     {(i === 0 || listSessions[i - 1].day !== row.day) && (
-                      <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-1.5 mt-1 first:mt-0">
+                      <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide mb-1.5 mt-1 first:mt-0">
                         {row.day}
                       </p>
                     )}
-                    <div className="flex items-center gap-3 bg-white rounded-lg border border-gray-100 px-3 py-2">
+                    <div className="flex items-center gap-3 bg-card rounded-lg border border-border px-3 py-2">
                       <div className="w-7 h-7 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-                        <row.icon className="w-3.5 h-3.5 text-blue-600" />
+                        <row.icon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
                       </div>
-                      <p className="text-sm font-medium text-gray-900 flex-1 truncate">
+                      <p className="text-sm font-medium text-foreground flex-1 truncate">
                         {row.name}
                       </p>
-                      <span className="text-xs text-gray-500 shrink-0">{row.time}</span>
+                      <span className="text-xs text-muted-foreground shrink-0">{row.time}</span>
                     </div>
                   </div>
                 ))}
@@ -193,23 +193,23 @@ export default function WidgetPreview() {
 
             {view === "map" && (
               <div>
-                <p className="text-[11px] font-semibold text-gray-400 uppercase tracking-wide mb-2">
+                <p className="text-[11px] font-semibold text-muted-foreground/70 uppercase tracking-wide mb-2">
                   Today
                 </p>
                 <div className="grid grid-cols-3 gap-2">
                   {mapColumns.map((col) => (
                     <div key={col.name}>
-                      <p className="text-[11px] font-medium text-gray-600 text-center mb-1">
+                      <p className="text-[11px] font-medium text-muted-foreground text-center mb-1">
                         {col.name}
                       </p>
-                      <div className="relative bg-white border border-gray-100 rounded-md h-24">
+                      <div className="relative bg-card border border-border rounded-md h-24">
                         {col.blocks.map((b) => (
                           <div
                             key={b.label}
                             style={{ top: `${b.top}%`, height: `${b.height}%` }}
                             className="absolute inset-x-1 rounded bg-blue-100 border border-blue-200 px-1 py-0.5"
                           >
-                            <p className="text-[8px] leading-tight text-blue-800 truncate">
+                            <p className="text-[8px] leading-tight text-blue-800 dark:text-blue-300 truncate">
                               {b.label}
                             </p>
                           </div>
@@ -224,16 +224,16 @@ export default function WidgetPreview() {
             {view === "board" && (
               <div className="grid grid-cols-3 gap-2">
                 {boardColumns.map((col) => (
-                  <div key={col.name} className="bg-white rounded-lg border border-gray-100 p-2">
+                  <div key={col.name} className="bg-card rounded-lg border border-border p-2">
                     <div className="flex items-center gap-1.5 mb-2">
-                      <col.icon className="w-3.5 h-3.5 text-blue-600" />
-                      <p className="text-xs font-semibold text-gray-700">{col.name}</p>
+                      <col.icon className="w-3.5 h-3.5 text-blue-600 dark:text-blue-400" />
+                      <p className="text-xs font-semibold text-foreground">{col.name}</p>
                     </div>
                     <div className="space-y-1">
                       {col.items.map((item) => (
                         <div
                           key={item}
-                          className="text-[10px] leading-tight text-gray-600 bg-gray-50 rounded px-1.5 py-1"
+                          className="text-[10px] leading-tight text-muted-foreground bg-muted rounded px-1.5 py-1"
                         >
                           {item}
                         </div>
@@ -246,7 +246,7 @@ export default function WidgetPreview() {
 
             {view === "floorplan" && (
               <div>
-                <div className="relative bg-white border border-gray-100 rounded-md h-48 overflow-hidden">
+                <div className="relative bg-card border border-border rounded-md h-48 overflow-hidden">
                   {floorplanSpaces.map((s) => (
                     <div
                       key={s.name}
@@ -255,14 +255,14 @@ export default function WidgetPreview() {
                         "absolute rounded-lg border flex flex-col items-center justify-center gap-1",
                         s.live
                           ? "bg-blue-50 border-blue-200"
-                          : "bg-gray-50 border-gray-200"
+                          : "bg-muted border-border"
                       )}
                     >
                       {s.live && <span className="w-1.5 h-1.5 rounded-full bg-green-500" />}
                       <p
                         className={cn(
                           "text-[10px] font-medium",
-                          s.live ? "text-blue-800" : "text-gray-400"
+                          s.live ? "text-blue-800 dark:text-blue-300" : "text-muted-foreground/70"
                         )}
                       >
                         {s.name}
@@ -270,12 +270,12 @@ export default function WidgetPreview() {
                     </div>
                   ))}
                 </div>
-                <div className="flex items-center gap-3 mt-2 text-[10px] text-gray-500">
+                <div className="flex items-center gap-3 mt-2 text-[10px] text-muted-foreground">
                   <span className="flex items-center gap-1">
                     <span className="w-1.5 h-1.5 rounded-full bg-green-500" /> Live now
                   </span>
                   <span className="flex items-center gap-1">
-                    <span className="w-1.5 h-1.5 rounded-full bg-gray-300" /> Nothing scheduled
+                    <span className="w-1.5 h-1.5 rounded-full bg-muted" /> Nothing scheduled
                   </span>
                 </div>
               </div>

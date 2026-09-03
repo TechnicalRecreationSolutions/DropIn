@@ -243,7 +243,7 @@ export default function PrivacyPage() {
         <Placeholder>privacy@yourdomain</Placeholder>
       </p>
 
-      <p className="pt-4 text-sm text-gray-500">
+      <p className="pt-4 text-sm text-muted-foreground">
         See also our <Link href="/terms">Terms of Service</Link>.
       </p>
     </LegalDocument>

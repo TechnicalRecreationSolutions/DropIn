@@ -208,7 +208,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center py-16 text-gray-400 text-sm">
+      <div className="flex items-center justify-center py-16 text-muted-foreground/70 text-sm">
         Loading facility map…
       </div>
     );
@@ -217,15 +217,15 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   if (isError || !data?.facilityMap) {
     return (
       <div className="p-4 sm:p-6">
-        <div className="text-center py-14 px-6 bg-gray-50 border border-dashed border-gray-200 rounded-xl">
+        <div className="text-center py-14 px-6 bg-muted border border-dashed border-border rounded-xl">
           <svg viewBox="0 0 80 48" className="w-20 h-12 mx-auto mb-3" aria-hidden="true">
             <rect x="2" y="2" width="76" height="44" rx="6" fill="#F3F1EC" stroke="#D5CFC4" strokeWidth="2" />
             <rect x="10" y="10" width="34" height="20" rx="3" fill="#C6E0EB" />
             <rect x="50" y="10" width="20" height="28" rx="3" fill="#E4C6A8" />
             <rect x="10" y="34" width="24" height="6" rx="3" fill="#E3DED5" />
           </svg>
-          <p className="text-sm font-semibold text-gray-600">No floor map yet</p>
-          <p className="text-xs text-gray-400 mt-1 max-w-xs mx-auto">
+          <p className="text-sm font-semibold text-muted-foreground">No floor map yet</p>
+          <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
             This facility hasn&apos;t published a map of its spaces. Try the grid or list view to
             browse the schedule.
           </p>
@@ -240,7 +240,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   return (
     <div className="p-4 sm:p-6">
       {/* Summary strip — doubles as the status color legend. */}
-      <div className="flex items-center gap-4 flex-wrap mb-3 text-xs font-medium text-gray-600">
+      <div className="flex items-center gap-4 flex-wrap mb-3 text-xs font-medium text-muted-foreground">
         {summary.live > 0 && (
           <span className="inline-flex items-center gap-1.5">
             <span
@@ -257,19 +257,19 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
           </span>
         )}
         {summary.live === 0 && summary.soon === 0 && (
-          <span className="text-gray-400">
+          <span className="text-muted-foreground/70">
             {summary.nextStart
               ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatSessionTime(summary.nextStart)}`
               : "No sessions here today"}
           </span>
         )}
         {summary.free > 0 && (summary.live > 0 || summary.soon > 0) && (
-          <span className="text-gray-400 ml-auto">{summary.free} free</span>
+          <span className="text-muted-foreground/70 ml-auto">{summary.free} free</span>
         )}
       </div>
 
       <FacilityMapSvg
-        className="rounded-xl overflow-hidden border border-gray-200"
+        className="rounded-xl overflow-hidden border border-border"
         canvasWidth={Number(facilityMap.canvas_width)}
         canvasHeight={Number(facilityMap.canvas_height)}
         shapes={renderShapes}
