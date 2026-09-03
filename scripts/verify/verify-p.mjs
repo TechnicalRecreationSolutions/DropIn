@@ -385,11 +385,24 @@ try {
   for (const id of ids.orgs) await admin.from("organizations").delete().eq("id", id);
   for (const id of ids.users) await admin.auth.admin.deleteUser(id).catch(() => {});
 
-  const { data: leftover } = await admin
+  // Count users as well as orgs. Deleting an org cascades its rows but leaves
+  // the fixture's auth user behind, and a leftover check that looks only at
+  // organizations reports a clean teardown while users pile up — three
+  // orphaned @example.invalid accounts accumulated in the live project before
+  // anyone noticed.
+  const { data: orgsLeft } = await admin
     .from("organizations")
     .select("id, name")
     .like("name", `%${stamp}%`);
-  console.log(`\nTeardown: ${leftover?.length ?? 0} org(s) left over`);
+  const { data: userList } = await admin.auth.admin.listUsers({ perPage: 200 });
+  const usersLeft = (userList?.users ?? []).filter((u) => u.email?.includes(String(stamp)));
+
+  console.log(
+    `\nTeardown: ${orgsLeft?.length ?? 0} org(s), ${usersLeft.length} user(s) left over` +
+      (orgsLeft?.length || usersLeft.length
+        ? ` — LEAKED: ${[...(orgsLeft ?? []).map((o) => o.name), ...usersLeft.map((u) => u.email)].join(", ")}`
+        : "")
+  );
   console.log(`\n${pass} passed, ${fail} failed\n`);
   process.exit(fail === 0 ? 0 : 1);
 }

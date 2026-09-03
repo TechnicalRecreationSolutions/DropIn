@@ -452,6 +452,23 @@ try {
   }
 } finally {
   for (const id of ids.orgs) await admin.from("organizations").delete().eq("id", id);
-  for (const id of ids.users) await admin.auth.admin.deleteUser(id);
-  console.log("teardown: fixtures removed");
+  for (const id of ids.users) await admin.auth.admin.deleteUser(id).catch(() => {});
+
+  // Count users as well as orgs. Deleting an org cascades its rows but leaves
+  // the fixture's auth user behind, and a teardown message that only claims
+  // "removed" without checking is how three orphaned @example.invalid accounts
+  // accumulated in the live project unnoticed.
+  const { data: orgsLeft } = await admin
+    .from("organizations")
+    .select("id, name")
+    .like("name", `%${stamp}%`);
+  const { data: userList } = await admin.auth.admin.listUsers({ perPage: 200 });
+  const usersLeft = (userList?.users ?? []).filter((u) => u.email?.includes(String(stamp)));
+
+  console.log(
+    `teardown: ${orgsLeft?.length ?? 0} org(s), ${usersLeft.length} user(s) left over` +
+      (orgsLeft?.length || usersLeft.length
+        ? ` — LEAKED: ${[...(orgsLeft ?? []).map((o) => o.name), ...usersLeft.map((u) => u.email)].join(", ")}`
+        : "")
+  );
 }
