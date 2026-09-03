@@ -32,6 +32,9 @@ export async function GET(request: Request) {
   const url = new URL(request.url);
   const before = url.searchParams.get("before");
   const table = url.searchParams.get("table");
+  const action = url.searchParams.get("action");
+  const actor = url.searchParams.get("actor");
+  const q = url.searchParams.get("q");
 
   let query = supabase
     .from("activity_log")
@@ -44,6 +47,11 @@ export async function GET(request: Request) {
   if (table && (LOGGED_TABLES as readonly string[]).includes(table)) {
     query = query.eq("table_name", table);
   }
+  if (action === "insert" || action === "update" || action === "delete") {
+    query = query.eq("action", action);
+  }
+  if (actor) query = query.eq("actor_email", actor);
+  if (q) query = query.ilike("entity_label", `%${q}%`);
 
   const { data, error } = await query;
   if (error) return NextResponse.json({ error: "Could not load activity." }, { status: 500 });
