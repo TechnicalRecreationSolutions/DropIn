@@ -1,7 +1,10 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Upload, ArrowRight } from "lucide-react";
+import { Skeleton } from "@/components/ui/skeleton";
+import Streamed from "@/components/ui/streamed";
 
 // Unrelated to session-time removal (dropin/docs/RESUME-timezone-removal.md):
 // created_at is a real instant, not a session occurrence, and this page
@@ -15,23 +18,23 @@ type ImportedScheduleGroupRow = {
   facilities: { name: string } | null;
 };
 
-export default async function DataSourcesPage() {
-  const orgContext = await getOrgContext();
-  if (!orgContext) return null;
+/**
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
+ *
+ * The Suspense boundary has to live inside this page — see the note in
+ * dashboard/facilities/page.tsx for why a boundary in the layout is not
+ * enough for navigations arriving from a sibling route.
+ */
+export const instant = true;
 
-  const supabase = await createClient();
-
-  // Relational select — cast needed until Supabase CLI generates types with FK relations
-  const { data: recentImports } = (await supabase
-    .from("schedule_groups")
-    .select("id, name, created_at, facilities(name)")
-    .eq("org_id", orgContext.org.id)
-    .eq("source", "imported")
-    .order("created_at", { ascending: false })
-    .limit(20)) as unknown as { data: ImportedScheduleGroupRow[] | null };
-
+export default function DataSourcesPage() {
   return (
     <div className="max-w-4xl mx-auto space-y-8">
+      {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
         <h1 className="text-2xl font-bold text-gray-900">Data Sources</h1>
         <p className="text-gray-500 mt-1">
@@ -54,33 +57,73 @@ export default async function DataSourcesPage() {
         <ArrowRight className="w-4 h-4 text-gray-300 group-hover:text-blue-400 transition-colors" />
       </Link>
 
-      <div className="bg-white rounded-xl border border-gray-200 p-6">
-        <h2 className="font-semibold text-gray-900 mb-4">Recent imports</h2>
-        {!recentImports || recentImports.length === 0 ? (
-          <p className="text-sm text-gray-500">No spreadsheet imports yet.</p>
-        ) : (
-          <ul className="divide-y divide-gray-100">
-            {recentImports.map((sg) => (
-              <li key={sg.id} className="py-3 flex items-center justify-between gap-3">
-                <div className="min-w-0">
-                  <p className="text-sm font-medium text-gray-900 truncate">{sg.name}</p>
-                  <p className="text-xs text-gray-500">
-                    {/* Explicit zone: this is a server component, so an
-                        unqualified toLocaleString() formats in the server's
-                        zone — UTC in production — and showed staff import
-                        timestamps hours off from when they actually imported. */}
-                    {sg.facilities?.name ?? "Unknown facility"} ·{" "}
-                    {new Intl.DateTimeFormat("en-US", {
-                      timeZone: IMPORT_TIMESTAMP_TIMEZONE,
-                      dateStyle: "medium",
-                      timeStyle: "short",
-                    }).format(new Date(sg.created_at))}
-                  </p>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      <Suspense fallback={<RecentImportsSkeleton />}>
+        <Streamed className="space-y-8">
+          <RecentImports />
+        </Streamed>
+      </Suspense>
+    </div>
+  );
+}
+
+async function RecentImports() {
+  const orgContext = await getOrgContext();
+  if (!orgContext) return null;
+
+  const supabase = await createClient();
+
+  // Relational select — cast needed until Supabase CLI generates types with FK relations
+  const { data: recentImports } = (await supabase
+    .from("schedule_groups")
+    .select("id, name, created_at, facilities(name)")
+    .eq("org_id", orgContext.org.id)
+    .eq("source", "imported")
+    .order("created_at", { ascending: false })
+    .limit(20)) as unknown as { data: ImportedScheduleGroupRow[] | null };
+
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6">
+      <h2 className="font-semibold text-gray-900 mb-4">Recent imports</h2>
+      {!recentImports || recentImports.length === 0 ? (
+        <p className="text-sm text-gray-500">No spreadsheet imports yet.</p>
+      ) : (
+        <ul className="divide-y divide-gray-100">
+          {recentImports.map((sg) => (
+            <li key={sg.id} className="py-3 flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-sm font-medium text-gray-900 truncate">{sg.name}</p>
+                <p className="text-xs text-gray-500">
+                  {/* Explicit zone: this is a server component, so an
+                      unqualified toLocaleString() formats in the server's
+                      zone — UTC in production — and showed staff import
+                      timestamps hours off from when they actually imported. */}
+                  {sg.facilities?.name ?? "Unknown facility"} ·{" "}
+                  {new Intl.DateTimeFormat("en-US", {
+                    timeZone: IMPORT_TIMESTAMP_TIMEZONE,
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }).format(new Date(sg.created_at))}
+                </p>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  );
+}
+
+function RecentImportsSkeleton() {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-6" aria-busy="true">
+      <Skeleton className="h-4 w-32 mb-4" />
+      <div className="divide-y divide-gray-100">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="py-3 space-y-1.5">
+            <Skeleton className="h-4 w-1/2" />
+            <Skeleton className="h-3 w-1/3" />
+          </div>
+        ))}
       </div>
     </div>
   );

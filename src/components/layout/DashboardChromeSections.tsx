@@ -1,4 +1,5 @@
-import { getOrgContext, getUser } from "@/lib/auth/session";
+import { getOrgContext } from "@/lib/auth/session";
+import { getClaims } from "@/lib/auth/claims";
 import TreeNav from "./TreeNav";
 import DashboardTopbar from "./DashboardTopbar";
 import MobileTreeSheetContents from "./MobileTreeSheetContents";
@@ -12,7 +13,9 @@ import MobileTreeSheetContents from "./MobileTreeSheetContents";
  * prerendering a static shell at all. Starting it inside these components keeps
  * the access within the boundary the layout wraps them in.
  *
- * getOrgContext() is cache()d, so all three share a single request.
+ * getOrgContext() is cache()d, so all three share a single request. So is
+ * getClaims(): the email in the profile row is read from the verified access
+ * token rather than from a second call to the auth server.
  *
  * Each returns null when there is no org; <OrgGuard /> issues the redirect.
  */
@@ -20,14 +23,14 @@ import MobileTreeSheetContents from "./MobileTreeSheetContents";
 export async function TreeNavSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
-  const user = await getUser();
+  const claims = await getClaims();
 
   return (
     <TreeNav
       orgId={orgContext.org.id}
       orgName={orgContext.org.name}
       orgLogoUrl={orgContext.org.logo_url}
-      userEmail={user?.email ?? null}
+      userEmail={claims?.email ?? null}
       role={orgContext.membership.role}
     />
   );
@@ -43,14 +46,14 @@ export async function TopbarSection() {
 export async function MobileSheetSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
-  const user = await getUser();
+  const claims = await getClaims();
 
   return (
     <MobileTreeSheetContents
       orgId={orgContext.org.id}
       orgName={orgContext.org.name}
       orgLogoUrl={orgContext.org.logo_url}
-      userEmail={user?.email ?? null}
+      userEmail={claims?.email ?? null}
       role={orgContext.membership.role}
     />
   );

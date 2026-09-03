@@ -1,10 +1,13 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Layers, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
+import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentsPanel from "@/components/department/DepartmentsPanel";
+import Streamed from "@/components/ui/streamed";
 
 interface DepartmentsPageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -17,8 +20,42 @@ interface DepartmentsPageProps {
  * which is now a redirect into the schedule command centre; this is where
  * their name/description/publish state and deletion are actually managed,
  * matching Spaces and Sessions each getting their own top-level route.
+ *
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
+ *
+ * The Suspense boundary has to live inside this page — see the note in
+ * dashboard/facilities/page.tsx for why a boundary in the layout is not
+ * enough for navigations arriving from a sibling route.
  */
-export default async function DepartmentsPage({ searchParams }: DepartmentsPageProps) {
+export const instant = true;
+
+export default function DepartmentsPage({ searchParams }: DepartmentsPageProps) {
+  return (
+    <div className="space-y-6">
+      {/* Static — part of the prerendered shell, so it paints immediately. */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
+        <p className="text-gray-500 mt-1">
+          Group related schedules together within a building — e.g. Aquatics, Fitness.
+        </p>
+      </div>
+
+      {/* searchParams is forwarded unread — awaiting it here would pull this
+          static shell into the dynamic, Suspense-gated render. */}
+      <Suspense fallback={<DepartmentsBodySkeleton />}>
+        <Streamed className="space-y-6">
+          <DepartmentsBody searchParams={searchParams} />
+        </Streamed>
+      </Suspense>
+    </div>
+  );
+}
+
+async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
@@ -58,14 +95,7 @@ export default async function DepartmentsPage({ searchParams }: DepartmentsPageP
   });
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Departments</h1>
-        <p className="text-gray-500 mt-1">
-          Group related schedules together within a building — e.g. Aquatics, Fitness.
-        </p>
-      </div>
-
+    <>
       <FacilityCardPicker
         facilities={facilityCards}
         activeFacilityId={facility.id}
@@ -73,7 +103,7 @@ export default async function DepartmentsPage({ searchParams }: DepartmentsPageP
       />
 
       <DepartmentsPanel facility={facility} departments={departments} />
-    </div>
+    </>
   );
 }
 
@@ -94,6 +124,19 @@ function NoFacilities() {
           Add a facility
         </Link>
       </div>
+    </div>
+  );
+}
+
+function DepartmentsBodySkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 w-56 rounded-xl shrink-0" />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
     </div>
   );
 }

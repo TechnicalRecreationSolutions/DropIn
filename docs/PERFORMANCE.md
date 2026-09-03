@@ -199,6 +199,10 @@ build cycle to find:
 
 ## Guarding against regressions
 
+> **Superseded — see Part 3.** Next 16.3 renamed this config key to `instant`
+> and validation is a dev-overlay insight, not a build failure. The exports
+> below now read `export const instant = true` and cover 15 routes, not 3.
+
 Three routes export `unstable_instant = { prefetch: "static" }`:
 
 - `/dashboard`
@@ -252,29 +256,6 @@ from the rest of the row.
 
 ---
 
-## Still open
-
-Ranked by expected value.
-
-1. **Two `getUser()` calls per navigation (~160ms).** The proxy and the RSC
-   tree each verify the session independently. This is now the single largest
-   remaining cost. Next.js documents passing data from proxy to app via headers,
-   but a header-based identity hand-off needs care to ensure a client-supplied
-   header can never be trusted. Worth doing, not worth rushing.
-2. **Remaining sequential pages.** Only the hottest routes were parallelized or
-   split. Others still have sequential `await supabase` chains behind a single
-   `loading.tsx` boundary.
-3. **Extend `unstable_instant` coverage.** The three validated routes could
-   become many. Each needs its page split into a static header and a streamed
-   body first.
-4. **`/api/nav-tree` does its own `getUser()` + membership lookup.** React Query
-   caches it for 60s so it is not per-click, but it duplicates work the layout
-   already did.
-5. **Instant-navigation DevTools.** Setting
-   `experimental.instantNavigationDevToolsToggle` adds a panel that freezes the
-   UI at the static shell, which makes it easy to see exactly what paints
-   first. Not enabled — it is a debugging aid, not a runtime improvement.
-
 ## Known tradeoff
 
 `/api/sessions/expand` performs no auth call of its own — it is dual-use
@@ -284,3 +265,190 @@ expired access token will see only public sessions rather than all of the
 user's. It fails **closed**, never open, and page navigations still refresh the
 cookie through the proxy, so a stale token is unlikely in practice. Flagged
 because it is a behavior change, however small.
+
+---
+
+# Part 3 — Local JWT verification
+
+2026-09-02. Prompted by the report that clicking between dashboard pages
+"takes a second and loads an empty screen where you can see the shadow of the
+CTAs".
+
+## Measuring it properly first
+
+`scripts/verify/perf-nav.mjs` was written for this and is the tool to reach for
+next time. It builds a throwaway org, signs in for real, and measures two
+layers:
+
+- **Server** — each route over HTTP, both as a document (a page load) and as
+  the RSC payload the router actually fetches on a click.
+- **Browser** — a real Chromium clicking the real sidebar links, timing from
+  the click to `paint` (the destination's own heading on screen) and to
+  `settled` (no `aria-busy` left in `<main>`, i.e. every skeleton replaced).
+
+Two traps it had to work around, both of which produce confident nonsense:
+
+- An RSC request without the router's `_rsc` hash is 307'd, so the first
+  version measured redirects. The harness reads the hash out of the redirect
+  once per route.
+- Measuring "a heading exists" reports a constant ~60ms no matter what the
+  server does, because React keeps the outgoing page mounted until the new one
+  commits — the heading being matched belongs to the page being *left*. It has
+  to be "the heading changed".
+
+Dev-mode numbers are not production numbers, so the harness takes `--app=` and
+`next.config.ts` takes `NEXT_DIST_DIR`, which lets a production build be made
+and served on another port while `next dev` keeps running against `.next`.
+
+## The finding
+
+With `PERF_DEBUG=1` against `next start`, one navigation was:
+
+| | |
+| --- | --- |
+| proxy `updateSession` → `auth.getUser()` | ~100ms |
+| RSC tree → `auth.getUser()` | ~100ms |
+| membership + org + subscription | ~78ms |
+| the page's own queries | ~85ms |
+
+**`auth.getUser()` was over half the page, and it was paid twice.** It is not a
+database query — it is a network call to `/auth/v1/user` that this project pays
+~100ms for on every single invocation.
+
+## The fix
+
+The project already issues **ES256** access tokens and publishes a JWKS, so the
+token can be verified locally instead:
+
+```
+getClaims  = 1ms   (after a one-time key fetch)
+getUser    = 98ms  (every call)
+```
+
+`src/lib/auth/claims.ts` holds `getClaims()` — the JWKS cached for the life of
+the server process, and passed in explicitly. That cache is the whole point:
+`supabase-js` caches the key set per *client instance*, and this app builds a
+client per request, so without it every request re-fetches the key set and
+gives back the 100ms.
+
+`getOrgContext()`, `OrgGuard` and the dashboard chrome all now take identity
+from `getClaims()`. `getUser()` remains for the one case that genuinely needs
+fields outside the token — org onboarding reads `user_metadata`.
+
+This is **not** `getSession()`, which decodes the cookie without checking
+anything. `getClaims()` verifies the ES256 signature and the expiry with
+WebCrypto: the same check Postgres performs on the JWT when RLS evaluates
+`auth.uid()`. What it does not do is ask whether the session was revoked since
+it was issued.
+
+**That property is preserved elsewhere, deliberately:** the proxy still calls
+`getUser()` on every dashboard navigation, so a revoked session is caught there
+and redirected to /login before any of this runs. API route handlers also still
+call `getUser()` themselves — the proxy does not run for `/api`, so that is
+their only session check and it must stay a real one. The remaining ~100ms in
+the proxy is the price of that; removing it would trade revocation checking for
+speed, and that is a decision, not a cleanup.
+
+`scripts/verify/verify-o.mjs` asserts the mechanism: `getClaims()` accepts a
+genuine token (positive control) and rejects both a token whose `sub` was
+rewritten to another user and one whose signature was altered, and over real
+HTTP a tampered cookie renders neither user's org.
+
+## Also changed
+
+**`/dashboard` was three sequential waves, now two.** The overview awaited the
+facility list, then issued five more reads. Only one of those five needs to
+know which facility is selected; the other four are org-scoped and now go out
+with the facility list. Note the `start()` helper there — a PostgREST builder is
+lazy and issues nothing until something calls `.then()` on it, so assigning one
+to a const does *not* start it, and code that looks parallel runs sequentially.
+
+**`unstable_instant` was renamed to `instant` in Next 16.3.** All 15 pages still
+exported the old name, which Next silently ignores, so the regression guard
+those exports were added for had not been running since the upgrade. The
+comments claiming a failing build were wrong too: instant validation surfaces in
+the dev overlay and never blocks a build.
+
+## Results
+
+Production build, median of 5 warm runs, small fixture org:
+
+| | before | after | |
+| --- | --- | --- | --- |
+| RSC navigation, full | 388ms | **273ms** | −30% |
+| RSC navigation, streamed body | 275ms | **163ms** | −41% |
+| `/dashboard` (the landing page) | 552ms | **428ms** | −22% |
+| Browser: click → content | 413ms | **362ms** | −12% |
+| Browser: skeleton on screen | 350ms | **300ms** | −14% |
+
+## Why the browser numbers moved less than the server ones
+
+React enforces a floor. `FALLBACK_THROTTLE_MS = 300` in `react-dom`: once a
+Suspense fallback has been shown, the reveal is held for 300ms so a fallback
+cannot flash away instantly. Every route now sits at exactly that floor — even
+`/dashboard/settings`, whose server response is 184ms.
+
+**So server work below ~300ms no longer changes what anyone sees.** The only way
+past it is to not show a fallback at all, which means the content has to be
+there before the click. See "What is left" below.
+
+A DOM probe confirmed there is exactly one skeleton phase per navigation, not
+two — the `/dashboard` `loading.tsx` does not fire on sibling navigations, so
+there is no generic-then-specific double flash.
+
+## Tried and rejected: `partialPrefetching`
+
+Next 16.3's Partial Prefetching (one shared App Shell per route rather than a
+prefetch per link) was enabled, measured, and removed again:
+
+- **Production: no change.** Click-to-heading was already 63ms and the shell is
+  prefetched under the old model too. The shell was never the slow part.
+- **Dev: clearly worse** — settled went 490ms → 730ms. Every sidebar link
+  visible on a page asks the single dev server to render another shell, and the
+  navigation queues behind that work.
+
+The reasoning is left as a comment in `next.config.ts` so it is not re-tried
+blind. Worth revisiting if the sidebar ever links to many more routes.
+
+## Tried and rejected: `use cache: private` on the org context
+
+Wrapping `getOrgContext()` in `"use cache: private"` with a 5-minute `stale`
+changed nothing measurable (412ms vs 413ms). The docs are explicit about why:
+such a function "executes on every server render". The cached value rides along
+in the App Shell, but the streamed body is a server render on the click, so it
+re-runs there and the round trip is still paid. It also would have introduced up
+to 5 minutes of staleness on the org name and the caller's role. Not worth it.
+
+## What is left
+
+Ranked by expected value. The first two are the only ways to get below the
+300ms floor, and both are decisions rather than cleanups.
+
+1. **Put `org_id` in the access token** via a Supabase custom access token hook.
+   `getClaims()` is already free, so the org id would arrive with zero network
+   calls and the membership round trip (~78ms) would disappear entirely — a
+   page would be *one* round trip, its own query. It also opens the door to the
+   page's data being fetched without first resolving identity. Needs a Postgres
+   hook function and enabling the hook in the Supabase dashboard.
+2. **`unstable_dynamicStaleTime` on dashboard pages.** Lets the router keep a
+   page's dynamic payload for N seconds, so bouncing back to a page you were
+   just on is instant with no skeleton at all. The trade is freshness: 14 call
+   sites currently call `router.refresh()` after a mutation, and every mutation
+   path would have to be audited before trusting this on a schedule editor.
+3. **Remaining sequential pages.** `/dashboard` was fixed; others still have
+   `await supabase` chains that could be waves.
+4. **The proxy's `getUser()` (~100ms).** It gates the shell on every navigation
+   and is what makes revocation take effect immediately. Replaceable with
+   `getClaims()` for another ~100ms, at the cost of a revoked session staying
+   usable until its token expires. A deliberate trade — see above.
+5. **`/api/nav-tree` does its own `getUser()` + membership lookup.** React Query
+   caches it for 30s so it is not per-click, but it duplicates work the layout
+   already did, and its `getUser()` could be `getClaims()`.
+
+## Visual transition
+
+Separately from the timings: the body used to snap from skeleton to content in
+one frame. `components/ui/streamed.tsx` wraps each page's streamed body in a
+200ms fade — short, and disabled under `prefers-reduced-motion`. Verified with
+full-page screenshot comparison against the previous build across eight routes:
+pixel-identical once settled, so the wrapper introduces no layout change.

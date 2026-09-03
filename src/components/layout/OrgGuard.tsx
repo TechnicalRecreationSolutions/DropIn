@@ -1,5 +1,6 @@
 import { redirect } from "next/navigation";
-import { getOrgContext, getUser } from "@/lib/auth/session";
+import { getOrgContext } from "@/lib/auth/session";
+import { getClaims } from "@/lib/auth/claims";
 
 /**
  * Enforces "signed in, and belongs to an org" for the dashboard.
@@ -15,7 +16,7 @@ export default async function OrgGuard() {
   if (orgContext) return null;
 
   // getOrgContext() returns null both for "no session" and "no org membership".
-  // getUser() is cache()d and already resolved, so this costs no round trip.
-  const user = await getUser();
-  redirect(user ? "/dashboard/org/onboarding" : "/login");
+  // getClaims() is cache()d and already resolved, so this costs no round trip.
+  const claims = await getClaims();
+  redirect(claims ? "/dashboard/org/onboarding" : "/login");
 }

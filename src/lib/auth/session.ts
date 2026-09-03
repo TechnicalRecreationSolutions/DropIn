@@ -1,5 +1,6 @@
 import { cache } from "react";
 import { createClient } from "@/lib/supabase/server";
+import { getClaims } from "@/lib/auth/claims";
 import { perf } from "@/lib/perf";
 import type {
   OrgContext,
@@ -9,11 +10,17 @@ import type {
 } from "@/types/app.types";
 
 /**
- * Returns the authenticated user from a Server Component or Route Handler.
- * Returns null if no session exists.
+ * Returns the full authenticated user record from the auth server, or null.
  *
- * Wrapped in React's cache() so the layout and every page can call this
- * without re-hitting Supabase on each call within the same request.
+ * This is a network round trip (~100ms) every time it is called, so it is for
+ * the cases that genuinely need fields that are not in the access token —
+ * `app_metadata`, identities, confirmation timestamps.
+ *
+ * **For "who is this request", use `getClaims()` instead.** It verifies the
+ * same token locally in ~1ms and carries `sub` and `email`, which is all the
+ * rendering path here ever wanted. See `lib/auth/claims.ts`.
+ *
+ * Wrapped in React's cache() so callers within one request share the trip.
  */
 export const getUser = cache(async () => {
   const t = perf("getUser(rsc)");
@@ -49,9 +56,12 @@ export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
   const t = perf("getOrgContext");
   const supabase = await createClient();
 
-  const user = await t.step("getUser", () => getUser());
+  // Identity comes from the verified access token, not from a call to the auth
+  // server: the only thing needed below is the user id, and fetching it over
+  // the network cost ~100ms on every dashboard navigation.
+  const claims = await t.step("claims", () => getClaims());
 
-  if (!user) {
+  if (!claims) {
     t.end();
     return null;
   }
@@ -71,7 +81,7 @@ export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
     supabase
       .from("org_memberships")
       .select("*, organizations!inner(*, subscriptions(*))")
-      .eq("user_id", user.id)
+      .eq("user_id", claims.sub)
       .order("joined_at", { ascending: true })
       .limit(1)
       .maybeSingle()

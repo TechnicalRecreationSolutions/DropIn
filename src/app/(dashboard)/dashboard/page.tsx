@@ -26,19 +26,21 @@ import { StatCard } from "@/components/dashboard/StatCard";
 import { AnalyticsTicker, type TickerStat } from "@/components/dashboard/analytics/AnalyticsTicker";
 import { findOrgConflicts } from "@/lib/sessions/conflicts";
 import { getAnalyticsSummary } from "@/lib/analytics/queries";
+import Streamed from "@/components/ui/streamed";
 
 /**
- * Validated for instant client-side navigation: Next.js checks at build time
- * that this route still produces a static shell from every entry point, so a
- * future change that reintroduces blocking data access fails the build rather
- * than quietly making navigation feel slow again.
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
  *
  * Nearly everything on the overview is org-specific — even the heading greets
  * the org by name — so the whole body streams behind one boundary rather than
  * being split further. The boundary has to live inside this page: see the note
  * in dashboard/facilities/page.tsx.
  */
-export const unstable_instant = { prefetch: "static" };
+export const instant = true;
 
 interface DashboardPageProps {
   searchParams: Promise<{ facility?: string; department?: string; schedule?: string }>;
@@ -47,7 +49,9 @@ interface DashboardPageProps {
 export default function DashboardPage({ searchParams }: DashboardPageProps) {
   return (
     <Suspense fallback={<DashboardOverviewSkeleton />}>
-      <DashboardOverview searchParams={searchParams} />
+      <Streamed>
+        <DashboardOverview searchParams={searchParams} />
+      </Streamed>
     </Suspense>
   );
 }
@@ -88,20 +92,76 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     schedule: scheduleParam,
   } = await searchParams;
 
-  // Ordered by name to match the sidebar tree — "the first facility" means
-  // the same building in both places.
-  const { data: facilityRows } = await supabase
-    .from("facilities")
-    .select("id, name, slug, is_published, updated_at")
-    .eq("org_id", orgId)
-    .order("name");
+  const thirtyDaysAgo = daysAgoIso(30);
+
+  // Only the schedule-groups read needs to know which facility is selected, and
+  // picking that needs the facility list first. Everything else is scoped by
+  // org alone, so it is issued in the *same* wave as the facility list rather
+  // than waiting behind it. Hosted Supabase charges ~80ms per hop regardless of
+  // the query, so the ordering here is what the page costs: two waves, not
+  // three.
+  //
+  // `start()` is not decoration. A PostgREST builder is lazy — it holds the
+  // query and only issues the request when something calls `.then()` on it, so
+  // assigning one to a const starts nothing. Without this, the four org-scoped
+  // reads below would not begin until the `Promise.allSettled` further down,
+  // which is *after* the facility list has been awaited: the code would read as
+  // parallel and run as a third sequential wave.
+  const start = <T,>(builder: PromiseLike<T>): Promise<T> => Promise.resolve(builder);
+
+  const facilityListPromise = start(
+    supabase
+      // Ordered by name to match the sidebar tree — "the first facility" means
+      // the same building in both places.
+      .from("facilities")
+      .select("id, name, slug, is_published, updated_at")
+      .eq("org_id", orgId)
+      .order("name")
+  );
+
+  const recentFacilitiesPromise = start(
+    supabase
+      .from("facilities")
+      .select("id, name, is_published, updated_at")
+      .eq("org_id", orgId)
+      .order("updated_at", { ascending: false })
+      .limit(6)
+  );
+
+  const recentScheduleGroupsPromise = start(
+    supabase
+      .from("schedule_groups")
+      .select("id, name, status, updated_at, facility_id, department_id")
+      .eq("org_id", orgId)
+      .order("updated_at", { ascending: false })
+      .limit(6)
+  );
+
+  // Raw rows, not a head count — the "Activity (30d)" stat card is scoped
+  // to the current facility/department/schedule filter in JS below.
+  // activity_log spans six tables (038_activity_log.sql) with no
+  // facility_id column of its own, so each row is matched against the id
+  // sets the facility/department/schedule-scoped queries below produce.
+  const activityLogPromise = start(
+    supabase
+      .from("activity_log")
+      .select("table_name, row_id")
+      .eq("org_id", orgId)
+      .gte("created_at", thirtyDaysAgo)
+      .limit(5000)
+  );
+
+  // Conflicts stat card (039_session_conflict_dismissals.sql) — computed
+  // on demand, not from a persisted count; see findOrgConflicts(). Also
+  // scoped to the current filter in JS below.
+  const conflictsPromise = findOrgConflicts(supabase, orgId);
+
+  const { data: facilityRows } = await facilityListPromise;
 
   const facilities = facilityRows ?? [];
   const isNew = facilities.length === 0;
   const selectedFacility =
     facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null;
-
-  const thirtyDaysAgo = daysAgoIso(30);
 
   const [
     scheduleGroupsRes,
@@ -120,33 +180,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           .eq("facility_id", selectedFacility.id)
           .order("display_order", { ascending: true })
       : Promise.resolve({ data: null, error: null }),
-    supabase
-      .from("facilities")
-      .select("id, name, is_published, updated_at")
-      .eq("org_id", orgId)
-      .order("updated_at", { ascending: false })
-      .limit(6),
-    supabase
-      .from("schedule_groups")
-      .select("id, name, status, updated_at, facility_id, department_id")
-      .eq("org_id", orgId)
-      .order("updated_at", { ascending: false })
-      .limit(6),
-    // Raw rows, not a head count — the "Activity (30d)" stat card is scoped
-    // to the current facility/department/schedule filter in JS below.
-    // activity_log spans six tables (038_activity_log.sql) with no
-    // facility_id column of its own, so each row is matched against the id
-    // sets the facility/department/schedule-scoped queries below produce.
-    supabase
-      .from("activity_log")
-      .select("table_name, row_id")
-      .eq("org_id", orgId)
-      .gte("created_at", thirtyDaysAgo)
-      .limit(5000),
-    // Conflicts stat card (039_session_conflict_dismissals.sql) — computed
-    // on demand, not from a persisted count; see findOrgConflicts(). Also
-    // scoped to the current filter in JS below.
-    findOrgConflicts(supabase, orgId),
+    recentFacilitiesPromise,
+    recentScheduleGroupsPromise,
+    activityLogPromise,
+    conflictsPromise,
   ]);
 
   type ScheduleGroupRow = {

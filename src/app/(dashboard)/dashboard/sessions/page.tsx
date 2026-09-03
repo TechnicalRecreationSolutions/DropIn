@@ -1,11 +1,14 @@
+import { Suspense } from "react";
 import Link from "next/link";
 import { Clock, Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
+import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentPicker from "@/components/department/DepartmentPicker";
 import { Button } from "@/components/ui/button";
+import Streamed from "@/components/ui/streamed";
 
 interface SessionsPageProps {
   searchParams: Promise<{ facility?: string; department?: string }>;
@@ -34,8 +37,43 @@ type SessionTemplateRow = {
  * now it's its own route, matching Spaces and Map, and is where the command
  * centre's template rail "Manage" link and the sidebar's Sessions item both
  * point.
+ *
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
+ *
+ * The Suspense boundary has to live inside this page — see the note in
+ * dashboard/facilities/page.tsx for why a boundary in the layout is not
+ * enough for navigations arriving from a sibling route.
  */
-export default async function SessionsPage({ searchParams }: SessionsPageProps) {
+export const instant = true;
+
+export default function SessionsPage({ searchParams }: SessionsPageProps) {
+  return (
+    <div className="space-y-6">
+      {/* Static — part of the prerendered shell, so it paints immediately. */}
+      <div>
+        <h1 className="text-2xl font-bold text-gray-900">Session templates</h1>
+        <p className="text-gray-500 mt-1">
+          Reusable, color-coded activity definitions — build these once per department, then reuse
+          them across every schedule in it instead of filling out a form each time.
+        </p>
+      </div>
+
+      {/* searchParams is forwarded unread — awaiting it here would pull this
+          static shell into the dynamic, Suspense-gated render. */}
+      <Suspense fallback={<SessionsBodySkeleton />}>
+        <Streamed className="space-y-6">
+          <SessionsBody searchParams={searchParams} />
+        </Streamed>
+      </Suspense>
+    </div>
+  );
+}
+
+async function SessionsBody({ searchParams }: SessionsPageProps) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
@@ -84,15 +122,7 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
   const departmentName = facilityDepartments.find((d) => d.id === activeDepartmentId)?.name ?? null;
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-gray-900">Session templates</h1>
-        <p className="text-gray-500 mt-1">
-          Reusable, color-coded activity definitions — build these once per department, then reuse
-          them across every schedule in it instead of filling out a form each time.
-        </p>
-      </div>
-
+    <>
       <FacilityCardPicker
         facilities={facilityCards}
         activeFacilityId={facility.id}
@@ -111,7 +141,7 @@ export default async function SessionsPage({ searchParams }: SessionsPageProps) 
         departmentName={departmentName}
         templates={scopedTemplates}
       />
-    </div>
+    </>
   );
 }
 
@@ -196,6 +226,24 @@ function NoFacilities() {
           Add a facility
         </Link>
       </div>
+    </div>
+  );
+}
+
+function SessionsBodySkeleton() {
+  return (
+    <div className="space-y-6" aria-busy="true">
+      <div className="flex gap-4 overflow-hidden">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-24 w-56 rounded-xl shrink-0" />
+        ))}
+      </div>
+      <div className="flex gap-1.5">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-9 w-28 rounded-xl" />
+        ))}
+      </div>
+      <Skeleton className="h-64 rounded-xl" />
     </div>
   );
 }

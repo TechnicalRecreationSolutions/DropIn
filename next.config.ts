@@ -88,11 +88,29 @@ function contentSecurityPolicy(frameAncestors: string): string {
 }
 
 const nextConfig: NextConfig = {
+  // Normally `.next`. Overridable so a production build can be made and served
+  // while `next dev` is still running against the default directory — the two
+  // would otherwise fight over the same build output. Used by
+  // `scripts/verify/perf-nav.mjs`, which has to measure `next start` because
+  // dev-mode timings include Turbopack work that production never does.
+  distDir: process.env.NEXT_DIST_DIR ?? ".next",
+
   // Partial Prerendering by default: each route ships a prerendered static
   // shell immediately, and per-user data streams in behind its Suspense
   // boundaries. The dashboard's data is all cookie-scoped and cannot be shared
   // between users, so the win here is the shell — not caching the data itself.
   cacheComponents: true,
+
+  // `partialPrefetching: true` was tried here and removed again. It is the
+  // framework's recommended direction — one shared App Shell per route rather
+  // than a prefetch per link — but measured against this app it bought
+  // nothing, because the shell was never the slow part: click-to-heading was
+  // already 63ms and the shell is prefetched under the old model too. In
+  // `next dev` it was actively worse (settled 490ms -> 730ms), since every
+  // sidebar link visible on a page asks the single dev server to render
+  // another shell, and the navigation then queues behind that work.
+  // Numbers in docs/PERFORMANCE.md. Worth revisiting if the sidebar ever
+  // links to far more routes than it does now.
 
   images: {
     remotePatterns: [

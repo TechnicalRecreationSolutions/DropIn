@@ -15,6 +15,9 @@
 
 # next.js
 /.next/
+# Alternate build dirs from NEXT_DIST_DIR — see scripts/verify/README.md, which
+# builds production into one of these so it can be served alongside `next dev`.
+/.next-*/
 /out/
 
 # production

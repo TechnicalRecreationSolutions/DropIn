@@ -5,19 +5,21 @@ import Link from "next/link";
 import { Plus, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityGridCard from "@/components/facilities/FacilityGridCard";
+import Streamed from "@/components/ui/streamed";
 
 /**
- * Validated for instant client-side navigation: Next.js checks at build time
- * that this route still produces a static shell from every entry point, so a
- * future change that reintroduces blocking data access fails the build rather
- * than quietly making navigation feel slow again.
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
  *
  * Note that the Suspense boundary below has to live *inside* this page. The
  * one in the dashboard layout covers a fresh page load, but when navigating
  * here from a sibling route the shared layout is the entry point and anything
  * above it has already rendered — a boundary up there would never fire.
  */
-export const unstable_instant = { prefetch: "static" };
+export const instant = true;
 
 type FacilityRow = {
   id: string;
@@ -50,7 +52,9 @@ export default function FacilitiesPage() {
       </div>
 
       <Suspense fallback={<FacilitiesGridSkeleton />}>
-        <FacilitiesGrid />
+        <Streamed className="space-y-6">
+          <FacilitiesGrid />
+        </Streamed>
       </Suspense>
     </div>
   );

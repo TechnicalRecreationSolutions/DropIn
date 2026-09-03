@@ -9,6 +9,7 @@ import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
 import type { CommandFacility } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
+import Streamed from "@/components/ui/streamed";
 
 /**
  * The schedule command centre — where staff spend most of their time. Every
@@ -25,16 +26,17 @@ import type { ScheduleTemplate } from "@/types/schedule.types";
  * than a navigation or a fresh round trip. Only the week's sessions are
  * fetched client side, since those change as staff navigate weeks.
  *
- * Validated for instant client-side navigation: Next.js checks at build
- * time that this route still produces a static shell from every entry
- * point, so a future change that reintroduces blocking data access fails
- * the build rather than quietly making navigation feel slow again.
+ * Opted in to instant-navigation validation: Next.js re-renders this route in
+ * dev as both a page load and a sibling client navigation, and reports in the
+ * dev overlay if it stops producing a static shell — so a change that
+ * reintroduces blocking data access is surfaced rather than quietly making
+ * navigation feel slow again.
  *
  * The Suspense boundary has to live inside this page — see the note in
  * dashboard/facilities/page.tsx for why a boundary in the layout is not
  * enough for navigations arriving from a sibling route.
  */
-export const unstable_instant = { prefetch: "static" };
+export const instant = true;
 
 interface SchedulePageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -63,7 +65,9 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
       {/* searchParams is forwarded unread — awaiting it here would pull this
           static shell into the dynamic, Suspense-gated render. */}
       <Suspense fallback={<CommandCentreSkeleton />}>
-        <CommandCentreBody searchParams={searchParams} />
+        <Streamed className="space-y-6">
+          <CommandCentreBody searchParams={searchParams} />
+        </Streamed>
       </Suspense>
     </div>
   );
