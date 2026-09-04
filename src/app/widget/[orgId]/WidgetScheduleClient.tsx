@@ -75,10 +75,13 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   }, []);
 
   const isDark = theme === "dark";
-  const mutedClass = isDark ? "text-muted-foreground/70" : "text-muted-foreground/70";
+  // Explicit grey, not a token: this renders inside the embed iframe, where the
+  // dashboard's `.dark` class never exists, so a token would resolve to its
+  // light value and put dark grey text on a dark-themed widget.
+  const mutedClass = isDark ? "text-gray-400" : "text-gray-400";
 
   return (
-    <div className="rounded-xl overflow-hidden border border-border">
+    <div className="rounded-xl overflow-hidden border border-gray-200">
       <ScheduleHeaderBar
         title={activeScope?.label ?? "Schedule"}
         view={view}

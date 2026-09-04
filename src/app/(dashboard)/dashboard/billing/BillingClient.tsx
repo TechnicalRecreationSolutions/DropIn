@@ -101,7 +101,7 @@ export default function BillingClient({ currentTier }: BillingClientProps) {
             <button
               onClick={handlePortal}
               disabled={portalLoading}
-              className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-muted rounded-lg disabled:opacity-50 transition-colors"
+              className="px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-border rounded-lg disabled:opacity-50 transition-colors"
             >
               {portalLoading ? "Opening…" : "Manage subscription"}
             </button>

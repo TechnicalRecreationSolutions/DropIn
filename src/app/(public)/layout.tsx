@@ -14,7 +14,10 @@ export default function PublicLayout({
       <div className="min-h-screen flex flex-col">
         <PublicNav />
         <main className="flex-1">{children}</main>
-        <footer className="bg-gray-950 text-muted-foreground/70 py-12 mt-auto">
+        {/* Explicit greys, not the neutral tokens: this footer is deliberately
+            near-black in every theme, and --muted-foreground is tuned for a
+            light surface. Swapping it in here drops the text to 3.67:1. */}
+        <footer className="bg-gray-950 text-gray-400 py-12 mt-auto">
           <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
             <div className="flex flex-col md:flex-row justify-between gap-6">
               <div>

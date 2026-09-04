@@ -424,7 +424,9 @@ export default function HomePage() {
           <h2 className="text-2xl sm:text-3xl font-bold mb-4">
             Stop retyping the same schedule
           </h2>
-          <p className="text-muted-foreground/70 mb-8">
+          {/* Explicit grey, like the footer: this section is deliberately
+              near-black, and --muted-foreground is tuned for a light surface. */}
+          <p className="text-gray-400 mb-8">
             Set up one facility and publish a schedule in an afternoon.
             Plans start at $49/month.
           </p>

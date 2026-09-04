@@ -79,7 +79,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
               "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
               activeDayIndex === i
                 ? "text-white"
-                : "bg-muted text-muted-foreground hover:bg-muted"
+                : "bg-muted text-muted-foreground hover:bg-border"
             )}
             style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
           >

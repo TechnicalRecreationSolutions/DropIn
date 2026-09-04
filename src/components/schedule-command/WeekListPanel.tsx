@@ -71,7 +71,7 @@ export default function WeekListPanel({ scheduleGroup, facilityId, onSelectWeek 
             aria-pressed={filter === value}
             className={cn(
               "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize",
-              filter === value ? "bg-gray-900 text-white" : "bg-muted text-muted-foreground hover:bg-muted"
+              filter === value ? "bg-gray-900 text-white" : "bg-muted text-muted-foreground hover:bg-border"
             )}
           >
             {value}

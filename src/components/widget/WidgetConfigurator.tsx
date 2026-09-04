@@ -681,7 +681,7 @@ export default function WidgetConfigurator({
               <p className="text-xs text-muted-foreground">Paste this into your website&apos;s HTML</p>
               <button
                 onClick={handleCopy}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-muted hover:bg-muted rounded-lg transition-colors"
+                className="flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-foreground bg-muted hover:bg-border rounded-lg transition-colors"
               >
                 {copied ? (
                   <>

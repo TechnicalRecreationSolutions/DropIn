@@ -126,25 +126,31 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     ? rawAllowedTemplates
     : rawAllowedTemplates.filter((t) => t !== "floorplan");
 
+  // The widget's light/dark comes from the org's saved widget config, not from
+  // the `.dark` class the dashboard toggles — this page renders in an iframe on
+  // someone else's site, where that class never exists. So every colour on this
+  // branch is written out explicitly: the neutral tokens resolve to their
+  // *light* values here no matter what `theme` says, which would put dark grey
+  // text on the dark widget.
   const isDark = theme === "dark";
 
   return (
-    <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-card text-foreground"}`}>
+    <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
       <OrgThemeProvider primaryColor={primaryColor}>
         {/* Header */}
         <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2.5 min-w-0">
             {org.logo_url && (
-              <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-border bg-card">
+              <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-gray-200 bg-white">
                 <OrgImage src={org.logo_url} alt="" sizes="32px" className="object-contain" />
               </span>
             )}
             <div className="min-w-0">
-              <p className={`text-xs font-medium ${isDark ? "text-muted-foreground/70" : "text-muted-foreground"}`}>
+              <p className={`text-xs font-medium ${isDark ? "text-gray-400" : "text-gray-500"}`}>
                 {org.name}
               </p>
               {facility && (
-                <h2 className={`text-sm font-semibold truncate ${isDark ? "text-white" : "text-foreground"}`}>
+                <h2 className={`text-sm font-semibold truncate ${isDark ? "text-white" : "text-gray-900"}`}>
                   {facility.name}{department ? ` · ${department.name}` : ""}
                 </h2>
               )}
@@ -154,7 +160,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
             href="/"
             target="_blank"
             rel="noopener noreferrer"
-            className="text-xs text-blue-500 hover:text-blue-600 dark:hover:text-blue-300 font-medium"
+            className="text-xs text-blue-500 hover:text-blue-600 font-medium"
           >
             dropin.app ↗
           </a>
