@@ -50,7 +50,7 @@ export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }:
         )}
       >
         <div className={cn("flex items-center", collapsed ? "flex-col gap-3" : "justify-between gap-2 mb-1")}>
-          <Link href="/" className="flex items-center gap-2 text-sidebar-primary font-bold text-lg">
+          <Link href="/dashboard" className="flex items-center gap-2 text-sidebar-primary font-bold text-lg">
             <MapPin className="size-4 shrink-0" />
             {!collapsed && "Dropin"}
           </Link>

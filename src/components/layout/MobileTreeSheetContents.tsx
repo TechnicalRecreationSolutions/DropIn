@@ -31,7 +31,7 @@ export default function MobileTreeSheetContents({
       <SheetHeader className="px-4 py-4 border-b border-sidebar-border shrink-0">
         <SheetTitle asChild>
           <Link
-            href="/"
+            href="/dashboard"
             className="flex items-center gap-2 text-sidebar-primary font-bold text-lg mb-1"
             onClick={close}
           >
