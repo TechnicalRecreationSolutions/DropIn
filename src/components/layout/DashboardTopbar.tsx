@@ -53,7 +53,7 @@ export default function DashboardTopbar() {
         >
           <Menu className="size-5 text-foreground" />
         </Button>
-        <Link href="/" className="text-blue-600 dark:text-blue-400 font-bold text-sm">Dropin</Link>
+        <Link href="/dashboard" className="text-blue-600 dark:text-blue-400 font-bold text-sm">Dropin</Link>
       </div>
 
       <div className="hidden lg:block" />
