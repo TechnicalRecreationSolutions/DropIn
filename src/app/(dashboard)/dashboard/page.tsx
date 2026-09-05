@@ -481,7 +481,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       {!isNew && recentActivity.length > 0 && (
         <div>
           <h2 className="text-sm font-semibold text-foreground mb-3">Recent activity</h2>
-          <Card className="divide-y divide-border py-0">
+          {/* gap-0: Card is a flex column with gap-(--card-spacing); py-0 clears
+              the padding but not the gap, which would leave uneven whitespace
+              stacked above each divider. */}
+          <Card className="divide-y divide-border py-0 gap-0">
             {recentActivity.map((item) => {
               const Icon = item.kind === "facility" ? Building2 : Calendar;
               return (
@@ -491,7 +494,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
                   className="flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors"
                 >
                   <Icon className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-                  <span className="text-sm font-medium text-foreground truncate">{item.name}</span>
+                  <span className="min-w-0 text-sm font-medium text-foreground truncate">{item.name}</span>
                   <Badge variant={item.is_published ? "default" : "secondary"} className="shrink-0">
                     {item.is_published ? "Published" : "Draft"}
                   </Badge>

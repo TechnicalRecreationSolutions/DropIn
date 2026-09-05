@@ -9,7 +9,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function TreeNavSkeleton() {
   return (
     <aside
-      className="hidden lg:flex flex-col w-72 min-h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border"
+      className="hidden lg:flex flex-col w-72 sticky top-0 h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border"
       aria-hidden
     >
       <div className="px-4 py-4 border-b border-sidebar-border">

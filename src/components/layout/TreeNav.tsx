@@ -39,7 +39,12 @@ export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }:
   return (
     <aside
       className={cn(
-        "hidden lg:flex flex-col min-h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border transition-[width] duration-200",
+        // sticky + h-screen (not min-h-screen) pins the sidebar to the viewport:
+        // on a long page it stays exactly one screen tall with the profile
+        // footer visible, instead of stretching to the full document height and
+        // pushing the footer off the bottom. SidebarNav scrolls internally when
+        // the menu itself is taller than the space left between header and footer.
+        "hidden lg:flex flex-col sticky top-0 h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border transition-[width] duration-200",
         collapsed ? "w-16" : "w-72"
       )}
     >
