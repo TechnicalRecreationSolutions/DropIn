@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { Plus } from "lucide-react";
+import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import {
   formatSessionTime,
@@ -32,6 +32,13 @@ interface WeeklyScheduleListProps {
  * markup into an editor: each day heading gains an "Add session" action and
  * each row a "⋯" menu. Without one it stays exactly the read-only list the
  * widget embeds.
+ *
+ * The list starts at today rather than at Sunday: someone reading a drop-in
+ * schedule wants to know when they can next come, and days already gone are
+ * noise at the top of that answer. They're collapsed behind a toggle rather
+ * than dropped, because staff editing this same list mid-week still need to
+ * reach Monday. Only the *current* week collapses anything — a week the
+ * viewer navigated back to is one they asked to see in full.
  */
 export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }: WeeklyScheduleListProps) {
   const editing = useScheduleEditing();
@@ -41,6 +48,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
   // explains in the rail why placing is unavailable.
   const canAdd = !!editing?.canCreate && editing.templates.length > 0;
   const [activeDayIndex, setActiveDayIndex] = useState<number>(() => dayIndexFromDate(new Date()));
+  const [showPastDays, setShowPastDays] = useState(false);
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -49,6 +57,26 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
       return date;
     });
   }, [weekStart]);
+
+  // -1 when the week in view doesn't contain today (a past or future week),
+  // which is also the case where nothing gets collapsed.
+  const todayIndex = useMemo(() => {
+    const today = new Date().toDateString();
+    return days.findIndex((day) => day.toDateString() === today);
+  }, [days]);
+
+  const pastDayCount = todayIndex > 0 ? todayIndex : 0;
+  const firstVisibleIndex = showPastDays ? 0 : pastDayCount;
+  const visibleDayIndexes = useMemo(
+    () => days.map((_, i) => i).filter((i) => i >= firstVisibleIndex),
+    [days, firstVisibleIndex]
+  );
+
+  // The chips are a picker over what's actually rendered, so a day that just
+  // got collapsed (or that a week change left behind) falls back to the top.
+  const effectiveActiveDayIndex = visibleDayIndexes.includes(activeDayIndex)
+    ? activeDayIndex
+    : (visibleDayIndexes[0] ?? 0);
 
   const sessionsByDay = useMemo(() => {
     const map: Record<number, ExpandedSession[]> = {};
@@ -71,27 +99,44 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
 
       {/* Mobile: day selector chips */}
       <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 sm:hidden px-1">
-        {days.map((day, i) => (
-          <button
-            key={i}
-            onClick={() => setActiveDayIndex(i)}
-            className={cn(
-              "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
-              activeDayIndex === i
-                ? "text-white"
-                : "bg-muted text-muted-foreground hover:bg-border"
-            )}
-            style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
-          >
-            <span>{formatDayShort(day)}</span>
-            <span className="font-bold">{day.getDate()}</span>
-          </button>
-        ))}
+        {visibleDayIndexes.map((i) => {
+          const day = days[i];
+          const isActive = effectiveActiveDayIndex === i;
+          return (
+            <button
+              key={i}
+              onClick={() => setActiveDayIndex(i)}
+              className={cn(
+                "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+                isActive ? "text-white" : "bg-muted text-muted-foreground hover:bg-border"
+              )}
+              style={isActive ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
+            >
+              <span>{formatDayShort(day)}</span>
+              <span className="font-bold">{day.getDate()}</span>
+            </button>
+          );
+        })}
       </div>
 
+      {pastDayCount > 0 && (
+        <button
+          type="button"
+          onClick={() => setShowPastDays((prev) => !prev)}
+          aria-expanded={showPastDays}
+          className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+        >
+          {showPastDays ? <ChevronUp className="w-3.5 h-3.5" /> : <ChevronDown className="w-3.5 h-3.5" />}
+          {showPastDays
+            ? "Hide earlier days"
+            : `Show ${pastDayCount} earlier day${pastDayCount === 1 ? "" : "s"}`}
+        </button>
+      )}
+
       <div className="mt-3 space-y-6">
-        {days.map((day, dayIndex) => {
-          const isMobileHidden = dayIndex !== activeDayIndex;
+        {visibleDayIndexes.map((dayIndex) => {
+          const day = days[dayIndex];
+          const isMobileHidden = dayIndex !== effectiveActiveDayIndex;
           const daySessions = sessionsByDay[dayIndex] ?? [];
           const isToday = now.toDateString() === day.toDateString();
 

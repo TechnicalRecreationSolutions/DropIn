@@ -30,6 +30,16 @@ need to give them different names just to tell them apart.
 > unused, kept for a future month-shaped view rather than stripped — see
 > `docs/PLAN.md` §3a.
 
+List is the one view that does not start its week at Sunday. A drop-in
+schedule is read to answer "when can I next come", so on the **current** week
+it renders today first and collapses the days already gone behind a
+"Show N earlier days" toggle; every other week renders all seven, because a
+week the viewer navigated to is one they asked to see in full. Collapsed, not
+dropped: staff edit this same list mid-week and still need to reach Monday.
+The mobile day chips are a picker over what's rendered, so a selected day that
+gets collapsed (or that a week change leaves behind) falls back to the first
+visible one — `verify-s.mjs` covers both halves.
+
 The same components render the public widget and the dashboard editor. The
 only difference is whether a `ScheduleEditingProvider` sits above them — see
 [`editing/README.md`](editing/README.md).
