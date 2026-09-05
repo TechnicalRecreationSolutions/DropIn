@@ -48,7 +48,9 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
   // explains in the rail why placing is unavailable.
   const canAdd = !!editing?.canCreate && editing.templates.length > 0;
   const [activeDayIndex, setActiveDayIndex] = useState<number>(() => dayIndexFromDate(new Date()));
-  const [showPastDays, setShowPastDays] = useState(false);
+  // null = follow `autoExpand` below; a boolean is the viewer's own choice,
+  // which always wins from then on.
+  const [showPastOverride, setShowPastOverride] = useState<boolean | null>(null);
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -65,19 +67,6 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
     return days.findIndex((day) => day.toDateString() === today);
   }, [days]);
 
-  const pastDayCount = todayIndex > 0 ? todayIndex : 0;
-  const firstVisibleIndex = showPastDays ? 0 : pastDayCount;
-  const visibleDayIndexes = useMemo(
-    () => days.map((_, i) => i).filter((i) => i >= firstVisibleIndex),
-    [days, firstVisibleIndex]
-  );
-
-  // The chips are a picker over what's actually rendered, so a day that just
-  // got collapsed (or that a week change left behind) falls back to the top.
-  const effectiveActiveDayIndex = visibleDayIndexes.includes(activeDayIndex)
-    ? activeDayIndex
-    : (visibleDayIndexes[0] ?? 0);
-
   const sessionsByDay = useMemo(() => {
     const map: Record<number, ExpandedSession[]> = {};
     for (let i = 0; i < 7; i++) map[i] = [];
@@ -89,6 +78,41 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
     }
     return map;
   }, [sessions]);
+
+  const pastDayCount = todayIndex > 0 ? todayIndex : 0;
+
+  /**
+   * Collapsing must never be the reason the list looks empty. If nothing is
+   * left from today onward but there *is* something earlier this week, the
+   * earlier days open on their own — otherwise a Mon–Wed-only schedule read
+   * on a Saturday, or a filter whose every match is behind us, shows a week
+   * of "No drop-ins scheduled" with the real answer hidden behind a toggle
+   * nobody knows to press.
+   */
+  const autoExpand = useMemo(() => {
+    if (pastDayCount === 0) return false;
+    let upcoming = 0;
+    let earlier = 0;
+    for (let i = 0; i < 7; i++) {
+      const count = sessionsByDay[i]?.length ?? 0;
+      if (i >= pastDayCount) upcoming += count;
+      else earlier += count;
+    }
+    return upcoming === 0 && earlier > 0;
+  }, [pastDayCount, sessionsByDay]);
+
+  const showPastDays = showPastOverride ?? autoExpand;
+  const firstVisibleIndex = showPastDays ? 0 : pastDayCount;
+  const visibleDayIndexes = useMemo(
+    () => days.map((_, i) => i).filter((i) => i >= firstVisibleIndex),
+    [days, firstVisibleIndex]
+  );
+
+  // The chips are a picker over what's actually rendered, so a day that just
+  // got collapsed (or that a week change left behind) falls back to the top.
+  const effectiveActiveDayIndex = visibleDayIndexes.includes(activeDayIndex)
+    ? activeDayIndex
+    : (visibleDayIndexes[0] ?? 0);
 
   const now = new Date();
   const sessionNow = nowAsSessionTime();
@@ -122,7 +146,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
       {pastDayCount > 0 && (
         <button
           type="button"
-          onClick={() => setShowPastDays((prev) => !prev)}
+          onClick={() => setShowPastOverride(!showPastDays)}
           aria-expanded={showPastDays}
           className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
         >

@@ -389,7 +389,64 @@ try {
     );
 
     // ---------------------------------------------------------------
-    console.log("\n4. On a phone, the day chips agree with what is rendered");
+    console.log("\n4. Collapsing is never the reason the list looks empty");
+    // ---------------------------------------------------------------
+    // Regression: verify-r's Monday/Wednesday fixture went blank on a
+    // Saturday when this view first shipped. A week whose only sessions are
+    // behind us has to open itself, or the answer sits behind a toggle
+    // nobody knows to press.
+    if (todayIndex === 0) {
+      console.log("  SKIP  it is Sunday — no earlier days, so nothing to auto-expand");
+    } else {
+      // Search is enabled here purely as the narrowing mechanism: filtering
+      // down to a past-only day is the same shape as a past-only schedule,
+      // and it needs no second fixture.
+      await fetch(`${APP}/api/widget-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({
+          facilityId: facility.id,
+          enabledFilters: ["search"],
+          allowedTemplates: ["list"],
+        }),
+      });
+      await page.goto(widgetUrl, { waitUntil: "networkidle" });
+      await board.waitFor({ state: "visible", timeout: 20000 });
+
+      const search = page.getByRole("searchbox", { name: "Search the schedule" });
+      const pastOnly = dayLabels[0]; // Sunday: always behind us unless today is Sunday
+      await search.fill(`${DAY_NAMES[0]} Swim`);
+      await page.waitForTimeout(500);
+
+      check(
+        "a filter matching only a past day opens those days rather than showing an empty week",
+        await board.getByText(pastOnly).first().isVisible().catch(() => false),
+        "the matching session stayed collapsed — this is the verify-r failure"
+      );
+      check(
+        "…and says so, offering to collapse again rather than to expand",
+        await visible(board.getByRole("button", { name: "Hide earlier days" }))
+      );
+
+      // The negative control: with matches still ahead, it must NOT expand,
+      // or "auto-expand" would just be "never collapse".
+      await search.fill(`${DAY_NAMES[todayIndex]} Swim`);
+      await page.waitForTimeout(500);
+      check(
+        "control: a filter matching today leaves the earlier days collapsed",
+        (await visible(board.getByText(pastOnly).first())) === false,
+        "earlier days opened when there was no reason to"
+      );
+
+      await fetch(`${APP}/api/widget-config`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json", Cookie: cookie },
+        body: JSON.stringify({ facilityId: facility.id, enabledFilters: [], allowedTemplates: ["list"] }),
+      });
+    }
+
+    // ---------------------------------------------------------------
+    console.log("\n5. On a phone, the day chips agree with what is rendered");
     // ---------------------------------------------------------------
     const phone = await browser.newContext({ viewport: { width: 390, height: 844 } });
     const small = await phone.newPage();
