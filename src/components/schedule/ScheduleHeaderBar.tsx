@@ -2,14 +2,11 @@
 
 import { LayoutGrid, List, Columns3, Image as ImageIcon, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
+import ScheduleScopeSwitcher, { type ScheduleScope } from "./ScheduleScopeSwitcher";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
 /** One entry in the header's schedule switcher — see scopeOptions below. */
-export interface ScheduleHeaderScope {
-  id: string;
-  label: string;
-}
+export type ScheduleHeaderScope = ScheduleScope;
 
 interface ScheduleHeaderBarProps {
   title: string;
@@ -17,8 +14,8 @@ interface ScheduleHeaderBarProps {
   onChange: (view: ScheduleTemplate) => void;
   /** Which views the org has enabled (widget_configs.allowed_templates) — the toggle only offers these. */
   allowedViews: ScheduleTemplate[];
-  /** 2+ entries replaces the plain title with a dropdown for switching between schedules
-   *  (the widget's multi-schedule filter) — omit for the plain, static title. */
+  /** 2+ entries adds a schedule switcher on its own row under the title (the widget's
+   *  multi-schedule filter) — omit for a bar with nothing but the title and view toggle. */
   scopeOptions?: ScheduleHeaderScope[];
   activeScopeId?: string;
   onScopeChange?: (id: string) => void;
@@ -39,6 +36,11 @@ const OPTIONS: { value: ScheduleTemplate; label: string; icon: typeof Columns3 }
  * from the first allowed view, but this lets a visitor pick another
  * allowed one without staff involvement. If the org only enabled one view,
  * there's nothing to toggle, so the picker is omitted entirely.
+ *
+ * With `scopeOptions`, a second row carries the schedule switcher
+ * (`ScheduleScopeSwitcher`) — the widget's multi-schedule filter. The three
+ * non-widget callers (public facility page, schedule command centre) pass none
+ * and render exactly the title + view toggle they always have.
  */
 export default function ScheduleHeaderBar({
   title,
@@ -57,34 +59,10 @@ export default function ScheduleHeaderBar({
       className="rounded-t-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap"
       style={{ backgroundColor: "var(--org-primary)" }}
     >
-      {switchable ? (
-        <Select value={activeScopeId} onValueChange={onScopeChange}>
-          <SelectTrigger
-            aria-label="Choose a schedule"
-            className="h-auto w-fit border-0 bg-transparent p-0 gap-1.5 text-white font-semibold text-sm sm:text-base hover:bg-white/10 rounded-md px-1.5 py-1 -mx-1.5 -my-1 focus-visible:ring-white/50 [&_svg]:!text-white [&_svg]:opacity-90"
-          >
-            {/*
-              Radix's SelectValue only auto-derives its text from the
-              matching SelectItem once that item has mounted client-side
-              (SelectContent isn't in the DOM until first opened) — left to
-              its default, the title renders as an empty span until
-              hydration + a first open. Passing children explicitly is
-              Radix's documented override and is what actually makes this
-              server-render correctly, matching the plain-title case below.
-            */}
-            <SelectValue>{title}</SelectValue>
-          </SelectTrigger>
-          <SelectContent>
-            {scopeOptions!.map((s) => (
-              <SelectItem key={s.id} value={s.id}>
-                {s.label}
-              </SelectItem>
-            ))}
-          </SelectContent>
-        </Select>
-      ) : (
-        <h2 className="text-white font-semibold text-sm sm:text-base">{title}</h2>
-      )}
+      {/* The title stays put whether or not there are scopes. The switcher used
+          to replace it, which silently dropped the org's own custom_title the
+          moment a second filter was added. */}
+      <h2 className="text-white font-semibold text-sm sm:text-base">{title}</h2>
       {options.length > 1 && (
         <div
           className="inline-flex gap-0.5 rounded-full p-0.5"
@@ -113,6 +91,19 @@ export default function ScheduleHeaderBar({
             );
           })}
         </div>
+      )}
+
+      {/* Its own full-width row inside the bar: the pills need the width, and
+          putting them beside the title is what forced the old design to choose
+          between showing a title and showing a switcher. */}
+      {switchable && (
+        <ScheduleScopeSwitcher
+          scopes={scopeOptions!}
+          activeId={activeScopeId ?? scopeOptions![0].id}
+          onChange={(id) => onScopeChange?.(id)}
+          onTint
+          className="basis-full"
+        />
       )}
     </div>
   );

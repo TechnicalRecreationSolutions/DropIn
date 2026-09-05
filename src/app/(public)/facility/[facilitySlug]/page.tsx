@@ -6,6 +6,7 @@ import { cacheLife } from "next/cache";
 import { createPublicClient } from "@/lib/supabase/public";
 import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
+import { DEFAULT_ENABLED_FILTERS, parseEnabledFilters } from "@/lib/schedule/sessionFilters";
 import OrgImage from "@/components/media/OrgImage";
 import FacilityScheduleClient from "./FacilityScheduleClient";
 import type { ScheduleTemplate } from "@/types/schedule.types";
@@ -55,7 +56,9 @@ async function getFacilityPageData(facilitySlug: string) {
     // matching the scoping already applied in widget/[orgId]/page.tsx.
     supabase
       .from("widget_configs")
-      .select("allowed_templates, primary_color")
+      // `*` for the same reason as widget/[orgId]/page.tsx: a hand-applied
+      // migration that hasn't landed yet must not take the public page down.
+      .select("*")
       .eq("org_id", facility.org_id)
       .eq("facility_id", facility.id)
       .is("department_id", null)
@@ -100,6 +103,9 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
   const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
+  // The same setting as the embed: an org configures its visitor filters once,
+  // on the widget page, and both public surfaces honour it.
+  const enabledFilters = parseEnabledFilters(widgetConfig?.enabled_filters ?? DEFAULT_ENABLED_FILTERS);
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
@@ -142,7 +148,12 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
           {/* Weekly schedule — client component for interactivity */}
           <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-border overflow-hidden">
-            <FacilityScheduleClient orgId={facility.org_id} facilityId={facility.id} allowedTemplates={allowedTemplates} />
+            <FacilityScheduleClient
+              orgId={facility.org_id}
+              facilityId={facility.id}
+              allowedTemplates={allowedTemplates}
+              enabledFilters={enabledFilters}
+            />
           </OrgThemeProvider>
         </div>
 

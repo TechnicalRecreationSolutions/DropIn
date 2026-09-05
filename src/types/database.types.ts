@@ -624,6 +624,8 @@ export type Database = {
           program_ids: string[] | null;
           custom_title: string | null;
           allowed_templates: ("grid" | "list" | "map" | "floorplan" | "board")[];
+          /** 044: which visitor-facing schedule filters the widget renders. */
+          enabled_filters: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -642,6 +644,7 @@ export type Database = {
           | "program_ids"
           | "custom_title"
           | "allowed_templates"
+          | "enabled_filters"
           | "facility_id"
           | "department_id"
           | "updated_at"
@@ -657,6 +660,7 @@ export type Database = {
           program_ids?: string[] | null;
           custom_title?: string | null;
           allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "board")[];
+          enabled_filters?: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;

@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
-import WidgetConfigurator from "@/components/widget/WidgetConfigurator";
+import WidgetStudio from "@/components/widget/WidgetStudio";
 import Streamed from "@/components/ui/streamed";
 
 interface WidgetPageProps {
@@ -24,18 +24,18 @@ export const instant = true;
 
 export default function WidgetPage({ searchParams }: WidgetPageProps) {
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <div className="max-w-5xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Embed widget</h1>
+        <h1 className="text-2xl font-bold text-foreground">Put your schedule on your website</h1>
         <p className="text-muted-foreground mt-1">
-          Add your drop-in schedule to your website with a single script tag.
+          Design the schedule box your visitors see, then copy the code that puts it on your site.
         </p>
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this
           static shell into the dynamic, Suspense-gated render. */}
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<WidgetStudioSkeleton />}>
         <Streamed className="space-y-6">
           <WidgetBody searchParams={searchParams} />
         </Streamed>
@@ -51,9 +51,11 @@ async function WidgetBody({ searchParams }: WidgetPageProps) {
   const { facility, department } = await searchParams;
 
   const supabase = await createClient();
+  // slug + is_published carry the "link to it instead of embedding it" option
+  // in step 4 — an unpublished facility has no public page to point at.
   const { data: facilities } = await supabase
     .from("facilities")
-    .select("id, name")
+    .select("id, name, slug, is_published")
     .eq("org_id", orgContext.org.id)
     .order("name");
 
@@ -73,11 +75,27 @@ async function WidgetBody({ searchParams }: WidgetPageProps) {
   }
 
   return (
-    <WidgetConfigurator
+    <WidgetStudio
       orgId={orgContext.org.id}
-      facilities={facilities ?? []}
+      facilities={(facilities ?? []).map((f) => ({
+        id: f.id,
+        name: f.name,
+        slug: f.slug,
+        isPublished: f.is_published,
+      }))}
       initialFacilityId={initialFacilityId}
       initialDepartmentId={initialDepartmentId}
     />
+  );
+}
+
+/** Mirrors the studio's shape — CTA banner then stacked steps — so the page doesn't jump. */
+function WidgetStudioSkeleton() {
+  return (
+    <div className="space-y-5" aria-busy="true">
+      <Skeleton className="h-32 rounded-2xl" />
+      <Skeleton className="h-56 rounded-xl" />
+      <Skeleton className="h-96 rounded-xl" />
+    </div>
   );
 }

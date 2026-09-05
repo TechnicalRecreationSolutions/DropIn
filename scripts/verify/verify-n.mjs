@@ -87,16 +87,33 @@ function rendersAsText(html, label) {
   return html.includes(`>${label}<`);
 }
 
-// The header's schedule switcher is a Radix Select (ScheduleHeaderBar,
-// scopeOptions prop) — a real dropdown, not a static row of buttons. Its
-// closed-state SSR only renders the trigger (showing the *current* scope's
-// label) plus this data-slot marker; the other options live inside
-// SelectContent, which Radix doesn't mount into the DOM until the trigger is
-// actually opened. A plain HTTP fetch can't click it open, so these checks
-// can only prove the dropdown affordance exists and shows the right active
-// label — not exercise picking a different option. That needs a real browser.
-function hasScopeDropdown(html) {
-  return html.includes('data-slot="select-trigger"');
+// The header's schedule switcher (ScheduleScopeSwitcher, given
+// ScheduleHeaderBar's scopeOptions) renders as a pill row up to four scopes and
+// a Radix Select beyond that. Either shape is wrapped in this labelled group,
+// so its presence is the "there is a switcher" signal at whatever size.
+//
+// It replaced a Select-at-every-size design, whose closed-state SSR rendered
+// only the trigger — every non-active label lived in an unmounted portal. The
+// pill row puts all of them in the HTML, so a plain fetch can now check the
+// whole option list, not just the active one. Picking one still needs a real
+// browser: see verify-p.
+function hasScopeSwitcher(html) {
+  return html.includes('aria-label="Choose a schedule"');
+}
+
+// The pill carrying `label` is the selected one.
+//
+// Written as "walk back to this label's own opening tag" rather than a regex
+// spanning from an aria-pressed to a label, because that shape reports the
+// *next* pill as active too whenever it happens to sit within the window — it
+// passed the positive case and quietly failed the negative one, which is the
+// half that makes the assertion mean anything.
+function isActivePill(html, label) {
+  const textAt = html.indexOf(`>${label}<`);
+  if (textAt < 0) return false;
+  const tagAt = html.lastIndexOf("<button", textAt);
+  if (tagAt < 0) return false;
+  return html.slice(tagAt, textAt).includes('aria-pressed="true"');
 }
 
 async function api(path, cookie, init = {}) {
@@ -362,15 +379,33 @@ try {
   );
 
   console.log(
-    "\n12. Live embed, unauthenticated: /widget/[orgId] (org-wide default scope) shows the colored header's schedule dropdown, defaulted to the first published-chain scope"
+    "\n12. Live embed, unauthenticated: /widget/[orgId] (org-wide default scope) shows the colored header's schedule switcher, defaulted to the first published-chain scope"
   );
   const widgetPage = await fetch(`${APP}/widget/${org1Admin.orgId}`);
   const widgetHtml = await widgetPage.text();
   check("200", widgetPage.status === 200, `status=${widgetPage.status}`);
-  check("header renders as a dropdown (2+ scopes)", hasScopeDropdown(widgetHtml));
+  check("header renders a schedule switcher (2+ scopes)", hasScopeSwitcher(widgetHtml));
   check(
-    "header title shows the first scope's label (sort_order default)",
+    "the first scope's label (sort_order default) is rendered",
     rendersAsText(widgetHtml, "ZZ Verify-N Gym Pill")
+  );
+  check(
+    "…and so is the other published scope — every option is in the HTML, not just the active one",
+    rendersAsText(widgetHtml, "ZZ Verify-N Lane Swim Pill")
+  );
+  check(
+    "the first scope is the *active* pill, not merely present",
+    isActivePill(widgetHtml, "ZZ Verify-N Gym Pill"),
+    "no pressed pill carrying the first scope's label"
+  );
+  check(
+    "…and the second scope is present but not active — 'the right one is on' needs 'the wrong one is off'",
+    !isActivePill(widgetHtml, "ZZ Verify-N Lane Swim Pill")
+  );
+  check(
+    "the switcher names the building behind the active scope, which the label alone can't",
+    widgetHtml.includes("Showing") && widgetHtml.includes(gym.name),
+    "no context line naming the facility"
   );
   check(
     "does NOT show the unpublished-facility scope's label anywhere",
@@ -388,8 +423,8 @@ try {
   const widgetHtmlSingle = await widgetPageSingle.text();
   check("200", widgetPageSingle.status === 200, `status=${widgetPageSingle.status}`);
   check(
-    "no dropdown markup with only 1 scope (nothing to pick between)",
-    !hasScopeDropdown(widgetHtmlSingle)
+    "no switcher with only 1 scope (nothing to pick between)",
+    !hasScopeSwitcher(widgetHtmlSingle)
   );
   check(
     "header title is still the lone scope's own label, plainly rendered",
@@ -401,7 +436,7 @@ try {
   const plainWidgetHtml = await plainWidgetPage.text();
   check("200", plainWidgetPage.status === 200, `status=${plainWidgetPage.status}`);
   check("shows the facility name in the page header", plainWidgetHtml.includes(pool.name));
-  check("no schedule dropdown (this config has no scopes)", !hasScopeDropdown(plainWidgetHtml));
+  check("no schedule switcher (this config has no scopes)", !hasScopeSwitcher(plainWidgetHtml));
   check("the colored header's title is the plain, generic 'Schedule'", rendersAsText(plainWidgetHtml, "Schedule"));
   check(
     "no scope-filter labels leak in from the org-wide config",

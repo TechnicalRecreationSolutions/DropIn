@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { DEFAULT_ENABLED_FILTERS, SESSION_FILTER_KEYS } from "@/lib/schedule/sessionFilters";
 import type { Database } from "@/types/database.types";
 
 const DEFAULT_CONFIG = {
@@ -16,12 +17,18 @@ const DEFAULT_CONFIG = {
   program_ids: null as string[] | null,
   custom_title: null as string | null,
   allowed_templates: ["grid", "list", "map"] as ("grid" | "list" | "map" | "floorplan" | "board")[],
+  enabled_filters: [...DEFAULT_ENABLED_FILTERS],
 };
 
 const UpdateConfigSchema = z.object({
   facilityId: z.string().uuid().nullish(),
   departmentId: z.string().uuid().nullish(),
   allowedTemplates: z.array(z.enum(["grid", "list", "map", "floorplan", "board"])).min(1).optional(),
+  // Unlike allowedTemplates, an empty array is meaningful here: it's "no
+  // filter bar at all", which is a legitimate choice. Unknown keys are
+  // rejected rather than dropped — a typo'd filter that silently renders
+  // nothing is exactly the kind of thing nobody notices for a month.
+  enabledFilters: z.array(z.enum(SESSION_FILTER_KEYS)).optional(),
   primaryColor: z.string().min(1).optional(),
   secondaryColor: z.string().min(1).optional(),
   customTitle: z.string().nullable().optional(),
@@ -90,7 +97,7 @@ export async function GET(request: Request) {
  *
  * Saves the authenticated org's widget appearance settings for a given
  * facility+department scope (both optional — omitted saves the org-wide
- * default config). Scoped to allowed_templates/primary_color/
+ * default config). Scoped to allowed_templates/enabled_filters/primary_color/
  * secondary_color/custom_title for now — font_family, show_cost,
  * show_location, show_age_group, time_range_start, time_range_end, and
  * program_ids remain unwired. org_id is always derived server-side, never
@@ -118,7 +125,7 @@ export async function PATCH(request: Request) {
   const parsed = UpdateConfigSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { facilityId, departmentId, allowedTemplates, primaryColor, secondaryColor, customTitle, scopes } = parsed.data;
+  const { facilityId, departmentId, allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, scopes } = parsed.data;
 
   // Verify facility/department belong to the caller's own org before scoping a config to them.
   if (facilityId) {
@@ -216,6 +223,7 @@ export async function PATCH(request: Request) {
   if (primaryColor !== undefined) fields.primary_color = primaryColor;
   if (secondaryColor !== undefined) fields.secondary_color = secondaryColor;
   if (customTitle !== undefined) fields.custom_title = customTitle;
+  if (enabledFilters !== undefined) fields.enabled_filters = enabledFilters;
 
   const { data, error } = await supabase
     .from("widget_configs")

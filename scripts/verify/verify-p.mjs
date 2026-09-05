@@ -22,12 +22,18 @@
  *   - The default scope's sessions are on screen and the other scope's are
  *     not. Both directions, because "the right sessions are showing" is only
  *     meaningful alongside "the wrong ones are not".
- *   - Opening the dropdown lists both published scopes and never the one
- *     whose facility is unpublished.
+ *   - The switcher offers both published scopes and never the one whose
+ *     facility is unpublished, and names the building behind the active one.
  *   - Picking the second scope swaps the rendered sessions, *and* issues a
  *     fresh `/api/sessions/expand` carrying that scope's schedule group id.
  *     The network assertion is what separates "the query re-ran" from "the
- *     title changed".
+ *     label changed".
+ *
+ * The switcher was a Radix Select at every size when this was written, which
+ * is why the header talks about portals; at three scopes it is now a pill row
+ * (`ScheduleScopeSwitcher` swaps to a Select at five or more), so the options
+ * are in the DOM without a click. The reason a browser is still required is
+ * unchanged: only a real click proves the *data* follows the selection.
  *   - Switching back restores the first scope's sessions, so the switch is a
  *     filter and not a one-way latch.
  *
@@ -328,33 +334,44 @@ try {
     );
 
     // ---------------------------------------------------------------
-    console.log("\n3. Opening the dropdown — the part a fetch() cannot see");
+    console.log("\n3. The switcher itself, in a real browser");
     // ---------------------------------------------------------------
-    const trigger = page.getByRole("combobox").first();
-    check("the header bar renders a dropdown trigger", await trigger.isVisible());
-    check("…showing the active scope's own label", (await trigger.textContent())?.includes(gymLabel) ?? false, await trigger.textContent());
+    // Three scopes render as a pill row (five or more falls back to a Select);
+    // either shape is wrapped in this labelled group.
+    const switcher = page.getByRole("group", { name: "Choose a schedule" });
+    check("the header bar renders a schedule switcher", await switcher.isVisible());
 
-    await trigger.click();
-    const options = page.getByRole("option");
-    await options.first().waitFor({ state: "visible", timeout: 10000 });
-    const optionLabels = await options.allTextContents();
-
-    check("both published scopes are offered", optionLabels.some((t) => t.includes(gymLabel)) && optionLabels.some((t) => t.includes(poolLabel)), JSON.stringify(optionLabels));
+    const gymPill = switcher.getByRole("button", { name: gymLabel });
+    const poolPill = switcher.getByRole("button", { name: poolLabel });
+    check(
+      "the active scope's pill is the pressed one",
+      (await gymPill.getAttribute("aria-pressed")) === "true",
+      await gymPill.getAttribute("aria-pressed")
+    );
+    check("both published scopes are offered without opening anything", await poolPill.isVisible());
     check(
       "the scope on an unpublished facility is not offered",
-      !optionLabels.some((t) => t.includes(draftLabel)),
-      JSON.stringify(optionLabels)
+      (await switcher.getByRole("button", { name: draftLabel }).count()) === 0
+    );
+    check(
+      "the switcher names the building behind the active scope, not just its label",
+      ((await switcher.textContent()) ?? "").includes(gym.facility.name),
+      await switcher.textContent()
     );
 
     // ---------------------------------------------------------------
     console.log("\n4. Picking the second scope actually re-scopes the data");
     // ---------------------------------------------------------------
     expandRequests.length = 0;
-    await page.getByRole("option", { name: poolLabel }).click();
+    await poolPill.click();
 
     await poolSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
 
-    check("the header title follows the selection", (await trigger.textContent())?.includes(poolLabel) ?? false, await trigger.textContent());
+    check("the selection follows the click", (await poolPill.getAttribute("aria-pressed")) === "true");
+    check(
+      "…and the previously active pill is released",
+      (await gymPill.getAttribute("aria-pressed")) === "false"
+    );
     check("the second scope's sessions are now on screen", await poolSession.isVisible());
     check(
       "…and the first scope's sessions are gone — the data changed, not just the label",
@@ -369,8 +386,7 @@ try {
     // ---------------------------------------------------------------
     console.log("\n5. Switching back — a filter, not a one-way latch");
     // ---------------------------------------------------------------
-    await trigger.click();
-    await page.getByRole("option", { name: gymLabel }).click();
+    await gymPill.click();
     await gymSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
 
     check("the first scope's sessions come back", await gymSession.isVisible());

@@ -1,12 +1,19 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useTemplateSchedule } from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import { useScheduleAnalytics } from "@/hooks/useScheduleAnalytics";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
+import ScheduleFilterBar from "@/components/schedule/ScheduleFilterBar";
+import {
+  EMPTY_FILTER_STATE,
+  filterSessions,
+  type SessionFilterKey,
+  type SessionFilterState,
+} from "@/lib/schedule/sessionFilters";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
 const queryClient = new QueryClient();
@@ -18,6 +25,8 @@ export interface WidgetScope {
   facilityId: string;
   departmentId: string | null;
   scheduleGroupId: string | null;
+  /** "Aquatic Centre › Aquatics › Lane Swim" — what the label alone can't say. */
+  context?: string | null;
 }
 
 interface WidgetScheduleClientProps {
@@ -29,9 +38,22 @@ interface WidgetScheduleClientProps {
   /** When 2+ entries, the widget shows a facility/department/schedule filter and this list
    *  drives the data scope instead of the fixed facilityId/departmentId props above. */
   scopes?: WidgetScope[];
+  /** Heading in the coloured bar — the org's widget_configs.custom_title, or "Schedule". */
+  title?: string;
+  /** Which general filters the org offers visitors (widget_configs.enabled_filters). */
+  enabledFilters?: SessionFilterKey[];
 }
 
-function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplates, scopes = [] }: WidgetScheduleClientProps) {
+function ScheduleInner({
+  orgId,
+  facilityId,
+  departmentId,
+  theme,
+  allowedTemplates,
+  scopes = [],
+  title = "Schedule",
+  enabledFilters = [],
+}: WidgetScheduleClientProps) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
   // A lone configured scope still has to drive the data — it's only the
@@ -56,6 +78,16 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
     weekStart,
     month,
   });
+
+  // The general filters (activity/day/time/…) narrow the week that's already
+  // loaded, rather than re-querying: `sessions` is one week of expanded
+  // occurrences, and the filter bar's own options are derived from it.
+  const [filters, setFilters] = useState<SessionFilterState>(EMPTY_FILTER_STATE);
+  const allSessions = useMemo(() => sessions ?? [], [sessions]);
+  const visibleSessions = useMemo(
+    () => filterSessions(allSessions, filters),
+    [allSessions, filters]
+  );
 
   // viewEvent is null here — widget.js already fires widget_view once per
   // embed load from the parent page; this hook only needs to report
@@ -83,14 +115,31 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
   return (
     <div className="rounded-xl overflow-hidden border border-gray-200">
       <ScheduleHeaderBar
-        title={activeScope?.label ?? "Schedule"}
+        title={title}
         view={view}
         onChange={setView}
         allowedViews={allowedTemplates}
-        scopeOptions={filterable ? scopes.map((s) => ({ id: s.id, label: s.label })) : undefined}
+        scopeOptions={
+          filterable
+            ? scopes.map((s) => ({ id: s.id, label: s.label, context: s.context ?? undefined }))
+            : undefined
+        }
         activeScopeId={activeScope?.id}
         onScopeChange={setSelectedScopeId}
       />
+
+      {!isLoading && !isError && allSessions.length > 0 && enabledFilters.length > 0 && (
+        <ScheduleFilterBar
+          sessions={allSessions}
+          matchCount={visibleSessions.length}
+          enabled={enabledFilters}
+          state={filters}
+          onChange={setFilters}
+          weekStart={weekStart}
+          onWeekChange={setWeekStart}
+          dark={isDark}
+        />
+      )}
 
       {isLoading ? (
         <div className={`flex items-center justify-center py-12 text-sm ${mutedClass}`}>
@@ -100,15 +149,32 @@ function ScheduleInner({ orgId, facilityId, departmentId, theme, allowedTemplate
         <div className="flex items-center justify-center py-12 text-sm text-red-400">
           Could not load schedule. Please try again.
         </div>
-      ) : !sessions || sessions.length === 0 ? (
+      ) : allSessions.length === 0 ? (
         <div className={`text-center py-12 text-sm ${mutedClass}`}>
           No drop-in sessions scheduled this week.
         </div>
+      ) : visibleSessions.length === 0 ? (
+        // Distinct from the empty week above: the week has sessions, the
+        // filters just hid all of them, and saying so is the difference
+        // between "nothing here" and "you filtered it out".
+        <div className={`text-center py-12 text-sm ${mutedClass}`}>
+          <p>No sessions match your filters this week.</p>
+          <button
+            type="button"
+            onClick={() => setFilters(EMPTY_FILTER_STATE)}
+            className="mt-2 text-xs font-medium underline underline-offset-2"
+            style={{ color: "var(--org-primary, #0066CC)" }}
+          >
+            Clear filters
+          </button>
+        </div>
       ) : (
-        <div className="p-3 sm:p-4">
+        // A landmark around the schedule itself, so a screen reader can jump
+        // past the header and filters to the sessions.
+        <div className="p-3 sm:p-4" role="region" aria-label="Schedule">
           <ScheduleView
             template={view}
-            sessions={sessions ?? []}
+            sessions={visibleSessions}
             weekStart={weekStart}
             onWeekChange={setWeekStart}
             month={month}
