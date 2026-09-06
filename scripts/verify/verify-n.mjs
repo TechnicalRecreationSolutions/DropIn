@@ -29,7 +29,7 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js";
 
-const APP = "http://localhost:3000";
+const APP = process.argv.find((a) => a.startsWith("--app="))?.slice(6) ?? "http://localhost:3000";
 
 const env = Object.fromEntries(
   fs
