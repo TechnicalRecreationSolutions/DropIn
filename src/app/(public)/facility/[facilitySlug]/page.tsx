@@ -50,17 +50,19 @@ async function getFacilityPageData(facilitySlug: string) {
       .eq("facility_id", facility.id)
       .eq("status", "published")
       .order("name"),
-    // Same allowed layouts/colors as the org's embeddable widget, for a
-    // consistent look. Scoped to this facility's config row (falling back to
-    // the org-wide default when a facility-specific row doesn't exist),
-    // matching the scoping already applied in widget/[orgId]/page.tsx.
+    // Same allowed layouts/colours as the org's embeddable widget, so the two
+    // public surfaces look like one product. The org's single config row
+    // (migration 045): this used to ask for *this facility's* row and, despite
+    // the comment that used to sit here, fell back to nothing when there wasn't
+    // one — so an org whose only row was scoped to one facility got its real
+    // colour on that facility's page and stock blue on all the others.
     supabase
       .from("widget_configs")
       // `*` for the same reason as widget/[orgId]/page.tsx: a hand-applied
       // migration that hasn't landed yet must not take the public page down.
       .select("*")
       .eq("org_id", facility.org_id)
-      .eq("facility_id", facility.id)
+      .is("facility_id", null)
       .is("department_id", null)
       .maybeSingle(),
     // The owning org, so the breadcrumb can name it — there is no org-level

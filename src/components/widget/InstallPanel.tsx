@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Code2, Copy, ExternalLink, Frame, Link2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { EmbedMethod } from "./types";
+import type { EmbedMethod, WidgetFacility } from "./types";
 
 interface InstallPanelProps {
   /** The snippet for the current method — HTML for script/iframe, the URL itself for link. */
@@ -12,6 +12,12 @@ interface InstallPanelProps {
   onMethodChange: (value: EmbedMethod) => void;
   height: string;
   onHeightChange: (value: string) => void;
+  facilities: WidgetFacility[];
+  /** Snippet-only: narrows this copy of the embed to one facility. "" = everything. */
+  scopeFacilityId: string;
+  onScopeFacilityChange: (value: string) => void;
+  /** How many switcher entries the org has, for wording the scope control's hint. */
+  switcherCount: number;
   /** Direct URL to the widget page — the fallback for sites that can't run scripts. */
   shareUrl: string;
   /** True once a snippet option changed after the code was last copied. */
@@ -142,6 +148,10 @@ export default function InstallPanel({
   onMethodChange,
   height,
   onHeightChange,
+  facilities,
+  scopeFacilityId,
+  onScopeFacilityChange,
+  switcherCount,
   shareUrl,
   snippetStale,
   onCopyCode,
@@ -250,6 +260,40 @@ export default function InstallPanel({
       </div>
 
       <p className="text-xs text-muted-foreground -mt-2">{activeMethod.note}</p>
+
+      {/* Per-page scoping — a property of *this copy of the code*, not of the
+          saved settings. One organisation's look and one schedule list, but the
+          arena's page can still carry an arena-only embed: the facility rides
+          in the snippet (data-facility-id / the URL), and the widget narrows
+          its switcher to that facility's entries. Deliberately here and not in
+          step 1: it changes nothing until the code is copied and pasted. */}
+      {facilities.length > 1 && (
+        <label className="block">
+          <span className="block text-sm font-medium text-foreground mb-1">
+            Show only one facility on this page?
+          </span>
+          <select
+            value={scopeFacilityId}
+            onChange={(e) => onScopeFacilityChange(e.target.value)}
+            className="w-full sm:max-w-sm px-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-blue-500"
+          >
+            <option value="">Everything above — the full schedule</option>
+            {facilities.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name} only
+                {f.isPublished ? "" : " — draft"}
+              </option>
+            ))}
+          </select>
+          <span className="block text-xs text-muted-foreground mt-1">
+            {scopeFacilityId
+              ? switcherCount > 1
+                ? "This copy of the code shows only that facility, and its switcher narrows to that facility's schedules."
+                : "This copy of the code shows only that facility."
+              : "Paste a different copy on each page if you want each one narrowed. Travels in the code — re-copy it after changing."}
+          </span>
+        </label>
+      )}
 
       {!isLink && (
         <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-3 sm:items-start">

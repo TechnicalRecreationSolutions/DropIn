@@ -21,8 +21,6 @@ const DEFAULT_CONFIG = {
 };
 
 const UpdateConfigSchema = z.object({
-  facilityId: z.string().uuid().nullish(),
-  departmentId: z.string().uuid().nullish(),
   allowedTemplates: z.array(z.enum(["grid", "list", "map", "floorplan", "board"])).min(1).optional(),
   // Unlike allowedTemplates, an empty array is meaningful here: it's "no
   // filter bar at all", which is a legitimate choice. Unknown keys are
@@ -48,26 +46,30 @@ const UpdateConfigSchema = z.object({
 });
 
 /**
- * GET /api/widget-config?orgId=...&facilityId=...&departmentId=...
+ * GET /api/widget-config?orgId=...
  *
  * Public — no auth required, mirrors the widget_configs_public_read RLS
- * policy. Returns the config scoped to the given facility+department
- * combination (both optional; omitted = org-wide default row), or defaults
- * if that specific scope hasn't been customized yet.
+ * policy. Returns the org's one configuration row, or defaults if it has
+ * never been customised.
+ *
+ * It used to take facilityId/departmentId and address a different saved row
+ * per combination. Migration 045 collapsed those to one row per org: which
+ * sessions an embed shows is a property of the embed (its switcher entries and
+ * its own data-facility-id), not a reason to keep a second set of colours.
  */
 export async function GET(request: Request) {
   const url = new URL(request.url);
   const orgId = url.searchParams.get("orgId");
-  const facilityId = url.searchParams.get("facilityId");
-  const departmentId = url.searchParams.get("departmentId");
   if (!orgId) return NextResponse.json({ error: "Missing orgId" }, { status: 400 });
 
   const supabase = await createClient();
-  let query = supabase.from("widget_configs").select("*").eq("org_id", orgId);
-  query = facilityId ? query.eq("facility_id", facilityId) : query.is("facility_id", null);
-  query = departmentId ? query.eq("department_id", departmentId) : query.is("department_id", null);
-
-  const { data } = await query.maybeSingle();
+  const { data } = await supabase
+    .from("widget_configs")
+    .select("*")
+    .eq("org_id", orgId)
+    .is("facility_id", null)
+    .is("department_id", null)
+    .maybeSingle();
 
   // Scopes live on the widget_configs row's own id, not its (org, facility,
   // department) key — no saved row yet means no filter list to load either.
@@ -84,8 +86,8 @@ export async function GET(request: Request) {
   return NextResponse.json({
     config: data ?? {
       org_id: orgId,
-      facility_id: facilityId ?? null,
-      department_id: departmentId ?? null,
+      facility_id: null,
+      department_id: null,
       ...DEFAULT_CONFIG,
     },
     scopes,
@@ -95,9 +97,9 @@ export async function GET(request: Request) {
 /**
  * PATCH /api/widget-config
  *
- * Saves the authenticated org's widget appearance settings for a given
- * facility+department scope (both optional — omitted saves the org-wide
- * default config). Scoped to allowed_templates/enabled_filters/primary_color/
+ * Saves the authenticated org's one set of widget settings (migration 045 —
+ * there is no longer a row per facility+department to address).
+ * Scoped to allowed_templates/enabled_filters/primary_color/
  * secondary_color/custom_title for now — font_family, show_cost,
  * show_location, show_age_group, time_range_start, time_range_end, and
  * program_ids remain unwired. org_id is always derived server-side, never
@@ -125,27 +127,7 @@ export async function PATCH(request: Request) {
   const parsed = UpdateConfigSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { facilityId, departmentId, allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, scopes } = parsed.data;
-
-  // Verify facility/department belong to the caller's own org before scoping a config to them.
-  if (facilityId) {
-    const { data: facility } = await supabase
-      .from("facilities")
-      .select("id")
-      .eq("id", facilityId)
-      .eq("org_id", membership.org_id)
-      .maybeSingle();
-    if (!facility) return NextResponse.json({ error: "Facility not found" }, { status: 404 });
-  }
-  if (departmentId) {
-    const { data: department } = await supabase
-      .from("departments")
-      .select("id")
-      .eq("id", departmentId)
-      .eq("org_id", membership.org_id)
-      .maybeSingle();
-    if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
-  }
+  const { allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, scopes } = parsed.data;
 
   // Verify every scope entry's facility/department/schedule actually belongs
   // to the caller's org and that department/schedule sit under the facility
@@ -230,8 +212,10 @@ export async function PATCH(request: Request) {
     .upsert(
       {
         org_id: membership.org_id,
-        facility_id: facilityId ?? null,
-        department_id: departmentId ?? null,
+        // One row per org (migration 045) — always the org-wide one, so a
+        // stale client can't recreate the per-facility split this collapsed.
+        facility_id: null,
+        department_id: null,
         ...fields,
       },
       { onConflict: "org_id,facility_id,department_id" }

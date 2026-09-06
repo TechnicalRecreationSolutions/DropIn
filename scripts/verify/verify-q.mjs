@@ -26,14 +26,24 @@
  *     array *and* which view toggle the real embed comes up pressed on.
  *
  * Plus the studio's own safety net: one publish action whose dirty bar appears
- * and clears, and the scope switch that must stop rather than discard unsaved
- * edits (each facility/department is a different `widget_configs` row).
+ * and clears, and per-page narrowing that stays in the snippet — a facility
+ * chosen in step 4 rides in data-facility-id and narrows the switcher, without
+ * creating the second saved row that 045 just removed.
  *
- * And the filter (step 3), which has three failure modes of its own:
+ * And step 1 — which is now *only* the schedule list (migration 045), with
+ * four failure modes of its own:
  *
- *   - **The editor must render the real switcher.** It used to draw pills while
- *     the widget rendered a dropdown, so the admin designed against a UI that
- *     did not exist. Asserted by finding the actual component in the editor.
+ *   - **One configuration per org.** Settings used to be keyed by
+ *     facility+department, and the studio pre-selected the sidebar's facility,
+ *     so an org ended up with its colour saved under one facility — rendered on
+ *     that facility's public page and nowhere else, because /facility/[slug]
+ *     looked up its own facility's row with no fallback. Asserted from the
+ *     computed background of *both* facilities' public pages.
+ *   - **The editor draws no widget of its own.** It used to open with a
+ *     rendered `ScheduleScopeSwitcher` in the brand colour — a second, always
+ *     partial preview a click away from the real one. The rows are now a
+ *     collapsible list instead; asserted by the absence of that component from
+ *     the editor and the presence of one line per row.
  *   - **A department-level scope must apply the department.** The fixture puts
  *     two departments in one building precisely so this can fail: with one
  *     department per building, dropping the department id entirely still shows
@@ -168,7 +178,9 @@ try {
         postal_code: "V0V 0V0",
         is_published: true,
       })
-      .select("id, name")
+      // slug too: section 10 visits each facility's own public page, which is
+      // the surface the per-facility config split used to leave un-branded.
+      .select("id, name, slug")
       .single();
     return facility;
   }
@@ -305,13 +317,18 @@ try {
     }
 
     const previewFrame = page.locator('iframe[title="Widget preview"]');
+    /** Dismiss the preview window and wait for its iframe to go away. */
+    const closePreview = async () => {
+      await page.getByRole("button", { name: "Close" }).click();
+      await previewFrame.waitFor({ state: "detached", timeout: 10000 });
+    };
     check(
       "no preview iframe is mounted until it is asked for (the page doesn't render a widget nobody is looking at)",
       (await previewFrame.count()) === 0
     );
     check(
-      "the filters step opens on its empty-state pitch rather than a blank row",
-      await page.getByRole("heading", { name: "One embed, every schedule" }).isVisible()
+      "step 1 opens on the empty list, which states the default rather than showing a blank row",
+      await page.getByRole("heading", { name: "Showing everything you run" }).isVisible()
     );
 
     // ---------------------------------------------------------------
@@ -329,6 +346,10 @@ try {
     // The window's own quick-tweak strip writes to the same state the steps do,
     // so a colour picked here is the colour the publish bar will publish.
     await page.getByRole("group", { name: "Brand colour" }).getByRole("button", { name: "Teal" }).click();
+    // Escape only reaches the dialog while focus is in *this* document, which
+    // the swatch click just guaranteed. Once the preview iframe reloads it
+    // takes focus and the keystroke goes to the embedded page instead, so
+    // every later close in this file goes through the Close button.
     await page.keyboard.press("Escape");
     await previewFrame.waitFor({ state: "detached", timeout: 10000 });
     check("closing the window unmounts the iframe", (await previewFrame.count()) === 0);
@@ -350,8 +371,7 @@ try {
       decodedSrc.includes("#0F766E"),
       srcAfter ?? "no src"
     );
-    await page.keyboard.press("Escape");
-    await previewFrame.waitFor({ state: "detached", timeout: 10000 });
+    await closePreview();
 
     // ---------------------------------------------------------------
     console.log("\n3. One publish action, with a dirty state that appears and clears");
@@ -433,21 +453,30 @@ try {
     await visitor.close();
 
     // ---------------------------------------------------------------
-    console.log("\n7. Filters: the editor previews the real switcher, and one click seeds a row per building");
+    console.log("\n7. Step 1 is one list: empty means everything, and one click fills it per facility");
     // ---------------------------------------------------------------
-    const filtersSection = page.locator("section").filter({ hasText: "Let visitors find their session" });
+    const filtersSection = page.locator("section").filter({ hasText: "What should it show?" });
     check(
-      "the empty state renders the actual switcher component, not a drawing of one",
-      await filtersSection.getByRole("group", { name: "Choose a schedule" }).isVisible()
+      "the empty list says what the embed does rather than drawing a widget inside the editor",
+      (await filtersSection.getByRole("group", { name: "Choose a schedule" }).count()) === 0 &&
+        (await filtersSection.getByRole("heading", { name: "Showing everything you run" }).isVisible())
+    );
+    check(
+      "…and step 1 carries no second facility control beside it",
+      (await filtersSection.getByRole("group", { name: "Which schedule this embed shows" }).count()) === 0
     );
 
-    await page.getByRole("button", { name: /One per building/ }).click();
-    check("…and seeds one row per building", (await page.getByLabel(/^Filter \d+ label$/).count()) === 2);
+    await page.getByRole("button", { name: /One per facility/ }).click();
+    check("…and one click seeds a row per facility", (await page.getByLabel(/^Label for schedule \d+$/).count()) === 2);
     check(
-      "the preview switcher now carries the org's own buildings",
-      ((await filtersSection.getByRole("group", { name: "Choose a schedule" }).textContent()) ?? "")
-        .includes(poolBuilding.name),
-      await filtersSection.getByRole("group", { name: "Choose a schedule" }).textContent()
+      "each row is one line naming where it points",
+      (await filtersSection.getByRole("listitem").count()) === 2 &&
+        ((await filtersSection.textContent()) ?? "").includes(poolBuilding.name),
+      await filtersSection.textContent()
+    );
+    check(
+      "…and still no mock switcher once there are rows to draw one from",
+      (await filtersSection.getByRole("group", { name: "Choose a schedule" }).count()) === 0
     );
 
     await page.getByRole("button", { name: "Publish changes" }).click();
@@ -464,10 +493,26 @@ try {
     const laneLabel = `ZZ Lane Filter ${stamp}`;
     const deepLabel = `ZZ Deep Filter ${stamp}`;
     const rowSelects = filtersSection.locator("select");
-    await page.getByLabel("Filter 1 label").fill(laneLabel);
+
+    // Publishing collapses the rows back to lines, which is the point of the
+    // list — so the pickers have to be asked for before they can be driven.
+    check(
+      "a published row keeps its pickers put away",
+      (await rowSelects.count()) === 0,
+      `${await rowSelects.count()} selects still on screen`
+    );
+    await page.getByRole("button", { name: `Edit ${poolBuilding.name}` }).click();
+    await page.getByRole("button", { name: `Edit ${arenaBuilding.name}` }).click();
+    check(
+      "opening both rows brings back exactly their three pickers each",
+      (await rowSelects.count()) === 6,
+      `${await rowSelects.count()} selects`
+    );
+
+    await page.getByLabel("Label for schedule 1").fill(laneLabel);
     await rowSelects.nth(0).selectOption(poolBuilding.id);
     await rowSelects.nth(1).selectOption(pool.department.id);
-    await page.getByLabel("Filter 2 label").fill(deepLabel);
+    await page.getByLabel("Label for schedule 2").fill(deepLabel);
     await rowSelects.nth(3).selectOption(poolBuilding.id);
     await rowSelects.nth(4).selectOption(poolDeep.department.id);
 
@@ -512,11 +557,19 @@ try {
     // ---------------------------------------------------------------
     console.log("\n9. The publish trap: a filter on a draft schedule is called out, and never reaches anyone");
     // ---------------------------------------------------------------
-    await page.getByRole("button", { name: "Add another filter" }).click();
+    await filtersSection.getByRole("button", { name: "Add a schedule" }).click();
     const draftLabel = `ZZ Draft Filter ${stamp}`;
-    await page.getByLabel("Filter 3 label").fill(draftLabel);
-    await rowSelects.nth(6).selectOption(arenaBuilding.id);
-    await rowSelects.nth(8).selectOption(arenaDraft.scheduleGroup.id);
+    await page.getByLabel("Label for schedule 3").fill(draftLabel);
+    // The two published rows collapsed on save (the widget_config_scopes rows
+    // are re-inserted, so they come back as fresh, closed lines), leaving the
+    // new row's three pickers as the only ones mounted.
+    check(
+      "the just-added row is the only one open",
+      (await rowSelects.count()) === 3,
+      `${await rowSelects.count()} selects`
+    );
+    await rowSelects.nth(0).selectOption(arenaBuilding.id);
+    await rowSelects.nth(2).selectOption(arenaDraft.scheduleGroup.id);
 
     check(
       "the editor warns that visitors won't see it, naming the level to publish",
@@ -544,42 +597,92 @@ try {
     await page.getByRole("button", { name: "Preview" }).first().click();
     await previewFrame.waitFor({ state: "attached", timeout: 20000 });
     const previewBody = page.frameLocator('iframe[title="Widget preview"]').locator("body");
-    await previewBody.getByRole("group", { name: "Choose a schedule" }).waitFor({ timeout: 20000 });
-    const previewSwitcherText = (await previewBody.getByRole("group", { name: "Choose a schedule" }).textContent()) ?? "";
-    check(
-      "the signed-in preview hides it too — the preview shows the visitor's filter list",
-      !previewSwitcherText.includes(draftLabel),
-      previewSwitcherText
-    );
-    check(
-      "…and still shows the published ones (so this isn't an empty-switcher false pass)",
-      previewSwitcherText.includes(laneLabel),
-      previewSwitcherText
-    );
-    await page.keyboard.press("Escape");
-    await previewFrame.waitFor({ state: "detached", timeout: 10000 });
+    // The studio builds the preview src from NEXT_PUBLIC_APP_URL, not from the
+    // origin it is being served on, so under `--app=<another port>` this iframe
+    // points at whatever is (or isn't) running on the configured one. Say so
+    // rather than spending 20s timing out on an empty document.
+    const previewOrigin = new URL((await previewFrame.getAttribute("src")) ?? APP).origin;
+    if (previewOrigin !== new URL(APP).origin) {
+      console.log(
+        `  SKIP  signed-in preview checks — its iframe points at ${previewOrigin} (NEXT_PUBLIC_APP_URL), not ${APP}`
+      );
+    } else {
+      await previewBody.getByRole("group", { name: "Choose a schedule" }).waitFor({ timeout: 20000 });
+      const previewSwitcherText =
+        (await previewBody.getByRole("group", { name: "Choose a schedule" }).textContent()) ?? "";
+      check(
+        "the signed-in preview hides it too — the preview shows the visitor's filter list",
+        !previewSwitcherText.includes(draftLabel),
+        previewSwitcherText
+      );
+      check(
+        "…and still shows the published ones (so this isn't an empty-switcher false pass)",
+        previewSwitcherText.includes(laneLabel),
+        previewSwitcherText
+      );
+    }
+    await closePreview();
 
     // ---------------------------------------------------------------
-    console.log("\n10. Switching scope with unsaved edits stops instead of discarding them");
+    console.log("\n10. One configuration per org — every public surface inherits it");
     // ---------------------------------------------------------------
-    const edited = `ZZ Edited Heading ${stamp}`;
-    await page.getByLabel("Widget heading").fill(edited);
-    await page.getByRole("button", { name: new RegExp(`ZZ Arena Building ${stamp}`) }).first().click();
+    // Migration 045. Settings used to be keyed by facility+department, and
+    // /facility/[slug] asked for *its own* facility's row with no fallback, so
+    // an org whose only row was scoped to one facility got its real colour on
+    // that page and the stock blue everywhere else. The colour published back
+    // in section 3 was saved with no facility in play at all.
+    const savedColorRgb = "rgb(15, 118, 110)"; // #0F766E
+    for (const building of [poolBuilding, arenaBuilding]) {
+      const publicPage = await context.newPage();
+      await publicPage.goto(`${APP}/facility/${building.slug}`, { waitUntil: "domcontentloaded" });
+      // The page's own coloured bar, by its fixed heading — not `h2` by
+      // position, which would also match the "Information" panel below it.
+      const bar = publicPage.getByRole("heading", { name: "Weekly Schedule" });
+      await bar.waitFor({ timeout: 20000 });
+      const barColor = await bar.evaluate((el) => getComputedStyle(el.parentElement).backgroundColor);
+      check(
+        `${building.name.replace(` ${stamp}`, "")}'s public page renders the org's own colour`,
+        barColor === savedColorRgb,
+        barColor
+      );
+      await publicPage.close();
+    }
 
-    const guard = page.getByRole("heading", { name: "Publish before switching?" });
-    check("a guard appears instead of a silent swap", await guard.isVisible());
+    // ---------------------------------------------------------------
+    console.log("\n11. Per-page narrowing is a property of the snippet, not a second saved config");
+    // ---------------------------------------------------------------
+    await page.getByLabel("Show only one facility on this page?").selectOption(poolBuilding.id);
+    const snippet = (await page.locator("pre").first().textContent()) ?? "";
+    check(
+      "choosing a facility puts it in the code rather than changing what is saved",
+      snippet.includes(`data-facility-id="${poolBuilding.id}"`),
+      snippet
+    );
+    const stillClean = await apiJson(`${APP}/api/widget-config?orgId=${org.id}`, cookieHeader);
+    check(
+      "…and the saved row stays the org's one row",
+      stillClean.body?.config?.facility_id === null && stillClean.body?.config?.department_id === null,
+      JSON.stringify({ f: stillClean.body?.config?.facility_id, d: stillClean.body?.config?.department_id })
+    );
 
-    await page.getByRole("button", { name: "Cancel" }).click();
+    // What that snippet actually serves: the switcher narrows to the entries
+    // belonging to that facility instead of ignoring the scope it was given.
+    const poolScoped = await (await fetch(`${APP}/widget/${org.id}?facilityId=${poolBuilding.id}`)).text();
+    const arenaScoped = await (await fetch(`${APP}/widget/${org.id}?facilityId=${arenaBuilding.id}`)).text();
     check(
-      "cancelling keeps the edit on screen",
-      (await page.getByLabel("Widget heading").inputValue()) === edited
+      "a facility-scoped embed keeps that facility's entries",
+      poolScoped.includes(laneLabel) && poolScoped.includes(deepLabel)
     );
-    const arenaTile = page.getByRole("button", { name: new RegExp(`ZZ Arena Building ${stamp}`) });
     check(
-      "…and does not switch to the building that was clicked",
-      (await arenaTile.getAttribute("aria-pressed")) === "false",
-      await arenaTile.getAttribute("aria-pressed")
+      "…and drops the others entirely",
+      !arenaScoped.includes(laneLabel) && !arenaScoped.includes(deepLabel)
     );
+    check(
+      "control: the unscoped embed still carries them",
+      (await (await fetch(`${APP}/widget/${org.id}`)).text()).includes(laneLabel)
+    );
+    // Leave the snippet unscoped again so the screenshots below are the default.
+    await page.getByLabel("Show only one facility on this page?").selectOption("");
 
     if (SHOTS) {
       fs.mkdirSync(SHOTS, { recursive: true });
@@ -588,11 +691,19 @@ try {
       await page.waitForTimeout(2500);
       await page.screenshot({ path: path.join(SHOTS, "studio-desktop.png"), fullPage: true });
 
+      // Step 1 on its own, list closed and open: the two states it has.
+      await filtersSection.scrollIntoViewIfNeeded();
+      await page.waitForTimeout(400);
+      await filtersSection.screenshot({ path: path.join(SHOTS, "step1-schedules.png") });
+      await filtersSection.getByRole("button", { name: /^Edit / }).first().click();
+      await page.waitForTimeout(400);
+      await filtersSection.screenshot({ path: path.join(SHOTS, "step1-schedules-open.png") });
+
       // The preview at the size it exists to be seen at.
       await page.getByRole("button", { name: "Preview" }).first().click();
       await page.waitForTimeout(3000);
       await page.screenshot({ path: path.join(SHOTS, "preview-window.png") });
-      await page.keyboard.press("Escape");
+      await closePreview();
       await page.waitForTimeout(500);
 
       // The unsaved state, which is a designed state rather than an error one.

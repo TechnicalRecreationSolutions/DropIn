@@ -4,14 +4,6 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { Check, Copy, Eye, Loader2, Moon, Sun, Sparkles } from "lucide-react";
 import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
-import {
   DEFAULT_ENABLED_FILTERS,
   parseEnabledFilters,
   type SessionFilterKey,
@@ -22,7 +14,6 @@ import FilterEditor from "./FilterEditor";
 import InstallPanel from "./InstallPanel";
 import LayoutPicker from "./LayoutPicker";
 import PreviewWindow from "./PreviewWindow";
-import ScopePicker from "./ScopePicker";
 import VisitorFilterToggles from "./VisitorFilterToggles";
 import StepCard from "./StepCard";
 import {
@@ -40,9 +31,6 @@ import {
 interface WidgetStudioProps {
   orgId: string;
   facilities: WidgetFacility[];
-  /** Pre-selects the scope from the sidebar's current facility/department. */
-  initialFacilityId?: string;
-  initialDepartmentId?: string;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
@@ -70,6 +58,15 @@ function newScopeKey() {
  * `PreviewWindow`) from the header, the floating pill, or the publish bar,
  * because at 420px in a side column it was both cramped and expensive.
  *
+ * Step 1 carries *both* facility-shaped controls — the scope tiles and the
+ * visitor-facing switcher list — because they answer the same question and the
+ * list wins: with entries in it, `WidgetScheduleClient` renders the selected
+ * entry's facility and department rather than the config's. Splitting them
+ * (tiles in step 1, list in step 3) hid that override behind a page of
+ * scrolling, so an admin could set the embed to one facility and, without any
+ * warning, publish another. They now sit together, the first entry is seeded
+ * from the tiles, and the tiles say what they still decide.
+ *
  * The one distinction the layout is built to protect: **published settings vs
  * snippet options.** Layouts, colour, title and filters are written to
  * `widget_configs`/`widget_config_scopes` and change the live embed *and* the
@@ -79,16 +76,7 @@ function newScopeKey() {
  * the code panel says so when it happens. Mixing those two sets in one card is
  * what made the old page's "I changed it and nothing happened" reports.
  */
-export default function WidgetStudio({
-  orgId,
-  facilities,
-  initialFacilityId,
-  initialDepartmentId,
-}: WidgetStudioProps) {
-  // Scope — which saved config row is being edited.
-  const [facilityId, setFacilityId] = useState(initialFacilityId ?? "");
-  const [departmentId, setDepartmentId] = useState(initialDepartmentId ?? "");
-
+export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   // Published settings.
   const [allowedTemplates, setAllowedTemplates] = useState<ScheduleTemplate[]>(["grid", "list", "map"]);
   const [primaryColor, setPrimaryColor] = useState("#0066CC");
@@ -102,6 +90,8 @@ export default function WidgetStudio({
   const [theme, setTheme] = useState<WidgetTheme>("light");
   const [height, setHeight] = useState("600");
   const [embedMethod, setEmbedMethod] = useState<EmbedMethod>("script");
+  /** Narrows this copy of the snippet to one facility; "" = the whole schedule. */
+  const [scopeFacilityId, setScopeFacilityId] = useState("");
 
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
@@ -109,43 +99,28 @@ export default function WidgetStudio({
   const [copiedHeader, setCopiedHeader] = useState(false);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
-  const [pendingScope, setPendingScope] = useState<{ facilityId: string; departmentId: string } | null>(null);
   /** The snippet text as it stood the last time it was copied, or null if never. */
   const [lastCopiedCode, setLastCopiedCode] = useState<string | null>(null);
 
-  const { data: departmentsData } = useQuery({
-    queryKey: ["widget-departments", facilityId],
-    queryFn: async () => {
-      const res = await fetch(`/api/departments?facilityId=${facilityId}`);
-      if (!res.ok) throw new Error(`Failed to load departments (${res.status})`);
-      const data = await res.json();
-      return (data.departments ?? []) as { id: string; name: string }[];
-    },
-    enabled: !!facilityId,
-  });
-  const departments = useMemo(() => departmentsData ?? [], [departmentsData]);
-
-  // Floorplan is scoped to exactly one facility, so it can only be enabled once
-  // that facility has a published facility_maps row to show.
+  // Floorplan is drawn per facility, and `/widget/[orgId]` only offers it to a
+  // request that names one — so the toggle follows the snippet's own scope
+  // (step 4), the single place a facility now reaches the embed.
   const { data: facilityMapData } = useQuery({
-    queryKey: ["widget-facility-map", facilityId],
+    queryKey: ["widget-facility-map", scopeFacilityId],
     queryFn: async () => {
-      const res = await fetch(`/api/facility-maps?facilityId=${facilityId}`);
+      const res = await fetch(`/api/facility-maps?facilityId=${scopeFacilityId}`);
       if (!res.ok) throw new Error(`Failed to load facility map (${res.status})`);
       const data = await res.json();
       return data.facilityMap as { is_published: boolean } | null;
     },
-    enabled: !!facilityId,
+    enabled: !!scopeFacilityId,
   });
-  const floorplanAvailable = !!facilityId && !!facilityMapData?.is_published;
+  const floorplanAvailable = !!scopeFacilityId && !!facilityMapData?.is_published;
 
   const { data: widgetConfigData, isLoading: loading } = useQuery({
-    queryKey: ["widget-config", orgId, facilityId, departmentId],
+    queryKey: ["widget-config", orgId],
     queryFn: async () => {
-      const params = new URLSearchParams({ orgId });
-      if (facilityId) params.set("facilityId", facilityId);
-      if (departmentId) params.set("departmentId", departmentId);
-      const res = await fetch(`/api/widget-config?${params.toString()}`);
+      const res = await fetch(`/api/widget-config?orgId=${orgId}`);
       if (!res.ok) throw new Error(`Failed to load widget config (${res.status})`);
       return res.json() as Promise<{
         config: {
@@ -191,18 +166,17 @@ export default function WidgetStudio({
   const currentSignature = publishedSignature({ allowedTemplates, primaryColor, customTitle, enabledFilters, scopes: scopeRows });
   const dirty = savedState !== null && currentSignature !== publishedSignature(savedState);
 
-  const facility = facilities.find((f) => f.id === facilityId);
-  const department = departments.find((d) => d.id === departmentId);
+  const scopeFacility = facilities.find((f) => f.id === scopeFacilityId);
 
   /* ---------------------------------------------------------------- actions */
 
   function addScopeRow() {
     setScopeRows((prev) => [
       ...prev,
-      { key: newScopeKey(), label: "", facilityId: facilityId || "", departmentId: "", scheduleGroupId: "" },
+      { key: newScopeKey(), label: "", facilityId: "", departmentId: "", scheduleGroupId: "" },
     ]);
   }
-  /** Seed the list from the org's own buildings — the common shape of this feature. */
+  /** Seed the list from the org's own facilities — the common shape of this feature. */
   function addRowPerFacility() {
     setScopeRows((prev) => {
       const already = new Set(prev.filter((r) => !r.departmentId && !r.scheduleGroupId).map((r) => r.facilityId));
@@ -255,8 +229,6 @@ export default function WidgetStudio({
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        facilityId: facilityId || null,
-        departmentId: departmentId || null,
         allowedTemplates,
         primaryColor,
         customTitle: customTitle.trim() || null,
@@ -288,27 +260,7 @@ export default function WidgetStudio({
     setJustPublished(true);
     setTimeout(() => setJustPublished(false), 2500);
     return true;
-  }, [facilityId, departmentId, allowedTemplates, primaryColor, customTitle, enabledFilters, scopeRows, facilities, adoptSaved]);
-
-  function requestScope(nextFacilityId: string, nextDepartmentId: string) {
-    if (nextFacilityId === facilityId && nextDepartmentId === departmentId) return;
-    // Each facility/department combination is its own saved config, so
-    // switching swaps everything below — never silently over unsaved edits.
-    if (dirty) {
-      setPendingScope({ facilityId: nextFacilityId, departmentId: nextDepartmentId });
-      return;
-    }
-    applyScope(nextFacilityId, nextDepartmentId);
-  }
-
-  function applyScope(nextFacilityId: string, nextDepartmentId: string) {
-    setFacilityId(nextFacilityId);
-    setDepartmentId(nextDepartmentId);
-    // No baseline until the new scope's config lands, so nothing reads as
-    // unsaved in the gap.
-    setSavedState(null);
-    setPendingScope(null);
-  }
+  }, [allowedTemplates, primaryColor, customTitle, enabledFilters, scopeRows, facilities, adoptSaved]);
 
   /* ------------------------------------------------------------- derivations */
 
@@ -322,16 +274,15 @@ export default function WidgetStudio({
    */
   const widgetUrl = useMemo(() => {
     const url = new URL(`/widget/${orgId}`, BASE_URL);
-    if (facilityId) url.searchParams.set("facilityId", facilityId);
-    if (departmentId) url.searchParams.set("departmentId", departmentId);
+    if (scopeFacilityId) url.searchParams.set("facilityId", scopeFacilityId);
     if (theme !== "light") url.searchParams.set("theme", theme);
     return url.toString();
-  }, [orgId, facilityId, departmentId, theme]);
+  }, [orgId, scopeFacilityId, theme]);
 
   const shareUrl = useMemo(() => {
-    if (facility?.slug && facility.isPublished) return `${BASE_URL}/facility/${facility.slug}`;
+    if (scopeFacility?.slug && scopeFacility.isPublished) return `${BASE_URL}/facility/${scopeFacility.slug}`;
     return widgetUrl;
-  }, [facility, widgetUrl]);
+  }, [scopeFacility, widgetUrl]);
 
   // What the Copy button hands over, for whichever method is selected. The
   // link method's "snippet" is the URL itself — it goes in a menu-item field,
@@ -355,8 +306,7 @@ export default function WidgetStudio({
       `<script`,
       `  src="${BASE_URL}/embed/widget.js"`,
       `  data-org-id="${orgId}"`,
-      facilityId ? `  data-facility-id="${facilityId}"` : null,
-      departmentId ? `  data-department-id="${departmentId}"` : null,
+      scopeFacilityId ? `  data-facility-id="${scopeFacilityId}"` : null,
       theme !== "light" ? `  data-theme="${theme}"` : null,
       heightPx !== "600" ? `  data-height="${heightPx}"` : null,
       `  async`,
@@ -364,14 +314,13 @@ export default function WidgetStudio({
     ]
       .filter(Boolean)
       .join("\n");
-  }, [embedMethod, shareUrl, widgetUrl, orgId, facilityId, departmentId, theme, heightPx]);
+  }, [embedMethod, shareUrl, widgetUrl, orgId, scopeFacilityId, theme, heightPx]);
 
   // Preview reflects *unsaved* choices through the widget route's preview-only
   // params, which a real embed never sends.
   const previewSrc = useMemo(() => {
     const url = new URL(`/widget/${orgId}`, BASE_URL);
-    if (facilityId) url.searchParams.set("facilityId", facilityId);
-    if (departmentId) url.searchParams.set("departmentId", departmentId);
+    if (scopeFacilityId) url.searchParams.set("facilityId", scopeFacilityId);
     if (theme !== "light") url.searchParams.set("theme", theme);
     url.searchParams.set("templates", allowedTemplates.join(","));
     if (/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) url.searchParams.set("primary", primaryColor);
@@ -381,7 +330,7 @@ export default function WidgetStudio({
     url.searchParams.set("filters", enabledFilters.join(","));
     url.searchParams.set("preview", "1");
     return url.toString();
-  }, [orgId, facilityId, departmentId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters]);
+  }, [orgId, scopeFacilityId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters]);
 
   // Typing in the colour or title field would otherwise reload the iframe on
   // every keystroke.
@@ -391,11 +340,22 @@ export default function WidgetStudio({
     return () => clearTimeout(timer);
   }, [previewSrc]);
 
-  const scopeSummary = facility
-    ? `${facility.name}${department ? ` › ${department.name}` : ""}`
-    : "All buildings";
   const viewSummary = allowedTemplates.map((t) => TEMPLATE_NAMES[t]).join(", ");
-  const activeFilterCount = scopeRows.filter((r) => !!r.facilityId).length;
+  /** Entries in the visitor-facing switcher — two or more is what renders one. */
+  const filledRows = scopeRows.filter((r) => !!r.facilityId);
+  const switcherCount = filledRows.length;
+
+  /** What the embed shows, said the way the list says it. */
+  const scopeSummary =
+    switcherCount === 0
+      ? "Everything you run"
+      : switcherCount === 1
+        ? filledRows[0].label.trim() ||
+          facilities.find((f) => f.id === filledRows[0].facilityId)?.name ||
+          "One schedule"
+        : `${switcherCount} schedules, with a switcher`;
+  /** …and, on top of that, what this particular copy of the code narrows to. */
+  const snippetSummary = scopeFacility ? `${scopeFacility.name} only` : null;
   const snippetStale = lastCopiedCode !== null && lastCopiedCode !== embedCode;
 
   function copyFromHeader() {
@@ -426,7 +386,7 @@ export default function WidgetStudio({
             <p className="mt-2 text-lg font-semibold leading-snug">{scopeSummary}</p>
             <p className="text-sm text-blue-100 mt-0.5">
               {viewSummary || "No views selected"}
-              {activeFilterCount > 1 ? ` · ${activeFilterCount} visitor filters` : ""}
+              {snippetSummary ? ` · this code: ${snippetSummary}` : ""}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
@@ -453,15 +413,19 @@ export default function WidgetStudio({
       <StepCard
         step={1}
         title="What should it show?"
-        description="Pick the schedule this embed publishes. Each choice keeps its own look and its own code."
+        description="One list. Leave it empty for everything you run, name one schedule to show just that, or add several and visitors get a switcher."
+        meta={<SavedBadge />}
       >
-        <ScopePicker
+        <FilterEditor
+          rows={scopeRows}
           facilities={facilities}
-          departments={departments}
-          facilityId={facilityId}
-          departmentId={departmentId}
-          onSelect={requestScope}
-          disabled={saving}
+          primaryColor={/^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#0066CC"}
+          disabled={loading || saving}
+          onAdd={addScopeRow}
+          onAddPerFacility={addRowPerFacility}
+          onChange={updateScopeRow}
+          onRemove={removeScopeRow}
+          onMove={moveScopeRow}
         />
       </StepCard>
 
@@ -543,42 +507,14 @@ export default function WidgetStudio({
       <StepCard
         step={3}
         title="Let visitors find their session"
-        description="Optional. Give people a way to narrow the schedule down to what they'd actually come for."
+        description="Optional. Filters that narrow whatever schedule is on screen — by what it is and when it runs."
         meta={<SavedBadge />}
       >
-        <div className="space-y-2">
-          <div>
-            <h3 className="text-sm font-medium text-foreground">Filters visitors can use</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              These narrow whatever schedule is on screen — by what it is and when it runs.
-            </p>
-          </div>
-          <VisitorFilterToggles
-            value={enabledFilters}
-            onChange={setEnabledFilters}
-            disabled={loading || saving}
-          />
-        </div>
-
-        <div className="space-y-2 pt-1">
-          <div>
-            <h3 className="text-sm font-medium text-foreground">Switch between schedules</h3>
-            <p className="text-xs text-muted-foreground mt-0.5">
-              A list you write: put several buildings or departments behind this one embed.
-            </p>
-          </div>
-          <FilterEditor
-            rows={scopeRows}
-            facilities={facilities}
-            primaryColor={/^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#0066CC"}
-            disabled={loading || saving}
-            onAdd={addScopeRow}
-            onAddPerFacility={addRowPerFacility}
-            onChange={updateScopeRow}
-            onRemove={removeScopeRow}
-            onMove={moveScopeRow}
-          />
-        </div>
+        <VisitorFilterToggles
+          value={enabledFilters}
+          onChange={setEnabledFilters}
+          disabled={loading || saving}
+        />
       </StepCard>
 
       <StepCard
@@ -592,6 +528,10 @@ export default function WidgetStudio({
           onMethodChange={setEmbedMethod}
           height={height}
           onHeightChange={setHeight}
+          facilities={facilities}
+          scopeFacilityId={scopeFacilityId}
+          onScopeFacilityChange={setScopeFacilityId}
+          switcherCount={switcherCount}
           shareUrl={shareUrl}
           snippetStale={snippetStale}
           onCopyCode={() => setLastCopiedCode(embedCode)}
@@ -676,46 +616,6 @@ export default function WidgetStudio({
         onThemeChange={setTheme}
       />
 
-      {/* Scope switch with unsaved edits. */}
-      <Dialog open={!!pendingScope} onOpenChange={(open) => !open && setPendingScope(null)}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle>Publish before switching?</DialogTitle>
-            <DialogDescription>
-              Each building and department has its own saved settings, so switching now would leave
-              these changes behind.
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <button
-              type="button"
-              onClick={() => setPendingScope(null)}
-              className="px-3 py-2 text-sm font-medium text-muted-foreground hover:bg-muted rounded-lg transition-colors"
-            >
-              Cancel
-            </button>
-            <button
-              type="button"
-              onClick={() => pendingScope && applyScope(pendingScope.facilityId, pendingScope.departmentId)}
-              className="px-3 py-2 text-sm font-medium text-foreground border border-border hover:bg-muted rounded-lg transition-colors"
-            >
-              Discard changes
-            </button>
-            <button
-              type="button"
-              onClick={async () => {
-                const target = pendingScope;
-                const ok = await publish();
-                if (ok && target) applyScope(target.facilityId, target.departmentId);
-              }}
-              disabled={saving}
-              className="px-4 py-2 text-sm font-semibold text-white bg-blue-600 hover:bg-blue-700 rounded-lg transition-colors disabled:opacity-50"
-            >
-              {saving ? "Publishing…" : "Publish and switch"}
-            </button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }

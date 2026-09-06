@@ -5,10 +5,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import WidgetStudio from "@/components/widget/WidgetStudio";
 import Streamed from "@/components/ui/streamed";
 
-interface WidgetPageProps {
-  searchParams: Promise<{ facility?: string; department?: string }>;
-}
-
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
  * dev as both a page load and a sibling client navigation, and reports in the
@@ -22,7 +18,7 @@ interface WidgetPageProps {
  */
 export const instant = true;
 
-export default function WidgetPage({ searchParams }: WidgetPageProps) {
+export default function WidgetPage() {
   return (
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
@@ -33,22 +29,18 @@ export default function WidgetPage({ searchParams }: WidgetPageProps) {
         </p>
       </div>
 
-      {/* searchParams is forwarded unread — awaiting it here would pull this
-          static shell into the dynamic, Suspense-gated render. */}
       <Suspense fallback={<WidgetStudioSkeleton />}>
         <Streamed className="space-y-6">
-          <WidgetBody searchParams={searchParams} />
+          <WidgetBody />
         </Streamed>
       </Suspense>
     </div>
   );
 }
 
-async function WidgetBody({ searchParams }: WidgetPageProps) {
+async function WidgetBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
-
-  const { facility, department } = await searchParams;
 
   const supabase = await createClient();
   // slug + is_published carry the "link to it instead of embedding it" option
@@ -59,21 +51,6 @@ async function WidgetBody({ searchParams }: WidgetPageProps) {
     .eq("org_id", orgContext.org.id)
     .order("name");
 
-  // Only carry the sidebar's current facility/department into the picker if
-  // it actually belongs to this org — otherwise fall back to unscoped rather
-  // than pre-selecting an id that won't resolve to anything.
-  const initialFacilityId = facilities?.some((f) => f.id === facility) ? facility : undefined;
-  let initialDepartmentId: string | undefined;
-  if (initialFacilityId && department) {
-    const { data: dept } = await supabase
-      .from("departments")
-      .select("id")
-      .eq("id", department)
-      .eq("facility_id", initialFacilityId)
-      .maybeSingle();
-    initialDepartmentId = dept?.id;
-  }
-
   return (
     <WidgetStudio
       orgId={orgContext.org.id}
@@ -83,8 +60,6 @@ async function WidgetBody({ searchParams }: WidgetPageProps) {
         slug: f.slug,
         isPublished: f.is_published,
       }))}
-      initialFacilityId={initialFacilityId}
-      initialDepartmentId={initialDepartmentId}
     />
   );
 }

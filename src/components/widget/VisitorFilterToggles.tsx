@@ -72,7 +72,7 @@ const FILTERS: {
  * Which general filters visitors get (`widget_configs.enabled_filters`).
  *
  * Separate from the schedule switcher below it: that one is a list *you* write
- * (this building, that department), while these narrow whatever is on screen
+ * (this facility, that department), while these narrow whatever is on screen
  * by what it is and when it runs. Both are visitor-facing, both are optional,
  * which is why they share step 3.
  *

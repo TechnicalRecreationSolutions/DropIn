@@ -102,7 +102,11 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // unsaved preview passes ?preview=1&templates=grid,list to see a choice
   // before saving — a real embed never sends `preview`, so it always
   // renders the saved value regardless of what's in its query string.
-  let widgetConfigQuery = supabase
+  // One row per org (migration 045). The facility/department in the request are
+  // a *content* scope — which sessions to show — not an address for a second
+  // set of settings, so an embed pasted on any page of the site carries the same
+  // colour, views, heading and filters.
+  const { data: widgetConfig } = await supabase
     .from("widget_configs")
     // `*` rather than a column list, and deliberately so: this project applies
     // migrations by hand, so the code and the database can be briefly out of
@@ -112,10 +116,10 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     // for that setting. The table is small and carries nothing private — the
     // public GET /api/widget-config already returns it in full.
     .select("*")
-    .eq("org_id", orgId);
-  widgetConfigQuery = facility ? widgetConfigQuery.eq("facility_id", facility.id) : widgetConfigQuery.is("facility_id", null);
-  widgetConfigQuery = department ? widgetConfigQuery.eq("department_id", department.id) : widgetConfigQuery.is("department_id", null);
-  const { data: widgetConfig } = await widgetConfigQuery.maybeSingle();
+    .eq("org_id", orgId)
+    .is("facility_id", null)
+    .is("department_id", null)
+    .maybeSingle();
 
   // Brand colour and heading come from the saved config, except in the
   // dashboard's own preview iframe, which passes the not-yet-published values
@@ -176,6 +180,13 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
           (s.department_id === null || s.departments?.is_published === true) &&
           (s.schedule_group_id === null || s.schedule_groups?.status === "published")
       )
+      // A snippet scoped to one facility (data-facility-id, and the department
+      // with it) shows only that facility's entries — the switcher narrows with
+      // the embed instead of ignoring it. Down to one entry the switcher
+      // disappears on its own; down to none, the facility/department below
+      // still scopes the sessions, which is what a pre-switcher embed did.
+      .filter((s) => !facility || s.facility_id === facility.id)
+      .filter((s) => !department || s.department_id === department.id)
       .map((s) => ({
         id: s.id,
         label: s.label,

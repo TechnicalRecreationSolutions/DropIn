@@ -9,7 +9,7 @@ interface LayoutPickerProps {
   /** Ordered — index 0 is the view the widget boots into. */
   value: ScheduleTemplate[];
   onChange: (next: ScheduleTemplate[]) => void;
-  /** Floorplan needs a published facility map and a single-facility scope. */
+  /** Floorplan needs the snippet scoped to one facility (step 4) whose map is published. */
   floorplanAvailable: boolean;
   disabled?: boolean;
 }
@@ -19,7 +19,7 @@ const LAYOUTS: { value: ScheduleTemplate; label: string; blurb: string }[] = [
   { value: "list", label: "List", blurb: "Day by day — easiest to read on a phone." },
   { value: "map", label: "By space", blurb: "Grouped by pool, gym, studio, court." },
   { value: "board", label: "Timetable", blurb: "Times down the side, days across." },
-  { value: "floorplan", label: "Floorplan", blurb: "A picture of your building, tap a space." },
+  { value: "floorplan", label: "Floorplan", blurb: "A picture of your facility, tap a space." },
 ];
 
 /**
@@ -93,7 +93,7 @@ export default function LayoutPicker({ value, onChange, floorplanAvailable, disa
                 {locked && <Lock className="w-3 h-3 text-muted-foreground" />}
               </p>
               <p className="text-[11px] leading-snug text-muted-foreground mt-0.5">
-                {locked ? "Publish a facility map to unlock." : blurb}
+                {locked ? "Needs one facility: pick it in step 4 and publish its map." : blurb}
               </p>
             </div>
 
