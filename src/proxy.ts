@@ -12,6 +12,11 @@ import { perf } from "@/lib/perf";
  *
  * /admin/*      — requires superadmin role (raw_app_meta_data->>'role' = 'superadmin').
  *                 Returns 403 if authenticated but not superadmin.
+ *                 NOTE: no /admin route group exists right now — the superadmin
+ *                 panel was never built. The guard is kept deliberately so the
+ *                 first /admin page added is protected on arrival rather than
+ *                 depending on whoever adds it to remember. Don't read its
+ *                 presence as evidence the panel exists.
  *
  * /widget/*     — public, no auth. CORS headers set in next.config.ts.
  *
