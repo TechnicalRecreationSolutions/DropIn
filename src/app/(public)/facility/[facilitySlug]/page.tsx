@@ -81,16 +81,20 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { facilitySlug } = await params;
   const data = await getFacilityPageData(facilitySlug);
 
-  if (!data) return notFoundMetadata("Facility Not Found — Dropin");
+  // Titles here are bare: the root layout's `%s | Dropin` template supplies the
+  // brand, and appending it again renders "… — Dropin | Dropin" in the tab.
+  // openGraph carries no template, but the root layout sets `siteName: "Dropin"`,
+  // so the brand is already present there too.
+  if (!data) return notFoundMetadata("Facility Not Found");
   const { facility } = data;
 
   return {
-    title: `${facility.name} — Dropin`,
+    title: facility.name,
     description:
       facility.description ??
       `Drop-in schedules at ${facility.name} in ${facility.city}, ${facility.province}.`,
     openGraph: {
-      title: `${facility.name} — Dropin`,
+      title: facility.name,
       description: `Find drop-in schedules at ${facility.name}.`,
     },
   };
@@ -217,17 +221,11 @@ export default async function FacilityDetailPage({ params }: PageProps) {
             </div>
           )}
 
-          {/* CTA for orgs */}
-          <div className="bg-blue-50 rounded-xl border border-blue-100 p-5 text-center">
-            <p className="text-sm font-medium text-blue-900 dark:text-blue-200 mb-1">Are you this facility?</p>
-            <p className="text-xs text-blue-700 dark:text-blue-300 mb-3">Claim your page to manage your schedule directly.</p>
-            <a
-              href="/signup"
-              className="inline-block px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-            >
-              Claim this facility
-            </a>
-          </div>
+          {/* A "claim this facility" CTA used to sit here. It belonged to the
+              marketplace this product no longer is: a facility page exists only
+              because an organization created it and is already managing it, so
+              there is no unclaimed page for anyone to claim. Shown to the centre
+              whose page it is, it read as though the page were someone else's. */}
         </aside>
       </div>
     </div>
