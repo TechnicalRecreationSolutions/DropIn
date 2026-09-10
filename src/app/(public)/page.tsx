@@ -16,7 +16,15 @@ import {
   MousePointerClick,
   Clock,
 } from "lucide-react";
-import { PLANS, type PlanTier } from "@/lib/stripe/plans";
+import {
+  PLANS,
+  TIER_ORDER,
+  FEATURED_TIER,
+  ALWAYS_UNLIMITED,
+  TRIAL_PERIOD_DAYS,
+  LOWEST_MONTHLY,
+  dollars,
+} from "@/lib/stripe/plans";
 import FaqSection from "@/components/marketing/FaqSection";
 import WidgetPreview from "@/components/marketing/WidgetPreview";
 
@@ -103,28 +111,17 @@ const sampleSchedule = [
 ];
 
 /**
- * Plan tiers in display order. Prices come from the same catalogue billing
- * uses. No free tier yet — every org is on a paid plan from day one.
+ * How each tier's facility allowance reads on the card.
+ *
+ * The facility is the billed unit — see docs/PRICING.md — so it gets its own
+ * line above the capability list rather than being buried in it. Everything
+ * else is unlimited on every tier and is stated once, below the grid.
  */
-type PaidTier = Exclude<PlanTier, "free">;
-const TIER_ORDER: PaidTier[] = ["pro", "enterprise"];
-
-const planBlurb: Record<PaidTier, string> = {
-  pro: "For a centre running several buildings.",
-  enterprise: "For a city or a large operator.",
-};
-
-function planLines(tier: PlanTier): string[] {
-  const { limits } = PLANS[tier];
-  const n = (v: number, one: string, many: string) =>
-    v === -1 ? `Unlimited ${many}` : `${v} ${v === 1 ? one : many}`;
-  return [
-    n(limits.facilities, "facility", "facilities"),
-    limits.programsPerFacility === -1
-      ? "Unlimited schedules per facility"
-      : `${limits.programsPerFacility} schedules per facility`,
-    n(limits.staffMembers, "staff account", "staff accounts"),
-  ];
+function facilityLine(tier: (typeof TIER_ORDER)[number]): string {
+  const { facilities } = PLANS[tier].limits;
+  if (facilities === -1) return "Unlimited facilities";
+  if (facilities === 1) return "1 facility";
+  return `Up to ${facilities} facilities`;
 }
 
 export default function HomePage() {
@@ -169,7 +166,7 @@ export default function HomePage() {
                 </Link>
               </div>
               <p className="mt-5 text-sm text-blue-200">
-                Plans start at $49/month · Cancel anytime
+                Plans start at ${dollars(LOWEST_MONTHLY)}/month · Cancel anytime
               </p>
             </div>
 
@@ -349,33 +346,72 @@ export default function HomePage() {
           <p className="text-xs font-semibold text-blue-600 dark:text-blue-400 uppercase tracking-wide mb-3">
             Pricing
           </p>
-          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">Simple, per facility</h2>
-          <p className="text-muted-foreground mb-10">
-            Prices in CAD, per month. Cancel anytime.
+          <h2 className="text-2xl sm:text-3xl font-bold text-foreground mb-2">
+            Priced by facility, nothing else
+          </h2>
+          <p className="text-muted-foreground mb-10 max-w-2xl">
+            You pay for the buildings you publish. Departments, schedules,
+            spaces, sessions and staff accounts are unlimited on every plan —
+            organising your schedule properly should not cost more. Prices in
+            CAD. Two months free when you pay yearly. {TRIAL_PERIOD_DAYS}-day free
+            trial, cancel anytime.
           </p>
 
-          <div className="grid sm:grid-cols-2 gap-5 max-w-2xl">
+          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
             {TIER_ORDER.map((tier) => {
               const plan = PLANS[tier];
-              const featured = tier === "pro";
+              const featured = tier === FEATURED_TIER;
               return (
                 <div
                   key={tier}
                   className={
                     featured
-                      ? "rounded-xl border-2 border-blue-600 bg-card p-6 shadow-sm"
-                      : "rounded-xl border border-border bg-card p-6"
+                      ? "relative flex flex-col rounded-xl border-2 border-blue-600 bg-card p-6 shadow-sm"
+                      : "relative flex flex-col rounded-xl border border-border bg-card p-6"
                   }
                 >
+                  {featured && (
+                    <span className="absolute -top-3 left-6 rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                      Most centres
+                    </span>
+                  )}
                   <p className="font-semibold text-foreground">{plan.name}</p>
-                  <p className="mt-2 text-3xl font-extrabold text-foreground">
-                    ${plan.priceMonthly / 100}
-                    <span className="text-sm font-medium text-muted-foreground">/mo</span>
-                  </p>
-                  <p className="mt-1 text-sm text-muted-foreground">{planBlurb[tier]}</p>
 
-                  <ul className="mt-5 space-y-2">
-                    {planLines(tier).map((line) => (
+                  {plan.priceMonthly === null ? (
+                    <>
+                      <p className="mt-2 text-3xl font-extrabold text-foreground">
+                        Let&rsquo;s talk
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        {plan.priceAnnualFrom !== null &&
+                          `From $${dollars(plan.priceAnnualFrom)}/year`}
+                      </p>
+                    </>
+                  ) : (
+                    <>
+                      <p className="mt-2 text-3xl font-extrabold text-foreground">
+                        ${dollars(plan.priceMonthly)}
+                        <span className="text-sm font-medium text-muted-foreground">/mo</span>
+                      </p>
+                      <p className="mt-1 text-sm text-muted-foreground">
+                        or ${dollars(plan.priceAnnual!)}/year
+                      </p>
+                    </>
+                  )}
+
+                  <p className="mt-3 text-sm text-muted-foreground">{plan.blurb}</p>
+
+                  <p className="mt-4 text-sm font-semibold text-foreground">
+                    {facilityLine(tier)}
+                  </p>
+                  {plan.limits.extraFacilityMonthly !== null && (
+                    <p className="text-sm text-muted-foreground">
+                      then ${dollars(plan.limits.extraFacilityMonthly)}/mo each
+                    </p>
+                  )}
+
+                  <ul className="mt-3 space-y-2 flex-1">
+                    {plan.adds.map((line) => (
                       <li key={line} className="flex items-start gap-2 text-sm text-foreground">
                         <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
                         {line}
@@ -383,7 +419,7 @@ export default function HomePage() {
                     ))}
                   </ul>
 
-                  {tier === "enterprise" ? (
+                  {plan.priceMonthly === null ? (
                     <a
                       href="mailto:hello@dropin.app?subject=Enterprise plan"
                       className="mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
@@ -393,14 +429,36 @@ export default function HomePage() {
                   ) : (
                     <Link
                       href="/signup"
-                      className="mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                      className={
+                        featured
+                          ? "mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+                          : "mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
+                      }
                     >
-                      Choose {plan.name}
+                      Start free trial
                     </Link>
                   )}
                 </div>
               );
             })}
+          </div>
+
+          {/* Stated once rather than repeated as a tick on all four cards. */}
+          <div className="mt-8 rounded-xl border border-border bg-card p-5">
+            <p className="text-sm font-semibold text-foreground">
+              Unlimited on every plan
+            </p>
+            <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
+              {ALWAYS_UNLIMITED.map((item) => (
+                <li
+                  key={item}
+                  className="flex items-center gap-1.5 text-sm text-muted-foreground"
+                >
+                  <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0" />
+                  {item}
+                </li>
+              ))}
+            </ul>
           </div>
         </div>
       </section>
@@ -428,7 +486,7 @@ export default function HomePage() {
               near-black, and --muted-foreground is tuned for a light surface. */}
           <p className="text-gray-400 mb-8">
             Set up one facility and publish a schedule in an afternoon.
-            Plans start at $49/month.
+            Plans start at ${dollars(LOWEST_MONTHLY)}/month.
           </p>
           <Link
             href="/signup"

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
 import { stripe } from "@/lib/stripe/client";
 import { getStripePriceId, type PaidPlanTier } from "@/lib/stripe/prices";
+import { TRIAL_PERIOD_DAYS } from "@/lib/stripe/plans";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
 const CreateCheckoutSchema = z.object({
@@ -81,6 +82,18 @@ export async function POST(request: Request) {
       .eq("id", org.id);
   }
 
+  // The trial is a first-subscription offer, not a recurring one. Granting it
+  // unconditionally would let an org cancel and re-checkout for a fresh trial
+  // indefinitely, so it is keyed on whether this org has ever had a Stripe
+  // subscription at all — a cancelled row still counts as having had one.
+  const { data: priorSubscription } = await supabase
+    .from("subscriptions")
+    .select("id")
+    .eq("org_id", org.id)
+    .not("stripe_subscription_id", "is", null)
+    .limit(1)
+    .maybeSingle();
+
   const session = await stripe.checkout.sessions.create({
     customer: customerId,
     mode: "subscription",
@@ -90,6 +103,9 @@ export async function POST(request: Request) {
     metadata: { org_id: org.id, tier },
     subscription_data: {
       metadata: { org_id: org.id, tier },
+      // Published on the pricing page and in the terms, so it has to be set
+      // here or the copy is a promise the product does not keep.
+      ...(priorSubscription ? {} : { trial_period_days: TRIAL_PERIOD_DAYS }),
     },
   });
 

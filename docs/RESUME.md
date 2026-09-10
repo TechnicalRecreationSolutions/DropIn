@@ -187,6 +187,29 @@ name is not actually installed, it is merely present.**
 
 ## Picking the next piece of work
 
+### Pricing is now a framework, and it is not enforced
+
+[`docs/PRICING.md`](PRICING.md) is new and is the entry point. The billed unit is
+the **facility**, plus a base fee; departments, schedule groups, spaces,
+sessions and staff are unlimited on every tier on purpose — the reasoning, the
+competitor research and the market arithmetic are all in there.
+
+Two things to carry forward:
+
+- **No quota is checked anywhere.** `PLANS` is read by two render paths and no
+  API route reads `plan_tier`. The facility allowances on both pricing pages are
+  terms of sale, not limits. `POST /api/facilities` will happily create a fifth
+  facility on a 1-facility plan.
+- **The database cannot store the new tier names.** Migration `004`'s
+  `CHECK (plan_tier IN ('free','pro','enterprise'))` is unchanged, so `plans.ts`
+  carries a documented bridge. A migration and 7 new Stripe prices are owner
+  actions listed in `PRICING.md`; the new prices must not go live before the
+  migration does.
+
+`scripts/verify/verify-t.mjs` covers the surfaces (57 assertions, green), and
+was falsified by moving the trial and overage in the catalogue and confirming
+both pages followed.
+
 ### Feature work — still needs your input
 
 Across several sessions you've mentioned "basic functionality improvements…
@@ -250,6 +273,7 @@ undone.
 |---|---|
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | **Vercel + Supabase go-live checklist, in dependency order** |
 | [`SECURITY.md`](SECURITY.md) | Findings register, standing assumptions, owner actions |
+| [`PRICING.md`](PRICING.md) | **Pricing framework, the billed unit, and what is not yet enforced** |
 | [`PLAN.md`](PLAN.md) | Delivery history and schema map |
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Cache Components / PPR work |
 | [`../README.md`](../README.md) | What the app is, how it's built, how to run it |

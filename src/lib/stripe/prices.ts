@@ -1,5 +1,5 @@
 import { requireEnv } from "@/lib/env";
-import type { PlanTier } from "./plans";
+import type { StoredPlanTier } from "./plans";
 
 /**
  * Server-only mapping between plan tiers and Stripe price IDs.
@@ -19,8 +19,16 @@ if (typeof window !== "undefined") {
   );
 }
 
-/** Tiers that are actually purchasable. `free` has no Stripe price. */
-export type PaidPlanTier = Extract<PlanTier, "pro" | "enterprise">;
+/**
+ * Stored tiers that are actually purchasable. `free` has no Stripe price.
+ *
+ * These are the *legacy* names the database and Stripe still use — migration
+ * 004's CHECK constraint has not been widened to the catalogue keys in
+ * ./plans.ts, and only two Stripe prices exist. `PLAN_TO_CHECKOUT_TIER` there
+ * maps a catalogue tier onto one of these; a catalogue tier absent from that
+ * map has no price yet and must not reach checkout.
+ */
+export type PaidPlanTier = Extract<StoredPlanTier, "pro" | "enterprise">;
 
 const PRICE_ENV_VAR: Record<PaidPlanTier, string> = {
   pro: "STRIPE_PRICE_PRO_MONTHLY",

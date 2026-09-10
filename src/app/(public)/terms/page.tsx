@@ -122,8 +122,20 @@ export default function TermsPage() {
       <h2>Subscriptions and payment</h2>
       <ul>
         <li>
-          Paid plans are billed in advance on a recurring basis through Stripe.
-          By subscribing you authorise those recurring charges.
+          Paid plans are billed in advance on a recurring basis through Stripe,
+          monthly or yearly as you choose at checkout. By subscribing you
+          authorise those recurring charges.
+        </li>
+        <li>
+          Plans are priced by the number of facilities you publish. Each plan
+          includes an allowance, and facilities beyond it are charged at the
+          published per-facility rate. Departments, schedules, spaces, sessions,
+          staff accounts and visitor traffic are not metered.
+        </li>
+        <li>
+          Paid plans may begin with a free trial. If one applies, it is stated
+          at checkout, and your first charge falls on the day the trial ends
+          unless you cancel before then.
         </li>
         <li>
           Fees are stated at checkout and exclude taxes unless said otherwise.

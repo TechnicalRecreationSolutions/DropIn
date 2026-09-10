@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
-import { PLANS } from "@/lib/stripe/plans";
+import { STORED_TIER_TO_PLAN, type StoredPlanTier } from "@/lib/stripe/plans";
 import { Skeleton } from "@/components/ui/skeleton";
 import BillingClient from "./BillingClient";
 import Streamed from "@/components/ui/streamed";
@@ -42,7 +42,11 @@ async function BillingBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
-  const currentTier = (orgContext.subscription?.plan_tier ?? "free") as keyof typeof PLANS;
+  // The database still stores the legacy two-tier vocabulary (migration 004's
+  // CHECK constraint), so translate before rendering. `free` maps to null — it
+  // is the unpaid/cancelled state, not the cheapest plan.
+  const stored = (orgContext.subscription?.plan_tier ?? "free") as StoredPlanTier;
+  const currentTier = STORED_TIER_TO_PLAN[stored] ?? null;
 
   return <BillingClient currentTier={currentTier} />;
 }
