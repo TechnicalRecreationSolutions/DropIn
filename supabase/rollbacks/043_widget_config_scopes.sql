@@ -1,0 +1,28 @@
+-- =============================================================================
+-- ROLLBACK for Migration 043
+-- =============================================================================
+-- Drops the widget's schedule-switcher list — the table, its two indexes and
+-- its three policies all go with it (plain DROP, no CASCADE needed: nothing
+-- references widget_config_scopes, it only references outward).
+--
+-- LOSSY: every configured switcher entry is deleted, and an embed scoped
+-- through this list stops narrowing. Since migration 045 this list is the ONLY
+-- record of which schedule an embed shows — the per-facility widget_configs
+-- row it replaced is gone — so dropping this table without also rolling back
+-- 045 leaves every embed showing everything the org runs. Roll back 045 first,
+-- or accept that.
+--
+--   SELECT wc.org_id, COUNT(*) FROM widget_config_scopes s
+--   JOIN widget_configs wc ON wc.id = s.widget_config_id
+--   GROUP BY wc.org_id;
+--
+-- src/components/schedule/ScheduleScopeSwitcher.tsx, the scope list in
+-- src/components/widget/WidgetStudio.tsx, the scope handling in
+-- /api/widget-config and the switcher-entry filtering in /widget/[orgId] must
+-- be reverted alongside this — they query a table that will no longer exist.
+--
+-- This directory is deliberately OUTSIDE supabase/migrations/ so no migration
+-- runner picks it up.
+-- =============================================================================
+
+DROP TABLE IF EXISTS widget_config_scopes;

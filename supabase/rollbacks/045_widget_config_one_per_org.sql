@@ -1,0 +1,43 @@
+-- =============================================================================
+-- ROLLBACK for Migration 045 — THERE ISN'T ONE
+-- =============================================================================
+-- This file exists so the gap is a decision rather than an oversight: every
+-- other migration in this project has a counterpart here, and a missing 045
+-- reads like nobody got round to it.
+--
+-- 045 set facility_id and department_id to NULL on the row it promoted, and
+-- recorded the previous values nowhere. There is no expression that puts a
+-- promoted row back on the facility it used to belong to — the information is
+-- gone from the database. Migration 045 says the same thing in its own header.
+--
+-- What CAN be done, by hand, if the per-facility split has to come back:
+--
+--   1. Rows that were NOT promoted are still there, untouched (045 left them
+--      in place precisely so this is possible). Find them:
+--
+--        SELECT id, org_id, facility_id, department_id, primary_color, updated_at
+--        FROM widget_configs
+--        ORDER BY org_id, updated_at DESC;
+--
+--      Any row with a non-NULL facility_id is a survivor of the old model and
+--      still carries the settings it had before 045.
+--
+--   2. The promoted row (facility_id IS NULL, one per org) has to be pointed
+--      at a facility by hand — chosen by a human who knows which one the org
+--      meant, not derived. The 010 unique constraint is NULLS NOT DISTINCT, so
+--      an org can hold at most one org-wide row; assigning a facility to it
+--      frees that slot rather than colliding.
+--
+--   3. /facility/[slug], /dashboard/schedule and /widget/[orgId] all read the
+--      org-wide row now. Reverting them to per-facility lookups reintroduces
+--      the bug 045 fixed: an org whose only row is facility-scoped renders its
+--      real colour on one public page and stock blue everywhere else.
+--
+-- Before reaching for any of this, check whether the actual need is per-page
+-- narrowing rather than per-page settings — that is what the step-4 snippet's
+-- data-facility-id and the widget_config_scopes list (043) already do, without
+-- a second saved row.
+--
+-- This directory is deliberately OUTSIDE supabase/migrations/ so no migration
+-- runner picks it up. This file contains no executable statements.
+-- =============================================================================
