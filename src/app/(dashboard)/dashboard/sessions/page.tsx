@@ -7,6 +7,7 @@ import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentPicker from "@/components/department/DepartmentPicker";
+import DeleteSessionTemplateButton from "@/components/session-template/DeleteSessionTemplateButton";
 import { Button } from "@/components/ui/button";
 import Streamed from "@/components/ui/streamed";
 
@@ -195,12 +196,15 @@ function TemplateList({
                   </p>
                 </div>
               </div>
-              <Button variant="outline" size="sm" asChild>
-                <Link href={`/dashboard/sessions/${template.id}/edit`}>
-                  <Pencil />
-                  Edit
-                </Link>
-              </Button>
+              <div className="flex items-center gap-2 shrink-0">
+                <Button variant="outline" size="sm" asChild>
+                  <Link href={`/dashboard/sessions/${template.id}/edit`}>
+                    <Pencil />
+                    Edit
+                  </Link>
+                </Button>
+                <DeleteSessionTemplateButton templateId={template.id} templateName={template.name} />
+              </div>
             </div>
           ))}
         </div>
