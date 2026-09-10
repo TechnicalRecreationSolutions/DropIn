@@ -115,7 +115,7 @@ export default function SidebarNav({ orgId, onNavigate, collapsed }: SidebarNavP
   }
 
   return (
-    <div className="flex-1 overflow-y-auto flex flex-col">
+    <div className="sidebar-scroll flex-1 overflow-y-auto flex flex-col">
       {!collapsed && (
         <>
           <SidebarFilters

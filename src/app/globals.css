@@ -137,6 +137,18 @@
   }
 }
 
+/* The sidebar is dark in both canvas modes, but the page's color-scheme is
+   light, so without this Windows/Chrome paint a white native scrollbar down
+   the navy sidebar whenever its menu is taller than the screen (i.e. most
+   laptops). A thin thumb in the sidebar's own palette on a transparent track. */
+.sidebar-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: var(--sidebar-accent) transparent;
+}
+.sidebar-scroll:hover {
+  scrollbar-color: color-mix(in oklch, var(--sidebar-foreground) 35%, var(--sidebar)) transparent;
+}
+
 /* =============================================================================
    Org-brand theme — public schedule surfaces only (widget + facility page).
    Every derived token is a color-mix() of --org-primary (set inline by
