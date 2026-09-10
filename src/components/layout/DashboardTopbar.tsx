@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, Bell, ClipboardList, Settings, Sun, Moon } from "lucide-react";
+import { Menu, ClipboardList, Settings, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
@@ -58,13 +58,12 @@ export default function DashboardTopbar() {
 
       <div className="hidden lg:block" />
 
-      {/* Right: icon row + theme toggle. Bell (notifications) has no backend
-          yet — see docs/RESUME-layout-rework.md. Clipboard (activity log) is
-          wired up — see 038_activity_log.sql. */}
+      {/* Right: icon row + theme toggle. A disabled notifications bell used to
+          lead this row; it had no backend (see docs/RESUME-layout-rework.md) and
+          a permanently greyed-out control reads as an unfinished product rather
+          than a planned one. Restore it here when there is something to notify
+          about. Clipboard (activity log) is wired up — see 038_activity_log.sql. */}
       <div className="flex items-center gap-1 sm:gap-3">
-        <IconButton title="Notifications — coming soon" disabled>
-          <Bell className="size-[18px]" />
-        </IconButton>
         <Link href="/dashboard/activity">
           <IconButton as="span" title="Activity log">
             <ClipboardList className="size-[18px]" />
