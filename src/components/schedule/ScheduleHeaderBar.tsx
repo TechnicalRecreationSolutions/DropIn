@@ -64,8 +64,13 @@ export default function ScheduleHeaderBar({
           moment a second filter was added. */}
       <h2 className="text-white font-semibold text-sm sm:text-base">{title}</h2>
       {options.length > 1 && (
+        // Five view pills are wider than a phone. The bar wraps them onto their
+        // own line, but the card clips the overflow, so the last one ("Floorplan")
+        // was cut through the middle of the word with no indication it was
+        // reachable. Scrolling the strip itself keeps every view available at
+        // 390px without shrinking the labels to nothing.
         <div
-          className="inline-flex gap-0.5 rounded-full p-0.5"
+          className="inline-flex gap-0.5 rounded-full p-0.5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
           style={{ backgroundColor: "rgba(255,255,255,.18)" }}
           role="group"
           aria-label="Choose a view"
@@ -79,7 +84,7 @@ export default function ScheduleHeaderBar({
                 type="button"
                 onClick={() => onChange(option.value)}
                 className={cn(
-                  "flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                  "flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
                   active ? "bg-card" : "text-white/90 hover:text-white"
                 )}
                 style={active ? { color: "var(--org-primary)" } : undefined}
