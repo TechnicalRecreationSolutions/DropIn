@@ -2,6 +2,13 @@
 
 import { useEffect, useState } from "react";
 import {
+  OCCUPANCY_KINDS,
+  DISCLOSURE_OPTIONS,
+  occupancyKindLabel,
+  type OccupancyKind,
+  type Disclosure,
+} from "@/lib/sessions/occupancy";
+import {
   Dialog,
   DialogContent,
   DialogHeader,
@@ -28,6 +35,11 @@ export interface CreateSessionValues {
   validFrom: string;
   /** null means the session repeats indefinitely (no end date). */
   validUntil: string | null;
+  /** Seeded from the chosen template (migration 047), overridable here. */
+  occupancyKind: OccupancyKind;
+  disclosure: Disclosure;
+  /** Staff-only holder name, for a one-off booking with no template of its own. */
+  holderName: string;
   /** Empty array means no space assigned. More than one means the session occupies all of them at once (e.g. all 4 lanes for Lap Swim). */
   spaceIds: string[];
 }
@@ -68,6 +80,9 @@ export default function CreateSessionDialog({
   const [validUntil, setValidUntil] = useState("");
   const [spaceIds, setSpaceIds] = useState<string[]>([]);
   const [once, setOnce] = useState(false);
+  const [occupancyKind, setOccupancyKind] = useState<OccupancyKind>("drop_in");
+  const [disclosure, setDisclosure] = useState<Disclosure>("public");
+  const [holderName, setHolderName] = useState("");
 
   // Reseed every field when the dialog opens for a new placement; once open
   // the form is free-form, so this deliberately keys on the target only.
@@ -86,6 +101,12 @@ export default function CreateSessionDialog({
     setValidUntil(dated ? target.date! : "");
     setSpaceIds(target.spaceId ? [target.spaceId] : (template?.default_space_ids ?? []));
     setOnce(dated);
+    // The template is what makes a rental arrive as a rental. Without this the
+    // fast path took the column defaults and quietly published a booking staff
+    // had marked withheld on the template they just dragged.
+    setOccupancyKind(template?.occupancy_kind ?? "drop_in");
+    setDisclosure(template?.disclosure ?? "public");
+    setHolderName("");
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [target]);
 
@@ -107,6 +128,8 @@ export default function CreateSessionDialog({
     if (picked) {
       setEndTime(computeEndTime24(startTime, picked.default_duration_minutes));
       if (spaceIds.length === 0) setSpaceIds(picked.default_space_ids);
+      setOccupancyKind(picked.occupancy_kind);
+      setDisclosure(picked.disclosure);
     }
   }
 
@@ -145,6 +168,87 @@ export default function CreateSessionDialog({
             </select>
           </div>
         )}
+
+        {/* What the template said this is (migration 047), stated rather than
+            re-asked. A rental dragged from the rail needs no clicks here; the
+            summary line is what makes "patrons won't see the name" visible at
+            placement time instead of being a property nobody looked at. The
+            override is a details disclosure so the common case stays one drag. */}
+        <div className="rounded-lg border border-border bg-muted/40 p-3">
+          <p className="text-xs text-foreground">
+            <span className="font-semibold">{occupancyKindLabel(occupancyKind)}</span>
+            {" · patrons see "}
+            <span className="font-semibold">
+              {DISCLOSURE_OPTIONS.find((o) => o.value === disclosure)?.label.toLowerCase()}
+            </span>
+          </p>
+
+          {disclosure !== "public" && (
+            <div className="mt-2">
+              <label
+                htmlFor="create-session-holder"
+                className="block text-xs font-medium text-foreground mb-1"
+              >
+                Who has this space <span className="font-normal text-muted-foreground">(staff only)</span>
+              </label>
+              <input
+                id="create-session-holder"
+                type="text"
+                value={holderName}
+                onChange={(e) => setHolderName(e.target.value)}
+                placeholder="e.g. Island Swimming"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              />
+            </div>
+          )}
+
+          <details className="mt-2">
+            <summary className="text-xs text-muted-foreground cursor-pointer hover:text-foreground">
+              Change for this session only
+            </summary>
+            <div className="mt-2 space-y-2">
+              <div className="flex gap-1.5 flex-wrap">
+                {OCCUPANCY_KINDS.map((kind) => {
+                  const selected = occupancyKind === kind.value;
+                  return (
+                    <button
+                      key={kind.value}
+                      type="button"
+                      onClick={() => {
+                        setOccupancyKind(kind.value);
+                        setDisclosure(kind.defaultDisclosure);
+                      }}
+                      className={cn(
+                        "px-2 py-1 rounded-md text-xs font-medium border transition-colors",
+                        selected
+                          ? "bg-blue-600 border-blue-600 text-white"
+                          : "border-border text-muted-foreground hover:border-blue-300"
+                      )}
+                      aria-pressed={selected}
+                    >
+                      {kind.label}
+                    </button>
+                  );
+                })}
+              </div>
+              <select
+                value={disclosure}
+                onChange={(e) => setDisclosure(e.target.value as Disclosure)}
+                aria-label="What patrons see"
+                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+              >
+                {DISCLOSURE_OPTIONS.map((option) => (
+                  <option key={option.value} value={option.value}>
+                    Patrons see: {option.label}
+                  </option>
+                ))}
+              </select>
+              <p className="text-xs text-muted-foreground">
+                Changes this placement only — the template keeps its own defaults.
+              </p>
+            </div>
+          </details>
+        </div>
 
         {spaces.length > 0 && (
           <div>
@@ -341,6 +445,9 @@ export default function CreateSessionDialog({
               // an end date the way a recurring placement does.
               validUntil: once ? validFrom : (validUntil || null),
               spaceIds,
+              occupancyKind,
+              disclosure,
+              holderName,
             })}
             disabled={submitting || !canSubmit}
           >

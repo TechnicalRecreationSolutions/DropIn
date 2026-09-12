@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
+import {
+  OCCUPANCY_KINDS,
+  DISCLOSURE_OPTIONS,
+  type OccupancyKind,
+  type Disclosure,
+} from "@/lib/sessions/occupancy";
 
 interface SessionTemplateFormProps {
   facilityId: string;
@@ -14,6 +20,8 @@ interface SessionTemplateFormProps {
     name?: string;
     color?: string | null;
     default_duration_minutes?: number;
+    occupancy_kind?: OccupancyKind;
+    disclosure?: Disclosure;
     default_space_ids?: string[];
   };
   /** Where to send staff after a successful save. */
@@ -52,6 +60,12 @@ export default function SessionTemplateForm({
     defaultValues?.default_duration_minutes != null ? String(defaultValues.default_duration_minutes) : "60"
   );
   const [defaultSpaceIds, setDefaultSpaceIds] = useState<string[]>(defaultValues?.default_space_ids ?? []);
+  // Seeds for every session placed from this template (migration 047) — the
+  // reason a club booking is one drag rather than a drag plus two corrections.
+  const [occupancyKind, setOccupancyKind] = useState<OccupancyKind>(
+    defaultValues?.occupancy_kind ?? "drop_in"
+  );
+  const [disclosure, setDisclosure] = useState<Disclosure>(defaultValues?.disclosure ?? "public");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
@@ -82,6 +96,8 @@ export default function SessionTemplateForm({
           color: color || null,
           default_duration_minutes: duration,
           default_space_ids: defaultSpaceIds,
+          occupancy_kind: occupancyKind,
+          disclosure,
         }),
       }
     );
@@ -158,6 +174,58 @@ export default function SessionTemplateForm({
         <p className="text-xs text-muted-foreground mt-1">
           Used to pre-fill the end time when this template is placed on a schedule.
         </p>
+      </div>
+
+      {/* Occupancy seeds (migration 047). Placed after duration and before
+          spaces so the form reads as one list of "what this activity usually
+          is" — the same order the create dialog then pre-fills in. */}
+      <div>
+        <label className={labelClass}>Usually a…</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {OCCUPANCY_KINDS.map((kind) => {
+            const selected = occupancyKind === kind.value;
+            return (
+              <button
+                key={kind.value}
+                type="button"
+                onClick={() => {
+                  setOccupancyKind(kind.value);
+                  setDisclosure(kind.defaultDisclosure);
+                }}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                  selected
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "border-border text-muted-foreground hover:border-blue-300"
+                )}
+                aria-pressed={selected}
+              >
+                {kind.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {OCCUPANCY_KINDS.find((k) => k.value === occupancyKind)?.hint}
+        </p>
+
+        <div className="mt-3">
+          <label htmlFor="template_disclosure" className={labelClass}>Patrons usually see</label>
+          <select
+            id="template_disclosure"
+            value={disclosure}
+            onChange={(e) => setDisclosure(e.target.value as Disclosure)}
+            className={fieldClass}
+          >
+            {DISCLOSURE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Both of these only pre-fill new sessions placed from this template. Changing them
+            here never alters a session that already exists.
+          </p>
+        </div>
       </div>
 
       <div>

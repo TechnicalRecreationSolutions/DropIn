@@ -25,7 +25,11 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js";
 
-const APP = "http://localhost:3000";
+// `--app=http://localhost:3001` to drive a server other than the default dev
+// one — see the wedged-dev-server note in README.md.
+const APP =
+  process.argv.find((a) => a.startsWith("--app="))?.slice("--app=".length) ??
+  "http://localhost:3000";
 
 const env = Object.fromEntries(
   fs
@@ -250,6 +254,20 @@ try {
     .from("schedule_groups")
     .update({ status: "published", starts_on: "2026-08-10", ends_on: "2026-12-31" })
     .eq("id", scheduleGroup.id);
+
+  // Publishing the schedule is no longer enough for an anonymous read: migration
+  // 037 hides any week no admin has approved, so without this the assertion
+  // below fails for a reason that has nothing to do with draft spaces. This
+  // harness predates 037 (last touched in 9152b46) and had been failing on
+  // exactly that since — same fixture requirement verify-p/verify-s document.
+  // Sunday-start week containing Mon 2026-08-10.
+  await admin.from("schedule_week_reviews").insert({
+    org_id: org.id,
+    schedule_group_id: scheduleGroup.id,
+    week_start: "2026-08-09",
+    status: "approved",
+    reviewed_at: new Date().toISOString(),
+  });
 
   const draftSpaceSession = await createSession({
     dtstart: "2026-08-10T15:00:00.000Z",

@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { occupancyKindLabel } from "@/lib/sessions/occupancy";
 import Link from "next/link";
 import { Clock, Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
@@ -22,6 +23,8 @@ type SessionTemplateRow = {
   name: string;
   color: string | null;
   default_duration_minutes: number;
+  occupancy_kind: "drop_in" | "program" | "rental" | "closure";
+  disclosure: "public" | "reserved" | "internal";
   facility_id: string;
   department_id: string | null;
   session_template_spaces: { spaces: { name: string } }[];
@@ -97,7 +100,7 @@ async function SessionsBody({ searchParams }: SessionsPageProps) {
     supabase
       .from("session_templates")
       .select(
-        "id, name, color, default_duration_minutes, facility_id, department_id, session_template_spaces ( spaces ( name ) )"
+        "id, name, color, default_duration_minutes, occupancy_kind, disclosure, facility_id, department_id, session_template_spaces ( spaces ( name ) )"
       )
       .eq("org_id", orgId)
       .eq("is_active", true)
@@ -190,6 +193,10 @@ function TemplateList({
                 <div className="min-w-0">
                   <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
                   <p className="text-xs text-muted-foreground">
+                    {occupancyKindLabel(template.occupancy_kind)}
+                    {template.disclosure !== "public" &&
+                      ` · ${template.disclosure === "internal" ? "staff only" : "name withheld"}`}
+                    {" · "}
                     {template.default_duration_minutes} min
                     {template.session_template_spaces.length > 0 &&
                       ` · ${template.session_template_spaces.map((r) => r.spaces.name).join(", ")}`}

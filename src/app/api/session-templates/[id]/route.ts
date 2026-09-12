@@ -7,6 +7,11 @@ const UpdateSessionTemplateSchema = z.object({
   name: z.string().min(1).optional(),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
   default_duration_minutes: z.number().int().positive().optional(),
+  // Migration 047. Optional with no default, so a PATCH that does not mention
+  // them leaves the stored seeds alone — same presence contract POST
+  // /api/sessions uses for the session-level pair.
+  occupancy_kind: z.enum(["drop_in", "program", "rental", "closure"]).optional(),
+  disclosure: z.enum(["public", "reserved", "internal"]).optional(),
   default_space_ids: z.array(z.string().uuid()).optional(),
   display_order: z.number().int().optional(),
 });

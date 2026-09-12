@@ -11,6 +11,9 @@ const CreateSessionTemplateSchema = z.object({
   name: z.string().min(1),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
   default_duration_minutes: z.number().int().positive(),
+  // Seed values for sessions placed from this template (migration 047).
+  occupancy_kind: z.enum(["drop_in", "program", "rental", "closure"]).optional(),
+  disclosure: z.enum(["public", "reserved", "internal"]).optional(),
   default_space_ids: z.array(z.string().uuid()).optional().default([]),
 });
 
@@ -105,6 +108,8 @@ export async function POST(request: Request) {
       name: parsed.data.name,
       color: parsed.data.color ?? null,
       default_duration_minutes: parsed.data.default_duration_minutes,
+      occupancy_kind: parsed.data.occupancy_kind ?? "drop_in",
+      disclosure: parsed.data.disclosure ?? "public",
       is_active: true,
     })
     .select("*")

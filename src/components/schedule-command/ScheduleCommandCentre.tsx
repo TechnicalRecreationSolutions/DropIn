@@ -368,6 +368,15 @@ export default function ScheduleCommandCentre({
         valid_from: values.validFrom,
         valid_until: values.validUntil,
         space_ids: values.spaceIds,
+        // Inherited from the dragged/selected template (migration 047) unless
+        // overridden in the dialog. Sent explicitly rather than left to the
+        // column defaults, which is what previously turned a rental placed from
+        // the rail into a public drop-in.
+        occupancy_kind: values.occupancyKind,
+        disclosure: values.disclosure,
+        // Only sent when there is one, so an empty field on a public drop-in
+        // doesn't create an empty sidecar row.
+        ...(values.holderName.trim() ? { holder_name: values.holderName } : {}),
       }),
     });
 

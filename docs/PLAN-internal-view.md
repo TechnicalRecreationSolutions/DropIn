@@ -294,6 +294,7 @@ Each stage stands alone and is demoable. Ship, show the customer, then decide.
 |---|---|---|---|
 | 1 | ✅ **Built** — `occupancy_kind` + `disclosure` + `session_internal` + RLS + session-form control + the write-time conflict fix | Staff record who is in which lane; patrons see "Reserved · Lanes 1–3"; public schedule otherwise unchanged | 3–4d |
 | 2 | ✅ **Built** — audience toggle; `/dashboard/conflicts` occupancy labels | Preview-as-patron; the conflicts page stays readable now that public-vs-rental pairs exist | 2–3d |
+| 2b | ✅ **Built** — occupancy defaults on `session_templates` (migration 047) | A rental placed by dragging a template *is* a rental; the fast path stops silently publishing withheld bookings | 1d |
 | 3 | `facility_configurations` + configuration label and lane-picker filtering | "The pool is in 50m state" becomes expressible | 2d |
 | 4 | Deck sheet view + print | Kills the Excel sheet — the actual deliverable | 4–6d |
 | 5 | Calculator in **shadow mode** | Dashboard shows computed vs published; publishes nothing | 3–4d |
@@ -419,3 +420,40 @@ Two things learned here:
    removes them. Stage 1's comment claiming those rows "never arrive" was true
    until this stage existed, and is now wrong in exactly one case — which is why
    `applyDisclosure` filters as well as redacts.
+
+---
+
+## 13. Stage 2b — the control was in the wrong place
+
+Stages 1–2 put the occupancy controls on the full session form
+(`/dashboard/schedule/sessions/new`). That was a literal reading of "the session
+form" and it missed how staff actually work: the command centre is where they
+live, and `CreateSessionDialog` — the "+" and the drag-from-the-rail path —
+didn't ask at all. A rental entered the fast way took the column defaults and
+came out a **public drop-in**, to be corrected afterwards on a form nobody was
+going to open.
+
+Adding a picker to the dialog would have fixed the symptom. Migration 047 puts
+the answer on the template instead: `session_templates.occupancy_kind` +
+`disclosure`, seeding each placement. "Island Swimming" is a rental with its name
+withheld on every booking it will ever have, so the template is the right place
+for that fact to live — and the repetitive case becomes one drag with nothing to
+re-pick, and nothing to *forget* to re-pick.
+
+**Defaults, not links.** A session copies the values at placement and never reads
+back. The alternative — resolving through to the template at render time — looks
+identical in normal use and would retroactively republish a withheld booking the
+first time someone tidied a template. `verify-x` §6 is the assertion that rules
+it out, and §4 preserves the complementary fact as a test: the API deliberately
+does *not* consult the template, which is why the client must send the values.
+
+| File | Change |
+|---|---|
+| `047_template_occupancy_defaults.sql` (+ rollback) | Two defaulted columns; no backfill |
+| `api/session-templates/route.ts`, `[id]/route.ts` | Accept both; PATCH leaves unmentioned fields alone |
+| `SessionTemplateForm.tsx` | "Usually a…" + "Patrons usually see" |
+| `CreateSessionDialog.tsx` | States what it inherited; holder-name field when withheld; collapsed per-placement override |
+| `ScheduleCommandCentre.tsx` | Sends the dialog's values on create |
+| `ScheduleEditingContext.tsx` | `EditorTemplate` carries the seeds |
+| `dashboard/schedule/page.tsx`, `sessions/page.tsx`, `sessions/[templateId]/edit/page.tsx` | Load them; the templates list shows kind + withheld state |
+| `scripts/verify/verify-x.mjs` | **New.** 16 assertions |

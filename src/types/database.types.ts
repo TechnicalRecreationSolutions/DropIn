@@ -464,6 +464,11 @@ export type Database = {
           name: string;
           color: string | null;
           default_duration_minutes: number;
+          // Seed values for a session placed from this template (047). Defaults,
+          // not constraints — sessions.occupancy_kind/disclosure (046) remain the
+          // authority once a session exists.
+          occupancy_kind: "drop_in" | "program" | "rental" | "closure";
+          disclosure: "public" | "reserved" | "internal";
           display_order: number;
           is_active: boolean;
           created_at: string;
@@ -471,10 +476,20 @@ export type Database = {
         };
         Insert: Omit<
           Database["public"]["Tables"]["session_templates"]["Row"],
-          "id" | "created_at" | "updated_at" | "department_id" | "color" | "display_order" | "is_active"
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "department_id"
+          | "color"
+          | "occupancy_kind"
+          | "disclosure"
+          | "display_order"
+          | "is_active"
         > & {
           department_id?: string | null;
           color?: string | null;
+          occupancy_kind?: "drop_in" | "program" | "rental" | "closure";
+          disclosure?: "public" | "reserved" | "internal";
           display_order?: number;
           is_active?: boolean;
         };

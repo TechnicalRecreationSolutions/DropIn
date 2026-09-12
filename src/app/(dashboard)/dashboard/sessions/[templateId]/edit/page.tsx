@@ -13,6 +13,8 @@ type SessionTemplateRow = {
   name: string;
   color: string | null;
   default_duration_minutes: number;
+  occupancy_kind: "drop_in" | "program" | "rental" | "closure";
+  disclosure: "public" | "reserved" | "internal";
   facility_id: string;
   department_id: string | null;
   session_template_spaces: { space_id: string }[];
@@ -31,7 +33,7 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
   const { data: template } = await supabase
     .from("session_templates")
     .select(
-      "id, name, color, default_duration_minutes, facility_id, department_id, session_template_spaces ( space_id ), facilities ( id, name ), departments ( id, name )"
+      "id, name, color, default_duration_minutes, occupancy_kind, disclosure, facility_id, department_id, session_template_spaces ( space_id ), facilities ( id, name ), departments ( id, name )"
     )
     .eq("id", templateId)
     .eq("org_id", orgContext.org.id)
@@ -73,6 +75,8 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
           color: template.color,
           default_duration_minutes: template.default_duration_minutes,
           default_space_ids: template.session_template_spaces.map((r) => r.space_id),
+          occupancy_kind: template.occupancy_kind,
+          disclosure: template.disclosure,
         }}
         redirectTo={redirectTo}
       />

@@ -125,12 +125,16 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     // Relational select — cast needed until Supabase CLI generates types with FK relations
     supabase
       .from("session_templates")
-      .select("id, name, color, default_duration_minutes, facility_id, department_id, session_template_spaces ( space_id )")
+      .select(
+        "id, name, color, default_duration_minutes, occupancy_kind, disclosure, facility_id, department_id, session_template_spaces ( space_id )"
+      )
       .eq("org_id", orgId)
       .eq("is_active", true)
       .order("display_order", { ascending: true }) as unknown as Promise<{
       data: {
         id: string; name: string; color: string | null; default_duration_minutes: number;
+        occupancy_kind: "drop_in" | "program" | "rental" | "closure";
+        disclosure: "public" | "reserved" | "internal";
         facility_id: string; department_id: string | null; session_template_spaces: { space_id: string }[];
       }[] | null;
     }>,
@@ -215,6 +219,8 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
               name: t.name,
               color: t.color,
               default_duration_minutes: t.default_duration_minutes,
+              occupancy_kind: t.occupancy_kind,
+              disclosure: t.disclosure,
               default_space_ids: t.session_template_spaces.map((r) => r.space_id),
             })),
           settingsHref: `${base}/edit`,

@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext } from "react";
+import type { OccupancyKind, Disclosure } from "@/lib/sessions/occupancy";
 import type { ExpandedSession } from "@/types/schedule.types";
 
 /** A session template as offered by the editor's palette, en route to being placed. */
@@ -10,6 +11,12 @@ export interface EditorTemplate {
   color: string | null;
   default_duration_minutes: number;
   default_space_ids: string[];
+  /** Seeds for a session placed from this template (migration 047). Carried all
+   *  the way to the create dialog so a rental placed from the rail arrives as a
+   *  rental — without these, the fast path silently produced a public drop-in
+   *  and staff had to correct it on the edit form afterwards. */
+  occupancy_kind: OccupancyKind;
+  disclosure: Disclosure;
 }
 
 /** Where a new session is being placed — day always, space/time only from views that have those axes. */
