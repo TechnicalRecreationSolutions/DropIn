@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarPlus, Eye, ExternalLink, Info } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Eye, ExternalLink, Info, Printer } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
 import {
   useTemplateSchedule,
@@ -185,6 +185,17 @@ export default function ScheduleCommandCentre({
   // comment). The editor's actual week is derived from `weekParam` below.
   const { month, setMonth } = useScheduleAnchor();
   const editorWeekStart = weekParam ? getWeekStart(parseDate(weekParam)) : getWeekStart(new Date());
+
+  // The printable deck sheet (stage 4) is a *day*, and this page is week-shaped.
+  // Opening it on today only makes sense while today is in the week on screen;
+  // for any other week the first day of that week is the honest default.
+  const deckSheetHref = useMemo(() => {
+    if (!facility) return "/dashboard/schedule/deck";
+    const today = new Date();
+    const inThisWeek = getWeekStart(today).getTime() === editorWeekStart.getTime();
+    const day = localDateString(inThisWeek ? today : editorWeekStart);
+    return `/dashboard/schedule/deck?facility=${facility.id}&date=${day}`;
+  }, [facility, editorWeekStart]);
 
   const [createTarget, setCreateTarget] = useState<AddSessionTarget | null>(null);
   const [createSubmitting, setCreateSubmitting] = useState(false);
@@ -636,11 +647,24 @@ export default function ScheduleCommandCentre({
 
                   <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-border bg-muted/30">
                     <AudienceToggle value={audience} onChange={handleAudienceChange} />
-                    {audience === "public" && (
-                      <p className="text-xs text-muted-foreground">
-                        Editing is off while you look as a patron.
-                      </p>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {audience === "public" && (
+                        <p className="text-xs text-muted-foreground">
+                          Editing is off while you look as a patron.
+                        </p>
+                      )}
+                      {/* The deck sheet is one day, not a week, so this opens on
+                          today when today is in the week being edited and on the
+                          week's first day otherwise — never on a day outside the
+                          week someone is looking at. */}
+                      <Link
+                        href={deckSheetHref}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <Printer className="w-3.5 h-3.5" />
+                        Print deck sheet
+                      </Link>
+                    </div>
                   </div>
 
                   {audience === "public" && (

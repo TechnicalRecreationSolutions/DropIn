@@ -12,7 +12,15 @@ import { useState } from "react";
  *   - staleTime: 60s for most queries (public schedule data)
  *   - retry: 1 — fail fast on auth errors, don't hammer the DB
  */
-export default function Providers({ children }: { children: React.ReactNode }) {
+export default function Providers({
+  children,
+  devtools = true,
+}: {
+  children: React.ReactNode;
+  /** Off for pages whose output is a document — the devtools badge is fixed-position
+   *  and would otherwise print in the corner of a deck sheet in development. */
+  devtools?: boolean;
+}) {
   const [queryClient] = useState(
     () =>
       new QueryClient({
@@ -28,7 +36,7 @@ export default function Providers({ children }: { children: React.ReactNode }) {
   return (
     <QueryClientProvider client={queryClient}>
       {children}
-      {process.env.NODE_ENV === "development" && (
+      {devtools && process.env.NODE_ENV === "development" && (
         <ReactQueryDevtools initialIsOpen={false} />
       )}
     </QueryClientProvider>

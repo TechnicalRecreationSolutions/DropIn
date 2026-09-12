@@ -24,6 +24,7 @@ node scripts/verify/verify-v.mjs   # occupancy kinds + disclosure + staff-only s
 node scripts/verify/verify-w.mjs   # staff/patron audience toggle + conflict occupancy labels (20 assertions)
 node scripts/verify/verify-x.mjs   # template occupancy defaults (migration 047, 16 assertions)
 node scripts/verify/verify-y.mjs   # facility configurations + cross-configuration advisory (migration 048, 35 assertions)
+node scripts/verify/verify-z.mjs   # the printable deck sheet, in a real browser (29 assertions)
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```
@@ -108,6 +109,8 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 
 | `verify-y` | Facility configurations — the bulkhead (migration 048, stage 3 of `docs/PLAN-internal-view.md`). Its subject is a distinction the schema cannot express: two sessions on lanes from *different* configurations share no space, so the conflict engine is blind to them, and the fix is an **advisory** rather than a 409 — refusing a booking would mean refusing it on an inference about the building. Section 4 asserts both bookings save *and* that the pair comes back as `severity: "advisory"` with no shared space, guarded by two negative controls that are the whole reason the predicate is trustworthy: an every-configuration space (the hot tub) overlapping the rental is not reported, and two lanes in the *same* configuration produce no row at all. Section 5 is the complement — a genuine same-space pair, inserted directly the way `/api/import/commit` does, still reads `severity: "conflict"`, which is what the Overview's "Conflicts" card counts. Section 3 covers the payload: a *reserved* rental publishes its configuration to anon ("can I swim 50s tonight" is a patron question, migration 048 decision 6) while the holder name and setup notes stay absent from the whole body, and a session on an every-configuration space reports none at all — the state of every facility that has described no configurations. Section 6 proves deleting a configuration is a relabelling: its lanes come back as "every configuration" (`ON DELETE SET NULL`), the sessions in them are untouched, and the advisory disappears because there is no longer a disagreement. Also the two boundaries the schema deliberately leaves to the API — owner/admin only, and a space cannot be assigned to another building's configuration (asserted on the refused PATCH leaving the lane where it was, not just on the 404). **Verified to fail correctly, twice**: short-circuiting `configurationsDisagree` reddens exactly the three advisory assertions and neither control, and dropping the second-level `facility_configurations` embed from `/api/sessions/expand` reddens exactly the two *name* assertions while the ids keep arriving — which is the point of asserting on names, since that select is cast `as unknown as SessionWithRelations[]` and a wrong join fails silently. |
 
+| `verify-z` | The printable deck sheet (`/dashboard/schedule/deck`, stage 4 of `docs/PLAN-internal-view.md`) in a real Chromium, because the deliverable is a **printout** and no `fetch()` can see a page break, a repeating header, or a hidden control. Its centre is the design decision the sheet is built on: exclusive claims are drawn in lane columns, residual drop-in blocks are listed *below* the grid and appear in **no** lane cell — they hold whatever the claims leave, so a cell claiming one would be false. Positions are asserted by `data-deck-claim="<space id>"` rather than by text, so "the holder name is on the page" cannot pass with every booking piled into column one, and a 90-minute booking is required to span exactly three half-hour rows. Section 5 is the print stylesheet itself: the Print control visible on screen and gone under print media, `thead` computed as `table-header-group` (without which page two is a grid of unlabelled lanes), one page, and landscape taken from the `@page` rule rather than a dialog setting — read off the PDF's own `/MediaBox`. Also: an unplaced booking (exclusive, no space) gets its own section instead of vanishing, setup notes render as numbered footnotes with the matching marker in the cell, the configuration filter prints one sheet per state of the building while keeping every-configuration spaces, a signed-out visitor is redirected to /login by the proxy (the reason this route lives under `/dashboard` despite having no dashboard chrome), and another org's admin passing this facility's id gets their **own** building and never the holder name. **Verified to fail correctly, twice**: drawing residual blocks in lane columns reddens section 3 alone, and changing the print `thead` rule to `table-row-group` reddens that one assertion alone. Two real defects came out of its own first run — see the next two paragraphs. |
+
 **Two of these harnesses had drifted out of true and were fixed here, not by
 this feature's code:** `verify-f` section 4 expected an anonymous caller to see a
 session on a published schedule, which migration **037** made impossible — it
@@ -118,6 +121,25 @@ And `verify-f`/`verify-i`/`verify-k` hardcoded `localhost:3000`, which matters
 because of the next paragraph. `verify-m` was the last one still doing that and
 now takes `--app=` too — it read as 18 passed / 14 failed against a wedged
 server and 32 / 0 against a healthy one, with nothing else changed.
+
+**`page.pdf()` uses print CSS — unless you told the page otherwise.** Playwright
+emulates print media for `page.pdf()` on its own, but an explicit
+`emulateMedia({ media: "screen" })` earlier in the script *overrides* it, and
+`verify-z`'s first run did exactly that: it reported two pages measured against
+the screen stylesheet, a number that says nothing about the printout. It was
+still right for a different reason — the sheet really was 1022px against ~740px
+of usable page — but the measurement that found it was meaningless. Take print
+measurements in print media, and print the measured height in the failure detail
+so the next reader gets a number rather than a verdict.
+
+**A fixture where two things render the same string proves nothing.** `verify-z`
+section 3 asks whether a drop-in block appears in any lane cell. Its first fixture
+put every session under one schedule group — and a session with no template
+displays its schedule group's name — so the drop-in block, the program and the
+closure all rendered the identical string and the assertion failed against correct
+code. The fixture now uses two groups ("Lengths" and "Bookings"), which is also
+how a real facility is set up. Before blaming the code, check that the fixture can
+tell its own rows apart.
 
 **A signed-in client is not anon, and the mistake is invisible.** These harnesses
 reuse one publishable-key client for `signInWithPassword`, and supabase-js keeps

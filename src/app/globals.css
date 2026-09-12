@@ -190,3 +190,87 @@
   background-color: var(--org-card-bg);
 }
 
+
+/* =============================================================================
+   Print — the deck sheet (stage 4 of docs/PLAN-internal-view.md)
+   =============================================================================
+   The FIRST print styles in this codebase. Scoped to the deck sheet rather than
+   written as a general print stylesheet, because nothing else here is designed
+   to be printed and a blanket rule would quietly change every page.
+
+   The artifact being replaced is printed and posted on a pool deck, so the
+   output is the product: a sheet that looks right on screen and breaks across
+   three pages with a lane column orphaned has failed. Hence landscape by
+   default (lanes are columns, and there are more of them than there are hours
+   worth reading), a repeating table header, and rows that never split.
+   ============================================================================= */
+@page {
+  size: landscape;
+  margin: 10mm;
+}
+
+@media print {
+  /* Anything the sheet doesn't need on paper. The deck route has no dashboard
+     chrome to hide (it renders under its own layout), so this is only the
+     sheet's own controls. */
+  .no-print {
+    display: none !important;
+  }
+
+  html,
+  body {
+    background: white !important;
+  }
+
+  .deck-sheet {
+    /* Paper is not a viewport: let the table use the full page width. */
+    max-width: none;
+    font-size: 9pt;
+  }
+
+  /* Repeats the space names at the top of every printed page. Without this, page
+     two is a grid of unlabelled columns — which is worse than useless when the
+     columns are lanes. */
+  .deck-grid thead {
+    display: table-header-group;
+  }
+
+  .deck-grid tr {
+    break-inside: avoid;
+  }
+
+  /* Keep a claim's name, time and kind together; a cell split across a page
+     boundary is how "Island Swimming" ends up on the page the guard isn't
+     holding. */
+  .deck-grid td,
+  .deck-grid th {
+    break-inside: avoid;
+  }
+
+  /* The lists under the grid — residual blocks, setup notes — should follow the
+     grid rather than start a page of their own, but must not be split. */
+  .deck-after {
+    break-inside: avoid;
+  }
+
+  /* Cell fills have to survive the browser's default "don't print backgrounds",
+     or a closure reads identically to an empty lane. */
+  .deck-claim,
+  .deck-closure,
+  .deck-grid thead th {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+}
+
+/* Screen and paper both: the grid's own weight. Kept out of @media print so the
+   on-screen preview is the same drawing as the printout. */
+.deck-grid .deck-hour > * {
+  border-top-color: var(--foreground);
+}
+.deck-claim {
+  background: #f3f4f6;
+}
+.deck-closure {
+  background: #fee2e2;
+}

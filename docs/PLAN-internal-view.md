@@ -296,7 +296,7 @@ Each stage stands alone and is demoable. Ship, show the customer, then decide.
 | 2 | ✅ **Built** — audience toggle; `/dashboard/conflicts` occupancy labels | Preview-as-patron; the conflicts page stays readable now that public-vs-rental pairs exist | 2–3d |
 | 2b | ✅ **Built** — occupancy defaults on `session_templates` (migration 047) | A rental placed by dragging a template *is* a rental; the fast path stops silently publishing withheld bookings | 1d |
 | 3 | ✅ **Built** — `facility_configurations` + `spaces.configuration_id` (migration 048); configuration label, lane-picker grouping, map-column filter, cross-configuration advisory | "The pool is in 50m state" becomes expressible | 2d |
-| 4 | Deck sheet view + print | Kills the Excel sheet — the actual deliverable | 4–6d |
+| 4 | ✅ **Built** — the printable deck sheet at `/dashboard/schedule/deck` (spaces across, time down, one day) | Kills the Excel sheet — the actual deliverable | 4–6d |
 | 5 | Calculator in **shadow mode** | Dashboard shows computed vs published; publishes nothing | 3–4d |
 | 6 | Computed availability authoritative, behind week review | The public schedule derives itself | 2–3d |
 
@@ -528,3 +528,75 @@ Two things learned here:
    columns) rather than build a second one. The configuration filter added here
    is what makes that viable at all: a tank with 8 long-course and 16
    short-course lanes is otherwise 24 columns wide.
+
+---
+
+## 15. Stage 4 — the sheet is a table, and the page is the product
+
+`/dashboard/schedule/deck?facility=&date=&configuration=` — spaces across, time
+down, one day, printable. The artifact it replaces is printed and posted on a
+pool deck, so the **printout** is the deliverable and the screen view is its
+preview. Three decisions follow from that, and none of them were obvious before
+measuring.
+
+### It draws only the exclusive claims
+
+The grid answers *who has the water*. `drop_in` is residual by definition
+(migration 046, decision 2) — it occupies whatever is not exclusively claimed —
+so putting a drop-in block in a lane cell would assert something false about
+that lane, and it would collide in every cell with the rental it is *supposed*
+to coexist with. Residual blocks are listed under the grid with their own times;
+empty cells are the open water they run in. This is the same division of labour
+the customer's spreadsheet already uses, and `verify-z` §3 is the assertion that
+holds it in place.
+
+### A table, not the pixel grid every other view uses
+
+`WeeklyScheduleMap` is already spaces-across/time-down (§14 corrected §5 on
+that), so extending it looked right — until pagination. Absolutely-positioned
+blocks on a fixed-height canvas cannot break across pages: a page boundary
+slices through them. A table breaks between rows, repeats its header via
+`display: table-header-group`, and a `rowSpan` cell gives a 90-minute booking
+its real height. Overlapping exclusive claims on one space (possible only via
+import, since the write gate 409s them) split that space into side-by-side
+tracks rather than one of them silently disappearing.
+
+### The window is the scheduled day, not the operating day
+
+Every other time-axis view runs 06:00–22:00 and scrolls. Measured under print
+media, those 32 half-hour rows are **1022px against the ~740px** a landscape
+Letter page has after margins — two pages, with lane columns on the one the
+guard isn't holding. So the sheet spans what is actually scheduled, rounded to
+whole hours, with a six-hour floor.
+
+| File | Change |
+|---|---|
+| `src/lib/schedule/deckSheet.ts` | **New.** The model: window, rows, per-space tracks, `rowSpan` math, footnote numbering, residual/unplaced split |
+| `src/components/schedule/DeckSheet.tsx` | **New.** The printable table, the drop-in list, the setup-note footnotes |
+| `src/components/schedule/DeckSheetPage.tsx` | **New.** URL-driven day/building/configuration, the fetch, the Print button |
+| `src/app/(print)/layout.tsx`, `(print)/dashboard/schedule/deck/page.tsx` | **New.** A route group that keeps the proxy's `/dashboard/*` auth while shedding the dashboard chrome |
+| `src/app/globals.css` | **The first print styles in the codebase**: `@page` landscape, `.no-print`, repeating header, `break-inside: avoid`, forced cell fills |
+| `src/components/layout/Providers.tsx` | `devtools={false}`, so the dev-only badge doesn't print on a deck sheet |
+| `ScheduleCommandCentre.tsx` | "Print deck sheet" beside the audience toggle, opening on a day inside the week being edited |
+| `scripts/verify/verify-z.mjs` | **New.** 29 assertions, in a real browser |
+
+Two things worth carrying forward:
+
+1. **Print output needs print measurements.** `page.pdf()` uses print CSS on its
+   own, but an explicit `emulateMedia({ media: "screen" })` earlier overrides it
+   — and this harness's first run reported two pages measured against the screen
+   stylesheet. The conclusion happened to be right for a different reason. The
+   harness now measures the sheet's height in print media and reports it in the
+   failure detail.
+2. **The sheet is not a `ScheduleTemplate`.** Those are the views a widget may be
+   configured to show; this one carries holder names and setup notes. There is
+   nothing for a public surface to select, by query param or otherwise, and
+   `verify-z` §7 checks the two gates that matter: the proxy redirect, and
+   another org's admin getting their own building.
+
+### What stage 4 does *not* do
+
+No "print the week" — seven days is seven sheets, and the customer prints one
+day at a time. No per-guard rotation or staffing column: that is shift
+scheduling, explicitly out of scope. No export to Excel; replacing the
+spreadsheet is the point, and an export invites keeping it.

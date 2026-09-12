@@ -125,3 +125,27 @@ sessions themselves, so there is nothing to hide and no chips are rendered.
 The day-header label, unlike the filter, is public: "Long Course (50m)" answers
 "can I swim 50s tonight". It is the one part of this feature family where the
 public/staff split runs the *opposite* way from the holder name above.
+
+## The deck sheet is not one of these views
+
+`DeckSheet.tsx` + `DeckSheetPage.tsx` render `/dashboard/schedule/deck` — spaces
+across, time down, one day, printable (stage 4 of
+`docs/PLAN-internal-view.md`). It sits in this directory because it renders
+`ExpandedSession`s like everything else here, but it is deliberately **not** a
+`ScheduleTemplate` value and never passes through `ScheduleView`:
+
+- `ScheduleTemplate` values are what a widget can be configured to show
+  (`widget_configs.allowed_templates`). This sheet carries holder names and setup
+  notes from `session_internal`, so there must be nothing for a public surface to
+  select — by query param or otherwise.
+- It is a **table**, not the shared pixel geometry in `weekGeometry.ts`.
+  Absolutely-positioned blocks cannot paginate; a printed page break slices
+  through them. Rows, `rowSpan`, and a repeating `thead` are what make a printout
+  work, and the printout is the deliverable.
+- It draws only **exclusive** claims. Drop-in blocks are residual — they hold
+  whatever is left — so a lane cell naming one would be false. They are listed
+  under the grid instead, and an empty cell means open water.
+
+Its print styles are the only `@media print` block in the codebase and live in
+`src/app/globals.css`, scoped to `.deck-sheet` / `.no-print` so nothing else on
+any page changes when someone hits Ctrl-P.
