@@ -23,7 +23,11 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js";
 
-const APP = "http://localhost:3000";
+// `--app=http://localhost:3001` to drive a server other than the default dev
+// one — see the wedged-dev-server note in README.md.
+const APP =
+  process.argv.find((a) => a.startsWith("--app="))?.slice("--app=".length) ??
+  "http://localhost:3000";
 
 const env = Object.fromEntries(
   fs

@@ -27,11 +27,18 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
 
   if (!facility) notFound();
 
-  const { data: departments } = await supabase
-    .from("departments")
-    .select("id, name")
-    .eq("facility_id", facilityId)
-    .order("display_order", { ascending: true });
+  const [{ data: departments }, { data: configurations }] = await Promise.all([
+    supabase
+      .from("departments")
+      .select("id, name")
+      .eq("facility_id", facilityId)
+      .order("display_order", { ascending: true }),
+    supabase
+      .from("facility_configurations")
+      .select("id, name")
+      .eq("facility_id", facilityId)
+      .order("display_order", { ascending: true }),
+  ]);
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -53,6 +60,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
       <SpaceForm
         facilityId={facilityId}
         departments={departments ?? []}
+        configurations={configurations ?? []}
         defaultValues={departmentId ? { department_id: departmentId } : undefined}
         // Back to the Spaces page this was launched from.
         redirectTo={spacesHref(facilityId)}

@@ -7,6 +7,7 @@ import { spacesHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import SpacesPanel from "@/components/space/SpacesPanel";
+import ConfigurationsPanel from "@/components/space/ConfigurationsPanel";
 import Streamed from "@/components/ui/streamed";
 
 interface SpacesPageProps {
@@ -61,18 +62,27 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
   const supabase = await createClient();
   const { facility: facilityParam } = await searchParams;
 
-  const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
-    supabase
-      .from("facilities")
-      .select("id, name, city, province, is_published, photo_urls")
-      .eq("org_id", orgId)
-      .order("name"),
-    supabase
-      .from("spaces")
-      .select("id, name, capacity, is_published, facility_id, department_id")
-      .eq("org_id", orgId)
-      .order("display_order", { ascending: true }),
-  ]);
+  const [{ data: facilityRows }, { data: spaceRows }, { data: configurationRows }] =
+    await Promise.all([
+      supabase
+        .from("facilities")
+        .select("id, name, city, province, is_published, photo_urls")
+        .eq("org_id", orgId)
+        .order("name"),
+      supabase
+        .from("spaces")
+        .select("id, name, capacity, is_published, facility_id, department_id, configuration_id")
+        .eq("org_id", orgId)
+        .order("display_order", { ascending: true }),
+      // The building's physical states (migration 048) — empty for every
+      // facility with nothing reconfigurable, which is why the panel below
+      // renders a flat space list until one exists.
+      supabase
+        .from("facility_configurations")
+        .select("id, name, facility_id")
+        .eq("org_id", orgId)
+        .order("display_order", { ascending: true }),
+    ]);
 
   if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
 
@@ -86,7 +96,12 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
       capacity: s.capacity,
       isPublished: s.is_published,
       departmentId: s.department_id,
+      configurationId: s.configuration_id,
     }));
+
+  const configurations = (configurationRows ?? [])
+    .filter((c) => c.facility_id === facility.id)
+    .map((c) => ({ id: c.id, name: c.name }));
 
   const facilityCards = facilityRows.map((f) => {
     const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
@@ -103,8 +118,18 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
 
       <SpacesPanel
         facility={{ id: facility.id, name: facility.name, spaces }}
+        configurations={configurations}
         departmentId={null}
         departmentLabel={null}
+      />
+
+      <ConfigurationsPanel
+        facilityId={facility.id}
+        facilityName={facility.name}
+        configurations={configurations.map((c) => ({
+          ...c,
+          spaceCount: spaces.filter((s) => s.configurationId === c.id).length,
+        }))}
       />
     </>
   );

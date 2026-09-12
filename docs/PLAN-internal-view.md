@@ -295,7 +295,7 @@ Each stage stands alone and is demoable. Ship, show the customer, then decide.
 | 1 | ✅ **Built** — `occupancy_kind` + `disclosure` + `session_internal` + RLS + session-form control + the write-time conflict fix | Staff record who is in which lane; patrons see "Reserved · Lanes 1–3"; public schedule otherwise unchanged | 3–4d |
 | 2 | ✅ **Built** — audience toggle; `/dashboard/conflicts` occupancy labels | Preview-as-patron; the conflicts page stays readable now that public-vs-rental pairs exist | 2–3d |
 | 2b | ✅ **Built** — occupancy defaults on `session_templates` (migration 047) | A rental placed by dragging a template *is* a rental; the fast path stops silently publishing withheld bookings | 1d |
-| 3 | `facility_configurations` + configuration label and lane-picker filtering | "The pool is in 50m state" becomes expressible | 2d |
+| 3 | ✅ **Built** — `facility_configurations` + `spaces.configuration_id` (migration 048); configuration label, lane-picker grouping, map-column filter, cross-configuration advisory | "The pool is in 50m state" becomes expressible | 2d |
 | 4 | Deck sheet view + print | Kills the Excel sheet — the actual deliverable | 4–6d |
 | 5 | Calculator in **shadow mode** | Dashboard shows computed vs published; publishes nothing | 3–4d |
 | 6 | Computed availability authoritative, behind week review | The public schedule derives itself | 2–3d |
@@ -457,3 +457,74 @@ does *not* consult the template, which is why the client must send the values.
 | `ScheduleEditingContext.tsx` | `EditorTemplate` carries the seeds |
 | `dashboard/schedule/page.tsx`, `sessions/page.tsx`, `sessions/[templateId]/edit/page.tsx` | Load them; the templates list shows kind + withheld state |
 | `scripts/verify/verify-x.mjs` | **New.** 16 assertions |
+
+---
+
+## 14. Stage 3 — the configuration is a label on a lane, not a container for one
+
+Migration `048_facility_configurations.sql` (+ rollback). `facility_configurations`
+is per **facility** (a bulkhead is a property of a building), and `spaces` gains
+`configuration_id UUID NULL`. **NULL means "in every configuration"** — the hot
+tub, the tennis court, and every space at every facility that never describes
+one — so the migration is a no-op for existing customers and stays one.
+
+A session's configuration is **derived from the lanes it claims**, not stored:
+there is no `sessions.configuration_id`, because the lanes already say it and a
+second copy could disagree with them. `expandSessions` therefore returns
+`configurationIds` / `configurationNames` (distinct, and *empty* in the normal
+case), read through a second-level PostgREST embed —
+`session_spaces → spaces → facility_configurations`.
+
+### The advisory is the whole design decision
+
+Section 3 above promised a predicate instead of a geometry model, and this is it.
+50m Lane 3 and 25m Lane 5 may be the same water; nothing in the schema knows
+that, so two sessions in different configurations **share no space** and the
+conflict engine is structurally blind to them. The options were a hand-maintained
+lane-containment map per facility, or one rule: a facility is in exactly one
+configuration at a time.
+
+That rule ships as an **advisory and never a 409**, for a reason worth stating
+plainly: a 409 would be refusing a booking on the strength of an inference about
+the building, and the customer was explicit that a long-course morning and a
+short-course afternoon are two sessions rather than an error. So
+`findOrgConflicts` runs a second pass — bucketed by facility, gated on
+`configurationsDisagree()` **before** any RRULE expansion, which is what keeps it
+from being an O(n²) scan: at a facility with no configurations the predicate is
+false for every pair and the pass costs one loop and no expansions. A real
+double-booking on the same pair outranks the advisory, and
+`/dashboard/conflicts` gives advisories their own "Worth a look" section with
+"Move space" suppressed — there is no shared space to move out of. The Overview's
+"Conflicts" card counts `severity === "conflict"` only; the card says Conflicts,
+and nothing in an advisory is double-booked.
+
+| File | Change |
+|---|---|
+| `048_facility_configurations.sql` (+ rollback) | The table, the column, RLS. Six documented decisions, including why there is no cross-table CHECK and no per-day constraint |
+| `src/lib/spaces/configurations.ts` | **New.** `groupSpacesByConfiguration`, `configurationLabel`, `configurationsDisagree`, `EVERY_CONFIGURATION_LABEL` |
+| `api/facility-configurations/route.ts`, `[id]/route.ts` | **New.** Owner/admin CRUD — configurations decide which lanes exist, so this is facility setup, not schedule editing |
+| `api/spaces/route.ts`, `[id]/route.ts` | Accept `configuration_id`, and verify it belongs to the space's own facility (the boundary the schema leaves open) |
+| `api/sessions/expand/route.ts`, `lib/rrule/expand.ts`, `types/schedule.types.ts` | The embed, and `configurationIds`/`configurationNames` on `ExpandedSession` |
+| `lib/sessions/conflicts.ts` | `severity` on `OrgConflict`; the advisory pass; `firstOverlapStart()` extracted so both passes share the overlap arithmetic |
+| `components/space/ConfigurationsPanel.tsx` | **New.** Add/rename/delete on the Spaces page, quiet when empty |
+| `SpacesPanel.tsx`, `SpaceForm.tsx` | Grouped list; a Configuration select that does not render where none exist |
+| `SessionForm.tsx`, `CreateSessionDialog.tsx`, `DuplicateSessionDialog.tsx` | Space pills grouped by configuration; the full form warns when one session spans two |
+| `WeeklyScheduleMap.tsx` | Staff chips filtering the columns, defaulting to the configuration the day implies, never hiding a session silently; day-header label for patrons too |
+| `SessionModal.tsx` | The configuration beside the spaces it qualifies |
+| `dashboard/page.tsx` | The stat card counts hard conflicts only |
+| `scripts/verify/verify-y.mjs` | **New.** 35 assertions |
+
+Two things learned here:
+
+1. **The public/staff split runs the *opposite* way from stage 1.** The renter's
+   name is hidden; the configuration is published. "Long Course (50m)" is the
+   answer to "can I swim 50s tonight" — availability, not identity — so
+   `facility_configurations` has a public-read policy gated on the facility being
+   published, and `verify-y` asserts a *reserved* rental publishes its
+   configuration while its holder name stays absent from the whole body.
+2. **The map view is already the deck sheet's orientation.** Section 5 above says
+   spaces-as-columns "genuinely does not exist"; `WeeklyScheduleMap` is exactly
+   that, one day at a time, and stage 4 should extend it (print + all-spaces
+   columns) rather than build a second one. The configuration filter added here
+   is what makes that viable at all: a tank with 8 long-course and 16
+   short-course lanes is otherwise 24 columns wide.

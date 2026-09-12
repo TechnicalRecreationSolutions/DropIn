@@ -4,10 +4,17 @@ import Link from "next/link";
 import { MapPin, Plus, Pencil, Eye, EyeOff } from "lucide-react";
 import { NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { CommandSpace } from "@/components/schedule-command/types";
+import {
+  groupSpacesByConfiguration,
+  type ConfigurationOption,
+} from "@/lib/spaces/configurations";
 
 interface SpacesPanelProps {
   /** Only the fields this panel actually reads — a full `CommandFacility` satisfies this too. */
   facility: { id: string; name: string; spaces: CommandSpace[] };
+  /** The building's physical states (migration 048). Empty for almost every
+   *  facility, which is exactly when this panel renders one flat list. */
+  configurations?: ConfigurationOption[];
   /** A real department id, NO_DEPARTMENT, or null for the whole building. */
   departmentId: string | null;
   departmentLabel: string | null;
@@ -19,7 +26,12 @@ interface SpacesPanelProps {
  * to also render inline as a command-centre tab, but Spaces, Map, and
  * Widget each moved to their own top-level route.
  */
-export default function SpacesPanel({ facility, departmentId, departmentLabel }: SpacesPanelProps) {
+export default function SpacesPanel({
+  facility,
+  configurations = [],
+  departmentId,
+  departmentLabel,
+}: SpacesPanelProps) {
   const realDepartmentId = departmentId && departmentId !== NO_DEPARTMENT ? departmentId : null;
 
   const spaces = facility.spaces.filter((s) => {
@@ -27,6 +39,12 @@ export default function SpacesPanel({ facility, departmentId, departmentLabel }:
     if (departmentId === NO_DEPARTMENT) return !s.departmentId;
     return s.departmentId === departmentId;
   });
+
+  // One unlabelled group when nothing is assigned to a configuration — i.e. the
+  // list this panel has always rendered. Headings appear only once a building
+  // actually has two states to tell apart.
+  const groups = groupSpacesByConfiguration(spaces, configurations);
+  const showHeadings = groups.length > 1 || groups[0]?.configurationId !== null;
 
   const newSpaceHref = realDepartmentId
     ? `/dashboard/facilities/${facility.id}/spaces/new?departmentId=${realDepartmentId}`
@@ -66,35 +84,44 @@ export default function SpacesPanel({ facility, departmentId, departmentLabel }:
           </Link>
         </div>
       ) : (
-        <div className="space-y-2">
-          {spaces.map((space) => (
-            <div
-              key={space.id}
-              className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
-            >
-              <MapPin className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-              <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
-                {space.name}
-              </span>
-              {space.capacity != null && (
-                <span className="text-xs text-muted-foreground/70 shrink-0">Cap. {space.capacity}</span>
+        <div className="space-y-4">
+          {groups.map((group) => (
+            <div key={group.configurationId ?? "__every__"} className="space-y-2">
+              {showHeadings && (
+                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
+                  {group.label}
+                </h3>
               )}
-              {space.isPublished ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full shrink-0">
-                  <Eye className="w-3 h-3" /> Published
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full shrink-0">
-                  <EyeOff className="w-3 h-3" /> Draft
-                </span>
-              )}
-              <Link
-                href={`/dashboard/facilities/${facility.id}/spaces/${space.id}/edit`}
-                aria-label={`Edit ${space.name}`}
-                className="p-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shrink-0"
-              >
-                <Pencil className="w-4 h-4" />
-              </Link>
+              {group.spaces.map((space) => (
+                <div
+                  key={space.id}
+                  className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
+                >
+                  <MapPin className="w-4 h-4 text-muted-foreground/70 shrink-0" />
+                  <span className="text-sm font-medium text-foreground flex-1 min-w-0 truncate">
+                    {space.name}
+                  </span>
+                  {space.capacity != null && (
+                    <span className="text-xs text-muted-foreground/70 shrink-0">Cap. {space.capacity}</span>
+                  )}
+                  {space.isPublished ? (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full shrink-0">
+                      <Eye className="w-3 h-3" /> Published
+                    </span>
+                  ) : (
+                    <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full shrink-0">
+                      <EyeOff className="w-3 h-3" /> Draft
+                    </span>
+                  )}
+                  <Link
+                    href={`/dashboard/facilities/${facility.id}/spaces/${space.id}/edit`}
+                    aria-label={`Edit ${space.name}`}
+                    className="p-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shrink-0"
+                  >
+                    <Pencil className="w-4 h-4" />
+                  </Link>
+                </div>
+              ))}
             </div>
           ))}
         </div>

@@ -20,6 +20,10 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
 import { DAYS } from "@/lib/schedule/weekGeometry";
+import {
+  groupSpacesByConfiguration,
+  type ConfigurationOption,
+} from "@/lib/spaces/configurations";
 import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext";
 
 export interface CreateSessionValues {
@@ -48,7 +52,10 @@ interface CreateSessionDialogProps {
   /** The pending placement — day always, plus space/time/template when the view supplied them. Null closes the dialog. */
   target: AddSessionTarget | null;
   templates: EditorTemplate[];
-  spaces: { id: string; name: string }[];
+  spaces: { id: string; name: string; configurationId: string | null }[];
+  /** The building's states (migration 048) — headings over the space pills.
+   *  Empty everywhere nothing is reconfigurable, and the pills stay flat. */
+  configurations: ConfigurationOption[];
   onCancel: () => void;
   onConfirm: (values: CreateSessionValues) => void;
   submitting: boolean;
@@ -67,6 +74,7 @@ export default function CreateSessionDialog({
   target,
   templates,
   spaces,
+  configurations,
   onCancel,
   onConfirm,
   submitting,
@@ -117,6 +125,12 @@ export default function CreateSessionDialog({
       prev.includes(code) ? prev.filter((d) => d !== code) : [...prev, code]
     );
   }
+
+  // Headings over the pills once a building has two states to tell apart
+  // (migration 048); one unlabelled group — the picker as it was — otherwise.
+  const spaceGroups = groupSpacesByConfiguration(spaces, configurations);
+  const showSpaceGroupHeadings =
+    spaceGroups.length > 1 || spaceGroups[0]?.configurationId !== null;
 
   function toggleSpace(id: string) {
     setSpaceIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
@@ -253,26 +267,37 @@ export default function CreateSessionDialog({
         {spaces.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Spaces</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {spaces.map((space) => {
-                const selected = spaceIds.includes(space.id);
-                return (
-                  <button
-                    key={space.id}
-                    type="button"
-                    onClick={() => toggleSpace(space.id)}
-                    className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                      selected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-border text-muted-foreground hover:border-blue-300"
-                    )}
-                    aria-pressed={selected}
-                  >
-                    {space.name}
-                  </button>
-                );
-              })}
+            <div className="space-y-2.5">
+              {spaceGroups.map((group) => (
+                <div key={group.configurationId ?? "__every__"}>
+                  {showSpaceGroupHeadings && (
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1">
+                      {group.label}
+                    </p>
+                  )}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {group.spaces.map((space) => {
+                      const selected = spaceIds.includes(space.id);
+                      return (
+                        <button
+                          key={space.id}
+                          type="button"
+                          onClick={() => toggleSpace(space.id)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                            selected
+                              ? "bg-blue-600 border-blue-600 text-white"
+                              : "border-border text-muted-foreground hover:border-blue-300"
+                          )}
+                          aria-pressed={selected}
+                        >
+                          {space.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
             <p className="text-xs text-muted-foreground/70 mt-1">Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).</p>
           </div>

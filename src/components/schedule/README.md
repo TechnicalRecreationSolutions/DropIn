@@ -98,3 +98,30 @@ members of the owning org. So a public caller's occurrence carries
 The consequence worth knowing: **reaching for `session.holderName` directly in a
 view re-introduces the leak this indirection removes**, because nothing about a
 component tells you which audience is rendering it. Go through the helper.
+
+## Configurations, and why the Map view filters columns
+
+A facility can describe physical states it can be put into — "Long Course (50m)",
+"Short Course (25m)" (migration 048). Lanes belong to one, or to none, which
+means **all of them**. A session's configuration is derived from the lanes it
+claims and arrives as `configurationIds` / `configurationNames` on every
+occurrence; name it through `configurationLabel()`
+(`src/lib/spaces/configurations.ts`), never by indexing the array, because "more
+than one" is a real state that must read as one label.
+
+**Empty is the normal case.** No facility has any of this until someone creates a
+configuration, so every surface here has to render exactly as it did before when
+the arrays are empty — no headings over one group, no chips, no label.
+
+`WeeklyScheduleMap` is the only view that *filters* by it, and only while
+editing: its columns come from the editor's full space list, so a tank with 8
+long-course and 16 short-course lanes would otherwise be 24 columns wide, most
+of them permanently empty. The filter defaults to the configuration the day's
+sessions imply, falls back to showing everything when a day uses two (long course
+in the morning, short course after is a real pattern, not an error), and always
+says how many sessions it is hiding. A visitor's columns are built from the
+sessions themselves, so there is nothing to hide and no chips are rendered.
+
+The day-header label, unlike the filter, is public: "Long Course (50m)" answers
+"can I swim 50s tonight". It is the one part of this feature family where the
+public/staff split runs the *opposite* way from the holder name above.

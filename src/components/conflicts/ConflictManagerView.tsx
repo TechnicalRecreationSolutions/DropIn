@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   ExternalLink,
   Loader2,
+  Info,
   Undo2,
 } from "lucide-react";
 import { Card } from "@/components/ui/card";
@@ -26,6 +27,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import type { ConflictParticipant, OrgConflict } from "./types";
 import { occupancyKindLabel } from "@/lib/sessions/occupancy";
+import { configurationLabel } from "@/lib/spaces/configurations";
+import { cn } from "@/lib/utils/cn";
 
 interface ConflictManagerViewProps {
   initialConflicts: OrgConflict[];
@@ -44,7 +47,8 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
     }
   }
 
-  const active = conflicts.filter((c) => !c.dismissed);
+  const active = conflicts.filter((c) => !c.dismissed && c.severity === "conflict");
+  const advisories = conflicts.filter((c) => !c.dismissed && c.severity === "advisory");
   const dismissed = conflicts.filter((c) => c.dismissed);
 
   if (conflicts.length === 0) {
@@ -61,7 +65,7 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
 
   return (
     <div className="space-y-8">
-      {active.length === 0 && (
+      {active.length === 0 && advisories.length === 0 && (
         <div className="text-center py-10 bg-card rounded-xl border border-dashed border-border">
           <CheckCircle2 className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">No unresolved conflicts — everything below has been dismissed.</p>
@@ -79,6 +83,33 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
               onDismissed={refresh}
             />
           ))}
+        </div>
+      )}
+
+      {/* Advisories sit in their own section rather than mixed in above, because
+          they are not the same claim: nothing here is double-booked, and a page
+          that presents "check the bulkhead" with the same weight as "two clubs
+          in Lane 3" trains staff to skim both. */}
+      {advisories.length > 0 && (
+        <div>
+          <h2 className="text-sm font-semibold text-foreground mb-1">
+            Worth a look ({advisories.length})
+          </h2>
+          <p className="text-xs text-muted-foreground mb-3">
+            Not double-booked — these overlap while needing the building in two different
+            configurations. Fine if the bulkhead really does move in between.
+          </p>
+          <div className="space-y-3">
+            {advisories.map((c) => (
+              <ConflictCard
+                key={c.key}
+                conflict={c}
+                onRequestReassign={(participant) => setReassignTarget({ conflict: c, participant })}
+                onRequestDeactivate={(participant) => setDeactivateTarget({ conflict: c, participant })}
+                onDismissed={refresh}
+              />
+            ))}
+          </div>
         </div>
       )}
 
@@ -117,7 +148,10 @@ function ConflictCard({
   onDismissed: () => void;
 }) {
   const [isPending, startTransition] = useTransition();
-  const canReassignInline = conflict.spaceIds.length === 1;
+  // An advisory has no shared space, so there is nothing to move the session
+  // out of — offering "Move space" would suggest a fix that isn't one.
+  const isAdvisory = conflict.severity === "advisory";
+  const canReassignInline = !isAdvisory && conflict.spaceIds.length === 1;
 
   function toggleDismiss() {
     startTransition(async () => {
@@ -141,12 +175,39 @@ function ConflictCard({
   return (
     <Card className={conflict.dismissed ? "p-4 gap-3 opacity-60" : "p-4 gap-3"}>
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 shrink-0 size-7 rounded-full bg-amber-50 flex items-center justify-center">
-          <AlertTriangle className="size-3.5 text-amber-600" />
+        <div
+          className={cn(
+            "mt-0.5 shrink-0 size-7 rounded-full flex items-center justify-center",
+            isAdvisory ? "bg-blue-50" : "bg-amber-50"
+          )}
+        >
+          {isAdvisory ? (
+            <Info className="size-3.5 text-blue-600" />
+          ) : (
+            <AlertTriangle className="size-3.5 text-amber-600" />
+          )}
         </div>
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground">
-            Both claim <span className="font-medium">{conflict.spaceNames.join(", ")}</span> starting{" "}
+            {isAdvisory ? (
+              <>
+                Needs{" "}
+                <span className="font-medium">
+                  {[
+                    configurationLabel(conflict.sessionA.configurationNames),
+                    configurationLabel(conflict.sessionB.configurationNames),
+                  ]
+                    .filter(Boolean)
+                    .join(" and ")}
+                </span>{" "}
+                at the same time, starting{" "}
+              </>
+            ) : (
+              <>
+                Both claim <span className="font-medium">{conflict.spaceNames.join(", ")}</span>{" "}
+                starting{" "}
+              </>
+            )}
             <span className="font-medium">
               {conflict.occurrenceDate} around {conflict.occurrenceTime}
             </span>
@@ -220,7 +281,15 @@ function ParticipantBlock({
           </Badge>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">{participant.spaceNames.join(", ") || "No space"}</p>
+      <p className="text-xs text-muted-foreground">
+        {participant.spaceNames.join(", ") || "No space"}
+        {/* Which state of the building these lanes belong to (migration 048).
+            Absent at every facility with no configurations described, which is
+            why it renders only when there is something to say. */}
+        {configurationLabel(participant.configurationNames) && (
+          <> · {configurationLabel(participant.configurationNames)}</>
+        )}
+      </p>
       <div className="flex flex-wrap gap-2 pt-1">
         <Link
           href={href}

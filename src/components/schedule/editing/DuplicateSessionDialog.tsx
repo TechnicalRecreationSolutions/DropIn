@@ -14,11 +14,18 @@ import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
+import {
+  groupSpacesByConfiguration,
+  type ConfigurationOption,
+} from "@/lib/spaces/configurations";
 
 interface DuplicateSessionDialogProps {
   open: boolean;
   session: ExpandedSession | null;
-  spaces: { id: string; name: string }[];
+  spaces: { id: string; name: string; configurationId: string | null }[];
+  /** Headings over the space pills (migration 048) — "same session, other lane"
+   *  is exactly where copying into the wrong state of the building is easiest. */
+  configurations: ConfigurationOption[];
   onCancel: () => void;
   onConfirm: (spaceIds: string[], dayCodes: string[]) => void;
   submitting: boolean;
@@ -35,6 +42,7 @@ export default function DuplicateSessionDialog({
   open,
   session,
   spaces,
+  configurations,
   onCancel,
   onConfirm,
   submitting,
@@ -42,6 +50,10 @@ export default function DuplicateSessionDialog({
 }: DuplicateSessionDialogProps) {
   const [spaceIds, setSpaceIds] = useState<string[]>([]);
   const [selectedDays, setSelectedDays] = useState<string[]>([]);
+
+  const spaceGroups = groupSpacesByConfiguration(spaces, configurations);
+  const showSpaceGroupHeadings =
+    spaceGroups.length > 1 || spaceGroups[0]?.configurationId !== null;
 
   useEffect(() => {
     if (!session) return;
@@ -79,26 +91,37 @@ export default function DuplicateSessionDialog({
         {spaces.length > 0 && (
           <div>
             <label className="block text-sm font-medium text-foreground mb-1.5">Spaces</label>
-            <div className="flex gap-1.5 flex-wrap">
-              {spaces.map((space) => {
-                const selected = spaceIds.includes(space.id);
-                return (
-                  <button
-                    key={space.id}
-                    type="button"
-                    onClick={() => toggleSpace(space.id)}
-                    className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                      selected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-border text-muted-foreground hover:border-blue-300"
-                    )}
-                    aria-pressed={selected}
-                  >
-                    {space.name}
-                  </button>
-                );
-              })}
+            <div className="space-y-2.5">
+              {spaceGroups.map((group) => (
+                <div key={group.configurationId ?? "__every__"}>
+                  {showSpaceGroupHeadings && (
+                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1">
+                      {group.label}
+                    </p>
+                  )}
+                  <div className="flex gap-1.5 flex-wrap">
+                    {group.spaces.map((space) => {
+                      const selected = spaceIds.includes(space.id);
+                      return (
+                        <button
+                          key={space.id}
+                          type="button"
+                          onClick={() => toggleSpace(space.id)}
+                          className={cn(
+                            "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                            selected
+                              ? "bg-blue-600 border-blue-600 text-white"
+                              : "border-border text-muted-foreground hover:border-blue-300"
+                          )}
+                          aria-pressed={selected}
+                        >
+                          {space.name}
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+              ))}
             </div>
           </div>
         )}

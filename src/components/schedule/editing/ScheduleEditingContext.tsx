@@ -2,6 +2,7 @@
 
 import { createContext, useContext } from "react";
 import type { OccupancyKind, Disclosure } from "@/lib/sessions/occupancy";
+import type { ConfigurationOption } from "@/lib/spaces/configurations";
 import type { ExpandedSession } from "@/types/schedule.types";
 
 /** A session template as offered by the editor's palette, en route to being placed. */
@@ -64,8 +65,13 @@ export interface RescheduleRequest {
 export interface ScheduleEditingApi {
   /** Templates placeable in the current scope — empty when the scope spans schedules. */
   templates: EditorTemplate[];
-  /** Every space in the current facility, so Map can show empty columns to drop into. */
-  spaces: { id: string; name: string }[];
+  /** Every space in the current facility, so Map can show empty columns to drop
+   *  into. `configurationId` is which state of the building each one exists in
+   *  (migration 048); null means all of them. */
+  spaces: { id: string; name: string; configurationId: string | null }[];
+  /** The building's physical states — empty unless a customer has described
+   *  some, which is what keeps every picker here flat by default. */
+  configurations: ConfigurationOption[];
   /** False when the scope spans more than one schedule, since a new session needs exactly one. */
   canCreate: boolean;
   /**

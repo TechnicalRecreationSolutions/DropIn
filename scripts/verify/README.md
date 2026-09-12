@@ -23,6 +23,7 @@ node scripts/verify/verify-t.mjs   # pricing surfaces match the catalogue (57 as
 node scripts/verify/verify-v.mjs   # occupancy kinds + disclosure + staff-only sidecar (migration 046, 33 assertions)
 node scripts/verify/verify-w.mjs   # staff/patron audience toggle + conflict occupancy labels (20 assertions)
 node scripts/verify/verify-x.mjs   # template occupancy defaults (migration 047, 16 assertions)
+node scripts/verify/verify-y.mjs   # facility configurations + cross-configuration advisory (migration 048, 35 assertions)
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```
@@ -105,6 +106,8 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 
 | `verify-x` | Template occupancy defaults (migration 047): a template carries the `occupancy_kind`/`disclosure` every session placed from it starts with, so a club booking is one drag from the rail instead of a drag plus two corrections on the edit form. Its centre of gravity is section 6, which rules out the design that would have looked identical in normal use: these are **defaults, not links**. It flips the template to internal *after* a session has been placed and asserts the placed session stays `rental`/`reserved`, with a control proving the template itself really changed — resolving through to the template at render time would pass every other assertion here and would retroactively republish a withheld booking the first time anyone tidied a template. Section 4 is the bug preserved as a test: the API deliberately does **not** read the template, so a payload omitting the fields takes the column defaults — which is exactly why the client must send them, and what the command centre's create path was failing to do. Also covers a pre-047 template reading as a public drop-in with no backfill, a per-placement override beating the template, a PATCH that doesn't mention the fields leaving them alone, one placed session's edit not disturbing its siblings, and an unknown kind being rejected 400. **Verified to fail correctly** by making `POST /api/sessions` read through to the template, which reddens section 4 alone. Its own first run also red-flagged a genuine fixture error rather than a code one: the override placement was an exclusive `program` on the same lane and hour as section 3's rental, so the conflict engine 409'd it — correctly — and the fixture now keeps them apart. |
 
+| `verify-y` | Facility configurations — the bulkhead (migration 048, stage 3 of `docs/PLAN-internal-view.md`). Its subject is a distinction the schema cannot express: two sessions on lanes from *different* configurations share no space, so the conflict engine is blind to them, and the fix is an **advisory** rather than a 409 — refusing a booking would mean refusing it on an inference about the building. Section 4 asserts both bookings save *and* that the pair comes back as `severity: "advisory"` with no shared space, guarded by two negative controls that are the whole reason the predicate is trustworthy: an every-configuration space (the hot tub) overlapping the rental is not reported, and two lanes in the *same* configuration produce no row at all. Section 5 is the complement — a genuine same-space pair, inserted directly the way `/api/import/commit` does, still reads `severity: "conflict"`, which is what the Overview's "Conflicts" card counts. Section 3 covers the payload: a *reserved* rental publishes its configuration to anon ("can I swim 50s tonight" is a patron question, migration 048 decision 6) while the holder name and setup notes stay absent from the whole body, and a session on an every-configuration space reports none at all — the state of every facility that has described no configurations. Section 6 proves deleting a configuration is a relabelling: its lanes come back as "every configuration" (`ON DELETE SET NULL`), the sessions in them are untouched, and the advisory disappears because there is no longer a disagreement. Also the two boundaries the schema deliberately leaves to the API — owner/admin only, and a space cannot be assigned to another building's configuration (asserted on the refused PATCH leaving the lane where it was, not just on the 404). **Verified to fail correctly, twice**: short-circuiting `configurationsDisagree` reddens exactly the three advisory assertions and neither control, and dropping the second-level `facility_configurations` embed from `/api/sessions/expand` reddens exactly the two *name* assertions while the ids keep arriving — which is the point of asserting on names, since that select is cast `as unknown as SessionWithRelations[]` and a wrong join fails silently. |
+
 **Two of these harnesses had drifted out of true and were fixed here, not by
 this feature's code:** `verify-f` section 4 expected an anonymous caller to see a
 session on a published schedule, which migration **037** made impossible — it
@@ -112,7 +115,21 @@ hides any week no admin has approved, and `verify-f` predates 037
 (last touched in `9152b46`) and so had been failing on that since. It now
 approves its week, the same fixture requirement `verify-p`/`verify-s` document.
 And `verify-f`/`verify-i`/`verify-k` hardcoded `localhost:3000`, which matters
-because of the next paragraph.
+because of the next paragraph. `verify-m` was the last one still doing that and
+now takes `--app=` too — it read as 18 passed / 14 failed against a wedged
+server and 32 / 0 against a healthy one, with nothing else changed.
+
+**A signed-in client is not anon, and the mistake is invisible.** These harnesses
+reuse one publishable-key client for `signInWithPassword`, and supabase-js keeps
+that session **in memory even with `persistSession: false`** — so every later
+`anon.from(...)` runs as whoever signed in last. `verify-y` caught it by failing:
+its RLS check on `facility_configurations` was really being asked as an org
+member, who sees the unpublished facility's row by right, and it read as a policy
+hole. `verify-v` had the same flaw where it least wanted it — its "anon selects
+`session_internal` directly" assertions were in fact the other org's admin, which
+passed for a different reason than the label claimed. Both now use a second
+client that never signs anyone in. If a direct PostgREST read is supposed to be
+anonymous, it needs its own client.
 
 **A wedged Next dev server looks like a route bug.** When the dev server's render
 worker dies (`Jest worker encountered N child process exceptions`), *every*

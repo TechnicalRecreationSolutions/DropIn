@@ -3,17 +3,25 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import {
+  EVERY_CONFIGURATION_LABEL,
+  type ConfigurationOption,
+} from "@/lib/spaces/configurations";
 
 interface SpaceFormProps {
   facilityId: string;
   spaceId?: string;
   departments: { id: string; name: string }[];
+  /** The building's physical states (migration 048). Empty at almost every
+   *  facility, and the picker below is hidden entirely when it is. */
+  configurations: ConfigurationOption[];
   defaultValues?: {
     name?: string;
     department_id?: string | null;
     description?: string;
     capacity?: number | null;
     is_published?: boolean;
+    configuration_id?: string | null;
   };
   /** Where to send staff after a successful save. */
   redirectTo: string;
@@ -23,6 +31,7 @@ export default function SpaceForm({
   facilityId,
   spaceId,
   departments,
+  configurations,
   defaultValues,
   redirectTo,
 }: SpaceFormProps) {
@@ -36,6 +45,9 @@ export default function SpaceForm({
     description: defaultValues?.description ?? "",
     capacity: defaultValues?.capacity != null ? String(defaultValues.capacity) : "",
     is_published: defaultValues?.is_published ?? false,
+    // "" is the every-configuration case, which is both the default and the
+    // right answer for every space that isn't part of a split (migration 048).
+    configuration_id: defaultValues?.configuration_id ?? "",
   });
 
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +85,7 @@ export default function SpaceForm({
           description: form.description || null,
           capacity,
           is_published: form.is_published,
+          configuration_id: form.configuration_id || null,
         }),
       }
     );
@@ -123,6 +136,31 @@ export default function SpaceForm({
               <option key={dept.id} value={dept.id}>{dept.name}</option>
             ))}
           </select>
+        </div>
+      )}
+
+      {/* Only where a building has been described as reconfigurable — every
+          other facility never sees this concept (migration 048, decision 2). */}
+      {configurations.length > 0 && (
+        <div>
+          <label htmlFor="configuration_id" className={labelClass}>Configuration</label>
+          <select
+            id="configuration_id"
+            name="configuration_id"
+            value={form.configuration_id}
+            onChange={handleChange}
+            className={fieldClass}
+          >
+            <option value="">{EVERY_CONFIGURATION_LABEL}</option>
+            {configurations.map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            Which state of the building this space exists in. Leave it on{" "}
+            {EVERY_CONFIGURATION_LABEL.toLowerCase()} for anything that doesn&apos;t change when the
+            bulkhead moves.
+          </p>
         </div>
       )}
 

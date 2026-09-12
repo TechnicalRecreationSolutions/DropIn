@@ -50,11 +50,21 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
     ? scheduleGroupList.find((sg) => sg.id === scheduleGroupId)
     : undefined;
 
-  const { data: allSpaces } = await supabase
-    .from("spaces")
-    .select("id, name, facility_id, department_id")
-    .eq("org_id", orgContext.org.id)
-    .order("display_order", { ascending: true });
+  const [{ data: allSpaces }, { data: allConfigurations }] = await Promise.all([
+    supabase
+      .from("spaces")
+      .select("id, name, facility_id, department_id, configuration_id")
+      .eq("org_id", orgContext.org.id)
+      .order("display_order", { ascending: true }),
+    // Org-wide, like the space list above: the schedule picker on this form can
+    // move the session to another building, and the lane picker has to regroup
+    // without a round trip (migration 048).
+    supabase
+      .from("facility_configurations")
+      .select("id, name, facility_id")
+      .eq("org_id", orgContext.org.id)
+      .order("display_order", { ascending: true }),
+  ]);
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
@@ -72,6 +82,7 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
         scheduleGroups={scoped ? [scoped] : scheduleGroupList}
         defaultScheduleGroupId={scoped?.id}
         spaces={allSpaces ?? []}
+        configurations={allConfigurations ?? []}
       />
     </div>
   );

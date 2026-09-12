@@ -17,9 +17,15 @@ export type ConflictParticipant = {
   spaceNames: string[];
   occupancyKind: "drop_in" | "program" | "rental" | "closure";
   disclosure: "public" | "reserved" | "internal";
+  configurationIds: string[];
+  configurationNames: string[];
 };
 
 export type OrgConflict = {
+  /** "conflict" = same space, same time. "advisory" = different facility
+   *  configurations at the same time, which no shared space can express —
+   *  see OrgConflict in src/lib/sessions/conflicts.ts. */
+  severity: "conflict" | "advisory";
   key: string;
   sessionA: ConflictParticipant;
   sessionB: ConflictParticipant;

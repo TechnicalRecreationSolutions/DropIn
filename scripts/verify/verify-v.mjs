@@ -65,6 +65,22 @@ const anon = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
   auth: { autoRefreshToken: false, persistSession: false },
 });
 
+/**
+ * A second publishable-key client that NEVER signs anyone in, for the direct
+ * PostgREST reads below that claim to be anonymous.
+ *
+ * `anon` is used for signInWithPassword, and supabase-js keeps that session in
+ * memory even with persistSession: false — so after section 1 every
+ * `anon.from(...)` runs as the last user signed in, which here is the *other
+ * org's admin*. Those assertions still passed (an outsider reads zero rows
+ * too), but they were testing a different gate than their labels claimed, and
+ * the same mistake produced a false failure in verify-y where an org member
+ * legitimately saw the row. Caught while building migration 048.
+ */
+const publicDb = createClient(URL_, env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY, {
+  auth: { autoRefreshToken: false, persistSession: false },
+});
+
 const projectRef = new URL(URL_).hostname.split(".")[0];
 const COOKIE_NAME = `sb-${projectRef}-auth-token`;
 
@@ -450,7 +466,7 @@ try {
   // The route skipping the sidecar query and the policy refusing it produce the
   // same output. Only a direct select separates them, and it is the guarantee
   // migration 046 rests on.
-  const { data: anonInternal, error: anonInternalErr } = await anon
+  const { data: anonInternal, error: anonInternalErr } = await publicDb
     .from("session_internal")
     .select("session_id, holder_name, setup_notes");
   check(
@@ -488,7 +504,7 @@ try {
   // session_spaces has its own public-read policy (migration 033, patched by
   // 046). Left unpatched it would still serve "something holds ZZ Lane 2 at
   // 6am" for a session anon cannot see.
-  const { data: anonSpaces } = await anon
+  const { data: anonSpaces } = await publicDb
     .from("session_spaces")
     .select("session_id, space_id")
     .eq("session_id", internalSessionId);
@@ -498,7 +514,7 @@ try {
     JSON.stringify(anonSpaces)
   );
 
-  const { data: anonSpacesControl } = await anon
+  const { data: anonSpacesControl } = await publicDb
     .from("session_spaces")
     .select("session_id, space_id")
     .eq("session_id", rental.body.sessionId);

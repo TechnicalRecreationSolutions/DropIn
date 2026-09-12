@@ -206,6 +206,9 @@ export type Database = {
           capacity: number | null;
           display_order: number;
           is_published: boolean;
+          /** Which facility configuration this space exists in; NULL = all of
+           *  them (migration 048, decision 2). */
+          configuration_id: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -219,14 +222,42 @@ export type Database = {
           | "capacity"
           | "display_order"
           | "is_published"
+          | "configuration_id"
         > & {
           department_id?: string | null;
           description?: string | null;
           capacity?: number | null;
           display_order?: number;
           is_published?: boolean;
+          configuration_id?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["spaces"]["Insert"]>;
+        Relationships: [];
+      };
+      /** Physical states a facility can be put into — bulkhead in/out, boards
+       *  in/out (migration 048). Publicly readable: the name is patron-facing
+       *  ("Long Course (50m)"), unlike session_internal. */
+      facility_configurations: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_id: string;
+          name: string;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["facility_configurations"]["Row"],
+          "id" | "created_at" | "updated_at" | "display_order"
+        > & {
+          display_order?: number;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["facility_configurations"]["Insert"]
+        > & {
+          updated_at?: string;
+        };
         Relationships: [];
       };
       facility_maps: {

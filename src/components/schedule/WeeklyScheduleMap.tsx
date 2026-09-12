@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
+import { configurationLabel } from "@/lib/spaces/configurations";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
@@ -84,7 +85,49 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
       .sort((a, b) => a.start.getTime() - b.start.getTime());
   }, [sessions, activeDayIndex]);
 
-  const editingSpaces = editing?.spaces;
+  // Which state of the building this day's sessions imply (migration 048), and
+  // which one the columns are filtered to. `"auto"` follows the day: with one
+  // configuration in use the columns narrow to it, and a day that uses two —
+  // long course in the morning, short course after — shows everything, because
+  // that is a real and expected pattern, not an error (decision 5).
+  const configurations = editing?.configurations ?? [];
+  const [configurationOverride, setConfigurationOverride] = useState<string | null | "auto">("auto");
+
+  const impliedConfigurationIds = useMemo(
+    () => [...new Set(daySessions.flatMap((s) => s.configurationIds))],
+    [daySessions]
+  );
+  const impliedConfigurationNames = useMemo(
+    () => [...new Set(daySessions.flatMap((s) => s.configurationNames))],
+    [daySessions]
+  );
+  const activeConfigurationId =
+    configurationOverride === "auto"
+      ? impliedConfigurationIds.length === 1
+        ? impliedConfigurationIds[0]
+        : null
+      : configurationOverride;
+
+  // Only the editor filters columns. A visitor's column list is built from the
+  // sessions themselves, so it already contains exactly the lanes in use —
+  // there are no empty 25m columns to hide.
+  const allEditingSpaces = editing?.spaces;
+  const editingSpaces = useMemo(() => {
+    if (!allEditingSpaces) return undefined;
+    if (!activeConfigurationId) return allEditingSpaces;
+    return allEditingSpaces.filter(
+      (s) => s.configurationId === null || s.configurationId === activeConfigurationId
+    );
+  }, [allEditingSpaces, activeConfigurationId]);
+
+  // Sessions this filter is hiding outright — never silently: staff have to be
+  // able to see that a booking exists in the other configuration.
+  const hiddenSessionCount = useMemo(() => {
+    if (!editing || !activeConfigurationId) return 0;
+    return daySessions.filter(
+      (s) => s.configurationIds.length > 0 && !s.configurationIds.includes(activeConfigurationId)
+    ).length;
+  }, [editing, daySessions, activeConfigurationId]);
 
   const columns: MapColumn[] = useMemo(() => {
     // Sessions land in a column per real space; falling back to their
@@ -171,7 +214,68 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
         ))}
       </div>
 
-      <h3 className="text-sm font-bold text-foreground mt-3">{formatDayFull(activeDay)}</h3>
+      <div className="flex items-baseline gap-2 flex-wrap mt-3">
+        <h3 className="text-sm font-bold text-foreground">{formatDayFull(activeDay)}</h3>
+        {/* What state the building is in that day, read off the lanes the day's
+            sessions claim (migration 048). Rendered for visitors too — "can I
+            swim 50s tonight" is a patron question — and absent entirely at any
+            facility that has described no configurations. */}
+        {configurationLabel(impliedConfigurationNames) && (
+          <span className="text-xs font-medium text-muted-foreground">
+            {configurationLabel(impliedConfigurationNames)}
+          </span>
+        )}
+      </div>
+
+      {/* Staff-only: narrows the columns to one state of the building, so a tank
+          with 8 long-course and 16 short-course lanes isn't 24 columns wide. */}
+      {configurations.length > 0 && (
+        <div className="flex gap-1.5 flex-wrap mt-2">
+          <button
+            type="button"
+            onClick={() => setConfigurationOverride(null)}
+            aria-pressed={!activeConfigurationId}
+            className={cn(
+              "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+              !activeConfigurationId
+                ? "bg-muted border-border text-foreground"
+                : "border-border text-muted-foreground hover:text-foreground"
+            )}
+          >
+            All spaces
+          </button>
+          {configurations.map((c) => (
+            <button
+              key={c.id}
+              type="button"
+              onClick={() => setConfigurationOverride(c.id)}
+              aria-pressed={activeConfigurationId === c.id}
+              className={cn(
+                "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                activeConfigurationId === c.id
+                  ? "bg-muted border-border text-foreground"
+                  : "border-border text-muted-foreground hover:text-foreground"
+              )}
+            >
+              {c.name}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {hiddenSessionCount > 0 && (
+        <p className="text-xs text-muted-foreground mt-2">
+          {hiddenSessionCount} session{hiddenSessionCount !== 1 ? "s" : ""} in another configuration{" "}
+          {hiddenSessionCount !== 1 ? "are" : "is"} hidden.{" "}
+          <button
+            type="button"
+            onClick={() => setConfigurationOverride(null)}
+            className="font-medium text-blue-600 dark:text-blue-400 hover:underline"
+          >
+            Show all spaces
+          </button>
+        </p>
+      )}
 
       {columns.length === 0 ? (
         <div className="text-center py-10 text-sm text-muted-foreground/70">
