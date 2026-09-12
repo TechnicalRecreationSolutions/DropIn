@@ -293,7 +293,7 @@ Each stage stands alone and is demoable. Ship, show the customer, then decide.
 | # | Stage | Delivers | Est. |
 |---|---|---|---|
 | 1 | ✅ **Built** — `occupancy_kind` + `disclosure` + `session_internal` + RLS + session-form control + the write-time conflict fix | Staff record who is in which lane; patrons see "Reserved · Lanes 1–3"; public schedule otherwise unchanged | 3–4d |
-| 2 | Staff-view toggle; `/dashboard/conflicts` reclassification | Preview-as-patron; the conflicts page stays readable now that public-vs-rental pairs exist | 2–3d |
+| 2 | ✅ **Built** — audience toggle; `/dashboard/conflicts` occupancy labels | Preview-as-patron; the conflicts page stays readable now that public-vs-rental pairs exist | 2–3d |
 | 3 | `facility_configurations` + configuration label and lane-picker filtering | "The pool is in 50m state" becomes expressible | 2d |
 | 4 | Deck sheet view + print | Kills the Excel sheet — the actual deliverable | 4–6d |
 | 5 | Calculator in **shadow mode** | Dashboard shows computed vs published; publishes nothing | 3–4d |
@@ -391,3 +391,31 @@ Three traps found while building it, all now covered by `verify-v`:
    `sessions_public_read_active` leaves an internal session's lane claims
    publicly readable — the row says "some session holds Lane 2 at 6am" for a
    session anon cannot see. Same for `session_exceptions`.
+
+---
+
+## 12. What stage 2 touched
+
+| File | Change |
+|---|---|
+| `src/app/api/sessions/expand/route.ts` | `audience=public` collapses the caller to an outsider; `applyDisclosure` now also drops internal occurrences app-side |
+| `src/hooks/useScheduleRange.ts` | `ScheduleAudience`, threaded into the request **and the query key** |
+| `src/components/schedule-command/AudienceToggle.tsx` | **New.** Staff view ↔ Patron view |
+| `ScheduleCommandCentre.tsx` | The toggle, its per-browser memory, the explanatory strip, and `null` editing context in Patron view |
+| `src/lib/sessions/conflicts.ts` | `findOrgConflicts` skips non-colliding pairs; participants carry kind + disclosure |
+| `src/components/conflicts/{types.ts,ConflictManagerView.tsx}` | Kind and "Name withheld"/"Staff only" badges |
+| `src/components/schedule/SessionModal.tsx` | Setup notes, which were write-only after stage 1 |
+| `scripts/verify/verify-w.mjs` | **New.** 20 assertions |
+
+Two things learned here:
+
+1. **The preview had to be a fetch, not a filter.** Simulating the public payload
+   client-side would be a second implementation of the redaction rules, free to
+   drift from the one patrons get — worthless exactly when it matters.
+   `verify-w` section 4 pins the two together by diffing the preview against a
+   genuinely anonymous fetch of the same week.
+2. **RLS cannot carry the preview.** The toggle's caller *is* an org member, so
+   their internal rows come back through RLS by right; only the app-layer filter
+   removes them. Stage 1's comment claiming those rows "never arrive" was true
+   until this stage existed, and is now wrong in exactly one case — which is why
+   `applyDisclosure` filters as well as redacts.

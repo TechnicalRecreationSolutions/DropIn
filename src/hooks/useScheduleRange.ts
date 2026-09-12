@@ -16,8 +16,11 @@ import { getWeekEnd, getMonthGridRange, toSessionTime } from "@/lib/utils/dates"
  */
 export const SCHEDULE_RANGE_KEY = "schedule-range";
 
-async function fetchExpandedSessions(params: RangeExpandParams): Promise<ExpandedSession[]> {
-  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId } = params;
+async function fetchExpandedSessions(
+  params: RangeExpandParams & { audience?: ScheduleAudience }
+): Promise<ExpandedSession[]> {
+  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId, audience } =
+    params;
 
   const url = new URL("/api/sessions/expand", window.location.origin);
   url.searchParams.set("rangeStart", rangeStart.toISOString());
@@ -26,6 +29,9 @@ async function fetchExpandedSessions(params: RangeExpandParams): Promise<Expande
   if (facilityId) url.searchParams.set("facilityId", facilityId);
   if (departmentId) url.searchParams.set("departmentId", departmentId);
   if (scheduleGroupId) url.searchParams.set("scheduleGroupId", scheduleGroupId);
+  // Only ever sent as "public" — see the endpoint's own note on why there is no
+  // "staff" value to send.
+  if (audience === "public") url.searchParams.set("audience", "public");
 
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -40,11 +46,23 @@ async function fetchExpandedSessions(params: RangeExpandParams): Promise<Expande
   return body.data.map((s) => ({ ...s, start: new Date(s.start), end: new Date(s.end) }));
 }
 
+/**
+ * Whose version of the schedule to fetch.
+ *
+ * "staff" is the absence of a parameter, not a privilege the client can ask
+ * for — what staff see still depends entirely on real org membership. "public"
+ * asks the server to treat this caller as an outsider, which is how the command
+ * centre's Patron view shows the genuinely redacted payload rather than a
+ * client-side imitation of it.
+ */
+export type ScheduleAudience = "staff" | "public";
+
 interface ScheduleScope {
   orgId?: string;
   facilityId?: string;
   departmentId?: string;
   scheduleGroupId?: string;
+  audience?: ScheduleAudience;
 }
 
 interface UseScheduleRangeOptions extends ScheduleScope {
@@ -64,6 +82,7 @@ export function useScheduleRange({
   facilityId,
   departmentId,
   scheduleGroupId,
+  audience,
   rangeStart,
   rangeEnd,
 }: UseScheduleRangeOptions) {
@@ -83,6 +102,11 @@ export function useScheduleRange({
         facilityId,
         departmentId,
         scheduleGroupId,
+        // Part of the key, not just the request: the staff and patron payloads
+        // are different data for the same range, and leaving this out would
+        // serve one from the other's cache — the toggle would appear to do
+        // nothing, or worse, show a stale staff payload under a Patron label.
+        audience,
         rangeStart: sessionRangeStart.toISOString(),
         rangeEnd: sessionRangeEnd.toISOString(),
       },
@@ -95,6 +119,7 @@ export function useScheduleRange({
         facilityId,
         departmentId,
         scheduleGroupId,
+        audience,
       }),
     staleTime: 60_000,
     enabled: !!(orgId || facilityId || scheduleGroupId),

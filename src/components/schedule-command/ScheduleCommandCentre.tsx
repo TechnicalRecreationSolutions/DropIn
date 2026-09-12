@@ -4,9 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarPlus, ExternalLink, Info } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Eye, ExternalLink, Info } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
-import { useTemplateSchedule, SCHEDULE_RANGE_KEY } from "@/hooks/useScheduleRange";
+import {
+  useTemplateSchedule,
+  SCHEDULE_RANGE_KEY,
+  type ScheduleAudience,
+} from "@/hooks/useScheduleRange";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import { localDateString, parseDate, getWeekStart, sessionTimeString } from "@/lib/utils/dates";
 import { buildRRuleString } from "@/lib/rrule/validate";
@@ -14,9 +18,11 @@ import { DAYS, timeStringToMinutes, minutesToTimeString, sessionDayIndex } from 
 import { NO_DEPARTMENT, commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
 import { getSportCategory } from "@/lib/utils/sport-categories";
+import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule-list/ScheduleListSection";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
+import AudienceToggle from "./AudienceToggle";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import {
   ScheduleEditingProvider,
@@ -54,6 +60,9 @@ interface ScheduleCommandCentreProps {
 }
 
 const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorplan"];
+
+/** Which audience this browser last looked at the schedule as (AudienceToggle). */
+const AUDIENCE_KEY = "dropin:schedule:audience";
 
 /**
  * The schedule command centre — the one place a schedule is viewed and
@@ -165,6 +174,11 @@ export default function ScheduleCommandCentre({
   // schedule mirroring used.
   const [weekParam, setWeekParam] = useState<string | null>(searchParams.get("week"));
   const [view, setView] = useState<ScheduleTemplate>(widgetTemplates[0] ?? "grid");
+  // Staff view ↔ Patron view (see AudienceToggle). Starts on "staff" to match
+  // the server-rendered markup, since localStorage isn't readable there; the
+  // effect below restores a remembered choice once, on the client — the same
+  // shape SessionForm uses for its last-schedule memory.
+  const [audience, setAudience] = useState<ScheduleAudience>("staff");
   // `weekParam` (URL-mirrored) is the one source of truth for which week is
   // open — this hook is only still needed for `month`, which every current
   // template ignores but ScheduleView's props still require (see its doc
@@ -212,6 +226,21 @@ export default function ScheduleCommandCentre({
     setWeekParam(nextWeek || null);
   }, [urlState]);
 
+  // Restore the remembered audience once, on the client. Deliberately not
+  // mirrored into the URL like `week`: a link someone shares should open on the
+  // real schedule, not on whatever lens the sender happened to be using.
+  useEffect(() => {
+    if (localStorage.getItem(AUDIENCE_KEY) === "public") {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setAudience("public");
+    }
+  }, []);
+
+  function handleAudienceChange(next: ScheduleAudience) {
+    setAudience(next);
+    localStorage.setItem(AUDIENCE_KEY, next);
+  }
+
   useEffect(() => {
     const url = new URL(window.location.href);
     if (weekParam) url.searchParams.set("week", weekParam);
@@ -243,6 +272,7 @@ export default function ScheduleCommandCentre({
     scheduleGroupId: inWeekEditor ? (scheduleGroup?.id ?? undefined) : undefined,
     weekStart: editorWeekStart,
     month,
+    audience,
   });
 
   function refresh() {
@@ -591,6 +621,26 @@ export default function ScheduleCommandCentre({
                 <div className="order-1 lg:order-2 rounded-xl border border-border overflow-hidden bg-card">
                   <WeekReviewBar scheduleGroupId={scheduleGroup.id} weekStart={editorWeekStart} />
 
+                  <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-border bg-muted/30">
+                    <AudienceToggle value={audience} onChange={handleAudienceChange} />
+                    {audience === "public" && (
+                      <p className="text-xs text-muted-foreground">
+                        Editing is off while you look as a patron.
+                      </p>
+                    )}
+                  </div>
+
+                  {audience === "public" && (
+                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-blue-900 bg-blue-50 border-b border-blue-100">
+                      <Eye className="w-3.5 h-3.5 shrink-0" />
+                      <span>
+                        Exactly what a patron sees. Withheld names show as
+                        &ldquo;{RESERVED_PUBLIC_LABEL},&rdquo; staff-only sessions are gone, and a
+                        week nobody has approved yet looks empty here because it is empty for them.
+                      </span>
+                    </p>
+                  )}
+
                   <ScheduleHeaderBar
                     title={scheduleGroup.name}
                     view={activeView}
@@ -623,7 +673,13 @@ export default function ScheduleCommandCentre({
                         Could not load this schedule. Please refresh.
                       </div>
                     ) : (
-                      <ScheduleEditingProvider value={editing}>
+                      /* Patron view passes null, which is the read-only shape
+                         the widget and public facility page already render —
+                         the context is nullable for exactly that reason.
+                         Offering drag, duplicate or delete over a redacted,
+                         partial week would invite staff to edit what they can
+                         only half see. */
+                      <ScheduleEditingProvider value={audience === "public" ? null : editing}>
                         <ScheduleView
                           template={activeView}
                           sessions={sessions ?? []}

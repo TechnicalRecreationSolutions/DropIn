@@ -15,6 +15,8 @@ export type ConflictParticipant = {
   validUntil: string | null;
   spaceIds: string[];
   spaceNames: string[];
+  occupancyKind: "drop_in" | "program" | "rental" | "closure";
+  disclosure: "public" | "reserved" | "internal";
 };
 
 export type OrgConflict = {

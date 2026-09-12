@@ -95,6 +95,31 @@ their day order from.
 On a phone the schedule panel comes **first** (`order-1`) and the template rail drops below
 it — the schedule is what staff came for; the rail is a tool.
 
+## Staff view ↔ Patron view
+
+`AudienceToggle` sits above the header bar. It is not a "show internal sessions"
+checkbox: the two positions are two audiences, and the difference is **fetched,
+not computed**. Patron view re-requests the week with `audience=public`, so what
+appears is the payload a patron genuinely receives — withheld names replaced,
+staff-only sessions gone, and an unapproved week empty because it is empty for
+them. Filtering client-side would be a second copy of the redaction rules in
+`/api/sessions/expand`, free to drift from the one patrons actually get, and a
+preview that can drift is worse than none (see `docs/PLAN-internal-view.md`).
+
+Two consequences worth knowing:
+
+- **`audience` is part of the query key**, not just the request. The two payloads
+  are different data for the same range; leaving it out of the key serves one
+  from the other's cache, and the toggle appears to do nothing.
+- **Patron view passes `null` as the editing context**, which is the same
+  read-only shape the widget and public facility page render. Offering drag,
+  duplicate or delete over a redacted, partial week would invite staff to edit
+  what they can only half see.
+
+The choice is remembered per browser (`dropin:schedule:audience`) and
+deliberately **not** mirrored into the URL the way `week` is — a shared link
+should open on the real schedule, not on whatever lens the sender was using.
+
 ## Why the views are the widget's own
 
 The panel mounts `ScheduleView` — the exact component the embed and public facility page

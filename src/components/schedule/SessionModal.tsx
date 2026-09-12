@@ -2,7 +2,7 @@
 
 import { useEffect, useRef } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
-import { X, Clock, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
+import { X, Clock, ClipboardList, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
@@ -86,6 +86,21 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
 
           {/* Details */}
           <div className="px-5 pb-6 space-y-3">
+            {/* Staff-only block (migration 046). Rendering it on `setupNotes`
+                being present is itself the audience check: setupNotes only ever
+                arrives for a member of the owning org, because it comes from
+                session_internal via /api/sessions/expand. This same modal opens
+                on the public widget, where the field is always null. */}
+            {session.setupNotes && (
+              <div className="flex items-start gap-3 text-sm rounded-lg bg-muted/50 border border-border p-3">
+                <ClipboardList className="w-4 h-4 text-muted-foreground/70 shrink-0 mt-0.5" />
+                <div>
+                  <p className="text-xs font-semibold text-foreground">Setup — staff only</p>
+                  <p className="text-foreground mt-0.5 whitespace-pre-line">{session.setupNotes}</p>
+                </div>
+              </div>
+            )}
+
             <div className="flex items-center gap-3 text-sm">
               <Clock className="w-4 h-4 text-muted-foreground/70 shrink-0" />
               <span className="text-foreground">

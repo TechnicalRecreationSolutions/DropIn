@@ -93,6 +93,11 @@ export function claimsCanCollide(a: OccupancyKind, b: OccupancyKind): boolean {
   return isExclusiveKind(a) === isExclusiveKind(b);
 }
 
+/** The human label for a kind, for badges and summaries. */
+export function occupancyKindLabel(kind: OccupancyKind): string {
+  return OCCUPANCY_KINDS.find((k) => k.value === kind)?.label ?? kind;
+}
+
 /**
  * What patrons read in place of a withheld name.
  *

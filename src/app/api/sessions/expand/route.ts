@@ -17,6 +17,18 @@ const QuerySchema = z.object({
   facilityId: z.string().uuid().optional(),
   departmentId: z.string().uuid().optional(),
   scheduleGroupId: z.string().uuid().optional(),
+  /**
+   * `audience=public` makes a signed-in staff caller be treated as an outsider:
+   * withheld names redacted, internal sessions dropped, unapproved weeks hidden.
+   * It powers the command centre's "Patron view" toggle.
+   *
+   * There is deliberately **no `audience=staff` value**. This parameter can only
+   * ever narrow what a caller sees, never widen it — so it needs no
+   * authorization of its own, and nobody can mistake it for something that
+   * grants access. Staff treatment is what you get by not passing it, and it
+   * still depends entirely on real org membership.
+   */
+  audience: z.literal("public").optional(),
 });
 
 /**
@@ -43,6 +55,7 @@ const MAX_RANGE_DAYS = 120;
  *   facilityId        Filter to one facility
  *   departmentId      Filter to one department
  *   scheduleGroupId   Filter to one schedule group
+ *   audience          `public` to be treated as an outsider (narrows only)
  *
  * At least one of orgId, facilityId, or scheduleGroupId is required to
  * prevent unbounded queries across the entire dataset.
@@ -64,6 +77,7 @@ export async function GET(request: Request) {
     facilityId: searchParams.get("facilityId") ?? undefined,
     departmentId: searchParams.get("departmentId") ?? undefined,
     scheduleGroupId: searchParams.get("scheduleGroupId") ?? undefined,
+    audience: searchParams.get("audience") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -81,6 +95,7 @@ export async function GET(request: Request) {
     facilityId,
     departmentId,
     scheduleGroupId,
+    audience,
   } = parsed.data;
 
   if (!orgId && !facilityId && !scheduleGroupId) {
@@ -212,7 +227,17 @@ export async function GET(request: Request) {
   // Resolved once and shared by both passes below — each needs to know which
   // orgs the caller is inside, and asking twice would mean two membership
   // round-trips on the app's hottest endpoint.
-  const caller = await resolveCallerOrgs(supabase, user);
+  // `audience=public` collapses the caller to an outsider *after* the query has
+  // run. RLS still handed this staff member their own org's rows — unavoidable,
+  // and fine, because the narrowing then happens in the same two passes a real
+  // patron goes through. Simulating the public payload in the browser instead
+  // would be a second implementation of the redaction rules, free to drift from
+  // the one patrons actually get, which would make the preview worthless
+  // precisely when it mattered.
+  const caller =
+    audience === "public"
+      ? { isSuperadmin: false, orgIds: [] }
+      : await resolveCallerOrgs(supabase, user);
 
   const approved = await filterUnapprovedPublicWeeks(supabase, expanded, caller);
   const visible = await applyDisclosure(supabase, approved, caller);
@@ -303,9 +328,13 @@ async function resolveCallerOrgs(
  *   The time and the spaces stay — that is the availability a patron came for,
  *   and withholding it would defeat the point of publishing the block at all.
  *
- * `disclosure = 'internal'` is not handled here: those rows never arrive,
- * because `sessions_public_read_active` drops them at the RLS layer for exactly
- * the callers this function would otherwise have to redact for.
+ * Internal occurrences are dropped for outsiders here **as well as** by RLS.
+ * Not belt-and-braces for its own sake: `audience=public` collapses a signed-in
+ * staff caller to an outsider *after* their own rows have already come back
+ * through RLS, so without this filter the "Patron view" toggle would show staff
+ * exactly the internal bookings it claims to be hiding — a preview that lies in
+ * the one direction that matters. For a real patron the filter is a no-op,
+ * because those rows never arrived.
  */
 async function applyDisclosure(
   supabase: Awaited<ReturnType<typeof createClient>>,
@@ -336,7 +365,11 @@ async function applyDisclosure(
     }
   }
 
-  return expanded.map((s) => {
+  const audienceVisible = expanded.filter(
+    (s) => isInsider(s) || s.disclosure !== "internal"
+  );
+
+  return audienceVisible.map((s) => {
     if (isInsider(s)) {
       const internal = internalBySession.get(s.sessionId);
       if (!internal) return s;

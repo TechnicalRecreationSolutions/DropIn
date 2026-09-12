@@ -25,6 +25,7 @@ import {
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import type { ConflictParticipant, OrgConflict } from "./types";
+import { occupancyKindLabel } from "@/lib/sessions/occupancy";
 
 interface ConflictManagerViewProps {
   initialConflicts: OrgConflict[];
@@ -207,6 +208,17 @@ function ParticipantBlock({
         <Badge variant={participant.scheduleGroupStatus === "published" ? "default" : "secondary"}>
           {participant.scheduleGroupStatus === "published" ? "Published" : "Draft"}
         </Badge>
+        {/* Which kind of claim this is (migration 046). Both sides of a
+            conflict are always the same class — exclusive vs residual cannot
+            collide — but "two rentals in one lane" and "two drop-in blocks in
+            one lane" are different problems with different fixes, and the
+            label is what tells them apart at a glance. */}
+        <Badge variant="outline">{occupancyKindLabel(participant.occupancyKind)}</Badge>
+        {participant.disclosure !== "public" && (
+          <Badge variant="outline">
+            {participant.disclosure === "internal" ? "Staff only" : "Name withheld"}
+          </Badge>
+        )}
       </div>
       <p className="text-xs text-muted-foreground">{participant.spaceNames.join(", ") || "No space"}</p>
       <div className="flex flex-wrap gap-2 pt-1">

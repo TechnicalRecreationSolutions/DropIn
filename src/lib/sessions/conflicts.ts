@@ -20,6 +20,11 @@ export interface ConflictParticipant {
   validUntil: string | null;
   spaceIds: string[];
   spaceNames: string[];
+  /** Migration 046. Both sides are always the same class of claim — an
+   *  exclusive/residual pair cannot conflict — but *which* class it is changes
+   *  what staff should do about it, so the manager labels it. */
+  occupancyKind: OccupancyKind;
+  disclosure: "public" | "reserved" | "internal";
 }
 
 export interface OrgConflict {
@@ -209,6 +214,8 @@ interface OrgSessionRow {
     facility_id: string;
     department_id: string | null;
   } | null;
+  occupancy_kind: OccupancyKind;
+  disclosure: "public" | "reserved" | "internal";
   session_spaces: { space_id: string; spaces: { id: string; name: string } | null }[];
 }
 
@@ -231,6 +238,8 @@ function toParticipant(s: OrgSessionRow): ConflictParticipant {
     validFrom: s.valid_from,
     validUntil: s.valid_until,
     spaceIds: spaces.map((link) => link.space_id),
+    occupancyKind: s.occupancy_kind,
+    disclosure: s.disclosure,
     spaceNames: spaces.map((link) => link.spaces!.name),
   };
 }
@@ -259,7 +268,7 @@ export async function findOrgConflicts(
   const { data: sessionRows } = await supabase
     .from("sessions")
     .select(
-      `id, rrule, dtstart, dtend_time, valid_from, valid_until,
+      `id, rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind, disclosure,
        schedule_groups!inner ( id, name, status, facility_id, department_id ),
        session_spaces ( space_id, spaces ( id, name ) )`
     )
@@ -302,6 +311,15 @@ export async function findOrgConflicts(
       for (let j = i + 1; j < list.length; j++) {
         const a = list[i];
         const b = list[j];
+
+        // Same rule the write-time gate uses (migration 046): a drop-in block
+        // and a rental sharing a lane is the normal, intended state of this
+        // data, not a double-booking. Without this the manager page — and the
+        // Overview's "Conflicts" count — would fill with one row per rental
+        // the moment a customer started recording them, and staff would stop
+        // reading a page that cries wolf.
+        if (!claimsCanCollide(a.occupancy_kind, b.occupancy_kind)) continue;
+
         const pairKey = a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`;
 
         const existing = conflictsByPair.get(pairKey);
