@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { nowAsSessionTime, minutesOfDayIn } from "@/lib/utils/dates";
@@ -236,7 +237,7 @@ function BoardCell({
                 }}
               >
                 <p className={cn("text-[11px] font-semibold leading-tight", editing && "pr-4")}>
-                  {session.templateName ?? session.scheduleGroupName}
+                  {sessionDisplayLabel(session)}
                 </p>
                 {session.spaceNames.length > 0 && (
                   <p className="text-[10px] opacity-70 leading-tight truncate mt-0.5">

@@ -6,6 +6,7 @@ import { getWeekStart, getWeekEnd, toSessionTime, sessionWeekStart } from "@/lib
 import type { ExpandedSession } from "@/types/schedule.types";
 import type { User } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
+import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -208,7 +209,13 @@ export async function GET(request: Request) {
     scheduleGroupId,
   });
 
-  const visible = await filterUnapprovedPublicWeeks(supabase, expanded, user);
+  // Resolved once and shared by both passes below — each needs to know which
+  // orgs the caller is inside, and asking twice would mean two membership
+  // round-trips on the app's hottest endpoint.
+  const caller = await resolveCallerOrgs(supabase, user);
+
+  const approved = await filterUnapprovedPublicWeeks(supabase, expanded, caller);
+  const visible = await applyDisclosure(supabase, approved, caller);
 
   return withCacheHeaders(
     NextResponse.json({
@@ -247,6 +254,116 @@ function withCacheHeaders(response: NextResponse, isPublic: boolean): NextRespon
   return response;
 }
 
+/** Which orgs the caller is inside — the one question both passes below ask. */
+interface CallerOrgs {
+  isSuperadmin: boolean;
+  orgIds: string[];
+}
+
+/**
+ * Resolves the caller's org memberships once per request.
+ *
+ * app_metadata only — see migration 022. user_metadata is user-writable, and
+ * reading it here would let any signed-in visitor claim superadmin (and with it
+ * every org's unapproved weeks and every withheld renter name) with a single
+ * auth.updateUser() call.
+ */
+async function resolveCallerOrgs(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  user: User | null
+): Promise<CallerOrgs> {
+  if (!user) return { isSuperadmin: false, orgIds: [] };
+
+  const isSuperadmin = (user.app_metadata as { role?: string } | null)?.role === "superadmin";
+  if (isSuperadmin) return { isSuperadmin: true, orgIds: [] };
+
+  const { data: memberships } = await supabase
+    .from("org_memberships")
+    .select("org_id")
+    .eq("user_id", user.id);
+
+  return { isSuperadmin: false, orgIds: (memberships ?? []).map((m) => m.org_id) };
+}
+
+/**
+ * Applies migration 046's disclosure rules to an expanded week.
+ *
+ * Two halves, and they are opposites — which is why they live in one function
+ * where the boundary between insider and outsider is stated once:
+ *
+ * - **Insiders** (org members, and superadmins) get `holderName`/`setupNotes`
+ *   attached from `session_internal`. That table has no public-read policy, so
+ *   this query returns nothing for anyone else even if it were run — it is
+ *   skipped for outsiders anyway, since the hottest path in the app is the
+ *   anonymous one and it has no use for the data.
+ * - **Outsiders** get `reserved` occurrences stripped of every field that could
+ *   name the holder: the schedule group's name (a "Swim Club Rentals" group
+ *   names the renter by itself), the template's name and colour, and the
+ *   cost/age/skill attributes, each of which hints at who the booking is for.
+ *   The time and the spaces stay — that is the availability a patron came for,
+ *   and withholding it would defeat the point of publishing the block at all.
+ *
+ * `disclosure = 'internal'` is not handled here: those rows never arrive,
+ * because `sessions_public_read_active` drops them at the RLS layer for exactly
+ * the callers this function would otherwise have to redact for.
+ */
+async function applyDisclosure(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  expanded: ExpandedSession[],
+  caller: CallerOrgs
+): Promise<ExpandedSession[]> {
+  if (expanded.length === 0) return expanded;
+
+  const insiderOrgIds = new Set(caller.orgIds);
+  const isInsider = (s: ExpandedSession) => caller.isSuperadmin || insiderOrgIds.has(s.orgId);
+
+  const insiderSessionIds = [
+    ...new Set(expanded.filter(isInsider).map((s) => s.sessionId)),
+  ];
+
+  const internalBySession = new Map<string, { holder_name: string | null; setup_notes: string | null }>();
+  if (insiderSessionIds.length > 0) {
+    const { data: internalRows } = await supabase
+      .from("session_internal")
+      .select("session_id, holder_name, setup_notes")
+      .in("session_id", insiderSessionIds);
+
+    for (const row of internalRows ?? []) {
+      internalBySession.set(row.session_id, {
+        holder_name: row.holder_name,
+        setup_notes: row.setup_notes,
+      });
+    }
+  }
+
+  return expanded.map((s) => {
+    if (isInsider(s)) {
+      const internal = internalBySession.get(s.sessionId);
+      if (!internal) return s;
+      return { ...s, holderName: internal.holder_name, setupNotes: internal.setup_notes };
+    }
+
+    if (s.disclosure !== "reserved") return s;
+
+    return {
+      ...s,
+      scheduleGroupName: RESERVED_PUBLIC_LABEL,
+      templateName: null,
+      templateColor: null,
+      costCents: 0,
+      costNotes: null,
+      ageGroup: null,
+      skillLevel: null,
+      maxParticipants: null,
+      // Belt and braces. These are already null for an outside caller — the
+      // sidecar was never queried for them — and are restated here so that a
+      // future edit which does populate them cannot make this branch a leak.
+      holderName: null,
+      setupNotes: null,
+    };
+  });
+}
+
 /**
  * Hides occurrences that fall in a week no admin has approved yet (migration
  * 037) — but only from callers outside the org that owns the schedule. Staff
@@ -261,30 +378,15 @@ function withCacheHeaders(response: NextResponse, isPublic: boolean): NextRespon
 async function filterUnapprovedPublicWeeks(
   supabase: Awaited<ReturnType<typeof createClient>>,
   expanded: ExpandedSession[],
-  user: User | null
+  caller: CallerOrgs
 ): Promise<ExpandedSession[]> {
   if (expanded.length === 0) return expanded;
 
   const distinctOrgIds = [...new Set(expanded.map((s) => s.orgId))];
 
-  let isSuperadmin = false;
-  let callerOrgIds: string[] = [];
-  if (user) {
-    // app_metadata only — see migration 022. user_metadata is user-writable
-    // and reading it here would let any signed-in visitor bypass every
-    // schedule's week-approval gate with a single auth.updateUser() call.
-    isSuperadmin = (user.app_metadata as { role?: string } | null)?.role === "superadmin";
-    if (!isSuperadmin) {
-      const { data: memberships } = await supabase
-        .from("org_memberships")
-        .select("org_id")
-        .eq("user_id", user.id);
-      callerOrgIds = (memberships ?? []).map((m) => m.org_id);
-    }
-  }
-  if (isSuperadmin) return expanded;
+  if (caller.isSuperadmin) return expanded;
 
-  const publicOrgIds = distinctOrgIds.filter((orgId) => !callerOrgIds.includes(orgId));
+  const publicOrgIds = distinctOrgIds.filter((orgId) => !caller.orgIds.includes(orgId));
   if (publicOrgIds.length === 0) return expanded;
 
   const publicScheduleGroupIds = [

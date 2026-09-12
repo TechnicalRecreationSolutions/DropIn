@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ export default function AddAnotherTimeDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Add another time for &ldquo;{session.templateName ?? session.scheduleGroupName}&rdquo;</DialogTitle>
+          <DialogTitle>Add another time for &ldquo;{sessionDisplayLabel(session)}&rdquo;</DialogTitle>
           <DialogDescription>
             Same schedule, {dayLabel}
             {session.spaceNames.length > 0 ? `, and ${session.spaceNames.join(", ")}` : ""} — just a

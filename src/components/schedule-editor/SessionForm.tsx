@@ -8,6 +8,12 @@ import RRuleBuilder from "./RRuleBuilder";
 import { Collapsible, CollapsibleTrigger, CollapsibleContent } from "@/components/ui/collapsible";
 import ImageUpload from "@/components/media/ImageUpload";
 import { ACTIVITY_TYPES, AGE_GROUPS, SKILL_LEVELS } from "@/lib/utils/schedule-group-attributes";
+import {
+  OCCUPANCY_KINDS,
+  DISCLOSURE_OPTIONS,
+  type OccupancyKind,
+  type Disclosure,
+} from "@/lib/sessions/occupancy";
 import { cn } from "@/lib/utils/cn";
 
 /** Remembers the last schedule picked here, so entering several blocks for
@@ -50,6 +56,13 @@ interface SessionFormProps {
     validUntil: string;
     spaceIds: string[];
     locationDetail: string;
+    /** Migration 046. Absent for a session created before occupancy kinds
+     *  existed, which the column defaults already read as a public drop-in. */
+    occupancyKind?: OccupancyKind;
+    disclosure?: Disclosure;
+    /** From `session_internal` — staff-only, never rendered to patrons. */
+    holderName?: string;
+    setupNotes?: string;
   };
   /** Where to send staff after a successful save/delete. Defaults to /dashboard/schedule. */
   redirectTo?: string;
@@ -84,6 +97,15 @@ export default function SessionForm({
   const [validUntil, setValidUntil] = useState(initialValues?.validUntil ?? "");
   const [spaceIds, setSpaceIds] = useState<string[]>(initialValues?.spaceIds ?? []);
   const [locationDetail, setLocationDetail] = useState(initialValues?.locationDetail ?? "");
+  // Occupancy + disclosure (migration 046). A new session starts as a public
+  // drop-in, matching the column defaults, so nothing about the existing
+  // authoring flow changes for anyone who ignores these controls.
+  const [occupancyKind, setOccupancyKind] = useState<OccupancyKind>(
+    initialValues?.occupancyKind ?? "drop_in"
+  );
+  const [disclosure, setDisclosure] = useState<Disclosure>(initialValues?.disclosure ?? "public");
+  const [holderName, setHolderName] = useState(initialValues?.holderName ?? "");
+  const [setupNotes, setSetupNotes] = useState(initialValues?.setupNotes ?? "");
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [deleting, setDeleting] = useState(false);
@@ -179,6 +201,16 @@ export default function SessionForm({
     setSpaceIds((prev) => (prev.includes(id) ? prev.filter((s) => s !== id) : [...prev, id]));
   }
 
+  /** Picking a kind moves disclosure to that kind's default — the "one click
+   *  and it's internal" the feature was asked for. Staff can then change what
+   *  patrons see independently, since the control sits directly underneath and
+   *  the two axes are genuinely independent (a lesson is exclusive and public;
+   *  a rental is exclusive and withheld). */
+  function pickKind(kind: OccupancyKind) {
+    setOccupancyKind(kind);
+    setDisclosure(OCCUPANCY_KINDS.find((k) => k.value === kind)!.defaultDisclosure);
+  }
+
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
@@ -206,6 +238,14 @@ export default function SessionForm({
         valid_until: validUntil || null,
         space_ids: spaceIds,
         location_detail: locationDetail || null,
+        occupancy_kind: occupancyKind,
+        disclosure,
+        // Always sent, including empty, because this form holds the whole
+        // record: the API's presence contract treats an absent key as "leave
+        // what's stored" and an empty string as "clear it", and clearing a
+        // holder name has to be possible from here.
+        holder_name: holderName,
+        setup_notes: setupNotes,
         ...(sessionId ? { sessionId } : {}),
       }),
     });
@@ -306,6 +346,88 @@ export default function SessionForm({
             To move this session to a different schedule, delete it and create a new one there.
           </p>
         )}
+      </div>
+
+      {/* Occupancy kind + disclosure (migration 046) */}
+      <div className="border-t border-border pt-5">
+        <label className={labelClass}>What is this?</label>
+        <div className="flex gap-1.5 flex-wrap">
+          {OCCUPANCY_KINDS.map((kind) => {
+            const selected = occupancyKind === kind.value;
+            return (
+              <button
+                key={kind.value}
+                type="button"
+                onClick={() => pickKind(kind.value)}
+                className={cn(
+                  "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                  selected
+                    ? "bg-blue-600 border-blue-600 text-white"
+                    : "border-border text-muted-foreground hover:border-blue-300"
+                )}
+                aria-pressed={selected}
+              >
+                {kind.label}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-muted-foreground mt-1">
+          {OCCUPANCY_KINDS.find((k) => k.value === occupancyKind)?.hint}
+        </p>
+
+        <div className="mt-4">
+          <label htmlFor="disclosure" className={labelClass}>Patrons see</label>
+          <select
+            id="disclosure"
+            value={disclosure}
+            onChange={(e) => setDisclosure(e.target.value as Disclosure)}
+            className={fieldClass}
+          >
+            {DISCLOSURE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>{option.label}</option>
+            ))}
+          </select>
+          <p className="text-xs text-muted-foreground mt-1">
+            {DISCLOSURE_OPTIONS.find((o) => o.value === disclosure)?.hint}
+          </p>
+        </div>
+
+        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-3">
+          <p className="text-xs font-semibold text-foreground">
+            Staff only
+            <span className="font-normal text-muted-foreground"> — never shown to patrons, whatever is set above.</span>
+          </p>
+          <div>
+            <label htmlFor="holder_name" className="block text-xs font-medium text-foreground mb-1">
+              Who has this space
+            </label>
+            <input
+              id="holder_name"
+              type="text"
+              value={holderName}
+              onChange={(e) => setHolderName(e.target.value)}
+              className={fieldClass}
+              placeholder="e.g. Island Swimming, Westside Camps"
+            />
+          </div>
+          <div>
+            <label htmlFor="setup_notes" className="block text-xs font-medium text-foreground mb-1">
+              Setup notes
+            </label>
+            <textarea
+              id="setup_notes"
+              rows={2}
+              value={setupNotes}
+              onChange={(e) => setSetupNotes(e.target.value)}
+              className={fieldClass}
+              placeholder="e.g. Soft lane ropes, wave breakers out, polo nets at the deep end"
+            />
+            <p className="text-xs text-muted-foreground mt-1">
+              What the guard on deck needs to set up before this starts.
+            </p>
+          </div>
+        </div>
       </div>
 
       {/* RRule builder handles days, times, and date range */}

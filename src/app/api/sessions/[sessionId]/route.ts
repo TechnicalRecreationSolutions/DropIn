@@ -55,7 +55,7 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
   // session_spaces rows are exactly what a drag would still occupy.
   const { data: existing } = await supabase
     .from("sessions")
-    .select("rrule, dtstart, dtend_time, valid_from, valid_until")
+    .select("rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind")
     .eq("id", sessionId)
     .eq("org_id", membership.org_id)
     .maybeSingle();
@@ -75,6 +75,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
     valid_from: existing.valid_from,
     valid_until: existing.valid_until,
     spaceIds: (spaceRows ?? []).map((r) => r.space_id),
+    // A drag can't change what kind of claim this is, but the conflict engine
+    // needs it: dragging a rental onto a lane a drop-in block already lists is
+    // exactly the move that must now be allowed (migration 046).
+    occupancyKind: existing.occupancy_kind,
   });
   if (conflict) return NextResponse.json({ error: conflict.error }, { status: 409 });
 

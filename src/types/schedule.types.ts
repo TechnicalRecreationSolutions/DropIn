@@ -67,6 +67,32 @@ export type ExpandedSession = {
   templateName: string | null;
   templateColor: string | null;
 
+  /**
+   * What this booking does to the space (migration 046). 'drop_in' is
+   * residual — it occupies whatever is not exclusively claimed.
+   */
+  occupancyKind: Session["occupancy_kind"];
+  /**
+   * Who may know this session's name. A public caller can legitimately see
+   * this value ('reserved' is what tells a renderer to style the block as
+   * withheld); what a public caller never sees is `holderName`. 'internal'
+   * never reaches a public caller at all — RLS drops the row.
+   */
+  disclosure: Session["disclosure"];
+  /**
+   * Who actually holds the space ("Island Swimming"), from `session_internal`.
+   *
+   * **Null for every caller outside the owning org**, and not by filtering —
+   * the table has no public-read policy, and /api/sessions/expand only queries
+   * it for org members in the first place. Render it through
+   * `sessionDisplayLabel()` (src/lib/sessions/occupancy.ts) rather than
+   * reaching for it directly, so a public surface cannot be made to leak one
+   * by a later edit.
+   */
+  holderName: string | null;
+  /** Staff-only setup note ("soft lane ropes, polo nets"). Same guarantee as holderName. */
+  setupNotes: string | null;
+
   /** Free-text location note — shown alongside the space, e.g. entry instructions */
   locationDetail: string | null;
 

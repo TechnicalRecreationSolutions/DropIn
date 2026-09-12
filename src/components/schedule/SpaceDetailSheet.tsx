@@ -1,6 +1,7 @@
 "use client";
 
 import { X, Clock, DollarSign, Tag, Users } from "lucide-react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime } from "@/lib/utils/dates";
 
@@ -95,7 +96,7 @@ export default function SpaceDetailSheet({
                 {viewingNow ? "On now" : `On at ${viewedTimeLabel}`}
               </span>
               <p className="text-base font-semibold text-foreground">
-                {liveSession.templateName ?? liveSession.scheduleGroupName}
+                {sessionDisplayLabel(liveSession)}
               </p>
               <DetailRow icon={Clock}>
                 {formatSessionTime(liveSession.start)} –{" "}
@@ -124,7 +125,7 @@ export default function SpaceDetailSheet({
             <div className="pt-3 border-t border-border space-y-1">
               <p className="text-[10px] font-bold uppercase tracking-wide text-muted-foreground/70">Next up here</p>
               <p className="text-sm font-semibold text-foreground">
-                {nextSession.templateName ?? nextSession.scheduleGroupName}
+                {sessionDisplayLabel(nextSession)}
               </p>
               <p className="text-sm text-muted-foreground">
                 Starts {formatSessionTime(nextSession.start)} · {costLine(nextSession)}

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
@@ -178,7 +179,7 @@ export default function WeeklyScheduleGrid({
                             }}
                           >
                             <p className={cn("text-xs font-semibold leading-tight truncate", editing && "pr-5")}>
-                              {session.templateName ?? session.scheduleGroupName}
+                              {sessionDisplayLabel(session)}
                             </p>
                             <p className="text-xs opacity-75 leading-tight mt-0.5">
                               {formatSessionTime(session.start)}–{formatSessionTime(session.end)}

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { MoreVertical, Pencil, Copy, Clock3, Trash2, CalendarClock } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { cn } from "@/lib/utils/cn";
@@ -53,7 +54,7 @@ export default function SessionActionsMenu({
             : "p-1.5 hover:bg-muted text-muted-foreground opacity-60 group-hover:opacity-100",
           className
         )}
-        aria-label={`Actions for ${session.templateName ?? session.scheduleGroupName}`}
+        aria-label={`Actions for ${sessionDisplayLabel(session)}`}
       >
         <MoreVertical className={variant === "on-card" ? "w-3.5 h-3.5" : "w-4 h-4"} />
       </DropdownMenuTrigger>

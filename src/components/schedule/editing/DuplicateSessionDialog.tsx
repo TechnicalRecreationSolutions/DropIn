@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import {
   Dialog,
   DialogContent,
@@ -69,7 +70,7 @@ export default function DuplicateSessionDialog({
     <Dialog open={open} onOpenChange={(next) => !next && onCancel()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>Duplicate &ldquo;{session.templateName ?? session.scheduleGroupName}&rdquo;</DialogTitle>
+          <DialogTitle>Duplicate &ldquo;{sessionDisplayLabel(session)}&rdquo;</DialogTitle>
           <DialogDescription>
             Same time and duration, placed as a new session on the space and day(s) you choose.
           </DialogDescription>

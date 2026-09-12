@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { CalendarOff, Clock, RotateCcw } from "lucide-react";
 import {
   Dialog,
@@ -69,7 +70,7 @@ export default function OverrideWeekDialog({
 
   if (!session) return null;
 
-  const label = session.templateName ?? session.scheduleGroupName;
+  const label = sessionDisplayLabel(session);
   const weekStart = getWeekStart(session.start);
   const weekEnd = new Date(weekStart);
   weekEnd.setDate(weekEnd.getDate() + 6);

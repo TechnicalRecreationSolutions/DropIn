@@ -185,6 +185,15 @@ export function expandSessions(
         templateId: session.session_templates?.id ?? null,
         templateName: session.session_templates?.name ?? null,
         templateColor: session.session_templates?.color ?? null,
+        occupancyKind: session.occupancy_kind,
+        disclosure: session.disclosure,
+        // Staff-only, and deliberately not sourced from the session row: the
+        // caller attaches these from `session_internal` only when the viewer
+        // belongs to the owning org (see /api/sessions/expand). Expansion has
+        // no business knowing who is asking, so it always produces the safe
+        // value and lets the route add to it.
+        holderName: null,
+        setupNotes: null,
         locationDetail: session.location_detail,
         isModified: occ.isModified,
         modificationNote: occ.modificationNote,

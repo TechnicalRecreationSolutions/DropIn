@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import {
@@ -221,7 +222,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                           </span>
                           <span className="flex-1 min-w-0">
                             <span className="block text-sm font-semibold text-foreground truncate">
-                              {session.templateName ?? session.scheduleGroupName}
+                              {sessionDisplayLabel(session)}
                             </span>
                             {(session.spaceNames.length > 0 || session.locationDetail) && (
                               <span className="block text-xs text-muted-foreground/70 truncate">

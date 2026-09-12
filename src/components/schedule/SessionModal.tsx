@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { X, Clock, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
@@ -53,7 +54,7 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
         onClick={onClose}
         role="dialog"
         aria-modal="true"
-        aria-label={session.templateName ?? session.scheduleGroupName}
+        aria-label={sessionDisplayLabel(session)}
       >
         {/* Sheet (mobile: slides from bottom; desktop: centered card) */}
         <div
@@ -68,7 +69,7 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
           {/* Header */}
           <div className="flex items-start justify-between p-5 pb-3">
             <div>
-              <h2 className="text-lg font-bold text-foreground">{session.templateName ?? session.scheduleGroupName}</h2>
+              <h2 className="text-lg font-bold text-foreground">{sessionDisplayLabel(session)}</h2>
               <p className="text-sm text-muted-foreground capitalize mt-0.5">
                 {session.templateName && `${session.scheduleGroupName} · `}
                 {sport?.label ?? session.sportCategory} · {session.activityType.replace("_", " ")}

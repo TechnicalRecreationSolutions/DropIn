@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
@@ -325,7 +326,7 @@ function MapSessionBlock({
 
   const { top, height } = getSessionPixelPosition(session.start, session.end);
   const isPast = session.end < nowAsSessionTime();
-  const displayName = session.templateName ?? session.scheduleGroupName;
+  const displayName = sessionDisplayLabel(session);
 
   return (
     <div

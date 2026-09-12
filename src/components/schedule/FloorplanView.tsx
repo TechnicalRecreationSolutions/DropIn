@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { useFacilityMap } from "@/hooks/useFacilityMap";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
@@ -137,7 +138,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
     for (const [spaceId, session] of liveSessionBySpaceId) {
       map.set(spaceId, {
         status: "live",
-        title: session.templateName ?? session.scheduleGroupName,
+        title: sessionDisplayLabel(session),
         timeLabel: `ends ${formatSessionTime(session.end)}`,
       });
     }
@@ -146,7 +147,7 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
       if (map.has(spaceId) || session.start > soonCutoff) continue;
       map.set(spaceId, {
         status: "soon",
-        title: session.templateName ?? session.scheduleGroupName,
+        title: sessionDisplayLabel(session),
         timeLabel: `starts ${formatSessionTime(session.start)}`,
       });
     }

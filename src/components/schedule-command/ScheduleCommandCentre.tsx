@@ -371,6 +371,13 @@ export default function ScheduleCommandCentre({
         // may differ from the current pick when the whole facility is shown.
         schedule_group_id: duplicating.scheduleGroupId,
         template_id: duplicating.templateId,
+        // Inherited deliberately: a copy of a rental is still a rental, and
+        // without these the new row would take the column defaults and come
+        // back as a *public drop-in* — publishing a booking staff had marked
+        // withheld. The holder name is not copied: session_internal belongs to
+        // the original booking, and a duplicate is a different one.
+        occupancy_kind: duplicating.occupancyKind,
+        disclosure: duplicating.disclosure,
         rrule: buildRRuleString({ frequency: "weekly", days: dayCodes }),
         dtstart,
         dtend_time: endTime,
@@ -410,6 +417,10 @@ export default function ScheduleCommandCentre({
       body: JSON.stringify({
         schedule_group_id: addingTime.scheduleGroupId,
         template_id: addingTime.templateId,
+        // Same reasoning as the duplicate path above — another time for the
+        // same booking must not silently become a public one.
+        occupancy_kind: addingTime.occupancyKind,
+        disclosure: addingTime.disclosure,
         rrule: buildRRuleString({ frequency: "weekly", days: [dayCode] }),
         dtstart,
         dtend_time: endTime,

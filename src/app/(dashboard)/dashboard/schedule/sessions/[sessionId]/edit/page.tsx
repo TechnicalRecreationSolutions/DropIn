@@ -16,12 +16,24 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail")
+    .select(
+      "id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail, occupancy_kind, disclosure"
+    )
     .eq("id", sessionId)
     .eq("org_id", orgContext.org.id)
     .single();
 
   if (!session) notFound();
+
+  // Staff-only sidecar (migration 046). A separate read rather than an embed:
+  // session_internal has no public-read policy, and keeping it a distinct query
+  // on a distinct table is what makes "this data is staff-only" visible at
+  // every call site instead of hidden inside a select string.
+  const { data: internal } = await supabase
+    .from("session_internal")
+    .select("holder_name, setup_notes")
+    .eq("session_id", sessionId)
+    .maybeSingle();
 
   // Relational select — cast needed until Supabase CLI generates types with FK relations
   const { data: scheduleGroup } = await supabase
@@ -103,6 +115,10 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
           validUntil: session.valid_until ?? "",
           spaceIds,
           locationDetail: session.location_detail ?? "",
+          occupancyKind: session.occupancy_kind,
+          disclosure: session.disclosure,
+          holderName: internal?.holder_name ?? "",
+          setupNotes: internal?.setup_notes ?? "",
         }}
         redirectTo={commandCentreHref}
       />

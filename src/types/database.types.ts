@@ -515,6 +515,16 @@ export type Database = {
           valid_from: string;
           valid_until: string | null;
           location_detail: string | null;
+          // What this booking does to the space (046). 'drop_in' is residual —
+          // it claims whatever is not exclusively claimed; every other value is
+          // exclusive. NOT schedule_groups.activity_type, which is a
+          // patron-facing descriptor on the group and means something else by
+          // the same 'drop_in' string.
+          occupancy_kind: "drop_in" | "program" | "rental" | "closure";
+          // Who may know this session's name (046). 'reserved' publishes the
+          // block and withholds the identity; the identity itself lives in
+          // session_internal, which anon cannot read at all.
+          disclosure: "public" | "reserved" | "internal";
           source: "manual" | "imported";
           is_active: boolean;
           created_at: string;
@@ -528,16 +538,45 @@ export type Database = {
           | "template_id"
           | "valid_until"
           | "location_detail"
+          | "occupancy_kind"
+          | "disclosure"
           | "source"
           | "is_active"
         > & {
           template_id?: string | null;
           valid_until?: string | null;
           location_detail?: string | null;
+          occupancy_kind?: "drop_in" | "program" | "rental" | "closure";
+          disclosure?: "public" | "reserved" | "internal";
           source?: "manual" | "imported";
           is_active?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["sessions"]["Insert"]>;
+        Relationships: [];
+      };
+      // Staff-only sidecar (046). No public-read policy exists for this table
+      // and none may be added — see the migration's decision 4. Anything
+      // selected from here must never be projected onto a public response.
+      session_internal: {
+        Row: {
+          session_id: string;
+          org_id: string;
+          holder_name: string | null;
+          setup_notes: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_internal"]["Row"],
+          "created_at" | "updated_at" | "holder_name" | "setup_notes"
+        > & {
+          holder_name?: string | null;
+          setup_notes?: string | null;
+          // Writable: this schema has no updated_at trigger, so every route
+          // that edits a row sets it itself (same as schedule_groups').
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["session_internal"]["Insert"]>;
         Relationships: [];
       };
       session_spaces: {

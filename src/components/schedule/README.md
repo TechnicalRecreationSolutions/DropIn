@@ -79,3 +79,22 @@ both do this.
 
 `sessionCardColor.ts` is the one fallback chain: past-session muted → template
 colour → org brand.
+
+## Names, and why no view builds one itself
+
+Every view labels a session through **`sessionDisplayLabel()`**
+(`src/lib/sessions/occupancy.ts`): holder name → template name → schedule group
+name. Views used to inline `templateName ?? scheduleGroupName`, which has no
+place to put the first of those.
+
+That chain is what makes one set of components safe on both a staff page and a
+public widget, because the audience is decided by the *data*, not by the
+component: `holderName` comes from `session_internal`, a table with no
+public-read policy at all, and `/api/sessions/expand` only queries it for
+members of the owning org. So a public caller's occurrence carries
+`holderName: null` and falls through to a label the route has already redacted
+(migration 046 — see `docs/PLAN-internal-view.md`).
+
+The consequence worth knowing: **reaching for `session.holderName` directly in a
+view re-introduces the leak this indirection removes**, because nothing about a
+component tells you which audience is rendering it. Go through the helper.

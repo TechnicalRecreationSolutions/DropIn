@@ -10,6 +10,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import type { ExpandedSession } from "@/types/schedule.types";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 
 interface DeleteSessionDialogProps {
   /** The occurrence whose whole series is up for deletion. Null closes the dialog. */
@@ -36,7 +37,7 @@ export default function DeleteSessionDialog({
 }: DeleteSessionDialogProps) {
   if (!session) return null;
 
-  const label = session.templateName ?? session.scheduleGroupName;
+  const label = sessionDisplayLabel(session);
 
   return (
     <Dialog open onOpenChange={(next) => !next && onCancel()}>

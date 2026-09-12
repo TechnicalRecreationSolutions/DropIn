@@ -1,5 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { expandOccurrenceTimes } from "@/lib/rrule/expand";
+import { claimsCanCollide, type OccupancyKind } from "@/lib/sessions/occupancy";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
@@ -55,6 +56,9 @@ export interface SessionConflictCandidate {
   valid_from: string;
   valid_until: string | null;
   spaceIds: string[];
+  /** Defaults to 'drop_in' (the column default, migration 046) when a caller
+   *  predating occupancy kinds doesn't supply one. */
+  occupancyKind?: OccupancyKind;
 }
 
 /**
@@ -64,6 +68,14 @@ export interface SessionConflictCandidate {
  * sides so RRULE parsing and exception handling (cancelled/modified
  * occurrences) are never re-derived here — only the space-matching and
  * pairwise time-overlap logic is new.
+ *
+ * Since migration 046 an *exclusive* claim and a *residual* one (a drop-in
+ * block, which occupies whatever is not exclusively claimed) are not a
+ * conflict — see claimsCanCollide(). That is the whole reason a rental can be
+ * recorded on Lanes 1-3 during the public Lengths block that also lists them;
+ * before 046 this function returned 409 and made the internal view impossible.
+ * Two exclusive claims on one space still collide, which is the error a
+ * lifeguard sheet exists to catch, so the protection that matters is intact.
  *
  * Returns null when there's no conflict (including when the candidate claims
  * no spaces at all — nothing to double-book).
@@ -85,12 +97,22 @@ export async function findSessionConflict(
   ).filter((id) => id !== candidate.sessionId);
   if (otherSessionIds.length === 0) return null;
 
-  const { data: otherSessions } = await supabase
+  const candidateKind: OccupancyKind = candidate.occupancyKind ?? "drop_in";
+
+  const { data: allOtherSessions } = await supabase
     .from("sessions")
-    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until")
+    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind")
     .in("id", otherSessionIds)
     .eq("is_active", true);
-  if (!otherSessions || otherSessions.length === 0) return null;
+  if (!allOtherSessions || allOtherSessions.length === 0) return null;
+
+  // Drop the pairings that cannot collide before doing any RRULE expansion —
+  // cheaper than expanding both sides and discarding the result, and it keeps
+  // the overlap loop below unchanged.
+  const otherSessions = allOtherSessions.filter((s) =>
+    claimsCanCollide(candidateKind, s.occupancy_kind)
+  );
+  if (otherSessions.length === 0) return null;
 
   // Batched once for every session involved, rather than one query per
   // pairing — expandOccurrenceTimes filters internally by session_id, so

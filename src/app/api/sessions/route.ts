@@ -18,6 +18,20 @@ const SessionSchema = z.object({
   space_ids: z.array(z.string().uuid()).optional().default([]),
   location_detail: z.string().nullable().optional(),
   template_id: z.string().uuid().nullable().optional(),
+  // Occupancy + disclosure (migration 046). Deliberately WITHOUT zod
+  // `.default()`, unlike space_ids above: several callers send a partial
+  // payload through this route — the conflict manager's "move to another
+  // space" and the command centre's reschedule/duplicate — and a default here
+  // would put the field in `payload` on every request, silently resetting a
+  // rental to a public drop-in on any update that didn't mention it. Absent
+  // means "leave whatever is there"; the column defaults cover inserts.
+  occupancy_kind: z.enum(["drop_in", "program", "rental", "closure"]).optional(),
+  disclosure: z.enum(["public", "reserved", "internal"]).optional(),
+  // The staff-only sidecar's fields. Same presence contract: a key that isn't
+  // sent is left alone, an empty string clears the stored value. Only
+  // SessionForm sends these, because only it has the whole record in hand.
+  holder_name: z.string().nullable().optional(),
+  setup_notes: z.string().nullable().optional(),
   sessionId: z.string().uuid().optional(),
 });
 
@@ -84,6 +98,21 @@ export async function POST(request: Request) {
     if (!usable) return NextResponse.json({ error: "Session template not found" }, { status: 404 });
   }
 
+  // An update that doesn't mention occupancy_kind keeps the stored one (see
+  // the schema note) — but the conflict check still has to reason with the
+  // real value, not the column default, or editing a rental's times would
+  // 409 against the drop-in block it is allowed to overlap.
+  let effectiveKind = fields.occupancy_kind;
+  if (!effectiveKind && sessionId) {
+    const { data: existing } = await supabase
+      .from("sessions")
+      .select("occupancy_kind")
+      .eq("id", sessionId)
+      .eq("org_id", membership.org_id)
+      .maybeSingle();
+    effectiveKind = existing?.occupancy_kind;
+  }
+
   const conflict = await findSessionConflict(supabase, {
     sessionId: sessionId ?? null,
     rrule: fields.rrule,
@@ -92,10 +121,14 @@ export async function POST(request: Request) {
     valid_from: fields.valid_from,
     valid_until: fields.valid_until ?? null,
     spaceIds: fields.space_ids,
+    occupancyKind: effectiveKind,
   });
   if (conflict) return NextResponse.json({ error: conflict.error }, { status: 409 });
 
-  const { space_ids, ...sessionFields } = fields;
+  // holder_name/setup_notes belong to session_internal, not to `sessions` —
+  // keeping the renter's name off this table is the whole point of the sidecar
+  // (migration 046, decision 4), so they must not reach the payload below.
+  const { space_ids, holder_name, setup_notes, ...sessionFields } = fields;
   const payload = {
     ...sessionFields,
     org_id: membership.org_id,
@@ -133,6 +166,44 @@ export async function POST(request: Request) {
 
     if (insertSpacesError) {
       return NextResponse.json({ error: "Failed to attach spaces to session." }, { status: 500 });
+    }
+  }
+
+  // The staff-only sidecar. Touched only when the caller actually sent one of
+  // its fields: a partial payload (reschedule, duplicate, the conflict
+  // manager's space move) must leave an existing holder name alone rather than
+  // blank it. An explicitly empty string clears the value, which is how staff
+  // remove a name they typed by mistake.
+  if (holder_name !== undefined || setup_notes !== undefined) {
+    const holder = holder_name?.trim() || null;
+    const notes = setup_notes?.trim() || null;
+
+    if (holder === null && notes === null) {
+      // Nothing left worth a row. Deleting rather than storing two NULLs keeps
+      // "has internal detail" answerable by the row's existence.
+      const { error: clearError } = await supabase
+        .from("session_internal")
+        .delete()
+        .eq("session_id", targetSessionId);
+      if (clearError) {
+        return NextResponse.json({ error: "Failed to clear staff-only details." }, { status: 500 });
+      }
+    } else {
+      const { error: internalError } = await supabase
+        .from("session_internal")
+        .upsert(
+          {
+            session_id: targetSessionId,
+            org_id: membership.org_id,
+            holder_name: holder,
+            setup_notes: notes,
+            updated_at: new Date().toISOString(),
+          },
+          { onConflict: "session_id" }
+        );
+      if (internalError) {
+        return NextResponse.json({ error: "Failed to save staff-only details." }, { status: 500 });
+      }
     }
   }
 
