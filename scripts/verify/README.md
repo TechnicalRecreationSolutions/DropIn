@@ -25,6 +25,7 @@ node scripts/verify/verify-w.mjs   # staff/patron audience toggle + conflict occ
 node scripts/verify/verify-x.mjs   # template occupancy defaults (migration 047, 16 assertions)
 node scripts/verify/verify-y.mjs   # facility configurations + cross-configuration advisory (migration 048, 35 assertions)
 node scripts/verify/verify-z.mjs   # the printable deck sheet, in a real browser (29 assertions)
+node scripts/verify/verify-aa.mjs  # the availability calculator in shadow mode (18 assertions)
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```
@@ -111,6 +112,8 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 
 | `verify-z` | The printable deck sheet (`/dashboard/schedule/deck`, stage 4 of `docs/PLAN-internal-view.md`) in a real Chromium, because the deliverable is a **printout** and no `fetch()` can see a page break, a repeating header, or a hidden control. Its centre is the design decision the sheet is built on: exclusive claims are drawn in lane columns, residual drop-in blocks are listed *below* the grid and appear in **no** lane cell — they hold whatever the claims leave, so a cell claiming one would be false. Positions are asserted by `data-deck-claim="<space id>"` rather than by text, so "the holder name is on the page" cannot pass with every booking piled into column one, and a 90-minute booking is required to span exactly three half-hour rows. Section 5 is the print stylesheet itself: the Print control visible on screen and gone under print media, `thead` computed as `table-header-group` (without which page two is a grid of unlabelled lanes), one page, and landscape taken from the `@page` rule rather than a dialog setting — read off the PDF's own `/MediaBox`. Also: an unplaced booking (exclusive, no space) gets its own section instead of vanishing, setup notes render as numbered footnotes with the matching marker in the cell, the configuration filter prints one sheet per state of the building while keeping every-configuration spaces, a signed-out visitor is redirected to /login by the proxy (the reason this route lives under `/dashboard` despite having no dashboard chrome), and another org's admin passing this facility's id gets their **own** building and never the holder name. **Verified to fail correctly, twice**: drawing residual blocks in lane columns reddens section 3 alone, and changing the print `thead` rule to `table-row-group` reddens that one assertion alone. Two real defects came out of its own first run — see the next two paragraphs. |
 
+| `verify-aa` | The availability calculator in **shadow mode** (stage 5 of `docs/PLAN-internal-view.md`). Every rule in the plan's §4 gets a fixture whose arithmetic is read back off a rendered surface: bands cut at each claim edge (3 of 6 while a club has three lanes, 1 of 6 while a program has five), §4.4's merge on the **label** rather than the number (5 free and 6 free both read "More than 4 lanes available" and must become *one* band carrying the lower count — asserted by requiring three bands over three hours, not four), and §4.3's zero case reported as "nothing left" rather than as "0 lanes", because the block does not exist then. Section 4 is the one that makes it shadow mode: an anonymous read of the same week still publishes all six lanes and contains no computed number under any field name. Section 5 covers the trap the panel exists to avoid — it opens the editor on the *Lengths* schedule group while every rental lives under *Bookings*, and requires a holder name from that other group to appear, since a panel scoped to the editor's own group would see no rivals and reassure staff with a number computed from nothing. **Verified to fail correctly, twice**: merging on `available` instead of the label splits the 8:00–9:00 band and reddens §4.4 alone, and scoping the panel's fetch to the editor's schedule group turns section 5 red with the exact wrong answer in the failure detail — *"2 blocks this week match the bookings entered"*. |
+
 **Two of these harnesses had drifted out of true and were fixed here, not by
 this feature's code:** `verify-f` section 4 expected an anonymous caller to see a
 session on a published schedule, which migration **037** made impossible — it
@@ -121,6 +124,20 @@ And `verify-f`/`verify-i`/`verify-k` hardcoded `localhost:3000`, which matters
 because of the next paragraph. `verify-m` was the last one still doing that and
 now takes `--app=` too — it read as 18 passed / 14 failed against a wedged
 server and 32 / 0 against a healthy one, with nothing else changed.
+
+**`verify-r` and `verify-s` are currently red, and nothing in stages 3–5 caused
+it.** As of 2026-09-12 evening, `verify-r` reports 4 passed / 3 failed (its
+control — "all three activities are on screen before any filtering" — finds none
+of them) and `verify-s` 20 / 1 (the week a visitor pages back to renders no day
+headings). Both were green earlier the same afternoon on the same commit, both
+fail identically with the working tree stashed at `b69855b`, and re-running on a
+freshly restarted server with the widget route already compiled changes nothing —
+so it is neither the wedged-server symptom below nor cold-compile timing. Both
+fixtures anchor everything to `new Date()`, and the run that failed was the first
+after the clock passed into evening on the **last day** of a Sunday-start week,
+which is the untested corner of "the list view opens on today". Diagnose it as
+its own piece of work; do not treat these two as a signal about whatever you are
+building.
 
 **`page.pdf()` uses print CSS — unless you told the page otherwise.** Playwright
 emulates print media for `page.pdf()` on its own, but an explicit

@@ -297,7 +297,7 @@ Each stage stands alone and is demoable. Ship, show the customer, then decide.
 | 2b | ✅ **Built** — occupancy defaults on `session_templates` (migration 047) | A rental placed by dragging a template *is* a rental; the fast path stops silently publishing withheld bookings | 1d |
 | 3 | ✅ **Built** — `facility_configurations` + `spaces.configuration_id` (migration 048); configuration label, lane-picker grouping, map-column filter, cross-configuration advisory | "The pool is in 50m state" becomes expressible | 2d |
 | 4 | ✅ **Built** — the printable deck sheet at `/dashboard/schedule/deck` (spaces across, time down, one day) | Kills the Excel sheet — the actual deliverable | 4–6d |
-| 5 | Calculator in **shadow mode** | Dashboard shows computed vs published; publishes nothing | 3–4d |
+| 5 | ✅ **Built** — `computeDayAvailability()`, the command-centre shadow panel, computed bands on the deck sheet | Dashboard shows computed vs published; publishes nothing | 3–4d |
 | 6 | Computed availability authoritative, behind week review | The public schedule derives itself | 2–3d |
 
 Stages 1–3 are the model. Stage 4 is the thing the customer described wanting.
@@ -327,9 +327,18 @@ The leak tests are the point of it:
 5. `widget_config_scopes` cannot select an internal session's schedule group;
    `/widget/[orgId]` and `(public)/facility/` cannot select the deck-sheet view,
    even by query param.
-6. Calculator: assert band arithmetic against the transcribed real PDF in
+6. ~~Calculator: assert band arithmetic against the transcribed real PDF in
    `scripts/seed-saanich-pool.mjs` — the customer's own published numbers are the
-   fixture.
+   fixture.~~ **Not executable as written, corrected in stage 5.** That PDF is
+   the calculator's *output* — published RED/BLUE/BLACK bands — and its inputs
+   (the club bookings that caused each reduction) live in the Excel sheet nobody
+   has transcribed. You cannot derive the inputs from the outputs, so it cannot
+   be a fixture for the arithmetic. What it *does* supply is the **legend**,
+   which is transcribed and which stage 5 uses verbatim. The real test set
+   arrives through shadow mode itself: staff enter their bookings, and the panel
+   compares the numbers they publish today against the computed ones, week after
+   week, on their own data. `verify-aa` covers the arithmetic with fixtures
+   built to exercise each rule of §4 independently.
 
 ---
 
@@ -600,3 +609,66 @@ No "print the week" — seven days is seven sheets, and the customer prints one
 day at a time. No per-guard rotation or staffing column: that is shift
 scheduling, explicitly out of scope. No export to Excel; replacing the
 spreadsheet is the point, and an export invites keeping it.
+
+---
+
+## 16. Stage 5 — the calculator, computing where nobody can be hurt by it
+
+`src/lib/schedule/availability.ts` implements §4 exactly: bands cut at every
+exclusive-claim edge, `available = the block's own spaces − those claimed in that
+band`, zero-availability stretches split out rather than published as "0", and
+adjacent bands merged on the **label** rather than the number. Two staff-only
+surfaces read it — a collapsible panel in the command centre's week editor, and a
+line per drop-in block on the deck sheet. Nothing else does.
+
+### What "shadow mode" is protecting against
+
+A published availability number is a promise, and the failure mode is a patron
+driving to a full pool. So the calculator's first job is not to be right; it is
+to be **checkable**. The panel puts the number staff publish today beside the one
+the bookings imply and says, in the page, that it publishes nothing. Agreement
+collapses to a single quiet line — the boring case has to stay boring for weeks,
+or nobody will read it when it matters. `verify-aa` §4 is the assertion that
+keeps the promise: an anonymous read of the same week still carries all six
+lanes and no computed value under any field name.
+
+### Two limits, stated rather than papered over
+
+**The unit of availability is a `spaces` row.** "3 lanes available" requires
+lanes to exist as spaces. A facility that models its pool as one space — which is
+exactly what `scripts/seed-saanich-pool.mjs` transcribes, six *pool areas* — gets
+all-or-nothing, because an exclusive claim takes the whole space. The alternative
+is a per-session lane count ("this rental takes 3 of 8"), which migration 046
+decision 2 deliberately did not build. `blocksWithoutLaneDetail()` exists so the
+panel says so out loud, and the legend is suppressed for those blocks: "1 of 1
+(Reduced lanes)" claims a precision the data does not have.
+
+**A block that names no spaces is skipped.** It publishes no lane count, so there
+is nothing to compare and nothing to subtract from; inventing a denominator from
+the facility's space list would produce a number the block never claimed.
+
+### The scope trap
+
+The panel fetches **the whole facility**, not the open schedule group. A rental
+almost always lives under a different schedule group than the drop-in block it
+eats into — that separation is the reason this feature exists — so a panel scoped
+to the editor would find no rivals and report full availability. Falsifying this
+in `verify-aa` produces the failure worth remembering: *"2 blocks this week match
+the bookings entered"*, confidently, from nothing.
+
+| File | Change |
+|---|---|
+| `src/lib/schedule/availability.ts` | **New.** `computeDayAvailability`, `AVAILABILITY_LEGEND` (Commonwealth's own RED/BLUE/BLACK words), `blocksWithoutLaneDetail`, `bandTimeLabel` |
+| `src/components/schedule-command/AvailabilityShadowPanel.tsx` | **New.** Published vs computed for the open week, facility-scoped, quiet when they agree |
+| `ScheduleCommandCentre.tsx` | Mounts the panel in the week editor |
+| `src/lib/schedule/deckSheet.ts`, `DeckSheet.tsx` | Each residual block carries its computed bands; printed only where they differ from what it claims |
+| `scripts/verify/verify-aa.mjs` | **New.** 18 assertions, in a real browser |
+
+### What stage 6 still has to decide
+
+The legend is a constant here, not a column. The moment a label is *published* it
+becomes an org setting — thresholds differ by pool — and that is the right time
+to add the column, not before. Stage 6 also has to answer §10's open question
+that shadow mode does not force: when availability hits zero, does the block
+vanish from the public schedule or publish "no lanes available"? Those are
+different messages to someone deciding whether to drive over.

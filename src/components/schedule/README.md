@@ -149,3 +149,21 @@ across, time down, one day, printable (stage 4 of
 Its print styles are the only `@media print` block in the codebase and live in
 `src/app/globals.css`, scoped to `.deck-sheet` / `.no-print` so nothing else on
 any page changes when someone hits Ctrl-P.
+
+## Computed availability is staff-only, and stays that way
+
+`src/lib/schedule/availability.ts` subtracts the exclusive claims from what a
+drop-in block claims and returns the bands that are left (stage 5). Two surfaces
+in this directory read it — the deck sheet's residual list, and the command
+centre's shadow panel — and **both are behind org membership**.
+
+Nothing computed is published. The public payload for a drop-in block is exactly
+what it was before stage 5: the lanes it claims, unreduced. That is the whole
+meaning of shadow mode, and `verify-aa` §4 asserts it against an anonymous read.
+When that changes it will be stage 6's deliberate decision, not a side effect of
+a view rendering a number it happened to have.
+
+Two things to know before reading a number off it: the unit is a `spaces` row, so
+lane counts require lanes to be modelled as spaces; and a caller must hand it the
+**whole facility's** sessions, because the rental eating into a drop-in block
+almost always lives under a different schedule group.

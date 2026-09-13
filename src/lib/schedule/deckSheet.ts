@@ -7,6 +7,7 @@ import {
   type OccupancyKind,
 } from "@/lib/sessions/occupancy";
 import { configurationLabel, type ConfigurationOption } from "@/lib/spaces/configurations";
+import { computeDayAvailability, type BlockAvailability } from "@/lib/schedule/availability";
 import { formatSessionTime, minutesOfDayIn, sessionDateString } from "@/lib/utils/dates";
 import { GRID_START_HOUR, SLOT_MINUTES } from "@/lib/schedule/weekGeometry";
 
@@ -70,6 +71,16 @@ export interface DeckBlock {
   timeLabel: string;
   spaceNames: string[];
   noteMarker: number | null;
+  /**
+   * What is actually left of this block once the claims above are subtracted
+   * (stage 5). Null for anything the calculator cannot speak to — an exclusive
+   * claim, or a block that names no spaces.
+   *
+   * Shadow mode, on a staff-only sheet: it is printed for the guard on deck, and
+   * publishes nothing. It is also the question the sheet exists to answer, since
+   * the grid's empty cells are exactly the water this counts.
+   */
+  availability: BlockAvailability | null;
 }
 
 export interface DeckRow {
@@ -279,6 +290,13 @@ export function buildDeckSheet({
     return { spaceId: space.id, name: space.name, tracks: tracks.length > 0 ? tracks : [[]] };
   });
 
+  // Computed from the whole day's sessions, not from the claims drawn: a rental
+  // on a lane filtered out of this configuration still takes that lane away from
+  // a drop-in block that claims it.
+  const availabilityByKey = new Map(
+    computeDayAvailability(sessions).map((result) => [result.sessionKey, result])
+  );
+
   const toBlock = (s: ExpandedSession): DeckBlock => ({
     key: s.key,
     label: sessionDisplayLabel(s),
@@ -286,6 +304,7 @@ export function buildDeckSheet({
     timeLabel: timeRangeLabel(s),
     spaceNames: s.spaceNames,
     noteMarker: markerByKey.get(s.key) ?? null,
+    availability: availabilityByKey.get(s.key) ?? null,
   });
 
   const sortedByStart = (list: ExpandedSession[]) =>

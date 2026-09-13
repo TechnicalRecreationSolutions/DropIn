@@ -4,6 +4,7 @@ import { cn } from "@/lib/utils/cn";
 import { formatSessionDayFull } from "@/lib/utils/dates";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import { deckCellAt, type DeckSheetModel } from "@/lib/schedule/deckSheet";
+import { bandTimeLabel } from "@/lib/schedule/availability";
 
 interface DeckSheetProps {
   model: DeckSheetModel;
@@ -158,12 +159,35 @@ export default function DeckSheet({ model, facilityName, day, printedAt }: DeckS
         {model.residual.length === 0 ? (
           <p className="text-[11px] text-muted-foreground">None scheduled today.</p>
         ) : (
-          <ul className="text-[11px] leading-snug">
+          <ul className="text-[11px] leading-snug" data-deck-residual-list>
             {model.residual.map((block) => (
               <li key={block.key}>
                 <span className="font-semibold">{block.label}</span> · {block.timeLabel}
                 {block.spaceNames.length > 0 && ` · ${block.spaceNames.join(", ")}`}
                 {block.noteMarker !== null && <sup className="ml-0.5 font-bold">{block.noteMarker}</sup>}
+
+                {/* What is actually left, once the grid above is subtracted
+                    (stage 5, shadow mode). Printed only where it differs from
+                    what the block claims: "all six lanes, all block" is already
+                    what the line above says, and a deck sheet earns its space. */}
+                {block.availability?.differs && (
+                  <span className="block pl-3 text-muted-foreground" data-deck-availability={block.key}>
+                    {block.availability.bands.map((band) => (
+                      <span key={band.startMinutes} className="block">
+                        {bandTimeLabel(band.startMinutes, band.endMinutes)}:{" "}
+                        <span className="font-semibold text-foreground">
+                          {band.available} of {block.availability!.claimed}
+                        </span>{" "}
+                        free{band.takenBy.length > 0 && ` — rest held by ${band.takenBy.join(", ")}`}
+                      </span>
+                    ))}
+                    {block.availability.suppressed.map((gap) => (
+                      <span key={gap.startMinutes} className="block font-semibold text-foreground">
+                        {bandTimeLabel(gap.startMinutes, gap.endMinutes)}: nothing left
+                      </span>
+                    ))}
+                  </span>
+                )}
               </li>
             ))}
           </ul>
