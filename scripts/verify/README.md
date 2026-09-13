@@ -5,21 +5,23 @@ database**.
 
 ```bash
 npm run dev            # they drive real HTTP; the server must be up
-node scripts/verify/verify-e.mjs   # facility delete + org settings (51 assertions)
-node scripts/verify/verify-f.mjs   # recurrence + conflict correctness (11 assertions)
+node scripts/verify/verify-e.mjs   # facility delete + org settings (49 assertions)
+node scripts/verify/verify-f.mjs   # recurrence + conflict correctness (10 assertions)
 node scripts/verify/verify-g.mjs   # schedule-group publish gate (5 assertions)
-node scripts/verify/verify-h.mjs   # schedule list: published_at + modified tracking
-node scripts/verify/verify-i.mjs   # per-week schedule review + public visibility gate (7 assertions)
+node scripts/verify/verify-h.mjs   # schedule list: published_at + modified tracking (24 assertions)
+node scripts/verify/verify-i.mjs   # per-week schedule review + public visibility gate (8 assertions)
 node scripts/verify/verify-j.mjs   # activity log + revert (migration 038, 21 assertions)
 node scripts/verify/verify-k.mjs   # conflict manager + dismissals (migration 039, 21 assertions)
+node scripts/verify/verify-l.mjs   # analytics tracking + summary (migration 041, 16 assertions)
 node scripts/verify/verify-m.mjs   # departments page + facilities edit link (32 assertions)
 node scripts/verify/verify-n.mjs   # widget multi-schedule filter (migration 043, 36 assertions)
 node scripts/verify/verify-o.mjs   # local JWT verification rejects tampered tokens (10 assertions)
 node scripts/verify/verify-p.mjs   # widget schedule switcher, driven in a real browser (17 assertions)
-node scripts/verify/verify-q.mjs   # widget studio + filters: preview window, custom_title, default view, department scoping, publish trap (43 assertions)
+node scripts/verify/verify-q.mjs   # widget studio + filters, in a real browser (50 assertions)
 node scripts/verify/verify-r.mjs   # general schedule filters (migration 044), driven in a real browser (28 assertions)
-node scripts/verify/verify-s.mjs   # list view starts at today, earlier days collapsed (18 assertions)
+node scripts/verify/verify-s.mjs   # list view starts at today, earlier days collapsed (21 assertions)
 node scripts/verify/verify-t.mjs   # pricing surfaces match the catalogue (57 assertions)
+node scripts/verify/verify-u.mjs   # deleting a session template, in a real browser (16 assertions)
 node scripts/verify/verify-v.mjs   # occupancy kinds + disclosure + staff-only sidecar (migration 046, 33 assertions)
 node scripts/verify/verify-w.mjs   # staff/patron audience toggle + conflict occupancy labels (20 assertions)
 node scripts/verify/verify-x.mjs   # template occupancy defaults (migration 047, 16 assertions)
@@ -51,6 +53,12 @@ removed with it — see `docs/PLAN.md` §3a and
 
 They read `.env.local` for the Supabase URL, publishable key and service-role
 key. Nothing is hard-coded and no secret is committed.
+
+**Last full run: 2026-09-12 — all 23 harnesses green, 572 assertions**, against
+one clean server (`NEXT_DIST_DIR=.next-verify npx next dev -p 3001`). The counts
+above were measured in that run, not carried forward; four harnesses had drifted
+and are described below. Re-measure before quoting this — see
+`docs/SECURITY.md`'s note about recorded numbers going stale on their own.
 
 ## What these are, and are not
 
@@ -121,23 +129,47 @@ hides any week no admin has approved, and `verify-f` predates 037
 (last touched in `9152b46`) and so had been failing on that since. It now
 approves its week, the same fixture requirement `verify-p`/`verify-s` document.
 And `verify-f`/`verify-i`/`verify-k` hardcoded `localhost:3000`, which matters
-because of the next paragraph. `verify-m` was the last one still doing that and
-now takes `--app=` too — it read as 18 passed / 14 failed against a wedged
-server and 32 / 0 against a healthy one, with nothing else changed.
+because of the wedged-server paragraph below. `verify-m`, then
+`verify-e`/`g`/`h`/`j`, were the remaining holdouts; **every harness now takes
+`--app=`**, and the difference is not subtle: against a wedged server `verify-e`
+read 32 passed / 17 failed, `verify-h` 8 / 8, `verify-j` 8 / 7 and `verify-m`
+18 / 14, and against a healthy one 49 / 0, 24 / 0, 21 / 0 and 32 / 0 with nothing
+else changed. A harness that cannot be pointed at a second server will eventually
+be read as a product bug.
 
-**`verify-r` and `verify-s` are currently red, and nothing in stages 3–5 caused
-it.** As of 2026-09-12 evening, `verify-r` reports 4 passed / 3 failed (its
-control — "all three activities are on screen before any filtering" — finds none
-of them) and `verify-s` 20 / 1 (the week a visitor pages back to renders no day
-headings). Both were green earlier the same afternoon on the same commit, both
-fail identically with the working tree stashed at `b69855b`, and re-running on a
-freshly restarted server with the widget route already compiled changes nothing —
-so it is neither the wedged-server symptom below nor cold-compile timing. Both
-fixtures anchor everything to `new Date()`, and the run that failed was the first
-after the clock passed into evening on the **last day** of a Sunday-start week,
-which is the untested corner of "the list view opens on today". Diagnose it as
-its own piece of work; do not treat these two as a signal about whatever you are
-building.
+**`verify-h` section 6 was stale in the same way `verify-f` was.** It inserted a
+`session_templates` row keyed by `schedule_group_id` and asserted that
+duplicating a schedule copied it — behaviour migration **042** deliberately
+removed when templates moved to the facility/department, which the duplicate
+route's own header has said ever since. The select returned `null` (no such
+column) and read as two failures in the route. It now asserts the current
+contract — the palette is *not* cloned, and the duplicate lands in the same
+department so it already sees it — which still fails if a duplicate starts
+copying templates again.
+
+**Build the fixture's week the way the app builds it, or the harness is a clock
+bomb.** `verify-p`/`q`/`r`/`s` each carried a `weekStartOf()` that read its
+argument with **UTC** getters, while the app decides which week to render with
+**local** ones (`getWeekStart`, `src/lib/utils/dates.ts`). Those agree only while
+UTC and local share a calendar date. On 2026-09-12 at 17:00 Pacific they stopped:
+the app was rendering the week of Sep 6 and the fixtures were writing sessions
+into the week of **Sep 13**, a week the page was not showing. `verify-r` went to
+4 passed / 3 failed — starting with its own control, "all three activities are on
+screen before any filtering", finding none of them — and `verify-s` to 20 / 1.
+Nothing had changed in the product: both failed identically with that day's work
+stashed, on a freshly restarted server, with the widget route already compiled.
+
+`verify-s` is the one to learn from, because it contained *both* conventions: it
+computed `localWeekStart` from local getters for its assertions and its fixture
+dates from the UTC helper. A harness that disagrees with itself passes for twelve
+hours a day.
+
+All four now take the local calendar date. The change is a no-op wherever the two
+coincide — under `TZ=UTC` the old and new helpers return the same week the app
+does — so this is not a Pacific-specific patch. If you write a fifth browser
+harness: anchor fixtures to the same calendar the thing under test uses, and
+remember that `toISOString().slice(0, 10)` is a **UTC** date, which is why these
+helpers return local calendar dates parked at UTC midnight.
 
 **`page.pdf()` uses print CSS — unless you told the page otherwise.** Playwright
 emulates print media for `page.pdf()` on its own, but an explicit
@@ -174,8 +206,8 @@ anonymous, it needs its own client.
 worker dies (`Jest worker encountered N child process exceptions`), *every*
 dynamic `[param]` route answers 500 with an HTML body while static paths keep
 working — so a harness reports failures in whatever it happens to touch. `verify-i`
-read as 4 passed / 4 failed purely from this. Every harness that drives HTTP now
-takes `--app=`; start a second server on another port with its own dist dir
+read as 4 passed / 4 failed purely from this. Every harness takes `--app=` (as of
+2026-09-12 — that was checked, not assumed); start a second server on another port with its own dist dir
 (`NEXT_DIST_DIR=.next-verify npx next dev -p 3001`) rather than diagnosing the
 code. Curl one `[param]` route before believing a failure.
 

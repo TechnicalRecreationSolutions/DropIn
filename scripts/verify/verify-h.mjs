@@ -11,7 +11,11 @@ import fs from "fs";
 import { createClient } from "@supabase/supabase-js";
 import { stringToBase64URL } from "@supabase/ssr/dist/main/utils/base64url.js";
 
-const APP = "http://localhost:3000";
+// `--app=http://localhost:3001` to drive a server other than the default dev
+// one — see the wedged-dev-server note in README.md.
+const APP =
+  process.argv.find((a) => a.startsWith("--app="))?.slice("--app=".length) ??
+  "http://localhost:3000";
 
 const env = Object.fromEntries(
   fs
@@ -273,10 +277,18 @@ try {
   );
 
   // ---------------------------------------------------------------------
-  console.log("\n6. Duplicate copies schedule fields + templates, not sessions, and starts as draft");
+  console.log("\n6. Duplicate copies schedule fields, but neither templates nor sessions, and starts as draft");
+  // Templates hang off the FACILITY (and optionally a department) since
+  // migration 042 — not off a schedule group. This section used to insert one
+  // with `schedule_group_id` and assert the duplicate copied it, which is
+  // behaviour 042 deliberately removed: a duplicate lands in the same
+  // department and therefore already sees the same palette, with nothing to
+  // copy (see the route's own header). The assertion below is the current
+  // contract, and it still catches a regression — a duplicate that started
+  // copying templates would make this count 2.
   await admin.from("session_templates").insert({
     org_id: org.id,
-    schedule_group_id: createdPublished.body.scheduleGroup.id,
+    facility_id: facility.id,
     name: "ZZ Lap Swim",
     color: "#3B82F6",
     default_duration_minutes: 60,
@@ -294,12 +306,21 @@ try {
     duplicateRes.body.scheduleGroup?.sport_category === "swimming"
   );
 
-  const { data: dupTemplates } = await admin
+  const { data: facilityTemplates } = await admin
     .from("session_templates")
-    .select("name, color, default_duration_minutes")
-    .eq("schedule_group_id", duplicateRes.body.scheduleGroup.id);
-  check("template was copied", dupTemplates?.length === 1, JSON.stringify(dupTemplates));
-  check("copied template kept its name/color/duration", dupTemplates?.[0]?.name === "ZZ Lap Swim");
+    .select("id, name, department_id")
+    .eq("facility_id", facility.id);
+  check(
+    "the facility still has exactly one template — duplicating a schedule does not clone the palette",
+    facilityTemplates?.length === 1,
+    JSON.stringify(facilityTemplates)
+  );
+  check(
+    "and the duplicate lands in the same department, so that palette is the one it already sees",
+    duplicateRes.body.scheduleGroup?.department_id ===
+      createdPublished.body.scheduleGroup?.department_id,
+    `${duplicateRes.body.scheduleGroup?.department_id} vs ${createdPublished.body.scheduleGroup?.department_id}`
+  );
 
   const { data: dupSessions } = await admin
     .from("sessions")

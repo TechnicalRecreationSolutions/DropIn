@@ -135,7 +135,14 @@ const isoDate = (d) => d.toISOString().slice(0, 10);
 
 /** Sunday-anchored, matching `sessionWeekStart` in src/lib/utils/dates.ts. */
 function weekStartOf(date) {
-  const d = new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+  // LOCAL calendar date, parked at UTC midnight so isoDate() reads the same
+  // digits back. Reading `date` with UTC getters here is the bug that turned
+  // this harness red every day after 17:00 Pacific: the app decides which week
+  // to render with local getters (getWeekStart in src/lib/utils/dates.ts), so
+  // once UTC has crossed midnight the fixture writes its sessions into a week
+  // the page is not showing — a whole week off, on a Saturday evening. See the
+  // note in README.md.
+  const d = new Date(Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()));
   d.setUTCDate(d.getUTCDate() - d.getUTCDay());
   return d;
 }
