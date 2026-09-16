@@ -66,8 +66,7 @@ const SESSION_SELECT = `
     departments ( id, name )
   ),
   session_spaces (
-    spaces ( id, name, display_order, configuration_id,
-             facility_configurations ( id, name ) )
+    spaces ( id, name, display_order )
   ),
   session_templates ( id, name, color )
 `;

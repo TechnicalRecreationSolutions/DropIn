@@ -10,10 +10,6 @@ const CreateSpaceSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullish(),
   capacity: z.number().int().positive().nullish(),
-  /** Which state of the building this space exists in (migration 048).
-   *  Null/absent means every configuration, which is what a facility with no
-   *  bulkhead — i.e. almost all of them — always wants. */
-  configuration_id: z.string().uuid().nullish(),
 });
 
 /**
@@ -83,23 +79,6 @@ export async function POST(request: Request) {
     if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
   }
 
-  // Same hand-rolled boundary check as department_id above, for the same
-  // reason: migration 048 deliberately has no cross-table CHECK tying a
-  // configuration to the space's facility, so a 25m lane could otherwise be
-  // assigned to another building's bulkhead state.
-  if (parsed.data.configuration_id) {
-    const { data: configuration } = await supabase
-      .from("facility_configurations")
-      .select("id")
-      .eq("id", parsed.data.configuration_id)
-      .eq("facility_id", parsed.data.facility_id)
-      .maybeSingle();
-
-    if (!configuration) {
-      return NextResponse.json({ error: "Configuration not found" }, { status: 404 });
-    }
-  }
-
   const { data, error } = await supabase
     .from("spaces")
     .insert({
@@ -110,7 +89,6 @@ export async function POST(request: Request) {
       slug: slugify(parsed.data.name),
       description: parsed.data.description ?? null,
       capacity: parsed.data.capacity ?? null,
-      configuration_id: parsed.data.configuration_id ?? null,
       is_published: false,
     })
     .select("*")

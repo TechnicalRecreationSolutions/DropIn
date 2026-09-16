@@ -20,13 +20,26 @@ import DeckSheetPage from "@/components/schedule/DeckSheetPage";
  * It is deliberately not a `ScheduleTemplate`, so no widget configuration can
  * select it.
  */
+/**
+ * Blocking, unlike every other dashboard route (which sets `instant = true` and
+ * streams inside a Suspense boundary). A deck sheet is printed, not navigated:
+ * there is no perceived-latency win in showing a shell, and a partially
+ * streamed page is the one outcome that must never reach a printer — half a
+ * lane grid looks like a complete sheet. So this route reads cookies and
+ * renders whole, or not at all.
+ *
+ * Without this the build fails outright: `getOrgContext()` reads cookies
+ * outside a Suspense boundary, which cannot be prerendered.
+ */
+export const instant = false;
+
 export const metadata: Metadata = {
   title: "Deck sheet",
   robots: { index: false, follow: false },
 };
 
 interface DeckPageProps {
-  searchParams: Promise<{ facility?: string; date?: string; configuration?: string }>;
+  searchParams: Promise<{ facility?: string; date?: string }>;
 }
 
 export default async function DeckPage({ searchParams }: DeckPageProps) {
@@ -40,22 +53,16 @@ export default async function DeckPage({ searchParams }: DeckPageProps) {
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();
-  const { facility: facilityParam, date: dateParam, configuration } = await searchParams;
+  const { facility: facilityParam, date: dateParam } = await searchParams;
 
-  const [{ data: facilityRows }, { data: spaceRows }, { data: configurationRows }] =
-    await Promise.all([
-      supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
-      supabase
-        .from("spaces")
-        .select("id, name, facility_id, configuration_id")
-        .eq("org_id", orgId)
-        .order("display_order", { ascending: true }),
-      supabase
-        .from("facility_configurations")
-        .select("id, name, facility_id")
-        .eq("org_id", orgId)
-        .order("display_order", { ascending: true }),
-    ]);
+  const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
+    supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
+    supabase
+      .from("spaces")
+      .select("id, name, facility_id")
+      .eq("org_id", orgId)
+      .order("display_order", { ascending: true }),
+  ]);
 
   const facilities = facilityRows ?? [];
   if (facilities.length === 0) {
@@ -78,16 +85,7 @@ export default async function DeckPage({ searchParams }: DeckPageProps) {
 
   const spaces = (spaceRows ?? [])
     .filter((s) => s.facility_id === facility.id)
-    .map((s) => ({ id: s.id, name: s.name, configurationId: s.configuration_id }));
-
-  const configurations = (configurationRows ?? [])
-    .filter((c) => c.facility_id === facility.id)
-    .map((c) => ({ id: c.id, name: c.name }));
-
-  // An unknown configuration id (stale link, deleted configuration) falls back
-  // to every space instead of printing an empty sheet with no explanation.
-  const configurationId =
-    configuration && configurations.some((c) => c.id === configuration) ? configuration : null;
+    .map((s) => ({ id: s.id, name: s.name }));
 
   return (
     <DeckSheetPage
@@ -95,9 +93,7 @@ export default async function DeckPage({ searchParams }: DeckPageProps) {
       facilityId={facility.id}
       facilityName={facility.name}
       spaces={spaces}
-      configurations={configurations}
       dateKey={dateKey}
-      configurationId={configurationId}
     />
   );
 }

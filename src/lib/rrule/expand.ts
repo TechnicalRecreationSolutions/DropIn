@@ -28,16 +28,8 @@ export type SessionWithRelations = SessionRow & {
   // access to that specific space (e.g. an anonymous visitor and a space
   // still in Draft) gets the join-table row back with `spaces: null` rather
   // than the row being omitted. Must be filtered, not trusted present.
-  // `facility_configurations` is a second-level embed through `spaces`
-  // (migration 048) and nullable for one more reason than the others: a space
-  // simply may not belong to a configuration, which is the normal state for
-  // every facility without a bulkhead.
   session_spaces: {
-    spaces:
-      | (Pick<SpaceRow, "id" | "name" | "display_order" | "configuration_id"> & {
-          facility_configurations: { id: string; name: string } | null;
-        })
-      | null;
+    spaces: Pick<SpaceRow, "id" | "name" | "display_order"> | null;
   }[];
   // Null when the session has no template_id, or the template was archived/deleted.
   session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
@@ -192,24 +184,6 @@ export function expandSessions(
         departmentName: department?.name ?? null,
         spaceIds: attachedSpaces.map((s) => s.id),
         spaceNames: attachedSpaces.map((s) => s.name),
-        // Which state of the building this occurrence implies, read off the
-        // lanes it claims rather than stored on the session (migration 048,
-        // decision 3 — two copies could disagree). Distinct, because eight
-        // long-course lanes all name the same configuration; empty when every
-        // claimed space exists in every configuration, which is the normal
-        // case everywhere no bulkhead has been described.
-        configurationIds: [
-          ...new Set(
-            attachedSpaces.map((s) => s.configuration_id).filter((id): id is string => id !== null)
-          ),
-        ],
-        configurationNames: [
-          ...new Set(
-            attachedSpaces
-              .map((s) => s.facility_configurations?.name)
-              .filter((name): name is string => !!name)
-          ),
-        ],
         templateId: session.session_templates?.id ?? null,
         templateName: session.session_templates?.name ?? null,
         templateColor: session.session_templates?.color ?? null,

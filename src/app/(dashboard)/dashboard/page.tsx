@@ -327,11 +327,6 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       ? conflictsRes.value.filter(
           (c) =>
             !c.dismissed &&
-            // Advisories (cross-configuration overlaps, migration 048) are
-            // deliberately excluded: this card says "Conflicts", and nothing in
-            // an advisory is double-booked. They live on /dashboard/conflicts
-            // under their own heading, where the difference can be explained.
-            c.severity === "conflict" &&
             (visibleScheduleIdSet.has(c.sessionA.scheduleGroupId) ||
               visibleScheduleIdSet.has(c.sessionB.scheduleGroupId))
         ).length

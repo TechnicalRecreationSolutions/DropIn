@@ -1,4 +1,3 @@
-import type { ConfigurationOption } from "@/lib/spaces/configurations";
 import type { EditorTemplate } from "@/components/schedule/editing/ScheduleEditingContext";
 
 /** A schedule under a facility, with everything the editor needs to place sessions into it. */
@@ -34,10 +33,6 @@ export interface CommandSpace {
   isPublished: boolean;
   /** Null for spaces that sit directly under the facility. */
   departmentId: string | null;
-  /** Which state of the building this space exists in (migration 048).
-   *  **Null means every configuration**, not "unassigned" — the hot tub, and
-   *  every space at every facility that has described none. */
-  configurationId: string | null;
 }
 
 /** A facility and everything inside it — one "building box" on the command centre. */
@@ -50,10 +45,6 @@ export interface CommandFacility {
   hasPublishedMap: boolean;
   /** Empty for facilities that keep their schedules flat — the department tier then never renders. */
   departments: { id: string; name: string }[];
-  /** The physical states this building can be in — "Long Course (50m)", "Boards
-   *  In" (migration 048). Empty for every facility with nothing reconfigurable,
-   *  which is the case that must keep rendering exactly as it did before. */
-  configurations: ConfigurationOption[];
   spaces: CommandSpace[];
   scheduleGroups: CommandScheduleGroup[];
 }

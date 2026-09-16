@@ -60,19 +60,11 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
   const commandCentreHref =
     `/dashboard/schedule?facility=${scheduleGroup.facility_id}&schedule=${scheduleGroup.id}`;
 
-  const [{ data: spaces }, { data: configurations }] = await Promise.all([
-    supabase
-      .from("spaces")
-      .select("id, name, facility_id, department_id, configuration_id")
-      .eq("org_id", orgContext.org.id)
-      .order("display_order", { ascending: true }),
-    // The building states the lane picker groups by (migration 048).
-    supabase
-      .from("facility_configurations")
-      .select("id, name, facility_id")
-      .eq("org_id", orgContext.org.id)
-      .order("display_order", { ascending: true }),
-  ]);
+  const { data: spaces } = await supabase
+    .from("spaces")
+    .select("id, name, facility_id, department_id")
+    .eq("org_id", orgContext.org.id)
+    .order("display_order", { ascending: true });
 
   const { data: sessionSpaceRows } = await supabase
     .from("session_spaces")
@@ -114,7 +106,6 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
         }]}
         defaultScheduleGroupId={scheduleGroup.id}
         spaces={spaces ?? []}
-        configurations={configurations ?? []}
         sessionId={session.id}
         initialValues={{
           rrule: session.rrule,

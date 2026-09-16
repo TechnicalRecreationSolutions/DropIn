@@ -10,9 +10,6 @@ const UpdateSpaceSchema = z.object({
   description: z.string().nullish(),
   capacity: z.number().int().positive().nullish(),
   is_published: z.boolean().optional(),
-  /** Migration 048. Explicit null moves the space back into every
-   *  configuration; absent leaves whatever it has. */
-  configuration_id: z.string().uuid().nullish(),
 });
 
 /**
@@ -38,10 +35,9 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = UpdateSpaceSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  // Both department_id and configuration_id have to belong to this space's own
-  // facility, and neither boundary is enforced by the schema — so the space's
-  // facility is resolved once here when either is being set.
-  if (parsed.data.department_id || parsed.data.configuration_id) {
+  // department_id has to belong to this space's own facility, and that boundary
+  // is not enforced by the schema — so the space's facility is resolved here.
+  if (parsed.data.department_id) {
     const { data: space } = await supabase
       .from("spaces")
       .select("facility_id")
@@ -51,29 +47,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
 
     if (!space) return NextResponse.json({ error: "Space not found" }, { status: 404 });
 
-    if (parsed.data.department_id) {
-      const { data: department } = await supabase
-        .from("departments")
-        .select("id")
-        .eq("id", parsed.data.department_id)
-        .eq("facility_id", space.facility_id)
-        .maybeSingle();
+    const { data: department } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("id", parsed.data.department_id)
+      .eq("facility_id", space.facility_id)
+      .maybeSingle();
 
-      if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
-    }
-
-    if (parsed.data.configuration_id) {
-      const { data: configuration } = await supabase
-        .from("facility_configurations")
-        .select("id")
-        .eq("id", parsed.data.configuration_id)
-        .eq("facility_id", space.facility_id)
-        .maybeSingle();
-
-      if (!configuration) {
-        return NextResponse.json({ error: "Configuration not found" }, { status: 404 });
-      }
-    }
+    if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
   }
 
   const payload = {

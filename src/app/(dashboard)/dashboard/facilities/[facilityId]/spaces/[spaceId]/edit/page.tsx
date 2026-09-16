@@ -27,25 +27,18 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
 
   const { data: space } = await supabase
     .from("spaces")
-    .select("id, name, department_id, description, capacity, is_published, configuration_id")
+    .select("id, name, department_id, description, capacity, is_published")
     .eq("id", spaceId)
     .eq("facility_id", facilityId)
     .single();
 
   if (!space) notFound();
 
-  const [{ data: departments }, { data: configurations }] = await Promise.all([
-    supabase
-      .from("departments")
-      .select("id, name")
-      .eq("facility_id", facilityId)
-      .order("display_order", { ascending: true }),
-    supabase
-      .from("facility_configurations")
-      .select("id, name")
-      .eq("facility_id", facilityId)
-      .order("display_order", { ascending: true }),
-  ]);
+  const { data: departments } = await supabase
+    .from("departments")
+    .select("id, name")
+    .eq("facility_id", facilityId)
+    .order("display_order", { ascending: true });
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -66,14 +59,12 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
         facilityId={facilityId}
         spaceId={spaceId}
         departments={departments ?? []}
-        configurations={configurations ?? []}
         defaultValues={{
           name: space.name,
           department_id: space.department_id,
           description: space.description ?? "",
           capacity: space.capacity,
           is_published: space.is_published,
-          configuration_id: space.configuration_id,
         }}
         // Back to the Spaces page this was launched from.
         redirectTo={spacesHref(facilityId)}

@@ -14,7 +14,6 @@ import {
   type OccupancyKind,
   type Disclosure,
 } from "@/lib/sessions/occupancy";
-import { groupSpacesByConfiguration } from "@/lib/spaces/configurations";
 import { cn } from "@/lib/utils/cn";
 
 /** Remembers the last schedule picked here, so entering several blocks for
@@ -50,15 +49,7 @@ interface SessionFormProps {
     name: string;
     facility_id: string;
     department_id: string | null;
-    /** Which state of the building this space exists in; null = all of them
-     *  (migration 048). */
-    configuration_id: string | null;
   }[];
-  /** Every configuration in the org, filtered to the selected schedule's
-   *  facility below — the schedule picker can move this session to another
-   *  building. Empty at facilities with nothing reconfigurable, which keeps the
-   *  space picker exactly as flat as it was before 048. */
-  configurations: { id: string; name: string; facility_id: string }[];
   defaultScheduleGroupId?: string;
   /** Present when editing an existing session instead of creating a new one. */
   sessionId?: string;
@@ -90,7 +81,6 @@ export default function SessionForm({
   canEditScheduleDetails,
   scheduleGroups,
   spaces,
-  configurations,
   defaultScheduleGroupId,
   sessionId,
   initialValues,
@@ -181,28 +171,6 @@ export default function SessionForm({
       s.facility_id === selectedFacilityId &&
       (s.department_id === null || s.department_id === selectedDepartmentId)
   );
-  // Grouped by which state of the building each lane belongs to (migration
-  // 048). Falls back to a single unlabelled group — the picker as it was — at
-  // any facility where nothing has been assigned to a configuration.
-  const spaceGroups = groupSpacesByConfiguration(
-    facilitySpaces.map((s) => ({ ...s, configurationId: s.configuration_id })),
-    configurations.filter((c) => c.facility_id === selectedFacilityId)
-  );
-  const showSpaceGroupHeadings =
-    spaceGroups.length > 1 || spaceGroups[0]?.configurationId !== null;
-  // Which configurations the current selection spans. Two is physically
-  // impossible — the bulkhead cannot be in two places — so it is called out
-  // rather than blocked: staff may be mid-edit, and the customer was explicit
-  // that a morning long course and an afternoon short course are two sessions,
-  // not an error (migration 048, decision 5).
-  const selectedConfigurationIds = [
-    ...new Set(
-      facilitySpaces
-        .filter((s) => spaceIds.includes(s.id))
-        .map((s) => s.configuration_id)
-        .filter((id): id is string => id !== null)
-    ),
-  ];
 
   // Skips the second request entirely for the common case of a session saved
   // without touching its schedule's program details. Compared against
@@ -491,48 +459,30 @@ export default function SessionForm({
           <p className="text-sm text-muted-foreground/70">No spaces set up for this facility.</p>
         ) : (
           <>
-            <div className="space-y-2.5">
-              {spaceGroups.map((group) => (
-                <div key={group.configurationId ?? "__every__"}>
-                  {showSpaceGroupHeadings && (
-                    <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 mb-1">
-                      {group.label}
-                    </p>
-                  )}
-                  <div className="flex gap-1.5 flex-wrap">
-                    {group.spaces.map((space) => {
-                      const selected = spaceIds.includes(space.id);
-                      return (
-                        <button
-                          key={space.id}
-                          type="button"
-                          onClick={() => toggleSpace(space.id)}
-                          className={cn(
-                            "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                            selected
-                              ? "bg-blue-600 border-blue-600 text-white"
-                              : "border-border text-muted-foreground hover:border-blue-300"
-                          )}
-                          aria-pressed={selected}
-                        >
-                          {space.name}
-                        </button>
-                      );
-                    })}
-                  </div>
-                </div>
-              ))}
+            <div className="flex gap-1.5 flex-wrap">
+              {facilitySpaces.map((space) => {
+                const selected = spaceIds.includes(space.id);
+                return (
+                  <button
+                    key={space.id}
+                    type="button"
+                    onClick={() => toggleSpace(space.id)}
+                    className={cn(
+                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                      selected
+                        ? "bg-blue-600 border-blue-600 text-white"
+                        : "border-border text-muted-foreground hover:border-blue-300"
+                    )}
+                    aria-pressed={selected}
+                  >
+                    {space.name}
+                  </button>
+                );
+              })}
             </div>
             <p className="text-xs text-muted-foreground mt-1">
               Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).
             </p>
-            {selectedConfigurationIds.length > 1 && (
-              <p className="text-xs text-amber-700 bg-amber-50 rounded-lg px-3 py-2 mt-2">
-                This session claims spaces from more than one configuration. The building can only
-                be in one at a time — if the change happens partway through, enter it as two
-                sessions.
-              </p>
-            )}
           </>
         )}
       </div>

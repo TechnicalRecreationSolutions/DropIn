@@ -6,7 +6,6 @@ import {
   type Disclosure,
   type OccupancyKind,
 } from "@/lib/sessions/occupancy";
-import { configurationLabel, type ConfigurationOption } from "@/lib/spaces/configurations";
 import { computeDayAvailability, type BlockAvailability } from "@/lib/schedule/availability";
 import { formatSessionTime, minutesOfDayIn, sessionDateString } from "@/lib/utils/dates";
 import { GRID_START_HOUR, SLOT_MINUTES, packIntoTracks } from "@/lib/schedule/weekGeometry";
@@ -110,8 +109,6 @@ export interface DeckSheetModel {
   unplaced: DeckBlock[];
   /** Setup notes, numbered, staff-only. Empty for any caller who is not an org member. */
   notes: DeckNote[];
-  /** Which state the building is in, from the claims drawn. Null when no configurations are described. */
-  configurationLabel: string | null;
   /** True when nothing at all is scheduled — the sheet then prints as an empty ruler rather than nothing. */
   isEmpty: boolean;
 }
@@ -120,10 +117,7 @@ interface BuildDeckSheetInput {
   /** One day's occurrences, already filtered to the day by the caller. */
   sessions: ExpandedSession[];
   /** Every space at the facility, in display order — including empty ones, which is the point of a printed sheet. */
-  spaces: { id: string; name: string; configurationId: string | null }[];
-  configurations: ConfigurationOption[];
-  /** Restricts the columns to one state of the building. Null = every space. */
-  configurationId: string | null;
+  spaces: { id: string; name: string }[];
   /** The day being rendered, as a session-Date. */
   day: Date;
 }
@@ -183,21 +177,16 @@ function hourLabel(minutes: number): string {
 export function buildDeckSheet({
   sessions,
   spaces,
-  configurations,
-  configurationId,
   day,
 }: BuildDeckSheetInput): DeckSheetModel {
-  const visibleSpaces = configurationId
-    ? spaces.filter((s) => s.configurationId === null || s.configurationId === configurationId)
-    : spaces;
+  const visibleSpaces = spaces;
   const visibleSpaceIds = new Set(visibleSpaces.map((s) => s.id));
 
   const exclusive = sessions.filter((s) => isExclusiveKind(s.occupancyKind));
   const residualSessions = sessions.filter((s) => !isExclusiveKind(s.occupancyKind));
 
-  // Drawn claims are the ones with at least one space *in the visible
-  // configuration*. An exclusive claim on a space filtered out of this
-  // configuration belongs to the other sheet, not to this one's footnotes.
+  // Drawn claims are the ones with at least one real space. An exclusive claim
+  // with no space at all is unplaced, and belongs in the footnotes instead.
   const drawable = exclusive.filter((s) => s.spaceIds.some((id) => visibleSpaceIds.has(id)));
   const unplacedSessions = exclusive.filter((s) => s.spaceIds.length === 0);
 
@@ -280,9 +269,9 @@ export function buildDeckSheet({
     return { spaceId: space.id, name: space.name, tracks: tracks.length > 0 ? tracks : [[]] };
   });
 
-  // Computed from the whole day's sessions, not from the claims drawn: a rental
-  // on a lane filtered out of this configuration still takes that lane away from
-  // a drop-in block that claims it.
+  // Computed from the whole day's sessions, not only from the claims drawn: an
+  // exclusive claim still takes a lane away from a drop-in block that claims it,
+  // whether or not it ends up drawn on this sheet.
   const availabilityByKey = new Map(
     computeDayAvailability(sessions).map((result) => [result.sessionKey, result])
   );
@@ -307,12 +296,6 @@ export function buildDeckSheet({
     residual: sortedByStart(residualSessions).map(toBlock),
     unplaced: sortedByStart(unplacedSessions).map(toBlock),
     notes,
-    // A chosen configuration names itself, so an empty short-course sheet still
-    // prints "Short Course (25m)" rather than going blank; otherwise the label is
-    // read off the claims drawn, which is all an unfiltered sheet can know.
-    configurationLabel:
-      configurations.find((c) => c.id === configurationId)?.name ??
-      configurationLabel([...new Set(drawable.flatMap((s) => s.configurationNames))]),
     isEmpty: drawable.length === 0 && residualSessions.length === 0 && unplacedSessions.length === 0,
   };
 }

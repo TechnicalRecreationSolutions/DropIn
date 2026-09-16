@@ -62,21 +62,6 @@ export type ExpandedSession = {
   spaceIds: string[];
   spaceNames: string[];
 
-  /**
-   * Which facility configuration(s) this occurrence implies — the state the
-   * building has to be in for it to happen (migration 048).
-   *
-   * Derived from the claimed spaces, never stored on the session: eight
-   * long-course lanes all point at "Long Course (50m)", so this is the distinct
-   * set. **Empty is the normal case** — every space at a facility that has
-   * described no configurations exists in all of them, so nothing to say.
-   * More than one entry means the session claims lanes from two states of the
-   * building at once, which is a mistake worth rendering as one. Name it
-   * through `configurationLabel()` (src/lib/spaces/configurations.ts).
-   */
-  configurationIds: string[];
-  configurationNames: string[];
-
   /** Session template this occurrence was placed from, if any (see session_templates) */
   templateId: string | null;
   templateName: string | null;

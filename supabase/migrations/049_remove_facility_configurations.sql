@@ -1,0 +1,76 @@
+-- =============================================================================
+-- Migration 049: Remove facility configurations
+-- =============================================================================
+-- Reverses migration 048 permanently. This is not a rollback of a bad deploy —
+-- 048 worked as written. It is the removal of a model that described the
+-- building wrongly, and could not be repaired without becoming the wrong thing
+-- more thoroughly.
+--
+-- WHAT 048 GOT WRONG
+--
+-- It treated a configuration as *a different set of lanes*. A 50m pool with the
+-- bulkhead out was 8 spaces; with the bulkhead in it was another 16, pointing
+-- at a second configuration row. The lanes themselves were duplicated.
+--
+-- That is not how a pool deck works. Lane blocks are numbered 1-8 and that is
+-- what a guard standing on deck reads. A schedule naming a "Lane 14" that
+-- exists in no lane block has invented vocabulary nobody uses out loud — and a
+-- tool whose names have to be translated before they can be acted on has
+-- already failed, whatever its schema looks like.
+--
+-- Three symptoms, all of them the same error:
+--
+--  1. UNIQUE (facility_id, slug) from migration 012 forbids two rows named
+--     "Lane 1" at one facility. 048 added configuration_id without widening it,
+--     so the central case the feature existed for — a long-course Lane 1 and a
+--     short-course Lane 1 — failed on the first attempt with a duplicate-name
+--     error. The feature could not represent its own motivating example.
+--
+--  2. Widening that constraint would have made it worse. Two rows both named
+--     "Lane 1", both real, both bookable, both the same water: a 9am claim on
+--     one and a 9am claim on the other is a genuine double-booking of a
+--     physical lane that the conflict engine cannot see, because they are
+--     different space_ids. 048 decision 4 declined to model physical overlap
+--     and called it a trade-off. It was really a consequence — duplicate lanes
+--     make overlap an unsolvable geometry problem. One lane row, and the
+--     question never arises.
+--
+--  3. configuration_id NULL meant both "exists in every configuration" (the hot
+--     tub) and "not tagged yet" (every lane, on day one). Indistinguishable, so
+--     the map-view filter silently did nothing until an invisible setup step
+--     had been completed across every space record, with no feedback that it
+--     had not been.
+--
+-- WHAT REPLACES IT
+--
+-- Nothing, at this layer. Lanes stay 1-8 permanently and the space layer is
+-- untouched. Whether the tank is long course or short course is a fact about
+-- *the session running in it at 9am*, not about the water, so it moves onto
+-- the session as a label — added in the migration that follows this one.
+--
+-- That also disposes of the facility → area → configuration → lane hierarchy
+-- this was heading toward. A building with two independently reconfigurable
+-- areas needs no extra tier: its sessions simply say what they are.
+--
+-- WHAT IS LOST
+--
+-- Every facility_configurations row, and which configuration each space
+-- pointed at. Spaces, sessions, session_spaces and session_internal are all
+-- untouched — configuration_id was a label on a lane, never a container for
+-- one, and no session references a configuration directly (there is no
+-- sessions.configuration_id; 048 derived it from the lanes a session claimed).
+--
+-- In practice this is one Commonwealth test facility with six lanes tagged
+-- during evaluation. No production customer completed the setup, because the
+-- duplicate-name error above made completing it impossible.
+--
+-- IRREVERSIBLE. supabase/rollbacks/049 recreates the table and the column, but
+-- cannot recover which space belonged to which configuration.
+-- =============================================================================
+
+DROP INDEX IF EXISTS idx_spaces_configuration_id;
+
+ALTER TABLE spaces
+  DROP COLUMN IF EXISTS configuration_id;
+
+DROP TABLE IF EXISTS facility_configurations;

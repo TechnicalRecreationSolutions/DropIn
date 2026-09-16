@@ -105,6 +105,16 @@ deferred until asked for.
 
 ## 3. Facility configuration (the bulkhead)
 
+> **SUPERSEDED 2026-09-16 — removed by migration 049.** This section's premise is
+> wrong. It reasons that "8 long-course lanes and 16 short-course lanes are
+> different lane *sets*", and everything below follows from that. They are not:
+> they are the same lane block, numbered 1-8 on the pool deck, in two states.
+> Duplicating the lanes collided with `UNIQUE (facility_id, slug)` from migration
+> 012 — a facility cannot have two spaces named "Lane 1" — so the feature failed
+> on the first attempt at the case it was built for. Course length now lives on
+> the session instead. Kept for the reasoning trail; see migration 049's header
+> for the full diagnosis.
+
 Decided with the customer 2026-09-11: **the configuration is declared, not
 derived, and transitions are not modelled.** Staff enter a long-course block and a
 short-course block as two separate sessions. Nothing needs to react to a bulkhead
@@ -471,6 +481,14 @@ does *not* consult the template, which is why the client must send the values.
 
 ## 14. Stage 3 — the configuration is a label on a lane, not a container for one
 
+> **SUPERSEDED 2026-09-16 — removed by migration 049.** Everything described in
+> this section (the `facility_configurations` table, `spaces.configuration_id`,
+> the derived `configurationIds`/`configurationNames`, the cross-configuration
+> advisory, the map and deck-sheet filters, and `verify-y.mjs`) has been deleted.
+> The advisory below was not really a design decision — it was a consequence of
+> duplicating lanes, which made physical overlap unmodellable. With one row per
+> lane, an overlap is an ordinary conflict the space loop already catches.
+
 Migration `048_facility_configurations.sql` (+ rollback). `facility_configurations`
 is per **facility** (a bulkhead is a property of a building), and `spaces` gains
 `configuration_id UUID NULL`. **NULL means "in every configuration"** — the hot
@@ -521,7 +539,6 @@ and nothing in an advisory is double-booked.
 | `WeeklyScheduleMap.tsx` | Staff chips filtering the columns, defaulting to the configuration the day implies, never hiding a session silently; day-header label for patrons too |
 | `SessionModal.tsx` | The configuration beside the spaces it qualifies |
 | `dashboard/page.tsx` | The stat card counts hard conflicts only |
-| `scripts/verify/verify-y.mjs` | **New.** 35 assertions |
 
 Two things learned here:
 

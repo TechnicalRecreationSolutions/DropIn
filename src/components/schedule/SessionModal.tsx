@@ -2,7 +2,6 @@
 
 import { useEffect, useRef } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
-import { configurationLabel } from "@/lib/spaces/configurations";
 import { X, Clock, ClipboardList, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
@@ -113,14 +112,9 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
             <div className="flex items-center gap-3 text-sm">
               <MapPin className="w-4 h-4 text-muted-foreground/70 shrink-0" />
               <span className="text-foreground">
-                {/* The configuration (migration 048) sits with the spaces
-                    because it qualifies them: "Lane 3" means a different piece
-                    of water long course than short course. Absent wherever no
-                    configurations are described, which is almost everywhere. */}
                 {[
                   session.facilityName,
                   session.spaceNames.join(", "),
-                  configurationLabel(session.configurationNames),
                   session.locationDetail,
                 ]
                   .filter(Boolean)

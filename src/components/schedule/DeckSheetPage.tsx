@@ -8,7 +8,6 @@ import { cn } from "@/lib/utils/cn";
 import { localDateString, parseDate, sessionDateString, toSessionTime } from "@/lib/utils/dates";
 import { useScheduleRange } from "@/hooks/useScheduleRange";
 import { buildDeckSheet } from "@/lib/schedule/deckSheet";
-import type { ConfigurationOption } from "@/lib/spaces/configurations";
 import DeckSheet from "./DeckSheet";
 
 interface DeckSheetPageProps {
@@ -16,17 +15,15 @@ interface DeckSheetPageProps {
   facilityId: string;
   facilityName: string;
   /** Spaces at this facility, already in display order — they are the columns. */
-  spaces: { id: string; name: string; configurationId: string | null }[];
-  configurations: ConfigurationOption[];
+  spaces: { id: string; name: string }[];
   /** YYYY-MM-DD. */
   dateKey: string;
-  configurationId: string | null;
 }
 
 /**
  * The deck sheet's controls, its data fetch, and the sheet itself.
  *
- * Scope lives in the URL (`?facility=&date=&configuration=`) rather than in local
+ * Scope lives in the URL (`?facility=&date=`) rather than in local
  * state, for one operational reason: "print tomorrow's sheet for the 25m pool" is
  * a link someone can bookmark or send, and a print dialog reload must not land
  * back on today.
@@ -43,9 +40,7 @@ export default function DeckSheetPage({
   facilityId,
   facilityName,
   spaces,
-  configurations,
   dateKey,
-  configurationId,
 }: DeckSheetPageProps) {
   const router = useRouter();
 
@@ -79,20 +74,15 @@ export default function DeckSheetPage({
         // the occurrence's own date rather than trusting the range.
         sessions: (sessions ?? []).filter((s) => sessionDateString(s.start) === dateKey),
         spaces,
-        configurations,
-        configurationId,
         day: toSessionTime(parseDate(dateKey)),
       }),
-    [sessions, spaces, configurations, configurationId, dateKey]
+    [sessions, spaces, dateKey]
   );
 
-  function go(params: { date?: string; facility?: string; configuration?: string | null }) {
+  function go(params: { date?: string; facility?: string }) {
     const next = new URLSearchParams();
     next.set("facility", params.facility ?? facilityId);
     next.set("date", params.date ?? dateKey);
-    const configuration =
-      params.configuration === undefined ? configurationId : params.configuration;
-    if (configuration) next.set("configuration", configuration);
     router.replace(`/dashboard/schedule/deck?${next.toString()}`);
   }
 
@@ -176,33 +166,6 @@ export default function DeckSheetPage({
                 </option>
               ))}
             </select>
-          )}
-
-          {/* One sheet per state of the building: a tank with 8 long-course and
-              16 short-course lanes is 24 columns otherwise, most of them
-              impossible on any given day (migration 048). */}
-          {configurations.length > 0 && (
-            <div className="flex items-center gap-1.5 flex-wrap">
-              <button
-                type="button"
-                onClick={() => go({ configuration: null })}
-                aria-pressed={!configurationId}
-                className={chipClass(!configurationId)}
-              >
-                All spaces
-              </button>
-              {configurations.map((c) => (
-                <button
-                  key={c.id}
-                  type="button"
-                  onClick={() => go({ configuration: c.id })}
-                  aria-pressed={configurationId === c.id}
-                  className={chipClass(configurationId === c.id)}
-                >
-                  {c.name}
-                </button>
-              ))}
-            </div>
           )}
         </div>
 

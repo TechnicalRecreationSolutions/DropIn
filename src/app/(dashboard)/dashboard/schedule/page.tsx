@@ -90,7 +90,6 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     { data: spaceRows },
     { data: templateRows },
     { data: mapRows },
-    { data: configurationRows },
     { data: widgetConfig },
     { data: sessionRows },
   ] = await Promise.all([
@@ -120,7 +119,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     }>,
     supabase
       .from("spaces")
-      .select("id, name, capacity, is_published, facility_id, department_id, configuration_id")
+      .select("id, name, capacity, is_published, facility_id, department_id")
       .eq("org_id", orgId)
       .order("display_order", { ascending: true }),
     // Relational select — cast needed until Supabase CLI generates types with FK relations
@@ -144,16 +143,6 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
       .select("facility_id")
       .eq("org_id", orgId)
       .eq("is_published", true),
-    // Which physical states each building can be in (migration 048). Almost
-    // always empty — only facilities with something reconfigurable, like a
-    // bulkhead, describe any — and the lane pickers fall back to a flat list
-    // when it is, so this costs one small query and changes nothing until a
-    // customer sets one up.
-    supabase
-      .from("facility_configurations")
-      .select("id, name, facility_id")
-      .eq("org_id", orgId)
-      .order("display_order", { ascending: true }),
     // Org-wide default row — the same appearance the widget and public page use.
     supabase
       .from("widget_configs")
@@ -190,9 +179,6 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     departments: (departmentRows ?? [])
       .filter((d) => d.facility_id === f.id)
       .map((d) => ({ id: d.id, name: d.name })),
-    configurations: (configurationRows ?? [])
-      .filter((c) => c.facility_id === f.id)
-      .map((c) => ({ id: c.id, name: c.name })),
     spaces: (spaceRows ?? [])
       .filter((s) => s.facility_id === f.id)
       .map((s) => ({
@@ -201,7 +187,6 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         capacity: s.capacity,
         isPublished: s.is_published,
         departmentId: s.department_id,
-        configurationId: s.configuration_id,
       })),
     scheduleGroups: (scheduleGroupRows ?? [])
       .filter((g) => g.facility_id === f.id)

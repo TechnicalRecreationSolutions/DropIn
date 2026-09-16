@@ -4,17 +4,12 @@ import Link from "next/link";
 import { MapPin, Plus, Pencil, Eye, EyeOff } from "lucide-react";
 import { NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { CommandSpace } from "@/components/schedule-command/types";
-import {
-  groupSpacesByConfiguration,
-  type ConfigurationOption,
-} from "@/lib/spaces/configurations";
 
 interface SpacesPanelProps {
   /** Only the fields this panel actually reads — a full `CommandFacility` satisfies this too. */
   facility: { id: string; name: string; spaces: CommandSpace[] };
   /** The building's physical states (migration 048). Empty for almost every
    *  facility, which is exactly when this panel renders one flat list. */
-  configurations?: ConfigurationOption[];
   /** A real department id, NO_DEPARTMENT, or null for the whole building. */
   departmentId: string | null;
   departmentLabel: string | null;
@@ -28,7 +23,6 @@ interface SpacesPanelProps {
  */
 export default function SpacesPanel({
   facility,
-  configurations = [],
   departmentId,
   departmentLabel,
 }: SpacesPanelProps) {
@@ -40,11 +34,6 @@ export default function SpacesPanel({
     return s.departmentId === departmentId;
   });
 
-  // One unlabelled group when nothing is assigned to a configuration — i.e. the
-  // list this panel has always rendered. Headings appear only once a building
-  // actually has two states to tell apart.
-  const groups = groupSpacesByConfiguration(spaces, configurations);
-  const showHeadings = groups.length > 1 || groups[0]?.configurationId !== null;
 
   const newSpaceHref = realDepartmentId
     ? `/dashboard/facilities/${facility.id}/spaces/new?departmentId=${realDepartmentId}`
@@ -85,14 +74,7 @@ export default function SpacesPanel({
         </div>
       ) : (
         <div className="space-y-4">
-          {groups.map((group) => (
-            <div key={group.configurationId ?? "__every__"} className="space-y-2">
-              {showHeadings && (
-                <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground/70">
-                  {group.label}
-                </h3>
-              )}
-              {group.spaces.map((space) => (
+          {spaces.map((space) => (
                 <div
                   key={space.id}
                   className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
@@ -121,8 +103,6 @@ export default function SpacesPanel({
                     <Pencil className="w-4 h-4" />
                   </Link>
                 </div>
-              ))}
-            </div>
           ))}
         </div>
       )}

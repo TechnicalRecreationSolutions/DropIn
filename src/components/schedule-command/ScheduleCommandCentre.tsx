@@ -331,7 +331,6 @@ export default function ScheduleCommandCentre({
       // Not filtered by department: a bulkhead is a property of the building,
       // so every schedule in it sees the same set of states (migration 048,
       // decision 3).
-      configurations: facility?.configurations ?? [],
       canCreate,
       canDuplicate: true,
       onAddSession: handleAddSession,
@@ -763,7 +762,6 @@ export default function ScheduleCommandCentre({
         target={createTarget}
         templates={editing.templates}
         spaces={editing.spaces}
-        configurations={editing.configurations}
         onCancel={() => {
           setCreateTarget(null);
           setCreateError(null);
@@ -777,7 +775,6 @@ export default function ScheduleCommandCentre({
         open={!!duplicating}
         session={duplicating}
         spaces={editing.spaces}
-        configurations={editing.configurations}
         onCancel={() => {
           setDuplicating(null);
           setDuplicateError(null);

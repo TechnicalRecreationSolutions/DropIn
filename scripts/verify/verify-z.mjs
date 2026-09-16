@@ -171,22 +171,7 @@ try {
     `zz-verify-z2-arena-${stamp}`
   );
 
-  const longCourse = (
-    await admin
-      .from("facility_configurations")
-      .insert({ org_id: org1.orgId, facility_id: pool.id, name: "Long Course (50m)", display_order: 0 })
-      .select("id, name")
-      .single()
-  ).data;
-  const shortCourse = (
-    await admin
-      .from("facility_configurations")
-      .insert({ org_id: org1.orgId, facility_id: pool.id, name: "Short Course (25m)", display_order: 1 })
-      .select("id, name")
-      .single()
-  ).data;
-
-  async function makeSpace(name, order, configurationId) {
+  async function makeSpace(name, order) {
     return (
       await admin
         .from("spaces")
@@ -197,17 +182,16 @@ try {
           slug: `${name.toLowerCase().replace(/\W+/g, "-")}-${stamp}`,
           display_order: order,
           is_published: true,
-          ...(configurationId ? { configuration_id: configurationId } : {}),
         })
         .select("id, name")
         .single()
     ).data;
   }
 
-  const lane1 = await makeSpace("LC Lane 1", 0, longCourse.id);
-  const lane2 = await makeSpace("LC Lane 2", 1, longCourse.id);
-  const lane3 = await makeSpace("SC Lane 3", 2, shortCourse.id);
-  const hotTub = await makeSpace("Hot Tub", 3, null);
+  const lane1 = await makeSpace("Lane 1", 0);
+  const lane2 = await makeSpace("Lane 2", 1);
+  const lane3 = await makeSpace("Lane 3", 2);
+  const hotTub = await makeSpace("Hot Tub", 3);
 
   /**
    * TWO schedule groups, which is a fixture requirement and not decoration.
@@ -283,7 +267,7 @@ try {
     setup_notes: SETUP,
   });
 
-  // Short course, for the configuration filter.
+  // A second program, on its own lane.
   await createSession({
     dtstart: `${DAY}T10:00:00Z`,
     dtend_time: "11:00",
@@ -292,7 +276,7 @@ try {
     disclosure: "public",
   });
 
-  // A closure on the every-configuration space.
+  // A closure on the hot tub.
   await createSession({
     dtstart: `${DAY}T13:00:00Z`,
     dtend_time: "14:00",
@@ -376,7 +360,7 @@ try {
       `${dropInInGrid} lane cells contained it`
     );
     check(
-      "the closure is drawn, in the every-configuration space's column",
+      "the closure is drawn, in the hot tub's column",
       (await page.locator(`td[data-deck-claim="${hotTub.id}"]`).count()) > 0
     );
 
@@ -443,36 +427,7 @@ try {
       mediaBox ? `${mediaBox[1]}x${mediaBox[2]}` : "no MediaBox found"
     );
 
-    console.log("\n6. One sheet per state of the building (migration 048)");
-    await page.goto(`${DECK}&configuration=${shortCourse.id}`, { waitUntil: "networkidle" });
-    await page.locator(`[data-deck-sheet="${DAY}"]`).waitFor({ timeout: 30000 });
-    check(
-      "the short-course sheet keeps its own lane",
-      (await page.locator(`th[data-deck-space="${lane3.id}"]`).count()) === 1
-    );
-    check(
-      "drops the long-course lanes",
-      (await page.locator(`th[data-deck-space="${lane1.id}"]`).count()) === 0
-    );
-    check(
-      "keeps the every-configuration space, which exists either way",
-      (await page.locator(`th[data-deck-space="${hotTub.id}"]`).count()) === 1
-    );
-    check(
-      "and names the configuration in the header",
-      (await page.locator(`[data-deck-sheet="${DAY}"] header`).innerText()).includes("Short Course (25m)")
-    );
-
-    // A stale link to a deleted (or another building's) configuration must not
-    // print an empty sheet with no explanation.
-    await page.goto(`${DECK}&configuration=${crypto.randomUUID()}`, { waitUntil: "networkidle" });
-    await page.locator(`[data-deck-sheet="${DAY}"]`).waitFor({ timeout: 30000 });
-    check(
-      "an unknown configuration id falls back to every space rather than an empty sheet",
-      (await page.locator("th[data-deck-space]").count()) === 4
-    );
-
-    console.log("\n7. It is staff-only, and it is your own building");
+    console.log("\n6. It is staff-only, and it is your own building");
     const visitor = await browser.newContext({ viewport: { width: 1000, height: 800 } });
     const visitorPage = await visitor.newPage();
     await visitorPage.goto(DECK, { waitUntil: "networkidle" });

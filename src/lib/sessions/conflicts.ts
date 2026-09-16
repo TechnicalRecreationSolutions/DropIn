@@ -1,7 +1,6 @@
 import type { createClient } from "@/lib/supabase/server";
 import { expandOccurrenceTimes } from "@/lib/rrule/expand";
 import { claimsCanCollide, type OccupancyKind } from "@/lib/sessions/occupancy";
-import { configurationsDisagree } from "@/lib/spaces/configurations";
 import type { SessionException } from "@/types/schedule.types";
 
 type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
@@ -27,28 +26,22 @@ export interface ConflictParticipant {
    *  what staff should do about it, so the manager labels it. */
   occupancyKind: OccupancyKind;
   disclosure: "public" | "reserved" | "internal";
-  /** Which state of the building this session's lanes imply (migration 048) —
-   *  empty for every space that exists in all configurations, which is every
-   *  space at a facility that has described none. */
-  configurationIds: string[];
-  configurationNames: string[];
 }
 
 export interface OrgConflict {
   /**
-   * `conflict` — two claims on the same space at the same time. A real
+   * Always `conflict` — two claims on the same space at the same time. A real
    * double-booking; POST /api/sessions would have refused it (these get in by
    * import, or by a row edited directly).
    *
-   * `advisory` — the two sessions share no space at all, but claim lanes from
-   * *different* facility configurations at an overlapping time, which would
-   * need the bulkhead to be in two places at once (migration 048, decision 4).
-   * Never blocked at write time and never counted as a conflict on the
-   * Overview: the schema cannot know that 50m Lane 3 and 25m Lane 5 are the
-   * same water, so this is an observation about the building, and refusing a
-   * booking on the strength of it would be wrong often enough to matter.
+   * The union kept its shape when migration 049 removed the one other member,
+   * `advisory`, which flagged overlaps between lanes from two different facility
+   * configurations. That whole category was an artifact of configurations
+   * duplicating lanes: once Lane 1 is one row, an overlap on it is a plain
+   * conflict the space loop already catches, and there is nothing left to be
+   * advisory about.
    */
-  severity: "conflict" | "advisory";
+  severity: "conflict";
   /** `${lower session id}_${higher session id}` — matches the ordering
    *  session_conflict_dismissals enforces via its CHECK constraint. */
   key: string;
@@ -240,12 +233,7 @@ interface OrgSessionRow {
   session_spaces: {
     space_id: string;
     spaces:
-      | {
-          id: string;
-          name: string;
-          configuration_id: string | null;
-          facility_configurations: { id: string; name: string } | null;
-        }
+      | { id: string; name: string }
       | null;
   }[];
 }
@@ -272,43 +260,15 @@ function toParticipant(s: OrgSessionRow): ConflictParticipant {
     occupancyKind: s.occupancy_kind,
     disclosure: s.disclosure,
     spaceNames: spaces.map((link) => link.spaces!.name),
-    configurationIds: [
-      ...new Set(
-        spaces
-          .map((link) => link.spaces!.configuration_id)
-          .filter((id): id is string => id !== null)
-      ),
-    ],
-    configurationNames: [
-      ...new Set(
-        spaces
-          .map((link) => link.spaces!.facility_configurations?.name)
-          .filter((name): name is string => !!name)
-      ),
-    ],
   };
-}
-
-/** The distinct configurations a session's lanes belong to — empty when every
- *  one of them exists in every configuration (migration 048, decision 2). */
-function configurationIdsOf(s: OrgSessionRow): string[] {
-  return [
-    ...new Set(
-      s.session_spaces
-        .map((link) => link.spaces?.configuration_id)
-        .filter((id): id is string => !!id)
-    ),
-  ];
 }
 
 /**
  * The start of the first occurrence these two sessions share, or null if they
  * never overlap inside the scan window.
  *
- * Shared by both passes below so the overlap arithmetic — range intersection,
- * expansion, the pairwise comparison — exists once. The advisory pass differs
- * from the conflict pass only in which pairs it asks about, and nothing about
- * *when* they collide should be able to drift between them.
+ * Kept separate from its caller so the overlap arithmetic — range intersection,
+ * expansion, the pairwise comparison — exists once.
  */
 function firstOverlapStart(
   a: OrgSessionRow,
@@ -380,8 +340,7 @@ export async function findOrgConflicts(
     .select(
       `id, rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind, disclosure,
        schedule_groups!inner ( id, name, status, facility_id, department_id ),
-       session_spaces ( space_id, spaces ( id, name, configuration_id,
-                                           facility_configurations ( id, name ) ) )`
+       session_spaces ( space_id, spaces ( id, name ) )`
     )
     .eq("org_id", orgId)
     .eq("is_active", true);
@@ -461,65 +420,6 @@ export async function findOrgConflicts(
     }
   }
 
-  // ---------------------------------------------------------------- advisories
-  // Cross-configuration overlaps (migration 048, decision 4). These pairs share
-  // no space, so the loop above cannot see them: the schema does not know that
-  // 50m Lane 3 and 25m Lane 5 are the same water. What it does know is that a
-  // facility is in one configuration at a time, so an overlap between lanes from
-  // two different ones needs the bulkhead in two places.
-  //
-  // Bucketed by facility and gated on configurationsDisagree() BEFORE any RRULE
-  // expansion, which is what keeps this from being an O(n²) scan of every
-  // session in the building: at a facility that has described no configurations
-  // — every facility until a customer sets one up — the predicate is false for
-  // every pair and this whole pass costs one loop and no expansions.
-  const byFacility = new Map<string, OrgSessionRow[]>();
-  for (const s of sessions) {
-    const facilityId = s.schedule_groups!.facility_id;
-    byFacility.set(facilityId, [...(byFacility.get(facilityId) ?? []), s]);
-  }
-
-  for (const list of byFacility.values()) {
-    for (let i = 0; i < list.length; i++) {
-      for (let j = i + 1; j < list.length; j++) {
-        const a = list[i];
-        const b = list[j];
-
-        const aConfigs = configurationIdsOf(a);
-        const bConfigs = configurationIdsOf(b);
-        if (!configurationsDisagree(aConfigs, bConfigs)) continue;
-
-        const pairKey = a.id < b.id ? `${a.id}_${b.id}` : `${b.id}_${a.id}`;
-        // A real double-booking outranks an advisory about the same pair — the
-        // shared space is the more specific and more actionable statement.
-        if (conflictsByPair.has(pairKey)) continue;
-
-        const overlapStart = firstOverlapStart(a, b, exceptions, today, horizon);
-        if (!overlapStart) continue;
-
-        const first = a.id < b.id ? a : b;
-        const second = a.id < b.id ? b : a;
-
-        conflictsByPair.set(pairKey, {
-          severity: "advisory",
-          key: pairKey,
-          sessionA: toParticipant(first),
-          sessionB: toParticipant(second),
-          // Deliberately empty: there is no shared space, which is exactly why
-          // this is an advisory. The view reads each participant's own spaces
-          // and configuration instead, and "Move space" stays hidden because
-          // there is nothing to move out of.
-          spaceIds: [],
-          spaceNames: [],
-          ...occurrenceStamp(overlapStart),
-          dismissed: false,
-          dismissalId: null,
-          dismissalNote: null,
-        });
-      }
-    }
-  }
-
   const conflicts = Array.from(conflictsByPair.values());
   if (conflicts.length === 0) return [];
 
@@ -541,12 +441,10 @@ export async function findOrgConflicts(
     }
   }
 
-  // Active (undismissed) first, real conflicts before advisories, earliest
-  // occurrence first within each group — a double-booking is always more urgent
-  // than a bulkhead that two bookings disagree about.
+  // Active (undismissed) first, then earliest occurrence. Severity no longer
+  // participates: every conflict is a real double-booking since migration 049.
   conflicts.sort((x, y) => {
     if (x.dismissed !== y.dismissed) return x.dismissed ? 1 : -1;
-    if (x.severity !== y.severity) return x.severity === "conflict" ? -1 : 1;
     return x.occurrenceDate.localeCompare(y.occurrenceDate);
   });
 

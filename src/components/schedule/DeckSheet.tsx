@@ -45,7 +45,6 @@ export default function DeckSheet({ model, facilityName, day, printedAt }: DeckS
           <h1 className="text-xl font-bold leading-tight">{facilityName}</h1>
           <p className="text-sm font-medium">
             {formatSessionDayFull(day)}
-            {model.configurationLabel && ` · ${model.configurationLabel}`}
           </p>
         </div>
         <div className="text-right text-[10px] leading-tight">
