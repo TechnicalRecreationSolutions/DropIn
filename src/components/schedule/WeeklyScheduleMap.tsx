@@ -8,6 +8,7 @@ import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import { getSessionCardStyle } from "./sessionCardColor";
+import { mergeResidualBands } from "@/lib/schedule/residual";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import {
@@ -20,6 +21,7 @@ import {
   getGridHeightPx,
   dayIndexFromDate,
   sessionDayIndex,
+  packIntoTracks,
 } from "@/lib/schedule/weekGeometry";
 import {
   useScheduleEditing,
@@ -35,12 +37,21 @@ interface WeeklyScheduleMapProps {
 
 const GENERAL_COLUMN = "General";
 
+/** A column before its overlapping sessions have been split into tracks. */
+type UnpackedColumn = Omit<MapColumn, "tracks">;
+
 interface MapColumn {
   /** Column heading, and the grouping key for sessions without a real space. */
   name: string;
   /** Set only for columns backed by a real `spaces` row — the only droppable ones. */
   spaceId: string | null;
   sessions: ExpandedSession[];
+  /**
+   * The column split into side-by-side sub-columns so overlapping sessions are
+   * drawn next to each other rather than one hiding the other. Length 1 for the
+   * ordinary case of a lane whose bookings do not collide.
+   */
+  tracks: ExpandedSession[][];
 }
 
 /**
@@ -78,6 +89,16 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
   }, [weekStart]);
 
   const activeDay = days[activeDayIndex];
+
+  // One day at a time is what makes this view readable, and also what makes an
+  // empty day ambiguous: a program that runs Mon–Wed looks *missing* on Sunday
+  // rather than simply not on today. The chips carry each day's own count so the
+  // week is legible without clicking through it.
+  const countByDayIndex = useMemo(() => {
+    const counts = Array<number>(7).fill(0);
+    for (const session of sessions) counts[sessionDayIndex(session.start)]++;
+    return counts;
+  }, [sessions]);
 
   const daySessions = useMemo(() => {
     return sessions
@@ -162,18 +183,22 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
       });
     }
 
-    const spaceColumns: MapColumn[] = (
+    const spaceColumns: UnpackedColumn[] = (
       editingSpaces ??
       Array.from(spaceNameById, ([id, name]) => ({ id, name }))
     )
       .map((space) => ({
         name: spaceNameById.get(space.id) ?? space.name,
         spaceId: space.id,
-        sessions: bySpaceId.get(space.id) ?? [],
+        // Residual blocks arrive split into bands by /api/sessions/expand. A
+        // band boundary caused by a claim on *another* lane means nothing in
+        // this column, so rejoin what is contiguous here — otherwise an
+        // untouched lane shows three stacked blocks where one belongs.
+        sessions: mergeResidualBands(bySpaceId.get(space.id) ?? []),
       }))
       .sort((a, b) => a.name.localeCompare(b.name));
 
-    const locationColumns: MapColumn[] = Array.from(byLocationName, ([name, list]) => ({
+    const locationColumns: UnpackedColumn[] = Array.from(byLocationName, ([name, list]) => ({
       name,
       spaceId: null,
       sessions: list,
@@ -183,7 +208,18 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
     if (withoutLocation.length > 0) {
       result.push({ name: GENERAL_COLUMN, spaceId: null, sessions: withoutLocation });
     }
-    return result;
+
+    // Split each column only once the whole column is known. Packing on the
+    // *rendered* pixel range rather than raw minutes means two blocks separate
+    // exactly when they would have collided on screen — including the half-slot
+    // floor a zero-length session is drawn at.
+    return result.map((col) => ({
+      ...col,
+      tracks: packIntoTracks(col.sessions, (session) => {
+        const { top, height } = getSessionPixelPosition(session.start, session.end);
+        return { start: top, end: top + height };
+      }),
+    }));
   }, [daySessions, editingSpaces]);
 
   const gridHeightPx = getGridHeightPx(GRID_START_HOUR, GRID_END_HOUR);
@@ -210,6 +246,14 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
           >
             <span>{formatDayShort(day)}</span>
             <span className="font-bold">{day.getDate()}</span>
+            <span
+              className={cn(
+                "text-[10px] leading-tight tabular-nums",
+                activeDayIndex === i ? "text-white/80" : "text-muted-foreground/70"
+              )}
+            >
+              {countByDayIndex[i] > 0 ? countByDayIndex[i] : "–"}
+            </span>
           </button>
         ))}
       </div>
@@ -302,9 +346,16 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
             </div>
 
             {/* Space columns on the time axis */}
+            {/* A column that had to split needs room for its sub-columns, or
+                two 80px halves make both unreadable — so its minimum grows with
+                the track count instead of every column shrinking. */}
             <div
               className="grid gap-3"
-              style={{ gridTemplateColumns: `repeat(${columns.length}, minmax(160px, 1fr))` }}
+              style={{
+                gridTemplateColumns: columns
+                  .map((c) => `minmax(${Math.max(160, c.tracks.length * 110)}px, 1fr)`)
+                  .join(" "),
+              }}
             >
               {columns.map((col) => (
                 <MapColumnView
@@ -400,14 +451,18 @@ function MapColumnView({
           </p>
         )}
 
-        {column.sessions.map((session) => (
-          <MapSessionBlock
-            key={session.key}
-            session={session}
-            editing={editing}
-            onSelect={onSelectSession}
-          />
-        ))}
+        {column.tracks.map((track, trackIndex) =>
+          track.map((session) => (
+            <MapSessionBlock
+              key={session.key}
+              session={session}
+              trackIndex={trackIndex}
+              trackCount={column.tracks.length}
+              editing={editing}
+              onSelect={onSelectSession}
+            />
+          ))
+        )}
       </div>
     </div>
   );
@@ -415,17 +470,26 @@ function MapColumnView({
 
 function MapSessionBlock({
   session,
+  trackIndex,
+  trackCount,
   editing,
   onSelect,
 }: {
   session: ExpandedSession;
+  /** Which sub-column of its space this block sits in, and how many there are. */
+  trackIndex: number;
+  trackCount: number;
   editing: ScheduleEditingApi | null;
   onSelect: (session: ExpandedSession) => void;
 }) {
+  // A residual fragment is a *derived* slice, not what staff entered: dragging
+  // it would reschedule the whole 9–5 block to the fragment's two-hour window.
+  // The block is still clickable, and still editable through its menu.
+  const isFragment = !!session.residualSegment?.isSlice;
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
     id: `session-${session.sessionId}-${session.key}`,
     data: { type: "session", session },
-    disabled: !editing,
+    disabled: !editing || isFragment,
   });
 
   const { top, height } = getSessionPixelPosition(session.start, session.end);
@@ -436,23 +500,28 @@ function MapSessionBlock({
     <div
       ref={setNodeRef}
       className={cn(
-        "absolute inset-x-1 rounded-lg border-l-4 overflow-hidden transition-all",
-        editing && "cursor-grab active:cursor-grabbing touch-none",
+        "absolute rounded-lg border-l-4 overflow-hidden transition-all",
+        editing && !isFragment && "cursor-grab active:cursor-grabbing touch-none",
         isDragging && "opacity-40"
       )}
       style={{
         top: top + "px",
         height: height + "px",
+        // Horizontal share of the column. A single track reproduces the old
+        // `inset-x-1` exactly; two or more sit side by side, which is the only
+        // way a program booked over a drop-in block is visible at all.
+        left: `calc(${(trackIndex / trackCount) * 100}% + 4px)`,
+        width: `calc(${100 / trackCount}% - 8px)`,
         color: isPast ? "#8FA2AD" : "var(--org-text-on-tint, #1e3a5f)",
         ...getSessionCardStyle(session, isPast),
       }}
-      {...(editing ? listeners : {})}
-      {...(editing ? attributes : {})}
+      {...(editing && !isFragment ? listeners : {})}
+      {...(editing && !isFragment ? attributes : {})}
     >
       <button
         type="button"
         onClick={() => onSelect(session)}
-        className="w-full h-full text-left px-2 py-1 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
+        className="w-full h-full flex flex-col items-stretch justify-start text-left px-2 py-1 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
         title={displayName}
       >
         <p className={cn("text-xs font-semibold leading-tight truncate", editing && "pr-4")}>

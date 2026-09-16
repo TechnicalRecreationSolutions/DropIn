@@ -1,6 +1,14 @@
 /**
- * The availability calculator in shadow mode (stage 5 of
- * docs/PLAN-internal-view.md).
+ * Residual subtraction, and the staff claims panel that replaced the shadow
+ * calculator's panel (stage 5 of docs/PLAN-internal-view.md, now superseded).
+ *
+ * NOTE ON WHAT CHANGED. Stage 5 ran the availability calculator in shadow mode:
+ * it computed what a drop-in block had left and published none of it, so staff
+ * could watch it agree with their hand-built numbers before anything derived
+ * from it. Residual subtraction (lib/schedule/residual.ts) is that derivation —
+ * /api/sessions/expand now cuts residual blocks to what exclusive claims leave
+ * them, for every audience. Sections 4 and 4b pin the new contract; section 5
+ * covers the panel that took the shadow panel's slot.
  *
  * The arithmetic is the product's premise — a facility subtracts its bookings
  * from its lanes by hand and types the remainder into a public PDF — so every
@@ -108,6 +116,8 @@ const DAY = "2026-10-05";
 const WEEK_START = "2026-10-04";
 
 const HOLDER = `ZZSwimClub${stamp}`;
+// Distinctive enough that finding it in a whole page proves it reached the panel.
+const SETUP = `ZZBulkheadTo25m${stamp}`;
 
 try {
   const org = (
@@ -238,6 +248,18 @@ try {
     disclosure: "public",
   });
 
+  // The same block one day later, with nothing ever claiming it. Its whole job
+  // is to still be whole at the end — see section 4b.
+  const untouchedId = await createSession({
+    schedule_group_id: lengths.id,
+    rrule: "FREQ=WEEKLY;BYDAY=TU",
+    dtstart: "2026-10-06T06:00:00Z",
+    dtend_time: "09:00",
+    space_ids: lanes.map((l) => l.id),
+    occupancy_kind: "drop_in",
+    disclosure: "public",
+  });
+
   // 6:00-7:00 — three lanes gone, three left ("3 or 4 lanes available").
   await createSession({
     schedule_group_id: bookings.id,
@@ -247,6 +269,7 @@ try {
     occupancy_kind: "rental",
     disclosure: "reserved",
     holder_name: HOLDER,
+    setup_notes: SETUP,
   });
 
   // 7:00-8:00 — five gone, one left ("Reduced lanes").
@@ -299,6 +322,20 @@ try {
     dtend_time: "16:00",
     space_ids: [],
     occupancy_kind: "drop_in",
+    disclosure: "public",
+  });
+
+  // An *exclusive* claim with no space recorded. It can take nothing away from
+  // anything — subtraction needs a lane to subtract — but it is still a booking
+  // that exists, and a staff list that quietly omitted it would be worse than one
+  // that never had it. The deck sheet keeps a whole `unplaced` section for the
+  // same reason; section 5 requires the panel to list it and say so.
+  await createSession({
+    schedule_group_id: bookings.id,
+    dtstart: `${DAY}T17:00:00Z`,
+    dtend_time: "18:00",
+    space_ids: [],
+    occupancy_kind: "closure",
     disclosure: "public",
   });
 
@@ -369,17 +406,39 @@ try {
       familyText
     );
 
-    console.log("\n4. Shadow mode publishes NOTHING");
+    console.log("\n4. The block is now CUT for the public — but its numbers still are not");
+    // This section used to assert the opposite: shadow mode published nothing, so
+    // the public block came back uncut on all six lanes. Residual subtraction
+    // (lib/schedule/residual.ts) is the deliberate end of that — a drop-in block
+    // now yields the lanes an exclusive claim takes, for every audience, because
+    // publishing water a rental has taken is the error the whole feature exists
+    // to stop.
+    //
+    // What has NOT changed, and is what the rest of this section still guards, is
+    // that no *computed availability number or label* reaches a patron. Cutting a
+    // block to the lanes it genuinely still holds is a fact about the bookings;
+    // "3 or 4 lanes available" is the calculator's judgement, and that is still
+    // staff-only until stage 6 says otherwise.
     const publicRes = await fetch(
       `${APP}/api/sessions/expand?facilityId=${facility.id}` +
         `&rangeStart=${DAY}T00:00:00.000Z&rangeEnd=2026-10-06T00:00:00.000Z`
     );
     const publicBody = await publicRes.json();
-    const publicBlock = (publicBody.data ?? []).find((s) => s.sessionId === lengthsId);
+    const publicParts = (publicBody.data ?? []).filter((s) => s.sessionId === lengthsId);
     check(
-      "the public block is still published exactly as before — all six lanes",
-      !!publicBlock && publicBlock.spaceIds.length === 6,
-      JSON.stringify(publicBlock?.spaceIds?.length)
+      "the public block is cut into bands rather than published on all six lanes",
+      publicParts.length > 1 && publicParts.every((p) => p.spaceIds.length <= 6),
+      `${publicParts.length} part(s): ${JSON.stringify(publicParts.map((p) => p.spaceIds.length))}`
+    );
+    check(
+      "at least one band lost lanes to the claim over it",
+      publicParts.some((p) => p.spaceIds.length < 6),
+      JSON.stringify(publicParts.map((p) => p.spaceIds.length))
+    );
+    check(
+      "no band is published with zero lanes — that stretch is dropped, not advertised",
+      publicParts.every((p) => p.spaceIds.length > 0),
+      JSON.stringify(publicParts.map((p) => p.spaceIds.length))
     );
     const serialized = JSON.stringify(publicBody);
     check(
@@ -392,59 +451,152 @@ try {
       !serialized.includes(HOLDER)
     );
 
-    console.log("\n5. The shadow panel, and the scope trap it exists to avoid");
+    // A claim cuts its OWN day and no other. Worth its own section because the
+    // first implementation of residual subtraction got this wrong in a way
+    // nothing else here would have caught: it bounded occurrences by
+    // minutes-from-midnight (copied from availability.ts, which is documented as
+    // taking one day at a time and whose callers filter first) and was then
+    // handed a whole week by /api/sessions/expand. Monday's 6–7am rental
+    // therefore cut Tuesday's 6–9am block too — the two overlap perfectly once
+    // the date is discarded. The fixture below is the minimum that reproduces
+    // it: same lanes, same wall-clock hours, different weekday, nothing claiming
+    // it at all.
+    console.log("\n4b. A claim cuts its own day only");
+    const twoDayRes = await fetch(
+      `${APP}/api/sessions/expand?facilityId=${facility.id}` +
+        `&rangeStart=${DAY}T00:00:00.000Z&rangeEnd=2026-10-07T00:00:00.000Z`
+    );
+    const twoDayBody = await twoDayRes.json();
+    const tuesdayParts = (twoDayBody.data ?? []).filter((s) => s.sessionId === untouchedId);
+    check(
+      "the untouched Tuesday block comes back whole — one occurrence, not bands",
+      tuesdayParts.length === 1,
+      `${tuesdayParts.length} part(s): ${JSON.stringify(
+        tuesdayParts.map((p) => `${p.start?.slice(11, 16)}-${p.end?.slice(11, 16)}`)
+      )}`
+    );
+    check(
+      "…keeping every one of its six lanes",
+      tuesdayParts[0]?.spaceIds?.length === 6,
+      JSON.stringify(tuesdayParts[0]?.spaceIds?.length)
+    );
+    check(
+      "…and its own hours, untouched by Monday's 6-7am rental",
+      tuesdayParts[0]?.start?.slice(11, 16) === "06:00" &&
+        tuesdayParts[0]?.end?.slice(11, 16) === "09:00",
+      `${tuesdayParts[0]?.start?.slice(11, 16)}-${tuesdayParts[0]?.end?.slice(11, 16)}`
+    );
+    // Positive control: the same range must still show Monday genuinely cut, or
+    // the three checks above would pass just as well against a build that had
+    // stopped subtracting altogether.
+    check(
+      "positive control — Monday's block IS still cut in the same payload",
+      (twoDayBody.data ?? []).filter((s) => s.sessionId === lengthsId).length > 1,
+      `${(twoDayBody.data ?? []).filter((s) => s.sessionId === lengthsId).length}`
+    );
+
+    console.log("\n5. The staff claims panel, and the scope trap it inherits");
     await page.goto(
       `${APP}/dashboard/schedule?facility=${facility.id}&schedule=${lengths.id}&week=${WEEK_START}`,
       { waitUntil: "networkidle" }
     );
-    const summary = page.getByRole("button", { name: /Availability check/ });
+    // Replaced the availability shadow panel, which asked whether a drop-in block
+    // published more space than the bookings left it. Residual subtraction answers
+    // that by construction now — section 4 is where it is proven — so the slot
+    // carries what staff still cannot get anywhere else: what is booked, who has
+    // it, and what it needs set up.
+    const summary = page.getByRole("button", { name: /Booked space/ });
     await summary.waitFor({ timeout: 30000 });
     const summaryText = (await summary.innerText()).replace(/\s+/g, " ");
     check(
-      "the panel counts the blocks whose claim the bookings contradict",
-      /2 of 2 publish more space than the bookings leave/.test(summaryText),
+      "the collapsed line counts claims by kind rather than as one undifferentiated total",
+      /rental/i.test(summaryText),
       summaryText
     );
+    check(
+      "…and says how many carry setup notes, which is the reason to open it",
+      /setup notes/.test(summaryText),
+      summaryText
+    );
+
     await summary.click();
-    const panelText = (await page.locator("text=Nothing here is published").locator("..").innerText())
-      .replace(/\s+/g, " ");
-    check(
-      "expanded, it shows the same bands the sheet printed",
-      /3 of 6/.test(panelText) && /1 of 6/.test(panelText),
-      panelText.slice(0, 300)
-    );
-    check(
-      "and says plainly that it publishes nothing",
-      /Nothing here is published/.test(panelText)
-    );
-    // The editor is open on the Lengths group; this holder belongs to a rental
-    // in the Bookings group. Its name can only be here if the panel fetched the
-    // whole facility — the one mistake that would make every number above
-    // reassuring and wrong.
+    const panelText = (
+      await page.locator("text=Every program, rental and closure").locator("..").innerText()
+    ).replace(/\s+/g, " ");
+
+    // The editor is open on the Lengths group; this holder belongs to a rental in
+    // the Bookings group. Its name can only be here if the panel fetched the whole
+    // facility — the one mistake that would make the list quietly incomplete, and
+    // the reason this assertion outlived the panel it was written for.
     check(
       "it names a holder from ANOTHER schedule group, which is the proof it looked past the editor's scope",
       panelText.includes(HOLDER),
       panelText.slice(0, 300)
     );
     check(
-      "the block claiming no spaces is skipped — there is no published lane count to compare",
-      !/15:00|3:00pm – 4:00pm/.test(panelText),
-      panelText.slice(0, 300)
-    );
-    check(
-      "the single-space block is flagged as all-or-nothing rather than shown as '1 lane'",
-      /claim a single space/.test(panelText),
+      "the staff-only setup note is on it",
+      panelText.includes(SETUP),
       panelText.slice(0, 400)
     );
     check(
-      "and carries no lane legend, which would imply a precision one space cannot have",
-      !/1 of 1 \(/.test(panelText),
+      "each claim says what patrons are told about it",
+      /Patrons see/.test(panelText),
       panelText.slice(0, 400)
+    );
+    check(
+      "an exclusive claim with no space recorded is listed, and says it takes nothing away",
+      /No space recorded/.test(panelText),
+      panelText.slice(0, 500)
+    );
+    // Drop-in blocks are residual — they hold nothing of their own, so listing them
+    // here would be a category error, and would bury the bookings that matter under
+    // every open swim in the week.
+    check(
+      "drop-in blocks are NOT listed — they take whatever the claims leave",
+      !/Drop-in/.test(panelText.replace(/Drop-in blocks are not listed[^.]*\./, "")),
+      panelText.slice(0, 500)
+    );
+
+    // Filtering by kind. The fixture has all three, which is what makes this
+    // fixture the right place to test it.
+    const panel = page.locator("text=Every program, rental and closure").locator("..");
+    const rentalChip = panel.getByRole("button", { name: /^Rental or club/ });
+    check(
+      "a chip is offered for each kind the week has",
+      (await panel.getByRole("button", { name: /^Program or lesson/ }).count()) === 1 &&
+        (await rentalChip.count()) === 1 &&
+        (await panel.getByRole("button", { name: /^Closure or maintenance/ }).count()) === 1,
+      await panel.getByRole("button").allInnerTexts().then((t) => JSON.stringify(t))
+    );
+
+    await rentalChip.click();
+    const filtered = (await panel.innerText()).replace(/\s+/g, " ");
+    check(
+      "filtering to rentals keeps the rental",
+      filtered.includes(HOLDER),
+      filtered.slice(0, 400)
+    );
+    check(
+      "…and drops the other kinds outright, days and all",
+      !/Program or lesson|Closure or maintenance/.test(
+        // The chips themselves name every kind; it is the LIST below them that
+        // must narrow, so they are removed before the text is searched.
+        filtered.replace(/All \d+.*?(?=Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday|$)/, "")
+      ),
+      filtered.slice(0, 400)
+    );
+    check(
+      // Five exclusive claims in this fixture, one of them a rental. The point is
+      // that this still reads 5 while filtered to that one rental — a count that
+      // moved when you pressed it could not be used to compare one week to another.
+      "the chip counts still describe the whole week, not the filtered view",
+      /All 5/.test(filtered),
+      filtered.slice(0, 200)
     );
 
     if (SHOTS) {
       fs.mkdirSync(SHOTS, { recursive: true });
-      await page.screenshot({ path: path.join(SHOTS, "shadow-panel.png"), fullPage: true });
+      await page.screenshot({ path: path.join(SHOTS, "claims-panel.png"), fullPage: true });
     }
   } finally {
     await browser.close();

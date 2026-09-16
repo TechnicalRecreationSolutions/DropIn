@@ -282,10 +282,22 @@ try {
   const patronSessions = patron.body.data ?? [];
   const patronBody = JSON.stringify(patron.body);
 
+  // The drop-in block and the rental share one lane for the same two hours, so
+  // residual subtraction (lib/schedule/residual.ts) removes the drop-in from a
+  // patron's payload entirely: the lane is rented, and advertising an open swim
+  // on it would be false. Staff still get it — asserted above, where all three
+  // occurrences come back — because a booking they cannot see is one they cannot
+  // fix. That asymmetry is `preserveFullyClaimed`, and this pair of checks is
+  // what pins it in both directions.
   check(
     "the internal booking is gone (app-layer filter — RLS cannot help here)",
-    patronSessions.length === 2 && !patronSessions.some((s) => s.disclosure === "internal"),
+    !patronSessions.some((s) => s.disclosure === "internal"),
     `${patronSessions.length}: ${JSON.stringify(patronSessions.map((s) => s.disclosure))}`
+  );
+  check(
+    "and so is the drop-in block, whose only lane the rental takes outright",
+    !patronSessions.some((s) => s.occupancyKind === "drop_in"),
+    JSON.stringify(patronSessions.map((s) => `${s.occupancyKind}/${s.scheduleGroupName}`))
   );
   check("the holder name is gone", !patronBody.includes(HOLDER), "found in body");
   check("the setup notes are gone", !patronBody.includes(SETUP), "found in body");
@@ -294,10 +306,15 @@ try {
     patronSessions.some((s) => s.disclosure === "reserved" && s.scheduleGroupName === "Reserved"),
     JSON.stringify(patronSessions.map((s) => s.scheduleGroupName))
   );
+  // What the toggle must NOT do is strip a withheld booking of the availability
+  // a patron came for. The name goes; the time and the lane stay, which is what
+  // lets residual subtraction stay honest for an outsider at all.
   check(
-    "the public drop-in block is untouched by the toggle",
-    patronSessions.some((s) => s.disclosure === "public" && s.scheduleGroupName.includes("ZZ Verify-W")),
-    JSON.stringify(patronSessions.map((s) => s.scheduleGroupName))
+    "redaction keeps the withheld booking’s time and spaces — only its name goes",
+    patronSessions.some(
+      (s) => s.disclosure === "reserved" && s.spaceIds.length === 1 && !!s.start && !!s.end
+    ),
+    JSON.stringify(patronSessions.map((s) => [s.scheduleGroupName, s.spaceIds.length]))
   );
 
   console.log("\n4. Patron view agrees with what an actual patron receives");
@@ -337,8 +354,10 @@ try {
   console.log("\n6. The parameter can only narrow, never widen");
   const anonWithParam = await api(weekUrl(approvedRange, "public"), null);
   check(
-    "anon passing audience=public gains nothing (same two occurrences)",
-    (anonWithParam.body.data ?? []).length === 2,
+    // One, not two: the drop-in block is subtracted away for every outsider, and
+    // a real anon caller must land in exactly the same place the toggle does.
+    "anon passing audience=public gains nothing (the same single occurrence)",
+    (anonWithParam.body.data ?? []).length === 1,
     JSON.stringify((anonWithParam.body.data ?? []).map((s) => s.scheduleGroupName))
   );
   check(

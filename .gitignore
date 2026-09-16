@@ -61,3 +61,9 @@ supabase/.temp/
 # ignored in case a future seeder writes the same filename.
 scripts/verify/.demo-cookie.js
 scripts/verify/.probe.mjs
+
+# Customer-supplied facility documents (Commonwealth, Crystal Pool). Shared
+# for context only — real operational documents from City of Victoria, never
+# ours to redistribute. Read them locally; they stay out of the repo.
+*.xlsx
+Pool Layout Map with depths.pdf

@@ -9,7 +9,7 @@ import {
 import { configurationLabel, type ConfigurationOption } from "@/lib/spaces/configurations";
 import { computeDayAvailability, type BlockAvailability } from "@/lib/schedule/availability";
 import { formatSessionTime, minutesOfDayIn, sessionDateString } from "@/lib/utils/dates";
-import { GRID_START_HOUR, SLOT_MINUTES } from "@/lib/schedule/weekGeometry";
+import { GRID_START_HOUR, SLOT_MINUTES, packIntoTracks } from "@/lib/schedule/weekGeometry";
 
 /**
  * The deck sheet — spaces as columns, time as rows, one day (stage 4 of
@@ -267,25 +267,15 @@ export function buildDeckSheet({
         };
       });
 
-    // Greedy first-fit into side-by-side tracks. Two exclusive claims on one
-    // space is a hard 409 at write time (migration 046) — but imported rows skip
-    // that gate, and a sheet that silently drew only one of them would be worse
-    // than useless on a pool deck. Packing is done on *slot* ranges rather than
-    // real minutes because two claims sharing a row must not share a cell, even
-    // where their real times merely touch.
-    const tracks: DeckClaim[][] = [];
-    for (const claim of claims) {
-      const track = tracks.find(
-        (t) =>
-          !t.some(
-            (existing) =>
-              claim.startSlot < existing.startSlot + existing.slotSpan &&
-              existing.startSlot < claim.startSlot + claim.slotSpan
-          )
-      );
-      if (track) track.push(claim);
-      else tracks.push([claim]);
-    }
+    // Two exclusive claims on one space is a hard 409 at write time (migration
+    // 046) — but imported rows skip that gate, and a sheet that silently drew
+    // only one of them would be worse than useless on a pool deck. Packing is
+    // done on *slot* ranges rather than real minutes because two claims sharing
+    // a row must not share a cell, even where their real times merely touch.
+    const tracks = packIntoTracks(claims, (claim) => ({
+      start: claim.startSlot,
+      end: claim.startSlot + claim.slotSpan,
+    }));
 
     return { spaceId: space.id, name: space.name, tracks: tracks.length > 0 ? tracks : [[]] };
   });

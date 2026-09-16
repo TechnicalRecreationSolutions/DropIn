@@ -17,9 +17,9 @@ import { getWeekEnd, getMonthGridRange, toSessionTime } from "@/lib/utils/dates"
 export const SCHEDULE_RANGE_KEY = "schedule-range";
 
 async function fetchExpandedSessions(
-  params: RangeExpandParams & { audience?: ScheduleAudience }
+  params: RangeExpandParams & { audience?: ScheduleAudience; subtract?: "none" }
 ): Promise<ExpandedSession[]> {
-  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId, audience } =
+  const { rangeStart, rangeEnd, orgId, facilityId, departmentId, scheduleGroupId, audience, subtract } =
     params;
 
   const url = new URL("/api/sessions/expand", window.location.origin);
@@ -32,6 +32,9 @@ async function fetchExpandedSessions(
   // Only ever sent as "public" — see the endpoint's own note on why there is no
   // "staff" value to send.
   if (audience === "public") url.searchParams.set("audience", "public");
+  // Shadow-mode surfaces only — see the endpoint’s note. A view that renders a
+  // schedule must never set this.
+  if (subtract === "none") url.searchParams.set("subtract", "none");
 
   const res = await fetch(url.toString());
   if (!res.ok) {
@@ -63,6 +66,16 @@ interface ScheduleScope {
   departmentId?: string;
   scheduleGroupId?: string;
   audience?: ScheduleAudience;
+  /**
+   * Ask for residual blocks exactly as staff entered them, with no
+   * exclusive-claim subtraction applied.
+   *
+   * Only the availability shadow panel and the deck sheet may set this: their
+   * whole purpose is comparing a block’s published claim against what the
+   * bookings leave, and the subtracted feed would have them compare it with
+   * itself. Any surface that draws a schedule wants the default.
+   */
+  subtract?: "none";
 }
 
 interface UseScheduleRangeOptions extends ScheduleScope {
@@ -83,6 +96,7 @@ export function useScheduleRange({
   departmentId,
   scheduleGroupId,
   audience,
+  subtract,
   rangeStart,
   rangeEnd,
 }: UseScheduleRangeOptions) {
@@ -107,6 +121,10 @@ export function useScheduleRange({
         // serve one from the other's cache — the toggle would appear to do
         // nothing, or worse, show a stale staff payload under a Patron label.
         audience,
+        // Same reasoning as `audience`: the raw and subtracted payloads are
+        // different data for one range, and sharing a cache entry would let the
+        // deck sheet serve the schedule’s blocks or vice versa.
+        subtract,
         rangeStart: sessionRangeStart.toISOString(),
         rangeEnd: sessionRangeEnd.toISOString(),
       },
@@ -120,6 +138,7 @@ export function useScheduleRange({
         departmentId,
         scheduleGroupId,
         audience,
+        subtract,
       }),
     staleTime: 60_000,
     enabled: !!(orgId || facilityId || scheduleGroupId),

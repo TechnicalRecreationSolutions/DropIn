@@ -23,7 +23,7 @@ import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import AudienceToggle from "./AudienceToggle";
-import AvailabilityShadowPanel from "./AvailabilityShadowPanel";
+import StaffClaimsPanel from "./StaffClaimsPanel";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import {
   ScheduleEditingProvider,
@@ -650,7 +650,7 @@ export default function ScheduleCommandCentre({
                       schedule group on purpose — the rentals eating into a drop-in
                       block live under other groups. Staff view only; it publishes
                       nothing, which is why it renders regardless of `audience`. */}
-                  <AvailabilityShadowPanel facilityId={facility.id} weekStart={editorWeekStart} />
+                  <StaffClaimsPanel facilityId={facility.id} weekStart={editorWeekStart} />
 
                   <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-border bg-muted/30">
                     <AudienceToggle value={audience} onChange={handleAudienceChange} />

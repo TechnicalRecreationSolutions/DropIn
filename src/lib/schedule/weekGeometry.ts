@@ -111,3 +111,34 @@ export function minutesToTimeString(minutes: number): string {
   const m = minutes % 60;
   return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
 }
+
+/**
+ * Greedy first-fit packing of ranges into side-by-side tracks: two items that
+ * overlap land in different tracks, so a view can draw them *next to* each
+ * other instead of one on top of the other. Almost always returns one track.
+ *
+ * Shared by the map view (which packs on rendered pixel ranges, so what packs
+ * apart is exactly what would have collided on screen) and the deck sheet
+ * (row indices, so two claims sharing a printed row never share a cell) —
+ * same reason the pixel math is shared: "these two collide" must mean the same
+ * thing in every view. Ranges are half-open, so a session ending exactly where
+ * the next begins stays in one track. Order is preserved, so callers that want
+ * the earliest item in the leftmost track pass their list sorted by start.
+ */
+export function packIntoTracks<T>(
+  items: T[],
+  range: (item: T) => { start: number; end: number }
+): T[][] {
+  const tracks: { items: T[]; ranges: { start: number; end: number }[] }[] = [];
+  for (const item of items) {
+    const r = range(item);
+    const track = tracks.find((t) => !t.ranges.some((e) => r.start < e.end && e.start < r.end));
+    if (track) {
+      track.items.push(item);
+      track.ranges.push(r);
+    } else {
+      tracks.push({ items: [item], ranges: [r] });
+    }
+  }
+  return tracks.map((t) => t.items);
+}

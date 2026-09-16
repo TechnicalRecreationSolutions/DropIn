@@ -7,6 +7,7 @@ import type { ExpandedSession } from "@/types/schedule.types";
 import type { User } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
+import { subtractExclusiveClaims } from "@/lib/schedule/residual";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -29,6 +30,17 @@ const QuerySchema = z.object({
    * still depends entirely on real org membership.
    */
   audience: z.literal("public").optional(),
+  /**
+   * `subtract=none` returns residual blocks exactly as staff entered them,
+   * skipping the exclusive-claim subtraction below.
+   *
+   * For the two shadow-mode surfaces only (the availability panel and the deck
+   * sheet), whose entire job is to compare what a block *publishes* against what
+   * the bookings *leave*. Fed the subtracted schedule they would be comparing it
+   * with itself and could never report a difference, which is a tautology
+   * wearing the costume of a check. Never use it to render a schedule.
+   */
+  subtract: z.literal("none").optional(),
 });
 
 /**
@@ -39,6 +51,26 @@ const QuerySchema = z.object({
  * more should page by month.
  */
 const MAX_RANGE_DAYS = 120;
+
+/**
+ * The one relational select every session read here uses — the main query and
+ * the rival query below must produce the *same* shape, because both are fed to
+ * `expandSessions`. Extracted so they cannot drift.
+ */
+const SESSION_SELECT = `
+  *,
+  schedule_groups (
+    id, name, sport_category, activity_type, cost_cents, cost_notes,
+    age_group, skill_level, max_participants,
+    facilities ( id, name ),
+    departments ( id, name )
+  ),
+  session_spaces (
+    spaces ( id, name, display_order, configuration_id,
+             facility_configurations ( id, name ) )
+  ),
+  session_templates ( id, name, color )
+`;
 
 /**
  * GET /api/sessions/expand
@@ -78,6 +110,7 @@ export async function GET(request: Request) {
     departmentId: searchParams.get("departmentId") ?? undefined,
     scheduleGroupId: searchParams.get("scheduleGroupId") ?? undefined,
     audience: searchParams.get("audience") ?? undefined,
+    subtract: searchParams.get("subtract") ?? undefined,
   });
 
   if (!parsed.success) {
@@ -96,6 +129,7 @@ export async function GET(request: Request) {
     departmentId,
     scheduleGroupId,
     audience,
+    subtract,
   } = parsed.data;
 
   if (!orgId && !facilityId && !scheduleGroupId) {
@@ -163,20 +197,7 @@ export async function GET(request: Request) {
   // Build sessions query with schedule group + facility + department join
   let query = supabase
     .from("sessions")
-    .select(`
-      *,
-      schedule_groups (
-        id, name, sport_category, activity_type, cost_cents, cost_notes,
-        age_group, skill_level, max_participants,
-        facilities ( id, name ),
-        departments ( id, name )
-      ),
-      session_spaces (
-        spaces ( id, name, display_order, configuration_id,
-                 facility_configurations ( id, name ) )
-      ),
-      session_templates ( id, name, color )
-    `)
+    .select(SESSION_SELECT)
     .eq("is_active", true)
     .lte("valid_from", rangeEnd.toISOString().split("T")[0]);
 
@@ -245,9 +266,80 @@ export async function GET(request: Request) {
   const approved = await filterUnapprovedPublicWeeks(supabase, expanded, caller);
   const visible = await applyDisclosure(supabase, approved, caller);
 
+  /**
+   * Drop-in blocks are residual, so what they publish depends on bookings that
+   * may sit entirely outside the requested scope: a rental usually lives under a
+   * *different* schedule group than the drop-in block it eats into. Subtracting
+   * only within `visible` would compute full availability and be confidently
+   * wrong, so a narrowed request pays for one extra, highly selective query for
+   * the facility's exclusive claims — and only when actually narrowed. An
+   * org-wide or facility-wide request already holds every rival it needs, and
+   * spaces never cross facilities, so neither case runs this at all.
+   */
+  const narrowed = subtract !== "none" && (!!departmentId || !!scheduleGroupId);
+  const rivalFacilityIds = [...new Set(visible.map((s) => s.facilityId))];
+  let rivals = visible;
+
+  if (narrowed && rivalFacilityIds.length > 0) {
+    let rivalQuery = supabase
+      .from("sessions")
+      .select(SESSION_SELECT)
+      .eq("is_active", true)
+      .neq("occupancy_kind", "drop_in")
+      .in("schedule_groups.facility_id", rivalFacilityIds)
+      .not("id", "in", `(${sessionIds.join(",")})`)
+      .lte("valid_from", rangeEnd.toISOString().split("T")[0]);
+    rivalQuery = rivalQuery.or(
+      `valid_until.is.null,valid_until.gte.${rangeStart.toISOString().split("T")[0]}`
+    );
+
+    const { data: rivalRows, error: rivalError } = await rivalQuery;
+    if (rivalError) {
+      // Never fail the schedule over the subtraction: a block drawn at full
+      // width is the behaviour every caller had before this existed, whereas a
+      // 500 here takes the whole schedule down.
+      console.error("rival sessions fetch error:", rivalError);
+    } else {
+      const rivalSessions = (rivalRows ?? []) as unknown as SessionWithRelations[];
+      const rivalIds = rivalSessions.map((s) => s.id);
+      const { data: rivalExceptions } = rivalIds.length
+        ? await supabase
+            .from("session_exceptions")
+            .select("*")
+            .in("session_id", rivalIds)
+            .gte("exception_date", rangeStart.toISOString().split("T")[0])
+            .lte("exception_date", rangeEnd.toISOString().split("T")[0])
+        : { data: [] };
+
+      const rivalExpanded = expandSessions(rivalSessions, rivalExceptions ?? [], {
+        rangeStart,
+        rangeEnd,
+      });
+      // Rivals go through the same two passes as the main set, so an unapproved
+      // week's program cannot cut a block for a patron who cannot see it, and a
+      // reserved rental cuts under the name "Reserved" rather than its own.
+      const rivalApproved = await filterUnapprovedPublicWeeks(supabase, rivalExpanded, caller);
+      const rivalVisible = await applyDisclosure(supabase, rivalApproved, caller);
+      rivals = [...visible, ...rivalVisible];
+    }
+  }
+
+  // Staff keep a block their own claims have swallowed whole — it is still a row
+  // they have to be able to reach — while a patron must not be shown water that
+  // a rental has taken outright. `audience=public` collapses a staff caller to
+  // the patron branch here exactly as it does everywhere else, so the preview
+  // keeps telling the truth.
+  const insiderOrgIds = new Set(caller.orgIds);
+  const resolved =
+    subtract === "none"
+      ? visible
+      : subtractExclusiveClaims(visible, rivals, {
+          preserveFullyClaimed: (s) => caller.isSuperadmin || insiderOrgIds.has(s.orgId),
+        });
+
   return withCacheHeaders(
     NextResponse.json({
-      data: visible.map((s) => ({
+      data: resolved.map((s) => ({
         ...s,
         start: s.start.toISOString(),
         end: s.end.toISOString(),

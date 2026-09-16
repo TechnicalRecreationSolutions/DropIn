@@ -117,6 +117,38 @@ export type ExpandedSession = {
    */
   isModified?: boolean;
   modificationNote?: string | null;
+
+  /**
+   * Set when this occurrence is what an exclusive claim left of a larger
+   * residual block — see lib/schedule/residual.ts.
+   *
+   * Its `start`/`end`/`spaceIds` are the *remainder*, not what staff entered, so
+   * anything that writes back to the session must use `sessionId` and the
+   * original block's times rather than this occurrence's. The map uses its
+   * presence to refuse a drag: dragging a fragment would reschedule the whole
+   * session to the fragment's time, which is never what the gesture meant.
+   */
+  residualSegment?: {
+    /**
+     * The whole block's own hours, e.g. "9:00 AM – 5:00 PM", for context beside
+     * the slice's own. A pre-built string rather than Dates on purpose: this
+     * object crosses /api/sessions/expand as JSON, and only `start`/`end` are
+     * revived into Dates client-side (useScheduleRange) — so a Date here would
+     * silently arrive as a string that still type-checks as a Date.
+     */
+    blockTimeLabel: string;
+    /**
+     * False for a block shown intact because an exclusive claim consumed it
+     * whole — staff-only, see SubtractOptions.preserveFullyClaimed. Only a true
+     * slice has times that differ from what staff entered, so only a true slice
+     * must refuse a drag.
+     */
+    isSlice: boolean;
+    /** Who took the rest, already audience-safe (built via sessionDisplayLabel). */
+    takenBy: string[];
+    /** Spaces the block claims that this segment no longer has. */
+    lostSpaceNames: string[];
+  };
 };
 
 /** Which visual layout a schedule is rendered as. */

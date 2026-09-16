@@ -99,6 +99,25 @@ export function occupancyKindLabel(kind: OccupancyKind): string {
 }
 
 /**
+ * What a disclosure means, phrased to stand on its own.
+ *
+ * `DISCLOSURE_OPTIONS` labels are written to sit *under a question* ("What
+ * patrons see: The name"), so they read as fragments anywhere else. These are
+ * the same three choices as a statement, for badges and summaries where there is
+ * no question above them.
+ */
+export function disclosureSummary(disclosure: Disclosure): string {
+  switch (disclosure) {
+    case "public":
+      return "Patrons see the name";
+    case "reserved":
+      return `Patrons see "${RESERVED_PUBLIC_LABEL}"`;
+    case "internal":
+      return "Hidden from patrons";
+  }
+}
+
+/**
  * What patrons read in place of a withheld name.
  *
  * A constant for now. Making it an org setting is listed in

@@ -65,6 +65,10 @@ export default function DeckSheetPage({
     facilityId,
     rangeStart,
     rangeEnd,
+    // The sheet draws exclusive claims in lane columns and lists the drop-in
+    // blocks as what is *left over*, computing that subtraction itself. Pre-cut
+    // blocks would be subtracted twice and its availability line would go blank.
+    subtract: "none",
   });
 
   const model = useMemo(
