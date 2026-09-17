@@ -103,7 +103,7 @@ follows.
 
 | Variable | What breaks if absent or wrong |
 |---|---|
-| `NEXT_PUBLIC_APP_URL` | **Confirmation emails link nowhere.** See section 2. |
+| `NEXT_PUBLIC_APP_URL` | **Confirmation emails link nowhere.** See section 2. Also the origin of every `sitemap.xml` URL, the `robots.txt` Sitemap line and canonical tags (`src/lib/seo/siteUrl.ts`); a wrong value points search engines at localhost or the wrong domain. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Client-side Stripe references |
 
 `NEXT_PUBLIC_MAPBOX_TOKEN` is **no longer used and should be removed** from any

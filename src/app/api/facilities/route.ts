@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
-import { DIRECTORY_CACHE_TAG } from "@/lib/cache/tags";
+import { DIRECTORY_CACHE_TAG, facilitySlugCacheTag } from "@/lib/cache/tags";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
@@ -74,16 +74,18 @@ export async function POST(request: Request) {
   // address on every save is what Nominatim's usage policy asks us not to do.
   let shouldGeocode = true;
   let moved = true;
+  let previousSlug: string | null = null;
   if (isEditing) {
     const { data: existing } = await supabase
       .from("facilities")
-      .select("address_line1, city, province, postal_code, country, geocoded_at")
+      .select("slug, address_line1, city, province, postal_code, country, geocoded_at")
       .eq("id", facilityId)
       .eq("org_id", membership.org_id)
       .maybeSingle();
     if (!existing) {
       return NextResponse.json({ error: "Facility not found" }, { status: 404 });
     }
+    previousSlug = existing.slug;
     moved = addressChanged(existing, fields);
     shouldGeocode = moved || !existing.geocoded_at;
   }
@@ -128,7 +130,7 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
-    expireDirectory();
+    expirePublicPages(payload.slug, previousSlug);
     return NextResponse.json({ ok: true, facilityId });
   }
 
@@ -141,17 +143,26 @@ export async function POST(request: Request) {
     );
   }
 
-  expireDirectory();
+  expirePublicPages(payload.slug, null);
   return NextResponse.json({ ok: true, facilityId: facility.id });
 }
 
 /**
- * Any facility save can change the public directory: the listing flag, the
- * publish state, the name, the address or its coordinates. Expired on every
- * save rather than only when one of those changed — the directory is one
- * cheap query set, and a missed case would leave a centre invisible.
- * `expire: 0` so the staff member who just opted in sees it on /find.
+ * Any facility save can change what the public sees: the directory (listing
+ * flag, publish state, name, address, coordinates) and the facility's own page,
+ * which is cached for hours and used to show an edit that late. Expired on
+ * every save rather than only when one of those changed; a missed case would
+ * leave a centre invisible or out of date. `expire: 0` so the person who just
+ * saved sees the result.
+ *
+ * The page is tagged by slug, so a rename expires both the slug being left
+ * (still serving the old name) and the one being taken (possibly a cached
+ * "not found").
  */
-function expireDirectory() {
+function expirePublicPages(slug: string, previousSlug: string | null) {
   revalidateTag(DIRECTORY_CACHE_TAG, { expire: 0 });
+  revalidateTag(facilitySlugCacheTag(slug), { expire: 0 });
+  if (previousSlug && previousSlug !== slug) {
+    revalidateTag(facilitySlugCacheTag(previousSlug), { expire: 0 });
+  }
 }

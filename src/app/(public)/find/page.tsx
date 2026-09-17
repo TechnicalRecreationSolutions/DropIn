@@ -6,6 +6,8 @@ import FindClient from "./FindClient";
 
 export const metadata: Metadata = {
   title: "Find a recreation centre",
+  // ?q= and ?sport= are views of this one page, not pages of their own.
+  alternates: { canonical: "/find" },
   description:
     "Search recreation centres near you and see their drop-in schedules — swimming, skating, gym and more. No account needed.",
 };

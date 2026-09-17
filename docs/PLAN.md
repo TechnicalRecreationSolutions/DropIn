@@ -23,9 +23,10 @@
 >
 > Phases: (1) schema + geocoding + the "list me" toggle — built, `verify-ae`;
 > (2) the public API — built, `verify-af`, contract in
-> `src/app/api/public/README.md`; (3) the `/find` page — built, `verify-ag`; (4) sitemap +
-> `robots.ts` (neither exists yet); (5) harness coverage of the public
-> surface, CSP recheck, docs.
+> `src/app/api/public/README.md`; (3) the `/find` page — built, `verify-ag`;
+> (4) sitemap, `robots.ts`, the facility breadcrumb back to `/find`, and
+> facility pages that refresh on save — built, `verify-ah`; (5) CSP recheck
+> and docs.
 > Later, not planned: search by session ("lane swim near me tonight"), a map,
 > an installable web app, the native app, resident accounts.
 >

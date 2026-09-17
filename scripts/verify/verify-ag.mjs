@@ -154,6 +154,9 @@ try {
     body: JSON.stringify({ name: hidden.name, ...ADDRESS, is_published: true, listed_in_directory: false, photo_urls: [], facilityId: hidden.id }),
   });
   if (touch.status !== 200) throw new Error(`cache-expiring save failed: ${touch.status}`);
+  // `next dev` applies the expiry ~100 ms after the save responds (see
+  // verify-ah); a production build serves the new data at once.
+  await new Promise((r) => setTimeout(r, 400));
 
   const names = async (page) =>
     page.locator('section[aria-labelledby="results-heading"] article h3').allInnerTexts().then((t) => t.map((s) => s.trim()));

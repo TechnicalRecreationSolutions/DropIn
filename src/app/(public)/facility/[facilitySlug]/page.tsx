@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Globe, Phone, Clock } from "lucide-react";
 import { cacheLife, cacheTag } from "next/cache";
-import { widgetConfigCacheTag } from "@/lib/cache/tags";
+import { facilitySlugCacheTag, widgetConfigCacheTag } from "@/lib/cache/tags";
 import { createPublicClient } from "@/lib/supabase/public";
 import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -32,11 +32,15 @@ async function getFacilityPageData(facilitySlug: string) {
   "use cache";
   cacheLife("hours");
 
+  // Before the lookup, so a "not found" is tagged too: POST /api/facilities
+  // expires this slug when a facility is published onto it or renamed to it.
+  cacheTag(facilitySlugCacheTag(facilitySlug));
+
   const supabase = createPublicClient();
 
   const { data: facility } = await supabase
     .from("facilities")
-    .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, org_id")
+    .select("id, name, slug, address_line1, city, province, postal_code, description, website_url, phone, is_published, listed_in_directory, org_id")
     .eq("slug", facilitySlug)
     .eq("is_published", true)
     .maybeSingle();
@@ -96,6 +100,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   return {
     title: facility.name,
+    alternates: { canonical: `/facility/${facility.slug}` },
     description:
       facility.description ??
       `Drop-in schedules at ${facility.name} in ${facility.city}, ${facility.province}.`,
@@ -123,13 +128,19 @@ export default async function FacilityDetailPage({ params }: PageProps) {
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
-      {/* Breadcrumb */}
+      {/* Breadcrumb. A listed facility leads back to the directory a resident
+          most likely came from; an unlisted one is only reached from the
+          centre's own site, so it keeps Home. */}
       {/* The middle crumb used to be "Facilities", pointing at the cross-org
           search index; later it linked to the org's own public page. Both are
           gone (see docs/PLAN.md §3a) — the org name is shown as plain text
           rather than left dangling as a link to nowhere. */}
       <nav className="text-sm text-muted-foreground mb-6 print:hidden">
-        <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+        {facility.listed_in_directory ? (
+          <Link href="/find" className="hover:text-foreground transition-colors">Find a centre</Link>
+        ) : (
+          <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
+        )}
         <span className="mx-2">›</span>
         {org && (
           <>

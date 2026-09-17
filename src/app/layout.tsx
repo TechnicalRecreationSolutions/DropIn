@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Public_Sans } from "next/font/google";
 import "./globals.css";
+import { SITE_URL } from "@/lib/seo/siteUrl";
 
 const geist = Geist({
   variable: "--font-geist",
@@ -21,9 +22,7 @@ export const metadata: Metadata = {
   },
   description:
     "Build your drop-in schedule once and publish it everywhere: your own website and an embeddable widget.",
-  metadataBase: new URL(
-    process.env.NEXT_PUBLIC_APP_URL ?? "http://localhost:3000"
-  ),
+  metadataBase: new URL(SITE_URL),
   openGraph: {
     siteName: "Dropin",
     type: "website",
