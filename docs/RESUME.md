@@ -2,31 +2,35 @@
 
 Open this first; it points at everything else.
 
-**Last updated 2026-09-09**, at the end of a pre-demo scan session. This file is
-current: it supersedes the 2026-08-07 security-remediation version, and it is
-again the single entry point. The per-track `RESUME-*.md` files are historical
+**Last updated 2026-09-16**, at the end of the session that brought back a
+resident directory (`/find`). This file is the single entry point. The per-track `RESUME-*.md` files are historical
 records of finished work, not live handoffs — see [Related docs](#related-docs).
 
 ---
 
 ## State right now
 
-- Working tree **clean**, `main` level with `origin/main` at **`fda8bd6`**.
-- Migrations **through `045`** applied and verified against the hosted database
-  by querying it, not by reading the files. Every table the recent tracks added
-  exists: `schedule_week_reviews`, `activity_log`,
-  `session_conflict_dismissals`, `widget_config_scopes`.
-- `npx tsc --noEmit`, `npx eslint src` and `npx next build` all pass.
-- `npm audit` reports **0 vulnerabilities** — see the note below, this had
-  regressed and was fixed today.
-- Running on **Next 16.3.4**. PPR confirmed intact after the bump (`◐` still on
-  every dashboard route in the build output).
-- **Deployed and live** at `https://drop-in-ten.vercel.app`. Vercel auto-deploys
-  from `main`; today's push was live within minutes and was verified in
-  production, not assumed.
+**Three branch positions, and only one of them is deployed:**
 
-The app has real dogfooding data behind it: 290 activity-log rows and 373
-analytics events across 4 facilities.
+| Ref | At | What it holds |
+|---|---|---|
+| `origin/main` (deployed) | `3f6e085` | Everything up to the session-template delete. **Production runs this.** |
+| local `main` | `fb5881f` | + the internal-view track (10 commits, migrations 046–049) + tags/links (050) + the print button (051). **Not pushed**: the push was blocked in the agent session, so run it yourself. |
+| `feat/directory` | local `main` + 5 commits | The resident directory, phases 1–5 (migration 052). **Not pushed.** |
+
+Pushing `main` deploys the internal-view work. That's intended: it was
+fast-forwarded on purpose so the directory could build on it.
+
+- Migrations **through `052`** are applied to the hosted database, checked by
+  querying it (050 and 051 by column probe, 052 by `verify-ae`). Production code
+  (`3f6e085`) runs fine against the newer schema.
+- `tsc`, `eslint src` and `next build` pass on `feat/directory`.
+- `npm audit` reports **0 vulnerabilities**, re-measured 2026-09-16.
+- Next **16.3.4**.
+- Live at `https://drop-in-ten.vercel.app`; Vercel auto-deploys from `main`.
+
+Data, measured 2026-09-16: 4 facilities (3 published), 7 sessions, **none of
+them public** (see below), and no facility listed in the directory yet.
 
 ---
 
@@ -37,17 +41,17 @@ demo more than any defect on this page would.
 
 **Saanich Commonwealth Pool has zero sessions.** It has 6 spaces, 12 session
 templates and a *published* "Lengths Swimming" group — and nothing in it. The
-only two sessions in the entire database belong to Panorama, and they are
-invisible to the public because that group is `status=draft`, which RLS
-correctly filters. Verified directly:
+only sessions in the entire database (7 as of 2026-09-16, up from 2) belong to
+Panorama, and they are invisible to the public because that group is
+`status=draft`, which RLS correctly filters. Verified directly on 2026-09-09:
 
 ```
 /api/sessions/expand?facilityId=<commonwealth>  →  {"data":[]}
 /api/sessions/expand?facilityId=<panorama>      →  {"data":[]}
 ```
 
-So every public surface — facility page and widget alike — renders "No drop-in
-sessions this week." The empty states are good. That is the problem: a schedule
+So every public surface (facility page, widget, and now any centre a resident
+opens from `/find`) renders "No drop-in sessions this week." The empty states are good. That is the problem: a schedule
 product demoing an empty schedule looks finished and pointless at the same time.
 
 Two consequences worth knowing before you go looking for bugs that aren't there:
@@ -110,9 +114,10 @@ Search `<Placeholder>` in `src/app/(public)/privacy/page.tsx` and
 `src/app/(public)/terms/page.tsx`.
 
 One finding was dismissed rather than fixed: the audit asked for cookie consent,
-but the app sets only Supabase auth session cookies and uses no local storage
-for anything but the theme choice. Strictly-necessary cookies don't require
-consent, so there is no banner by design, and the privacy policy discloses them.
+but the app sets only Supabase auth session cookies, and uses local storage only
+for the theme choice and (since 2026-09-16) the centres a resident stars on
+`/find`. Strictly-necessary cookies and on-device preferences don't require
+consent, so there is no banner by design, and the privacy policy discloses both.
 
 ---
 
@@ -129,10 +134,14 @@ The ones that matter most:
 - [ ] **Login rate limiting** — Supabase dashboard. Cannot be done in app code:
       `LoginForm` calls `signInWithPassword()` straight from the browser, so the
       request never reaches this app.
-- [ ] **Browser-verify the CSP in production.** Headers *are* verified live by
-      curl and were re-confirmed today; runtime enforcement in a browser is
-      still outstanding. Load `/`, a facility page and an embedded widget with
-      the policy live and confirm a clean console.
+- [ ] **Browser-verify the CSP in production.** Done on 2026-09-16 against a
+      *local production build* by `scripts/verify/verify-ai.mjs` (`/`, `/find`,
+      a facility page, and the widget framed on another origin: all clean). Once
+      the directory is deployed, run
+      `node scripts/verify/verify-ai.mjs --app=https://drop-in-ten.vercel.app`.
+- [ ] **Clear the rate-limit table and schedule its sweep.** It had kept raw IP
+      addresses (SECURITY.md → L5, fixed in code). Run
+      `SELECT public.sweep_rate_limits();` once, then schedule it with `pg_cron`.
 - [ ] **Custom domain, then raise HSTS.** `max-age` is currently **3600** — a
       deliberate low value for a domain still in flux. Raise it once the real
       domain is in place, not before.
@@ -152,7 +161,57 @@ The ones that matter most:
 
 ---
 
-## What changed this session (2026-09-09)
+## What changed this session (2026-09-16): the resident directory
+
+You decided to bring back a public, no-account directory, smaller than the old
+marketplace, with a downloadable app as the long-term goal. Your decisions are
+recorded at the top of `docs/PLAN.md`: opt-in listing, `/find` as its own
+route, Nominatim for geocoding, free on every plan, and launch now.
+
+| Commit | What |
+|---|---|
+| `fb5881f` | The uncommitted tags/links (050), print button (051) and compact pickers, committed together on `feat/internal-view` and fast-forwarded into local `main`. |
+| `4d43e47` | Phase 1: migration `052` (`listed_in_directory`, `geocoded_at`, `location` trigger), Nominatim geocoding on save, the "List in the Dropin directory" toggle, and the backfill script (**applied**: Panorama and Commonwealth located). |
+| `22e2763` | Phase 2: `GET /api/public/v1/directory`, versioned, cached and rate-limited. |
+| `087eda5` | Phase 3: `/find`, with search, sport chips, "Use my location" and saved centres, built for phones first. |
+| `ba1784f` | Phase 4: `sitemap.xml`, `robots.txt`, canonical tags and a breadcrumb back to `/find`. Also fixes a pre-existing bug: **facility pages stayed stale for hours after any edit**; they now refresh on save and delete. |
+| (phase 5) | CSP checked in a browser (`verify-ai`). **L5**: the rate limiter stored raw IPs, now hashed. `/privacy` corrected (local storage, location, Nominatim). Docs. |
+
+Harnesses `verify-ae` through `verify-ai` all pass, and each was deliberately
+broken at least once to prove it catches the bug it targets.
+
+### Before the directory is worth visiting
+
+1. **Push** `main`, then merge `feat/directory` into it. It's a fast-forward;
+   nothing else has landed on `main` since. Push again, and Vercel deploys.
+2. **List the real centres.** On each facility's edit page, tick "List in the
+   Dropin directory". Nothing is listed yet, so `/find` says "No centres are
+   listed yet".
+3. **Give them a public schedule** (see the section above). A listed centre
+   with an empty week is the first thing a resident will see.
+4. Run `verify-ai` against production, and do the two owner items above.
+
+### Things this session found that are worth carrying forward
+
+- **Don't judge caching on `next dev`.** It applies a tag expiry about 100 ms
+  late, and it held a stale `/find` for minutes. A production build was
+  correct both times. Build to `.next-perf` and run `next start -p 3002` (see
+  `scripts/verify/README.md`). Three harnesses had been passing on timing
+  luck and now pause after saves.
+- **On Windows, stopping a background `next start` can leave it running.** The
+  next start then fails, and requests silently reach the *old* build. Check the
+  port before believing a result.
+- **The mobile app needs a `v1` schedule endpoint.** The directory API is
+  versioned, but the schedule on a centre's page still comes from the internal
+  `/api/sessions/expand`.
+- **Not planned yet** (see `PLAN.md`): session search ("lane swim near me
+  tonight"), a map, an installable web app, the native app, resident accounts.
+  Schedule and session edits still don't refresh the facility page's cache;
+  facility edits now do.
+
+---
+
+## Previous session (2026-09-09)
 
 A pre-demo scan. The application itself was healthy — build, types, lint and a
 browser pass over the public surfaces were all clean, with no runtime or console
@@ -245,7 +304,8 @@ that describe a "next phase" are *not* authorization to build it — ask.
 
 ## Re-verifying security work
 
-**The security audit is fully closed: 19 findings, 0 open.** Detail for each,
+**The security audit is fully closed: 20 findings, 0 open** (L5 was found and
+closed on 2026-09-16). Detail for each,
 including how it was verified, is in [`docs/SECURITY.md`](SECURITY.md). Don't
 reconstruct it from memory; read it. That number means *code* findings only —
 the two launch blockers above are not code, and the dependency regression this
@@ -274,7 +334,8 @@ undone.
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | **Vercel + Supabase go-live checklist, in dependency order** |
 | [`SECURITY.md`](SECURITY.md) | Findings register, standing assumptions, owner actions |
 | [`PRICING.md`](PRICING.md) | **Pricing framework, the billed unit, and what is not yet enforced** |
-| [`PLAN.md`](PLAN.md) | Delivery history and schema map |
+| [`PLAN.md`](PLAN.md) | **Directory decisions and phases (top)**, delivery history and schema map |
+| `src/app/api/public/README.md` | **Public API contract** (versioning rules) |
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Cache Components / PPR work |
 | [`../README.md`](../README.md) | What the app is, how it's built, how to run it |
 | `scripts/verify/README.md` | Verification harness conventions |

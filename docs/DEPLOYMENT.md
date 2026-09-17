@@ -19,7 +19,7 @@ priority over launch configuration. Nothing here degrades by waiting.
 | 2. Supabase auth URLs | **Done.** Site URL and Redirect URLs point at `drop-in-ten.vercel.app`. |
 | 3. Custom SMTP | **Deferred** until the real Dropin domain exists — see below. |
 | 4. Stripe webhook | **Not started.** Independent of everything else. |
-| 5. Browser-verify CSP | **Headers verified in production**; in-browser render check still outstanding. |
+| 5. Browser-verify CSP | **Headers verified in production.** In-browser check passed against a local production build (`verify-ai`, 2026-09-16); re-run it against the deployment. |
 | 6. Custom domain + raise HSTS | **Not started.** |
 
 ### Verified in production

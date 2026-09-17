@@ -2,9 +2,9 @@
 
 **Drop-in schedules for sport and recreation centres.**
 
-Dropin is the tool a pool, arena or community centre uses to keep one drop-in schedule up to date and publish it everywhere it needs to appear: the centre's own public page and an embeddable widget on the website it already has.
+Dropin is the tool a pool, arena or community centre uses to keep one drop-in schedule up to date and publish it everywhere it needs to appear: the centre's own public page, an embeddable widget on the website it already has, and — if the centre opts in — a public directory residents can search.
 
-> **Scope, as of 2026-08-12.** Dropin was previously built as a consumer-facing *marketplace* — a cross-organization index with city search, sport browse pages and a Mapbox facility map. **That is no longer the product.** Those surfaces were removed so the tool could get to production as one thing done well. The customer is the centre, not the resident. A marketplace may happen later; it is explicitly not what is being built now, so don't reintroduce cross-org discovery without a deliberate decision to revisit it.
+> **Scope, as of 2026-09-16.** The customer is still the centre, and the staff tooling is still the product. On 2026-08-12 the consumer marketplace (city search, sport browse pages, a Mapbox map) was removed. On 2026-09-16 a **deliberately smaller** resident side came back: `/find`, a no-account directory of centres that chose to be listed, with a versioned public API the planned mobile app will read. It has no map, no accounts and no cross-centre session search yet. The decisions and phases are at the top of [`docs/PLAN.md`](docs/PLAN.md); don't widen it without revisiting them.
 
 **Picking up after a break? Start at [`docs/RESUME.md`](docs/RESUME.md)** — current state, blockers, and what to do next.
 
@@ -22,21 +22,23 @@ A centre's drop-in schedule usually lives in more than one place at once — its
 
 Existing recreation software (Xplor, ActiveNet, NextRec) has poor public-facing schedule displays, which is what pushes staff into rebuilding the same timetable by hand every term. Dropin holds the schedule once and produces the rest from it: an embeddable widget and a public page per building. It works *on top of* whatever registration system a centre already runs — no migration required.
 
-The visitor-facing side is the centre's **own** audience: its widget on its own site, its public pages. Dropin does not index one centre against another.
+The visitor-facing side is mostly the centre's **own** audience: its widget on its own site, its public pages. The one exception is `/find`, which lists only centres that opted in (`facilities.listed_in_directory`) and sends residents straight to that centre's own page.
 
 ---
 
 ## The shape of the product
 
-Three surfaces, one database:
+Five surfaces, one database:
 
 | Surface | Route | Who it's for |
 |---|---|---|
 | **Staff dashboard** | `/dashboard/*` | The rec coordinators who keep the schedule current. Auth required. |
 | **Public facility page** | `/facility/[slug]` | Residents, on a page Dropin hosts. |
 | **Embeddable widget** | `/widget/[orgId]` | Residents, inside an iframe on the centre's *own* website. |
+| **Directory** | `/find` | Residents looking for a centre near them. No account; only opted-in centres. |
+| **Public API** | `/api/public/v1/directory` | `/find`, and later the mobile app. Versioned; contract in `src/app/api/public/README.md`. |
 
-The thing that keeps those from drifting apart is that the public views and the staff editors are **the same components**. `src/components/schedule/` renders the grid, list, map, board and floorplan; `src/components/schedule/editing/` wraps those exact views in a provider that adds drag, drop and dialogs. Staff edit the thing visitors see, not a separate admin representation of it.
+The first three are the core: the thing that keeps them from drifting apart is that the public views and the staff editors are **the same components**. `src/components/schedule/` renders the grid, list, map, board and floorplan; `src/components/schedule/editing/` wraps those exact views in a provider that adds drag, drop and dialogs. Staff edit the thing visitors see, not a separate admin representation of it.
 
 ### Five ways to read the same week
 
@@ -61,6 +63,17 @@ A schedule is one dataset with five renderings, chosen per embed:
 - **Per-week review** — a schedule group tracks which weeks staff have actually checked, so "is this week right?" has an answer.
 - **Analytics** (`/dashboard/analytics`) — widget views, session clicks and time-on-schedule, with IP addresses SHA-256 hashed before storage.
 
+### The resident directory (`/find`)
+
+Added 2026-09-16. A centre ticks **List in the Dropin directory** on its facility page; residents can then find it at `/find` by name, city or sport, or sort by distance with "Use my location". There are no resident accounts. Starred centres live in the browser.
+
+- **Opt-in, and separate from publishing.** Listed means `is_published AND listed_in_directory` (migration `052`), from an active organization.
+- **Geocoding** happens on facility save, server-side, through OpenStreetMap's Nominatim (`src/lib/geo/geocode.ts`), and only when the address changed. Existing rows: `scripts/backfill-facility-geocodes.mjs` (a dry run unless you pass `--apply`).
+- **The resident's position stays in the browser.** The API has no location parameter; `/find` sorts on the device with the same helpers the API uses (`src/lib/directory/filter.ts`).
+- **One cached listing set** (`src/lib/directory/listings.ts`, tag `directory`) backs the API, `/find` and `sitemap.xml`. A facility save or delete expires it and that facility's own page.
+- **Public API contract:** `src/app/api/public/README.md`. Adding a field is fine; renaming or removing one means `v2`. A facility's *schedule* is still served by the unversioned internal `/api/sessions/expand`, so the mobile app needs a `v1` schedule endpoint before it is built.
+- Harnesses: `verify-ae` (opt-in and geocoding), `verify-af` (API), `verify-ag` (`/find` in a browser), `verify-ah` (sitemap, robots and facility-page freshness), `verify-ai` (CSP in a browser; run it against a production build).
+
 Ingestion into a schedule is **manual entry or CSV import only.** An earlier phase built an automated scraping pipeline (Xplor/ActiveNet/NextRec) end-to-end on the Dropin side, but the external scraper service was never built, and the feature was fully removed (`supabase/migrations/021_remove_scraping.sql`). It is not on the roadmap — don't reintroduce scraping-shaped code or docs without a deliberate decision to revisit it.
 
 ---
@@ -75,7 +88,8 @@ Ingestion into a schedule is **manual entry or CSV import only.** An earlier pha
 │  │  A centre's own  │  │  Org Dashboard   │  │   Widget     │   │
 │  │  public pages    │  │  /dashboard/*    │  │ /widget/[id] │   │
 │  │  /facility/[slug]│  │  Schedule + map  │  │ (iframe on   │   │
-│  │                  │  │  builders        │  │  their site) │   │
+│  │  + /find (opt-in │  │  builders        │  │  their site) │   │
+│  │  directory, API) │  │                  │  │              │   │
 │  └────────┬─────────┘  └────────┬─────────┘  └──────┬───────┘   │
 │           │                     │                   │           │
 │           └──────────┬──────────┴─────────┬─────────┘           │
