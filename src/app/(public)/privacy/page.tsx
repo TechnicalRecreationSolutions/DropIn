@@ -90,15 +90,33 @@ export default function PrivacyPage() {
         SHA-256; only that hash is written. Because the salt changes every day,
         yesterday&rsquo;s hash cannot be matched to today&rsquo;s, so these
         events cannot be linked into a profile of you over time, and the
-        original address cannot be recovered from them.
+        original address cannot be recovered from them. The same kind of
+        daily-salted hash is used, briefly, to limit how many requests one
+        visitor can make.
+      </p>
+
+      <h3>If you use &ldquo;Use my location&rdquo;</h3>
+      <p>
+        The centre directory at <a href="/find">/find</a> can sort centres by
+        distance. If you press &ldquo;Use my location&rdquo; and allow it when
+        your browser asks, your browser gives the page your approximate
+        position, and the distances are worked out there.
+        Your position is <strong>not sent to Dropin</strong>, not stored, and
+        not added to the page address.
       </p>
 
       <h2>Cookies</h2>
       <p>
         Dropin sets cookies only to keep you signed in. There are no
-        advertising, profiling or third-party tracking cookies, no tracking
-        pixels, and nothing stored in your browser&rsquo;s local storage. The
-        analytics described above run server-side and do not set a cookie.
+        advertising, profiling or third-party tracking cookies, and no tracking
+        pixels. The analytics described above run server-side and do not set a
+        cookie.
+      </p>
+      <p>
+        Your browser&rsquo;s local storage holds two settings you choose
+        yourself: the dashboard&rsquo;s light or dark theme, and the centres
+        you star on <a href="/find">/find</a>. They stay on your device and are
+        never sent to us; clearing your browser data removes them.
       </p>
       <p>
         Because our cookies are strictly necessary to provide a service you
@@ -135,6 +153,11 @@ export default function PrivacyPage() {
             <td>Vercel</td>
             <td>Application hosting</td>
             <td>Request logs</td>
+          </tr>
+          <tr>
+            <td>OpenStreetMap Foundation (Nominatim)</td>
+            <td>Placing a facility&rsquo;s address on the map for the directory</td>
+            <td>The facility&rsquo;s street address, which is already public. No visitor or account data.</td>
           </tr>
           <tr>
             <td><Placeholder>email provider</Placeholder></td>

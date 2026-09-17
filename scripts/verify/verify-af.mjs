@@ -97,12 +97,20 @@ async function directory(query = "", cookie = null) {
   return { status: res.status, headers: res.headers, body };
 }
 
+/**
+ * Every write here expires the directory cache. `next dev` applies that
+ * about 100 ms after the route responds (see verify-ah), so the next read
+ * could still be stale; a production build is immediate. This harness
+ * passed without the pause until 2026-09-16 on timing alone.
+ */
 async function api(path, cookie, init = {}) {
   const res = await fetch(`${APP}${path}`, {
     ...init,
     headers: { "Content-Type": "application/json", ...(cookie ? { Cookie: cookie } : {}) },
   });
-  return { status: res.status, body: await res.json().catch(() => ({})) };
+  const result = { status: res.status, body: await res.json().catch(() => ({})) };
+  await new Promise((r) => setTimeout(r, 400));
+  return result;
 }
 
 const ids = (body) => new Set((body.facilities ?? []).map((f) => f.id));
@@ -317,6 +325,20 @@ try {
   }
   check("a flood is eventually refused with 429", limited !== null);
   check("…with Retry-After", Number(limited?.headers.get("retry-after")) > 0, limited?.headers.get("retry-after") ?? "");
+
+  // The flood above just wrote this IP's bucket. The privacy policy says IP
+  // addresses are not stored, so the key must be a digest, not the address.
+  const { data: buckets } = await admin
+    .from("rate_limits")
+    .select("bucket, count")
+    .like("bucket", "directory:%")
+    .gte("count", 100);
+  check("control: the flood's bucket was recorded", (buckets ?? []).length > 0, JSON.stringify(buckets));
+  check(
+    "…under a hashed key, not the caller's IP",
+    (buckets ?? []).every((b) => /^directory:[0-9a-f]{32}$/.test(b.bucket)),
+    JSON.stringify((buckets ?? []).map((b) => b.bucket.replace(/\d+(?=$)/, "…")))
+  );
 } catch (e) {
   fail++;
   console.log(`  FAIL  harness error — ${e.message}`);

@@ -43,15 +43,24 @@ open item from the audit is now closed; `npm audit` reports **0 vulnerabilities*
 | Critical | 0 | 2 |
 | High | 0 | 4 |
 | Medium | 0 | 8 |
-| Low | 0 | 4 |
+| Low | 0 | 5 |
 
 Two caveats on "0 open", because the number is easy to over-read:
 
 - **These are code findings.** [Owner-only actions](#owner-only-actions) are
   still outstanding and one of them — custom SMTP — is a launch blocker.
-- **M7's CSP was verified by curl, not by a browser.** The policy is correct by
-  construction for every origin the app uses, but nobody has yet loaded the map
-  or the embedded widget with it enforced. See the note under M7.
+- **M7's CSP has been verified in a browser against a local production build,
+  not yet against the deployment.** `scripts/verify/verify-ai.mjs` (2026-09-16)
+  loads `/`, `/find`, a facility page and the widget framed on another origin
+  with the policy enforced. Re-run it with `--app=` pointed at production once
+  the directory work is deployed.
+
+**2026-09-16, trust boundary moved** (rule 3): the resident directory added a
+public, unauthenticated API (`/api/public/v1/directory`), a public page that
+uses browser geolocation (`/find`), an outbound call to a third party from the
+server (Nominatim, on facility save), and `sitemap.xml`/`robots.txt`. Reviewed
+as part of that work; one finding (L5, below) and invariants 29–34 came out of
+it.
 
 **Not covered by that audit:** server/client components outside `src/app/api`
 (swept for injection sinks, not individually audited for data access), and all
@@ -68,6 +77,32 @@ under [Status at a glance](#status-at-a-glance) for what "none" does *not* mean.
 ---
 
 ## Closed findings
+
+### L5 — The rate limiter stored raw IP addresses
+**Low · closed 2026-09-16 · no migration**
+
+`checkRateLimit()` wrote its bucket as `${name}:${identifier}`, and for
+anonymous callers the identifier is the client IP. So `rate_limits` held raw
+addresses (`analytics:<ip>`, `signup:<ip>`, `sessionsExpand:<ip>`), while
+`/privacy` says "we do not store IP addresses". The one-day sweep that would
+have bounded this (`sweep_rate_limits()`, migration `025`) was never scheduled:
+on 2026-09-16 the table had 258 rows, 249 of them older than a day. The new
+directory API would have added another IP-keyed bucket.
+
+**Fixed by** hashing the identifier inside `checkRateLimit()` (`bucketKey()` in
+`src/lib/rate-limit.ts`): an HMAC-SHA256 keyed by `ANALYTICS_IP_SALT` over
+today's date and the identifier, so every caller is covered, not only the new
+route. This is the same secret and daily rotation the analytics hash uses. A
+window that spans midnight UTC restarts its count, which only ever lets a
+caller through early.
+
+**Verified** by `verify-af` against the running app: after a 130-request flood,
+the `directory:` bucket that recorded it is a 32-hex digest. **Falsified:**
+restoring the raw key turned that check red with `directory:::1`. The
+falsification row was deleted afterwards.
+
+**Left for the owner:** 3 rows keyed by a raw IP written before the fix, and
+the unscheduled sweep. See [Owner-only actions](#owner-only-actions).
 
 ### H4 — Dependency vulnerabilities (12 → 0)
 **High · closed 2026-08-07 · no migration**
@@ -683,6 +718,33 @@ violates one as a security regression.
     cost or an internal note added to any of these three tables becomes public
     the moment one session from it is published. Staff-only facts belong in
     `session_internal`, which has no public-read policy at all. *(050, M2)*
+29. **The directory lists `is_published AND listed_in_directory` facilities of
+    active organizations, and nothing else.** Listing is an opt-in that defaults
+    to false (migration `052`). No new RLS policy was added for it, because a
+    published facility row was already fully public (invariant 18 and
+    `facilities_public_read_published`), so **every column added to
+    `facilities` is world-readable once the facility is published.** *(052,
+    verify-af)*
+30. **`getDirectoryListings()` and `/api/public/v1/directory` never read
+    cookies or the signed-in user.** The response is `Cache-Control: public`, so
+    a CDN may hand one caller's response to another. It is safe only because
+    every caller gets the cookie-free, anonymous view. `verify-af` asserts that a
+    member gets exactly what a resident gets, including *not* seeing their own
+    unpublished listed facility.
+31. **A resident's location never reaches the server.** The directory API has
+    no location parameter; `/find` sorts in the browser and keeps the position
+    out of the URL. `/privacy` states this. Adding server-side radius search
+    means changing that page first. *(verify-ag)*
+32. **The only data sent to Nominatim is a facility's address**, from
+    `POST /api/facilities`, and only when the address changed or was never
+    looked up (its usage policy forbids repeated lookups). Never send user or
+    visitor data to it. `/privacy` lists it as a provider.
+33. **Rate-limit identifiers are hashed before storage** (`bucketKey()`).
+    Never write `${name}:${ip}` to `rate_limits` again. *(L5)*
+34. **Browser storage holds only per-device preferences**: the dashboard theme
+    and centres starred on `/find`. `/privacy` names both; anything else stored
+    there needs the policy updated, and anything identifying needs a consent
+    decision first.
 
 ---
 
@@ -756,7 +818,10 @@ Not fixable from the codebase. Unticked items are outstanding.
       different strings. Verify with Stripe dashboard in Live mode, or by clicking
       Upgrade on the deployed site.
 - [ ] Verify Supabase PITR/backups are on, and run a restore test
-- [ ] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`)
+- [ ] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`).
+      **Still unscheduled as of 2026-09-16** (249 of 258 rows were over a day
+      old). Running `SELECT public.sweep_rate_limits();` once also removes the
+      3 rows that still hold a raw IP from before L5.
 - [ ] Review Supabase auth logs for any `updateUser` call setting a `role` field
       *(retroactive check for C1 exploitation)*
 - [ ] Set up alerting: repeated auth failures, 4xx/5xx spikes, unusual per-user spend
@@ -766,7 +831,12 @@ Not fixable from the codebase. Unticked items are outstanding.
       highlights, so the pages are launch-blocking by construction *(M8)*.
 - [ ] **Load `/`, a facility page and an embedded widget in a browser with the
       CSP live** and confirm a clean console. Headers are verified; runtime in
-      production is not *(M7)*. The policy tightened on 2026-08-12: with Mapbox
+      production is not *(M7)*. **2026-09-16:** done against a local production
+      build by `scripts/verify/verify-ai.mjs` (22 checks, including the widget
+      framed on a different origin and a positive control proving violations
+      are caught). Remaining: run it with `--app=` set to the deployment once
+      the directory work is live. It writes throwaway fixtures to the database
+      and removes them afterwards. The policy tightened on 2026-08-12: with Mapbox
       gone it allows **no third-party origin at all**, and `blob:` was dropped
       from `img-src`/`worker-src`/`child-src` because mapbox-gl's tile worker was
       its only user. Verified clean locally against the new policy.
@@ -820,3 +890,4 @@ results* the first time:
 | 2026-08-07 | M8 closed — `/privacy` and `/terms` drafted from the schema, linked from footer and signup. Cookie-consent element of the finding dismissed: only strictly-necessary auth cookies exist, so no banner is required. Both documents need legal review before launch. 1 open. |
 | 2026-08-07 | H4 closed — **`npm audit` now reports 0 vulnerabilities** (from 12). `xlsx` removed and imports restricted to CSV; `shadcn` moved out of `dependencies`, taking 4 advisories with it; `next` 16.2.10 → 16.3.0 cleared `postcss` and `sharp`. PPR confirmed intact after the bump. **0 open.** |
 | 2026-09-16 | **Trust boundary moved** (maintenance rule 3): migration `050` gives `session_templates` its first public-read policy, and adds two more public-readable tables (`tags`, `session_template_links`) plus a join table. No finding — this is a deliberate widening, not a fix. Before it, `session_templates` was unreadable by anon, which is why the public schedule had been showing the schedule *group* name on every card rather than the template name; the comment in `047` asserting a public-read policy already existed was simply wrong. Every one of the four policies is tied to an owning row (invariant 18) **and** to `s.disclosure = 'public'`, which is what keeps 047's withheld-renter protection intact against a direct PostgREST read — see invariants 27 and 28. `scripts/verify/verify-ab.mjs` asserts both halves, including the correlation path an outsider would actually take. **Pending live verification until `050` is applied.** |
+| 2026-09-16 | **Trust boundary moved: the resident directory.** Migration `052` (opt-in `listed_in_directory`; `location` synced from lat/lng by trigger), `GET /api/public/v1/directory` (public, rate-limited, publicly cacheable), `/find` (browser geolocation, sorted on the device), server-side Nominatim geocoding on facility save, and `sitemap.xml`/`robots.txt`. No new RLS policy; the directory is a filter over rows that were already public. Invariants 29–34 added. **L5 found and closed**: `rate_limits` had stored raw client IPs, which `/privacy` says we don't; identifiers are now HMAC-hashed. `/privacy` corrected in three places: local storage is used (theme, starred centres), location use is described, and Nominatim is listed as a provider. Verified with `verify-ae`/`af`/`ag`/`ah`/`ai`; the CSP was checked in a browser against a local production build, including the widget framed on another origin. |

@@ -1,5 +1,7 @@
+import crypto from "crypto";
 import { headers } from "next/headers";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { requireEnv } from "@/lib/env";
 
 /**
  * Shared rate limiting, backed by the `rate_limits` table (migration 025).
@@ -68,6 +70,28 @@ export async function getClientIp(): Promise<string> {
 }
 
 /**
+ * The bucket key actually stored in `rate_limits`.
+ *
+ * Callers pass a raw identifier — often an IP address — and it is never
+ * written as-is: the privacy policy says Dropin does not store IP addresses,
+ * and until 2026-09-16 this table did (`analytics:<ip>`, kept well past the
+ * one-day sweep, which is not scheduled). An HMAC with the deployment's
+ * ANALYTICS_IP_SALT and today's date, the same secret and rotation analytics
+ * uses, keeps the counter working while making the stored key useless for
+ * recovering or linking an address. A window that spans midnight UTC restarts
+ * its count, which only ever lets a caller through early.
+ */
+function bucketKey(name: RateLimitName, identifier: string): string {
+  const today = new Date().toISOString().slice(0, 10);
+  const digest = crypto
+    .createHmac("sha256", requireEnv("ANALYTICS_IP_SALT"))
+    .update(`${today}:${identifier}`)
+    .digest("hex")
+    .slice(0, 32);
+  return `${name}:${digest}`;
+}
+
+/**
  * Returns true when the request is allowed, false when the caller is over
  * their limit.
  *
@@ -86,7 +110,7 @@ export async function checkRateLimit(
   try {
     const admin = createAdminClient();
     const { data, error } = await admin.rpc("check_rate_limit", {
-      p_key: `${name}:${identifier}`,
+      p_key: bucketKey(name, identifier),
       p_limit: limit,
       p_window_seconds: windowSeconds,
     });
