@@ -66,7 +66,11 @@ The facilities residents can find: published, opted in with
   `directory`), and the response is `public, s-maxage=60`. A facility save or
   delete expires the server cache at once; the CDN copy can lag by up to a
   minute. A schedule being published or ending shows up within the cache's
-  one-minute revalidation.
+  one-minute revalidation. `/find` reads the same entry and is a static page
+  with a one-minute revalidate: a change made outside the app (for example, an
+  organization deleted in the database) shows on the second request after a
+  minute. This was checked on a production build; `next dev` can hold it for
+  much longer, so don't judge freshness on the dev server.
 - **Rate limit:** `directory` in `src/lib/rate-limit.ts`, 120 requests a minute
   per IP. Over the limit you get a 429 with `Retry-After`.
 - **Errors:** `400 { error, details }` for bad input, `503 { error }` when the

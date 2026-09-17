@@ -29,7 +29,13 @@ export default function PublicLayout({
                   Drop-in schedules for recreation centres.
                 </p>
               </div>
-              <div className="flex gap-8 text-sm">
+              <div className="flex flex-wrap gap-8 text-sm">
+                <div>
+                  <p className="text-white font-medium mb-2">Residents</p>
+                  <ul className="space-y-1">
+                    <li><Link href="/find" className="hover:text-white transition-colors">Find a centre</Link></li>
+                  </ul>
+                </div>
                 <div>
                   <p className="text-white font-medium mb-2">Product</p>
                   <ul className="space-y-1">

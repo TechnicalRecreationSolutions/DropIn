@@ -12,11 +12,12 @@ import { Menu, X, CalendarDays } from "lucide-react";
 export default function PublicNav() {
   const [mobileOpen, setMobileOpen] = useState(false);
 
-  // Aimed at a recreation centre evaluating the product, not a resident looking
-  // for a swim. The consumer entries here ("Find Activities", "Browse Sports")
-  // pointed at the cross-org search and sport-browse pages, which went with the
-  // aggregator.
+  // Mostly aimed at a recreation centre evaluating the product. "Find a centre"
+  // is the one resident entry: the opt-in directory that came back on
+  // 2026-09-16 (docs/PLAN.md). The old "Find Activities" / "Browse Sports"
+  // entries pointed at the aggregator pages deleted in ef0a035.
   const navLinks = [
+    { href: "/find", label: "Find a centre" },
     { href: "/#features", label: "Features" },
     { href: "/#product", label: "Preview" },
     { href: "/#pricing", label: "Pricing" },
