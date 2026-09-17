@@ -1,5 +1,35 @@
 # Dropin — Plan and Current State
 
+> ## Scope change — 2026-09-16: a resident directory comes back
+>
+> The 2026-08-12 decision below is **partly reversed**. Residents get a public
+> directory again: search for nearby centres with no account and open their
+> schedules on Dropin. The long-term goal is a downloadable app that reads the
+> same data. Decisions made with the owner:
+>
+> - **Opt-in.** `facilities.listed_in_directory` (migration 052) is off by
+>   default; the directory shows `is_published AND listed_in_directory`.
+>   Listing is free on every plan.
+> - **Its own route, `/find`.** `/` stays the sales page for centres.
+> - **Geocoding with Nominatim** (OpenStreetMap), on facility save only, when the
+>   address changed (`src/lib/geo/geocode.ts`). No key; the obligations are an
+>   identifying User-Agent, one request per second and "© OpenStreetMap
+>   contributors" on `/find`. Existing rows: `scripts/backfill-facility-geocodes.mjs`.
+> - **v1 is a list, not a map**, sorted by distance in the browser from a
+>   versioned public endpoint (`/api/public/v1/…`) that the future app will also
+>   use. A PostGIS radius query waits until there are enough centres to need
+>   one; `facilities.location` is kept in step with lat/lng by trigger for then.
+> - **Launch now**, even with only a couple of listed centres.
+>
+> Phases: (1) schema + geocoding + the "list me" toggle — built, `verify-ae`;
+> (2) the public API; (3) the `/find` page; (4) sitemap + `robots.ts` (neither
+> exists yet); (5) harness coverage of the public surface, CSP recheck, docs.
+> Later, not planned: search by session ("lane swim near me tonight"), a map,
+> an installable web app, the native app, resident accounts.
+>
+> What stays gone from 2026-08-12: Mapbox, `/search`, `/browse/[sport]`, and the
+> dashboard's geographic map.
+
 > ## Scope change — 2026-08-12: Dropin is not a marketplace
 >
 > **Dropin is the tool a sport and recreation centre uses to update and publish

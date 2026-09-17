@@ -135,6 +135,10 @@ export type Database = {
           photo_urls: string[];
           amenities: string[];
           is_published: boolean;
+          /** Opt-in to the public directory (052); only honoured while published. */
+          listed_in_directory: boolean;
+          /** When lat/lng were last resolved from the address (052). */
+          geocoded_at: string | null;
           created_at: string;
           updated_at: string;
         };
@@ -154,6 +158,8 @@ export type Database = {
           | "photo_urls"
           | "amenities"
           | "is_published"
+          | "listed_in_directory"
+          | "geocoded_at"
         > & {
           description?: string | null;
           country?: string;
@@ -166,6 +172,8 @@ export type Database = {
           photo_urls?: string[];
           amenities?: string[];
           is_published?: boolean;
+          listed_in_directory?: boolean;
+          geocoded_at?: string | null;
         };
         Update: Partial<Database["public"]["Tables"]["facilities"]["Insert"]>;
         Relationships: [];

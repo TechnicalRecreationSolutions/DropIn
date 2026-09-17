@@ -29,10 +29,24 @@ interface FacilityFormProps {
     website_url?: string;
     description?: string;
     is_published?: boolean;
+    listed_in_directory?: boolean;
   };
+  /**
+   * Whether the saved address was found on the map (edit only). Drives the
+   * note under the directory toggle — "near me" can only sort a facility it
+   * can place.
+   */
+  locationStatus?: "found" | "not_found" | "pending";
 }
 
-export default function FacilityForm({ facilityId, orgId, defaultValues }: FacilityFormProps) {
+const LOCATION_NOTE: Record<NonNullable<FacilityFormProps["locationStatus"]>, string> = {
+  found: "Address found on the map — shown in “near me” results.",
+  not_found:
+    "We couldn’t find this address on the map, so it won’t appear in “near me” results. Check the street address and postal code.",
+  pending: "The address will be looked up on the map when you save.",
+};
+
+export default function FacilityForm({ facilityId, orgId, defaultValues, locationStatus }: FacilityFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = !!facilityId;
@@ -48,6 +62,7 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
     website_url: defaultValues?.website_url ?? "",
     description: defaultValues?.description ?? "",
     is_published: defaultValues?.is_published ?? false,
+    listed_in_directory: defaultValues?.listed_in_directory ?? false,
   });
 
   // Kept out of `form` because it isn't an input event — the upload control
@@ -187,6 +202,34 @@ export default function FacilityForm({ facilityId, orgId, defaultValues }: Facil
           <p className="text-xs text-muted-foreground">
             Included on your public schedule pages and embedded widget.
           </p>
+        </div>
+      </div>
+
+      <div className="flex items-start gap-3">
+        <input
+          id="listed_in_directory" name="listed_in_directory" type="checkbox"
+          checked={form.listed_in_directory} onChange={handleChange}
+          className="mt-0.5 w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+        />
+        <div>
+          <label htmlFor="listed_in_directory" className="text-sm font-medium text-foreground">
+            List in the Dropin directory
+          </label>
+          <p className="text-xs text-muted-foreground">
+            Residents can find this facility and its schedule by searching Dropin.
+            {!form.is_published && " Only shown while the facility is published."}
+          </p>
+          {form.listed_in_directory && locationStatus && (
+            <p
+              className={
+                locationStatus === "not_found"
+                  ? "mt-1 text-xs text-amber-700 dark:text-amber-400"
+                  : "mt-1 text-xs text-muted-foreground"
+              }
+            >
+              {LOCATION_NOTE[locationStatus]}
+            </p>
+          )}
         </div>
       </div>
 

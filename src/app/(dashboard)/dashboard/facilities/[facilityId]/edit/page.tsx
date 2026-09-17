@@ -20,7 +20,7 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
 
   const { data: facility } = await supabase
     .from("facilities")
-    .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published, photo_urls")
+    .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published, listed_in_directory, lat, geocoded_at, photo_urls")
     .eq("id", facilityId)
     .eq("org_id", orgContext.org.id)
     .single();
@@ -59,7 +59,11 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
           website_url: facility.website_url ?? "",
           description: facility.description ?? "",
           is_published: facility.is_published,
+          listed_in_directory: facility.listed_in_directory,
         }}
+        locationStatus={
+          facility.lat !== null ? "found" : facility.geocoded_at ? "not_found" : "pending"
+        }
       />
 
       <FacilityDangerZone

@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
 import { slugify } from "@/lib/utils/slugify";
+import { addressChanged, geocodeAddress } from "@/lib/geo/geocode";
 
 const FacilitySchema = z.object({
   name: z.string().min(1).max(200),
@@ -16,6 +17,8 @@ const FacilitySchema = z.object({
   website_url: z.string().url().optional().nullable(),
   description: z.string().optional().nullable(),
   is_published: z.boolean().default(false),
+  /** Opt-in to the public directory (migration 052). Only honoured while published. */
+  listed_in_directory: z.boolean().default(false),
   /**
    * Public URLs into the org-media bucket (migration 030). Element 0 is the
    * cover photo — that is what FacilityGridCard and the public page render.
@@ -31,8 +34,8 @@ const FacilitySchema = z.object({
 /**
  * POST /api/facilities — create or update a facility.
  *
- * The address is stored as text and never geocoded; see the note at the payload
- * below for why coordinates stopped having a reader.
+ * Geocodes the address (Nominatim) when it is new or has changed, so the public
+ * directory can sort by distance. A failed lookup never fails the save.
  */
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -62,16 +65,49 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "No organization found" }, { status: 403 });
   }
 
-  // No geocoding. Coordinates existed for one reader: the Mapbox pin map on the
-  // cross-org search page, which was the aggregator product. Dropin is a tool a
-  // centre uses to publish its own schedule, so nothing plots facilities against
-  // each other on a map, and an address is displayed as text.
+  // Look the address up only when it could have moved: always on create; on
+  // edit, when an address field changed or the row was never looked up by this
+  // geocoder (geocoded_at is NULL — which also replaces coordinates the old
+  // Mapbox geocoder left behind, some of them wrong). Re-sending an unchanged
+  // address on every save is what Nominatim's usage policy asks us not to do.
+  let shouldGeocode = true;
+  let moved = true;
+  if (isEditing) {
+    const { data: existing } = await supabase
+      .from("facilities")
+      .select("address_line1, city, province, postal_code, country, geocoded_at")
+      .eq("id", facilityId)
+      .eq("org_id", membership.org_id)
+      .maybeSingle();
+    if (!existing) {
+      return NextResponse.json({ error: "Facility not found" }, { status: 404 });
+    }
+    moved = addressChanged(existing, fields);
+    shouldGeocode = moved || !existing.geocoded_at;
+  }
+
+  // lat/lng only — the location column follows them by trigger (052).
   //
-  // The lat/lng/location columns are left in place rather than migrated away —
-  // they cost nothing empty, and dropping them is the kind of irreversible step
-  // that should wait until the shape of the product has settled.
+  // When Nominatim is unreachable, geocoded_at is cleared so the next save
+  // retries (an unchanged address would otherwise never be looked up again).
+  // Coordinates for an address that just changed are cleared too: none is
+  // better than a pin at the old address. For an unchanged address they stay.
+  const geocode = shouldGeocode ? await geocodeAddress(fields) : null;
+  const now = new Date().toISOString();
+  const location: { lat?: number | null; lng?: number | null; geocoded_at?: string | null } =
+    geocode === null
+      ? {}
+      : geocode.status === "found"
+        ? { lat: geocode.lat, lng: geocode.lng, geocoded_at: now }
+        : geocode.status === "not_found"
+          ? { lat: null, lng: null, geocoded_at: now }
+          : moved
+            ? { lat: null, lng: null, geocoded_at: null }
+            : { geocoded_at: null };
+
   const payload = {
     ...fields,
+    ...location,
     org_id: membership.org_id,
     slug: slugify(fields.name),
   };
