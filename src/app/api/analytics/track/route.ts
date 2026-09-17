@@ -79,6 +79,11 @@ export async function POST(request: Request) {
     "schedule_view",
     "view_change",
     "session_duration",
+    // Migration 050. Must stay in step with the analytics_events CHECK
+    // constraint — an event accepted here but absent there is rejected by the
+    // insert below, which is swallowed silently, so the symptom is a counter
+    // that simply never moves.
+    "link_click",
   ] as const;
   if (!(allowedEvents as readonly string[]).includes(event)) {
     return NextResponse.json({ error: "Unknown event type" }, { status: 400 });

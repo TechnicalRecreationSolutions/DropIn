@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { widgetConfigCacheTag } from "@/lib/cache/tags";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
@@ -18,6 +20,7 @@ const DEFAULT_CONFIG = {
   custom_title: null as string | null,
   allowed_templates: ["grid", "list", "map"] as ("grid" | "list" | "map" | "floorplan" | "board")[],
   enabled_filters: [...DEFAULT_ENABLED_FILTERS],
+  allow_print: false,
 };
 
 const UpdateConfigSchema = z.object({
@@ -27,6 +30,7 @@ const UpdateConfigSchema = z.object({
   // rejected rather than dropped — a typo'd filter that silently renders
   // nothing is exactly the kind of thing nobody notices for a month.
   enabledFilters: z.array(z.enum(SESSION_FILTER_KEYS)).optional(),
+  allowPrint: z.boolean().optional(),
   primaryColor: z.string().min(1).optional(),
   secondaryColor: z.string().min(1).optional(),
   customTitle: z.string().nullable().optional(),
@@ -99,7 +103,7 @@ export async function GET(request: Request) {
  *
  * Saves the authenticated org's one set of widget settings (migration 045 —
  * there is no longer a row per facility+department to address).
- * Scoped to allowed_templates/enabled_filters/primary_color/
+ * Scoped to allowed_templates/enabled_filters/allow_print/primary_color/
  * secondary_color/custom_title for now — font_family, show_cost,
  * show_location, show_age_group, time_range_start, time_range_end, and
  * program_ids remain unwired. org_id is always derived server-side, never
@@ -127,7 +131,7 @@ export async function PATCH(request: Request) {
   const parsed = UpdateConfigSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, scopes } = parsed.data;
+  const { allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, allowPrint, scopes } = parsed.data;
 
   // Verify every scope entry's facility/department/schedule actually belongs
   // to the caller's org and that department/schedule sit under the facility
@@ -206,6 +210,7 @@ export async function PATCH(request: Request) {
   if (secondaryColor !== undefined) fields.secondary_color = secondaryColor;
   if (customTitle !== undefined) fields.custom_title = customTitle;
   if (enabledFilters !== undefined) fields.enabled_filters = enabledFilters;
+  if (allowPrint !== undefined) fields.allow_print = allowPrint;
 
   const { data, error } = await supabase
     .from("widget_configs")
@@ -226,6 +231,13 @@ export async function PATCH(request: Request) {
   if (error || !data) {
     return NextResponse.json({ error: "Could not save widget config" }, { status: 500 });
   }
+
+  // The public facility pages cache this row for hours (see
+  // facility/[facilitySlug]/page.tsx). `expire: 0` rather than "max": the
+  // studio tells the admin a publish is live, so no visitor may get the old
+  // settings after this returns. Here rather than at the end, because the
+  // row is already written even if the scope list below fails.
+  revalidateTag(widgetConfigCacheTag(membership.org_id), { expire: 0 });
 
   // Replace-the-whole-list rather than a diff — the list is short (max 20)
   // and this keeps sort_order trivially correct without a separate reorder

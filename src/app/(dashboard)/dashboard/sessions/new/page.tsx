@@ -59,8 +59,9 @@ export default async function NewSessionTemplatePage({ searchParams }: NewSessio
       <div className="mb-6">
         <h1 className="text-2xl font-bold text-foreground">New session template</h1>
         <p className="text-muted-foreground mt-1">
-          Define a reusable activity — its name, color, default duration, and usual space — once,
-          then reuse it across every schedule in {department ? department.name : facility.name}.
+          Define a recurring activity once, then place it on every schedule in{" "}
+          {department ? department.name : facility.name}. Only a name and a length are
+          required — the rest can wait.
         </p>
       </div>
 

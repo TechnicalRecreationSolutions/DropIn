@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import { getSessionCardStyle } from "./sessionCardColor";
+import SessionTags from "./SessionTags";
 import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
@@ -244,6 +245,11 @@ function BoardCell({
                     {session.spaceNames.join(", ")}
                   </p>
                 )}
+                {/* The reason tags exist: this is the view that gets printed
+                    and handed out, and these chips replace the asterisks and
+                    colour key on the paper schedule. `xs` because a board box
+                    is the smallest card in the app. */}
+                <SessionTags tags={session.templateTags} size="xs" className="mt-0.5" />
                 {isLive && (
                   <span
                     className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wide text-white px-1 py-0.5 rounded-full"

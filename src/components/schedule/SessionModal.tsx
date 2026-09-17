@@ -1,11 +1,12 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
-import { X, Clock, ClipboardList, MapPin, DollarSign, Users, Tag, Trash2 } from "lucide-react";
+import { X, Clock, ClipboardList, MapPin, DollarSign, Users, Tag, Trash2, ExternalLink } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
+import SessionTags from "./SessionTags";
 
 interface SessionModalProps {
   session: ExpandedSession;
@@ -22,26 +23,44 @@ interface SessionModalProps {
 export default function SessionModal({ session, onClose, onDelete, isDeleting }: SessionModalProps) {
   const sport = getSportCategory(session.sportCategory);
 
-  // Fires once per open, and only for visitors — `onDelete` is only ever
-  // passed by the dashboard command centre's staff preview, and a staff
-  // member checking their own schedule isn't a "click" worth counting.
+  // `onDelete` is only ever passed by the dashboard command centre's staff
+  // preview, so its presence is what distinguishes staff from a visitor — a
+  // staff member checking their own schedule isn't a "click" worth counting,
+  // and the same goes for them following a registration link to test it.
+  const isStaffView = !!onDelete;
+
+  // One shape for both events, so link_click carries exactly the attribution
+  // program_click does and the two stay comparable in the analytics summary.
+  // A click's whole value is the ratio between them.
+  const track = useCallback(
+    (event: "program_click" | "link_click") => {
+      if (isStaffView) return;
+      fetch("/api/analytics/track", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          event,
+          orgId: session.orgId,
+          facilityId: session.facilityId,
+          scheduleGroupId: session.scheduleGroupId,
+          referrer: document.referrer || null,
+          pathname: window.location.pathname,
+        }),
+        // Set for link_click above all: the click is about to navigate this
+        // tab's opener away in some browsers, and an in-flight fetch without
+        // it is cancelled — the exact click we most wanted to count.
+        keepalive: true,
+      }).catch(() => {});
+    },
+    [isStaffView, session.orgId, session.facilityId, session.scheduleGroupId]
+  );
+
+  // Fires once per open, and only for visitors.
   const trackedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (onDelete || trackedKey.current === session.key) return;
+    if (isStaffView || trackedKey.current === session.key) return;
     trackedKey.current = session.key;
-    fetch("/api/analytics/track", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        event: "program_click",
-        orgId: session.orgId,
-        facilityId: session.facilityId,
-        scheduleGroupId: session.scheduleGroupId,
-        referrer: document.referrer || null,
-        pathname: window.location.pathname,
-      }),
-      keepalive: true,
-    }).catch(() => {});
+    track("program_click");
     // Only re-fires when a different session opens in the same mounted modal.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [session.key]);
@@ -74,6 +93,9 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
                 {session.templateName && `${session.scheduleGroupName} · `}
                 {sport?.label ?? session.sportCategory} · {session.activityType.replace("_", " ")}
               </p>
+              {/* Every tag, not just the two a card had room for — this is
+                  where the "+N" on the card leads. */}
+              <SessionTags tags={session.templateTags} variant="full" className="mt-2" />
             </div>
             <button
               onClick={onClose}
@@ -99,6 +121,18 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
                   <p className="text-foreground mt-0.5 whitespace-pre-line">{session.setupNotes}</p>
                 </div>
               </div>
+            )}
+
+            {/* The template's description (migration 050). Plain text by
+                design — no markdown renderer on a public surface — so
+                whitespace-pre-line is what preserves the line breaks staff
+                typed. Sits above the facts because it is the sentence that
+                explains what the session *is*; the time and place below answer
+                a question the visitor already knows they have. */}
+            {session.templateDescription && (
+              <p className="text-sm text-foreground whitespace-pre-line">
+                {session.templateDescription}
+              </p>
             )}
 
             <div className="flex items-center gap-3 text-sm">
@@ -148,6 +182,33 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
               <div className="flex items-center gap-3 text-sm">
                 <Users className="w-4 h-4 text-muted-foreground/70 shrink-0" />
                 <span className="text-foreground">Max {session.maxParticipants} participants</span>
+              </div>
+            )}
+
+            {/* Registration links (migration 050). At most three, ordered by
+                staff, and always rendered as their label — a bare URL is
+                unreadable and tells a visitor nothing about what happens when
+                they tap it.
+
+                rel="noopener noreferrer" is not optional here: these URLs are
+                staff-entered and point off-site, and without noopener the
+                destination gets a handle on this window via window.opener. */}
+            {session.templateLinks.length > 0 && (
+              <div className="space-y-2 pt-1">
+                {session.templateLinks.map((link) => (
+                  <a
+                    key={link.id}
+                    href={link.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    onClick={() => track("link_click")}
+                    className="w-full flex items-center justify-center gap-1.5 px-3 py-2.5 text-sm font-semibold text-white rounded-lg hover:brightness-95 transition-all"
+                    style={{ backgroundColor: "var(--org-primary, #2563eb)" }}
+                  >
+                    {link.label}
+                    <ExternalLink className="w-3.5 h-3.5 shrink-0" />
+                  </a>
+                ))}
               </div>
             )}
 

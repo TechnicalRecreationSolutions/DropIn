@@ -1,5 +1,6 @@
 "use client";
 
+import type { ReactNode } from "react";
 import { LayoutGrid, List, Columns3, Image as ImageIcon, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import ScheduleScopeSwitcher, { type ScheduleScope } from "./ScheduleScopeSwitcher";
@@ -19,6 +20,8 @@ interface ScheduleHeaderBarProps {
   scopeOptions?: ScheduleHeaderScope[];
   activeScopeId?: string;
   onScopeChange?: (id: string) => void;
+  /** Extra controls after the view toggle — the visitor Print button, when the org allows it. */
+  actions?: ReactNode;
 }
 
 const OPTIONS: { value: ScheduleTemplate; label: string; icon: typeof Columns3 }[] = [
@@ -50,6 +53,7 @@ export default function ScheduleHeaderBar({
   scopeOptions,
   activeScopeId,
   onScopeChange,
+  actions,
 }: ScheduleHeaderBarProps) {
   const options = OPTIONS.filter((o) => allowedViews.includes(o.value));
   const switchable = (scopeOptions?.length ?? 0) > 1;
@@ -63,38 +67,43 @@ export default function ScheduleHeaderBar({
           to replace it, which silently dropped the org's own custom_title the
           moment a second filter was added. */}
       <h2 className="text-white font-semibold text-sm sm:text-base">{title}</h2>
-      {options.length > 1 && (
-        // Five view pills are wider than a phone. The bar wraps them onto their
-        // own line, but the card clips the overflow, so the last one ("Floorplan")
-        // was cut through the middle of the word with no indication it was
-        // reachable. Scrolling the strip itself keeps every view available at
-        // 390px without shrinking the labels to nothing.
-        <div
-          className="inline-flex gap-0.5 rounded-full p-0.5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
-          style={{ backgroundColor: "rgba(255,255,255,.18)" }}
-          role="group"
-          aria-label="Choose a view"
-        >
-          {options.map((option) => {
-            const Icon = option.icon;
-            const active = view === option.value;
-            return (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onChange(option.value)}
-                className={cn(
-                  "flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
-                  active ? "bg-card" : "text-white/90 hover:text-white"
-                )}
-                style={active ? { color: "var(--org-primary)" } : undefined}
-                aria-pressed={active}
-              >
-                <Icon className="w-3.5 h-3.5" />
-                {option.label}
-              </button>
-            );
-          })}
+      {(options.length > 1 || actions) && (
+        <div className="flex items-center gap-2 max-w-full min-w-0">
+          {options.length > 1 && (
+            // Five view pills are wider than a phone. The bar wraps them onto their
+            // own line, but the card clips the overflow, so the last one ("Floorplan")
+            // was cut through the middle of the word with no indication it was
+            // reachable. Scrolling the strip itself keeps every view available at
+            // 390px without shrinking the labels to nothing.
+            <div
+              className="inline-flex gap-0.5 rounded-full p-0.5 max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+              style={{ backgroundColor: "rgba(255,255,255,.18)" }}
+              role="group"
+              aria-label="Choose a view"
+            >
+              {options.map((option) => {
+                const Icon = option.icon;
+                const active = view === option.value;
+                return (
+                  <button
+                    key={option.value}
+                    type="button"
+                    onClick={() => onChange(option.value)}
+                    className={cn(
+                      "flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-medium transition-colors",
+                      active ? "bg-card" : "text-white/90 hover:text-white"
+                    )}
+                    style={active ? { color: "var(--org-primary)" } : undefined}
+                    aria-pressed={active}
+                  >
+                    <Icon className="w-3.5 h-3.5" />
+                    {option.label}
+                  </button>
+                );
+              })}
+            </div>
+          )}
+          {actions}
         </div>
       )}
 

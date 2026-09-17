@@ -664,6 +664,25 @@ violates one as a security regression.
     assumption 3 applied to images. **Pending re-verification once `036` is
     applied** — the "Verified" paragraph below predates the removal and still
     describes the old, member-writable shape until then. *(Storage, 030/036)*
+27. **`session_templates_public_read` is gated on the *session's* `disclosure`,
+    not the template's.** A template that usually runs public can be placed as a
+    one-off reserved booking, and it is the booking that decides. Without
+    `AND s.disclosure = 'public'` in that policy — and in the matching policies
+    on `session_template_tags` and `session_template_links` — 047's protection
+    comes apart: `sessions.template_id` is publicly readable, so an outsider
+    could take it from a reserved row and read back the name, description, tags
+    and links that `applyDisclosure()` had just redacted. The schema rule and
+    the API projection have to agree, or one quietly undoes the other.
+    *(050)*
+28. **Nothing sensitive goes on `session_templates`, `tags` or
+    `session_template_links`.** M2's lesson applies directly: RLS is row-level,
+    never column-level, so "this template is placed in a published schedule"
+    makes *every column of that row* world-readable — today that is name,
+    colour, description, duration, occupancy seeds, display order and
+    timestamps, all of them schedule presentation. A holder name, a contact, a
+    cost or an internal note added to any of these three tables becomes public
+    the moment one session from it is published. Staff-only facts belong in
+    `session_internal`, which has no public-read policy at all. *(050, M2)*
 
 ---
 
@@ -800,3 +819,4 @@ results* the first time:
 | 2026-08-07 | M7 closed — CSP + HSTS in `next.config.ts`, invalid `X-Frame-Options: ALLOWALL` removed. `script-src` keeps `'unsafe-inline'` because nonces are incompatible with PPR; recorded as a deliberate ceiling. Verified by curl on all three route groups; browser verification still outstanding. 2 open. |
 | 2026-08-07 | M8 closed — `/privacy` and `/terms` drafted from the schema, linked from footer and signup. Cookie-consent element of the finding dismissed: only strictly-necessary auth cookies exist, so no banner is required. Both documents need legal review before launch. 1 open. |
 | 2026-08-07 | H4 closed — **`npm audit` now reports 0 vulnerabilities** (from 12). `xlsx` removed and imports restricted to CSV; `shadcn` moved out of `dependencies`, taking 4 advisories with it; `next` 16.2.10 → 16.3.0 cleared `postcss` and `sharp`. PPR confirmed intact after the bump. **0 open.** |
+| 2026-09-16 | **Trust boundary moved** (maintenance rule 3): migration `050` gives `session_templates` its first public-read policy, and adds two more public-readable tables (`tags`, `session_template_links`) plus a join table. No finding — this is a deliberate widening, not a fix. Before it, `session_templates` was unreadable by anon, which is why the public schedule had been showing the schedule *group* name on every card rather than the template name; the comment in `047` asserting a public-read policy already existed was simply wrong. Every one of the four policies is tied to an owning row (invariant 18) **and** to `s.disclosure = 'public'`, which is what keeps 047's withheld-renter protection intact against a direct PostgREST read — see invariants 27 and 28. `scripts/verify/verify-ab.mjs` asserts both halves, including the correlation path an outsider would actually take. **Pending live verification until `050` is applied.** |

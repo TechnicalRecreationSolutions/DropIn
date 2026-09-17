@@ -35,6 +35,15 @@ async function fetchEvents(supabase: SupabaseServerClient, orgId: string, days: 
 export interface AnalyticsSummary {
   views: number;
   clicks: number;
+  /**
+   * Registration links followed from the session detail modal (050).
+   *
+   * Reported next to `clicks` rather than folded into it: a program_click is
+   * interest (the visitor opened a session), a link_click is intent (they went
+   * to register). Summing them would hide the only ratio that says whether a
+   * link is worth the staff time it costs to keep current.
+   */
+  linkClicks: number;
   avgDurationMs: number | null;
   clickThroughRate: number | null;
   viewsByDay: { day: string; views: number }[];
@@ -64,12 +73,14 @@ export async function getAnalyticsSummary(
 
   const viewRows = events.filter((e) => VIEW_EVENTS.has(e.event_type));
   const clickRows = events.filter((e) => e.event_type === "program_click");
+  const linkClickRows = events.filter((e) => e.event_type === "link_click");
   const durationRows = events.filter(
     (e): e is EventRow & { duration_ms: number } => e.event_type === "session_duration" && e.duration_ms !== null
   );
 
   const views = viewRows.length;
   const clicks = clickRows.length;
+  const linkClicks = linkClickRows.length;
   const avgDurationMs =
     durationRows.length > 0
       ? Math.round(durationRows.reduce((sum, e) => sum + e.duration_ms, 0) / durationRows.length)
@@ -115,5 +126,5 @@ export async function getAnalyticsSummary(
     .sort((a, b) => b.count - a.count)
     .slice(0, 10);
 
-  return { views, clicks, avgDurationMs, clickThroughRate, viewsByDay, templateBreakdown, topReferrers, topClickedSchedules };
+  return { views, clicks, linkClicks, avgDurationMs, clickThroughRate, viewsByDay, templateBreakdown, topReferrers, topClickedSchedules };
 }

@@ -184,14 +184,24 @@ function TemplateList({
       ) : (
         <div className="bg-card rounded-xl border border-border divide-y divide-border">
           {templates.map((template) => (
-            <div key={template.id} className="flex items-center justify-between px-4 py-3">
+            // The name's link stretches over the whole row (after:inset-0), so a
+            // click anywhere opens the template; the actions sit above it (z-10).
+            <div
+              key={template.id}
+              className="relative flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+            >
               <div className="flex items-center gap-3 min-w-0">
                 <span
                   className="w-4 h-4 rounded-full flex-shrink-0 border border-black/10"
                   style={{ backgroundColor: template.color ?? "#3B82F6" }}
                 />
                 <div className="min-w-0">
-                  <p className="text-sm font-medium text-foreground truncate">{template.name}</p>
+                  <Link
+                    href={`/dashboard/sessions/${template.id}/edit`}
+                    className="block text-sm font-medium text-foreground truncate after:absolute after:inset-0 focus-visible:outline-none focus-visible:after:ring-2 focus-visible:after:ring-ring"
+                  >
+                    {template.name}
+                  </Link>
                   <p className="text-xs text-muted-foreground">
                     {occupancyKindLabel(template.occupancy_kind)}
                     {template.disclosure !== "public" &&
@@ -203,7 +213,7 @@ function TemplateList({
                   </p>
                 </div>
               </div>
-              <div className="flex items-center gap-2 shrink-0">
+              <div className="relative z-10 flex items-center gap-2 shrink-0">
                 <Button variant="outline" size="sm" asChild>
                   <Link href={`/dashboard/sessions/${template.id}/edit`}>
                     <Pencil />

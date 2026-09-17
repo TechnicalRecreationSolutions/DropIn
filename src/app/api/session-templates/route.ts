@@ -2,6 +2,11 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import {
+  TemplateLinksSchema,
+  replaceTemplateTags,
+  replaceTemplateLinks,
+} from "@/lib/sessions/templateRelations";
 
 const CreateSessionTemplateSchema = z.object({
   facility_id: z.string().uuid(),
@@ -10,6 +15,14 @@ const CreateSessionTemplateSchema = z.object({
   department_id: z.string().uuid().nullish(),
   name: z.string().min(1),
   color: z.string().regex(/^#[0-9A-Fa-f]{6}$/).nullish(),
+  // Migration 050. Shown in the public session detail modal; plain text only.
+  description: z.string().trim().max(2000).nullish(),
+  // Tags must already exist in the facility's vocabulary — this route assigns,
+  // it never creates. POST /api/tags is how a word enters the vocabulary, and
+  // keeping the two apart is what stops a typo in a template form from
+  // silently minting "Womens only" beside "Women's Only".
+  tag_ids: z.array(z.string().uuid()).optional().default([]),
+  links: TemplateLinksSchema.optional().default([]),
   default_duration_minutes: z.number().int().positive(),
   // Seed values for sessions placed from this template (migration 047).
   occupancy_kind: z.enum(["drop_in", "program", "rental", "closure"]).optional(),
@@ -107,6 +120,10 @@ export async function POST(request: Request) {
       department_id: parsed.data.department_id ?? null,
       name: parsed.data.name,
       color: parsed.data.color ?? null,
+      // Empty string is stored as NULL: "no description" has one
+      // representation, so the modal's `{description && ...}` guard cannot be
+      // defeated by a field someone cleared rather than never filled in.
+      description: parsed.data.description?.trim() || null,
       default_duration_minutes: parsed.data.default_duration_minutes,
       occupancy_kind: parsed.data.occupancy_kind ?? "drop_in",
       disclosure: parsed.data.disclosure ?? "public",
@@ -137,5 +154,30 @@ export async function POST(request: Request) {
     }
   }
 
-  return NextResponse.json({ sessionTemplate: { ...data, default_space_ids: parsed.data.default_space_ids } }, { status: 201 });
+  const tagError = await replaceTemplateTags(supabase, {
+    templateId: data.id,
+    orgId: membership.org_id,
+    facilityId: parsed.data.facility_id,
+    tagIds: parsed.data.tag_ids,
+  });
+  if (tagError) return NextResponse.json({ error: tagError }, { status: 400 });
+
+  const linkError = await replaceTemplateLinks(supabase, {
+    templateId: data.id,
+    orgId: membership.org_id,
+    links: parsed.data.links,
+  });
+  if (linkError) return NextResponse.json({ error: linkError }, { status: 400 });
+
+  return NextResponse.json(
+    {
+      sessionTemplate: {
+        ...data,
+        default_space_ids: parsed.data.default_space_ids,
+        tag_ids: parsed.data.tag_ids,
+        links: parsed.data.links,
+      },
+    },
+    { status: 201 }
+  );
 }

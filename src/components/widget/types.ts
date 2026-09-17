@@ -80,6 +80,8 @@ export interface PublishedSettings {
   customTitle: string;
   /** Which general filters visitors get — `widget_configs.enabled_filters` (migration 044). */
   enabledFilters: SessionFilterKey[];
+  /** Visitor Print button — `widget_configs.allow_print` (migration 051). */
+  allowPrint: boolean;
   scopes: LocalScope[];
 }
 
@@ -93,6 +95,7 @@ export function publishedSignature(s: PublishedSettings): string {
     // entry is the default view), so a re-ordered but identical set must not
     // read as an unsaved change.
     filters: [...s.enabledFilters].sort(),
+    print: s.allowPrint,
     // Rows without a facility are dropped on save, so they must not count as
     // an unsaved change either — otherwise clicking "Add a filter" and walking
     // away leaves a publish bar that never goes away.

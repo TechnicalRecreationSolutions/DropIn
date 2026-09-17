@@ -1,7 +1,7 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { Eye, MousePointerClick, Clock, Percent } from "lucide-react";
+import { Eye, MousePointerClick, Clock, Percent, ExternalLink } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { StatCard } from "@/components/dashboard/StatCard";
@@ -71,9 +71,12 @@ async function AnalyticsBody() {
 
   return (
     <>
-      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+      <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
         <StatCard icon={Eye} label="Views" value={String(summary.views)} />
         <StatCard icon={MousePointerClick} label="Session clicks" value={String(summary.clicks)} />
+        {/* Interest vs. intent — see the linkClicks note in queries.ts for why
+            this is its own tile rather than part of "Session clicks". */}
+        <StatCard icon={ExternalLink} label="Registration clicks" value={String(summary.linkClicks)} />
         <StatCard icon={Percent} label="Click-through rate" value={clickThroughDisplay} />
         <StatCard
           icon={Clock}

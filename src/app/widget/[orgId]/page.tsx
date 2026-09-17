@@ -30,6 +30,8 @@ interface WidgetPageProps {
     title?: string;
     /** Preview-only: unsaved enabled_filters, comma-separated. */
     filters?: string;
+    /** Preview-only: unsaved allow_print, "1" or "0". */
+    print?: string;
   }>;
 }
 
@@ -53,6 +55,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     primary: previewPrimary,
     title: previewTitle,
     filters: previewFilters,
+    print: previewPrint,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -214,6 +217,13 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
       ? parseEnabledFilters(previewFilters)
       : parseEnabledFilters(widgetConfig?.enabled_filters ?? DEFAULT_ENABLED_FILTERS);
 
+  // Visitor Print button (migration 051). Same preview-only override as the
+  // filters; `=== true` because a database without 051 yet has no such key.
+  const allowPrint =
+    isPreview && (previewPrint === "1" || previewPrint === "0")
+      ? previewPrint === "1"
+      : widgetConfig?.allow_print === true;
+
   const validTemplates = ["grid", "list", "map", "floorplan", "board"] as const;
   function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan" | "board")[] {
     if (!value) return [];
@@ -243,10 +253,10 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   const isDark = theme === "dark";
 
   return (
-    <div className={`min-h-screen p-3 sm:p-4 ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
+    <div className={`min-h-screen p-3 sm:p-4 print:min-h-0 print:p-0 print:bg-white ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
       <OrgThemeProvider primaryColor={primaryColor}>
         {/* Header */}
-        <div className="mb-4 flex items-center justify-between">
+        <div className="mb-4 flex items-center justify-between print:hidden">
           <div className="flex items-center gap-2.5 min-w-0">
             {org.logo_url && (
               <span className="relative size-8 rounded-md shrink-0 overflow-hidden border border-gray-200 bg-white">
@@ -283,6 +293,8 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
           scopes={scopes}
           title={headerTitle}
           enabledFilters={enabledFilters}
+          allowPrint={allowPrint}
+          printSubtitle={[org.name, facility?.name, department?.name].filter(Boolean).join(" · ")}
         />
       </OrgThemeProvider>
     </div>

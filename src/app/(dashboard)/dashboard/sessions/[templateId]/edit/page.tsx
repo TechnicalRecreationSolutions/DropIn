@@ -12,12 +12,17 @@ type SessionTemplateRow = {
   id: string;
   name: string;
   color: string | null;
+  description: string | null;
   default_duration_minutes: number;
   occupancy_kind: "drop_in" | "program" | "rental" | "closure";
   disclosure: "public" | "reserved" | "internal";
   facility_id: string;
   department_id: string | null;
   session_template_spaces: { space_id: string }[];
+  // Ordered on display_order in the select below — the order decides which
+  // two tags reach a session card (migration 050).
+  session_template_tags: { tag_id: string; display_order: number }[];
+  session_template_links: { label: string; url: string; display_order: number }[];
   facilities: { id: string; name: string } | null;
   departments: { id: string; name: string } | null;
 };
@@ -33,7 +38,7 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
   const { data: template } = await supabase
     .from("session_templates")
     .select(
-      "id, name, color, default_duration_minutes, occupancy_kind, disclosure, facility_id, department_id, session_template_spaces ( space_id ), facilities ( id, name ), departments ( id, name )"
+      "id, name, color, description, default_duration_minutes, occupancy_kind, disclosure, facility_id, department_id, session_template_spaces ( space_id ), session_template_tags ( tag_id, display_order ), session_template_links ( label, url, display_order ), facilities ( id, name ), departments ( id, name )"
     )
     .eq("id", templateId)
     .eq("org_id", orgContext.org.id)
@@ -73,10 +78,20 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
         defaultValues={{
           name: template.name,
           color: template.color,
+          description: template.description,
           default_duration_minutes: template.default_duration_minutes,
           default_space_ids: template.session_template_spaces.map((r) => r.space_id),
           occupancy_kind: template.occupancy_kind,
           disclosure: template.disclosure,
+          // Both sorted here rather than trusted from the embed — PostgREST
+          // makes no ordering guarantee on a nested select, and for these two
+          // the order is meaning, not presentation.
+          tag_ids: [...template.session_template_tags]
+            .sort((a, b) => a.display_order - b.display_order)
+            .map((r) => r.tag_id),
+          links: [...template.session_template_links]
+            .sort((a, b) => a.display_order - b.display_order)
+            .map((r) => ({ label: r.label, url: r.url })),
         }}
         redirectTo={redirectTo}
       />

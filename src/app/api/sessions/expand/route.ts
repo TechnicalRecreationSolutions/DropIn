@@ -68,7 +68,11 @@ const SESSION_SELECT = `
   session_spaces (
     spaces ( id, name, display_order )
   ),
-  session_templates ( id, name, color )
+  session_templates (
+    id, name, color, description,
+    session_template_tags ( display_order, tags ( id, label, color ) ),
+    session_template_links ( id, label, url, display_order )
+  )
 `;
 
 /**
@@ -477,6 +481,17 @@ async function applyDisclosure(
       scheduleGroupName: RESERVED_PUBLIC_LABEL,
       templateName: null,
       templateColor: null,
+      // Migration 050's three presentation fields are redacted here for the
+      // same reason the name is: a description reading "Island Swimming club
+      // practice", a tag reading "Island Swimming", or a link to the club's
+      // own registration page each name the holder just as plainly as the
+      // template name would. RLS agrees — 050's public-read policies are
+      // gated on the session's disclosure being 'public' — so for a real
+      // patron these are already empty and this is the same belt-and-braces
+      // the two fields below get.
+      templateDescription: null,
+      templateTags: [],
+      templateLinks: [],
       costCents: 0,
       costNotes: null,
       ageGroup: null,

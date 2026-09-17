@@ -274,3 +274,32 @@
 .deck-closure {
   background: #fee2e2;
 }
+
+/* =============================================================================
+   Print — the visitor schedule (PrintableSchedule.tsx, migration 051)
+   =============================================================================
+   A named page, because the `@page` rule above is landscape for the deck
+   sheet's lane columns, and this is a four-column list that wastes half a
+   landscape sheet. Everything else about it is Tailwind `print:` variants on
+   the component and on the pages that host it.
+   ============================================================================= */
+@page visitor-schedule {
+  size: portrait;
+  margin: 12mm;
+}
+
+@media print {
+  .printable-schedule {
+    page: visitor-schedule;
+  }
+
+  .printable-schedule tr,
+  .printable-notice {
+    break-inside: avoid;
+  }
+
+  /* A day heading must not end a page with its sessions on the next one. */
+  .printable-schedule h2 {
+    break-after: avoid;
+  }
+}

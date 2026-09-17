@@ -15,7 +15,8 @@ import InstallPanel from "./InstallPanel";
 import LayoutPicker from "./LayoutPicker";
 import PreviewWindow from "./PreviewWindow";
 import VisitorFilterToggles from "./VisitorFilterToggles";
-import StepCard from "./StepCard";
+import PrintToggle from "./PrintToggle";
+import StepCard from "@/components/ui/step-card";
 import {
   publishedSignature,
   savedScopeToLocal,
@@ -82,6 +83,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   const [primaryColor, setPrimaryColor] = useState("#0066CC");
   const [customTitle, setCustomTitle] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<SessionFilterKey[]>(DEFAULT_ENABLED_FILTERS);
+  const [allowPrint, setAllowPrint] = useState(false);
   const [scopeRows, setScopeRows] = useState<LocalScope[]>([]);
   /** The last state the server confirmed — the baseline for "unsaved changes" and for Discard. */
   const [savedState, setSavedState] = useState<PublishedSettings | null>(null);
@@ -128,6 +130,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
           primary_color?: string;
           custom_title?: string | null;
           enabled_filters?: string[];
+          allow_print?: boolean;
         };
         scopes?: SavedScope[];
       }>;
@@ -140,6 +143,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     setPrimaryColor(next.primaryColor);
     setCustomTitle(next.customTitle);
     setEnabledFilters(next.enabledFilters);
+    setAllowPrint(next.allowPrint);
     setScopeRows(next.scopes);
     setSavedState(next);
   }, []);
@@ -154,6 +158,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       primaryColor: widgetConfigData.config.primary_color ?? "#0066CC",
       customTitle: widgetConfigData.config.custom_title ?? "",
       enabledFilters: parseEnabledFilters(widgetConfigData.config.enabled_filters ?? DEFAULT_ENABLED_FILTERS),
+      allowPrint: widgetConfigData.config.allow_print === true,
       scopes: (widgetConfigData.scopes ?? []).map(savedScopeToLocal),
     });
   }, [widgetConfigData, adoptSaved]);
@@ -163,7 +168,12 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     if (savedState) adoptSaved(savedState);
   }
 
-  const currentSignature = publishedSignature({ allowedTemplates, primaryColor, customTitle, enabledFilters, scopes: scopeRows });
+  // Migrations are applied by hand, so the column can lag the code. The row is
+  // read with `*`, so a missing key means 051 hasn't landed — and sending
+  // allowPrint then would fail the whole publish, not just this toggle.
+  const printSupported = !!widgetConfigData && "allow_print" in widgetConfigData.config;
+
+  const currentSignature = publishedSignature({ allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, scopes: scopeRows });
   const dirty = savedState !== null && currentSignature !== publishedSignature(savedState);
 
   const scopeFacility = facilities.find((f) => f.id === scopeFacilityId);
@@ -233,6 +243,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
         primaryColor,
         customTitle: customTitle.trim() || null,
         enabledFilters,
+        ...(printSupported ? { allowPrint } : {}),
         scopes,
       }),
     });
@@ -254,13 +265,14 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       primaryColor: body?.config?.primary_color ?? primaryColor,
       customTitle: body?.config?.custom_title ?? "",
       enabledFilters: parseEnabledFilters(body?.config?.enabled_filters ?? enabledFilters),
+      allowPrint: body?.config?.allow_print ?? allowPrint,
       scopes: savedRows,
     });
     setPreviewVersion((v) => v + 1);
     setJustPublished(true);
     setTimeout(() => setJustPublished(false), 2500);
     return true;
-  }, [allowedTemplates, primaryColor, customTitle, enabledFilters, scopeRows, facilities, adoptSaved]);
+  }, [allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, printSupported, scopeRows, facilities, adoptSaved]);
 
   /* ------------------------------------------------------------- derivations */
 
@@ -328,9 +340,10 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     // Always set, even when empty: "no filters" is a real choice, and an
     // absent param would fall back to the saved value instead of showing it.
     url.searchParams.set("filters", enabledFilters.join(","));
+    url.searchParams.set("print", allowPrint ? "1" : "0");
     url.searchParams.set("preview", "1");
     return url.toString();
-  }, [orgId, scopeFacilityId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters]);
+  }, [orgId, scopeFacilityId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint]);
 
   // Typing in the colour or title field would otherwise reload the iframe on
   // every keystroke.
@@ -507,13 +520,20 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       <StepCard
         step={3}
         title="Let visitors find their session"
-        description="Optional. Filters that narrow whatever schedule is on screen — by what it is and when it runs."
+        description="Optional. Filters that narrow whatever schedule is on screen — by what it is and when it runs — and a button to print the result."
         meta={<SavedBadge />}
       >
         <VisitorFilterToggles
           value={enabledFilters}
           onChange={setEnabledFilters}
           disabled={loading || saving}
+        />
+
+        <PrintToggle
+          value={allowPrint}
+          onChange={setAllowPrint}
+          disabled={loading || saving || !printSupported}
+          unavailable={!loading && !printSupported}
         />
       </StepCard>
 
@@ -552,7 +572,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
               </p>
               {!saveError && (
                 <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
-                  Your views, colour, heading and filters change for visitors only once you publish.
+                  Your views, colour, heading, filters and print button change for visitors only once you publish.
                 </p>
               )}
             </div>

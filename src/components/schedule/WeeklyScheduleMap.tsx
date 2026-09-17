@@ -7,6 +7,7 @@ import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import { getSessionCardStyle } from "./sessionCardColor";
+import SessionTags from "./SessionTags";
 import { mergeResidualBands } from "@/lib/schedule/residual";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
@@ -434,6 +435,13 @@ function MapSessionBlock({
           <p className="text-xs opacity-75 leading-tight truncate">
             {formatSessionTime(session.start)}–{formatSessionTime(session.end)}
           </p>
+        )}
+        {/* Blocks here are drawn to the height of their own duration, so a
+            short session genuinely has no room — the same reason the time
+            above is gated. The tags are still in the detail modal either way,
+            which is why dropping them is safe rather than lossy. */}
+        {height >= SLOT_HEIGHT_PX * 2 && (
+          <SessionTags tags={session.templateTags} size="xs" className="mt-0.5" />
         )}
       </button>
 

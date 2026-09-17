@@ -95,9 +95,48 @@ members of the owning org. So a public caller's occurrence carries
 `holderName: null` and falls through to a label the route has already redacted
 (migration 046 — see `docs/PLAN-internal-view.md`).
 
+> **The middle link of that chain did not work until migration 050.**
+> `session_templates` had no public-read policy, and PostgREST nulls an embedded
+> resource that RLS filters — so for every anonymous visitor `templateName` was
+> `null` and *every* public card fell through to the schedule group's name. It
+> failed silently and looked deliberate. Nobody caught it because no published
+> schedule had any sessions in it (see `docs/RESUME.md`). 050 adds the policy,
+> gated on the session's `disclosure` being `public` so a withheld booking still
+> withholds; `scripts/verify/verify-ab.mjs` asserts a real anonymous read.
+
 The consequence worth knowing: **reaching for `session.holderName` directly in a
 view re-introduces the leak this indirection removes**, because nothing about a
 component tells you which audience is rendering it. Go through the helper.
+
+## Tags, description and links
+
+All three come from the **template**, never the session (migration 050), and all
+three arrive on `ExpandedSession` already redacted for the caller — same
+arrangement as the label chain above, so no view has to know its audience.
+
+- **`templateTags`** render on the card in every view, through
+  `SessionTags.tsx`. It shows `TAGS_ON_CARD` (2) and a `+N`; the modal passes
+  `variant="full"`. The array order is staff-chosen
+  (`session_template_tags.display_order`), so *which* two appear is a decision,
+  not an accident. Chips carry `print-color-adjust: exact` because the board
+  view gets printed and handed out — these replace the asterisks and colour key
+  on the paper schedule, and a chip that prints white-on-white replaces them
+  with nothing.
+- **`templateDescription`** appears only in `SessionModal`. Plain text; no
+  markdown renderer on a public surface.
+- **`templateLinks`** are at most 3, and render as **labels only** — never the
+  bare URL. They open in a new tab with `rel="noopener noreferrer"` and fire a
+  `link_click` analytics event alongside the `program_click` the modal already
+  fires on open.
+
+`templateTags` and `templateLinks` are always arrays, never null, so a view can
+map over them with no guard. An untagged session renders nothing at all —
+`SessionTags` returns `null` on an empty array, wrapper included — which is what
+keeps every schedule that predates 050 rendering identically.
+
+A `reserved` occurrence seen by an outsider arrives with all three emptied, by
+`applyDisclosure()` *and* by RLS. A description, a tag, or a link to a club's
+registration page each name the holder as plainly as the template name would.
 
 ## The deck sheet is not one of these views
 
@@ -119,9 +158,32 @@ across, time down, one day, printable (stage 4 of
   whatever is left — so a lane cell naming one would be false. They are listed
   under the grid instead, and an empty cell means open water.
 
-Its print styles are the only `@media print` block in the codebase and live in
-`src/app/globals.css`, scoped to `.deck-sheet` / `.no-print` so nothing else on
-any page changes when someone hits Ctrl-P.
+Its print styles live in `src/app/globals.css`, scoped to `.deck-sheet` /
+`.no-print` so nothing else on any page changes when someone hits Ctrl-P.
+
+## The visitor printout is not one of these views either
+
+`PrintableSchedule.tsx` is what the public Print button prints
+(`widget_configs.allow_print`, migration 051) on the embed and on
+`/facility/[slug]`. It is rendered next to the live schedule, `hidden
+print:block`, while the caller marks its interactive UI `print:hidden`. It
+is a separate day-by-day table rather than a print stylesheet over the views
+because the views drop sessions on paper: the grid and list show one day on a
+phone, the list folds away days already past, and the map shows one day at a
+time.
+
+- It takes the caller's **filtered** sessions, so the printout matches what
+  the visitor chose. The notice at the top always says the schedule is subject
+  to change and when it was printed. When a filter or a switcher entry is
+  narrowing the week, it also says so, names the filters
+  (`describeActiveFilters()`) and gives an N-of-M count.
+- Names go through `sessionDisplayLabel()` like every other public surface.
+- It prints on a named portrait `@page` (`visitor-schedule`); the global
+  `@page` stays landscape for the deck sheet.
+- Known gap: the button calls `window.print()` from inside the embed's iframe.
+  Desktop Chrome prints just the frame (verified by `verify-ad` via Playwright
+  PDF). iOS Safari is reported to print the host page instead, and nobody has
+  checked that yet.
 
 ## Computed availability is staff-only, and stays that way
 

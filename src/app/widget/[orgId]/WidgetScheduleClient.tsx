@@ -8,6 +8,7 @@ import { useScheduleAnalytics } from "@/hooks/useScheduleAnalytics";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import ScheduleFilterBar from "@/components/schedule/ScheduleFilterBar";
+import PrintableSchedule, { PrintScheduleButton } from "@/components/schedule/PrintableSchedule";
 import {
   EMPTY_FILTER_STATE,
   filterSessions,
@@ -42,6 +43,10 @@ interface WidgetScheduleClientProps {
   title?: string;
   /** Which general filters the org offers visitors (widget_configs.enabled_filters). */
   enabledFilters?: SessionFilterKey[];
+  /** Whether visitors get a Print button (widget_configs.allow_print, migration 051). */
+  allowPrint?: boolean;
+  /** Printed above the title — whose schedule this is, once it's off the website. */
+  printSubtitle?: string | null;
 }
 
 function ScheduleInner({
@@ -53,6 +58,8 @@ function ScheduleInner({
   scopes = [],
   title = "Schedule",
   enabledFilters = [],
+  allowPrint = false,
+  printSubtitle,
 }: WidgetScheduleClientProps) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
@@ -112,78 +119,94 @@ function ScheduleInner({
   // light value and put dark grey text on a dark-themed widget.
   const mutedClass = isDark ? "text-gray-400" : "text-gray-400";
 
+  const canPrint = allowPrint && !isLoading && !isError && visibleSessions.length > 0;
+
   return (
-    <div className="rounded-xl overflow-hidden border border-gray-200">
-      <ScheduleHeaderBar
-        title={title}
-        view={view}
-        onChange={setView}
-        allowedViews={allowedTemplates}
-        scopeOptions={
-          filterable
-            ? scopes.map((s) => ({ id: s.id, label: s.label, context: s.context ?? undefined }))
-            : undefined
-        }
-        activeScopeId={activeScope?.id}
-        onScopeChange={setSelectedScopeId}
-      />
-
-      {!isLoading && !isError && allSessions.length > 0 && enabledFilters.length > 0 && (
-        <ScheduleFilterBar
-          sessions={allSessions}
-          matchCount={visibleSessions.length}
-          enabled={enabledFilters}
-          state={filters}
-          onChange={setFilters}
-          weekStart={weekStart}
-          onWeekChange={setWeekStart}
-          dark={isDark}
+    <>
+      <div className="rounded-xl overflow-hidden border border-gray-200 print:hidden">
+        <ScheduleHeaderBar
+          title={title}
+          view={view}
+          onChange={setView}
+          allowedViews={allowedTemplates}
+          scopeOptions={
+            filterable
+              ? scopes.map((s) => ({ id: s.id, label: s.label, context: s.context ?? undefined }))
+              : undefined
+          }
+          activeScopeId={activeScope?.id}
+          onScopeChange={setSelectedScopeId}
+          actions={canPrint ? <PrintScheduleButton onTint /> : undefined}
         />
-      )}
 
-      {isLoading ? (
-        <div className={`flex items-center justify-center py-12 text-sm ${mutedClass}`}>
-          Loading schedule…
-        </div>
-      ) : isError ? (
-        <div className="flex items-center justify-center py-12 text-sm text-red-400">
-          Could not load schedule. Please try again.
-        </div>
-      ) : allSessions.length === 0 ? (
-        <div className={`text-center py-12 text-sm ${mutedClass}`}>
-          No drop-in sessions scheduled this week.
-        </div>
-      ) : visibleSessions.length === 0 ? (
-        // Distinct from the empty week above: the week has sessions, the
-        // filters just hid all of them, and saying so is the difference
-        // between "nothing here" and "you filtered it out".
-        <div className={`text-center py-12 text-sm ${mutedClass}`}>
-          <p>No sessions match your filters this week.</p>
-          <button
-            type="button"
-            onClick={() => setFilters(EMPTY_FILTER_STATE)}
-            className="mt-2 text-xs font-medium underline underline-offset-2"
-            style={{ color: "var(--org-primary, #0066CC)" }}
-          >
-            Clear filters
-          </button>
-        </div>
-      ) : (
-        // A landmark around the schedule itself, so a screen reader can jump
-        // past the header and filters to the sessions.
-        <div className="p-3 sm:p-4" role="region" aria-label="Schedule">
-          <ScheduleView
-            template={view}
-            sessions={visibleSessions}
+        {!isLoading && !isError && allSessions.length > 0 && enabledFilters.length > 0 && (
+          <ScheduleFilterBar
+            sessions={allSessions}
+            matchCount={visibleSessions.length}
+            enabled={enabledFilters}
+            state={filters}
+            onChange={setFilters}
             weekStart={weekStart}
             onWeekChange={setWeekStart}
-            month={month}
-            onMonthChange={setMonth}
-            facilityId={scopedFacilityId}
+            dark={isDark}
           />
-        </div>
+        )}
+
+        {isLoading ? (
+          <div className={`flex items-center justify-center py-12 text-sm ${mutedClass}`}>
+            Loading schedule…
+          </div>
+        ) : isError ? (
+          <div className="flex items-center justify-center py-12 text-sm text-red-400">
+            Could not load schedule. Please try again.
+          </div>
+        ) : allSessions.length === 0 ? (
+          <div className={`text-center py-12 text-sm ${mutedClass}`}>
+            No drop-in sessions scheduled this week.
+          </div>
+        ) : visibleSessions.length === 0 ? (
+          // Distinct from the empty week above: the week has sessions, the
+          // filters just hid all of them, and saying so is the difference
+          // between "nothing here" and "you filtered it out".
+          <div className={`text-center py-12 text-sm ${mutedClass}`}>
+            <p>No sessions match your filters this week.</p>
+            <button
+              type="button"
+              onClick={() => setFilters(EMPTY_FILTER_STATE)}
+              className="mt-2 text-xs font-medium underline underline-offset-2"
+              style={{ color: "var(--org-primary, #0066CC)" }}
+            >
+              Clear filters
+            </button>
+          </div>
+        ) : (
+          // A landmark around the schedule itself, so a screen reader can jump
+          // past the header and filters to the sessions.
+          <div className="p-3 sm:p-4" role="region" aria-label="Schedule">
+            <ScheduleView
+              template={view}
+              sessions={visibleSessions}
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              month={month}
+              onMonthChange={setMonth}
+              facilityId={scopedFacilityId}
+            />
+          </div>
+        )}
+      </div>
+      {canPrint && (
+        <PrintableSchedule
+          title={title}
+          subtitle={printSubtitle}
+          weekStart={weekStart}
+          sessions={visibleSessions}
+          totalCount={allSessions.length}
+          filters={filters}
+          scopeLabel={filterable ? activeScope?.label : null}
+        />
       )}
-    </div>
+    </>
   );
 }
 

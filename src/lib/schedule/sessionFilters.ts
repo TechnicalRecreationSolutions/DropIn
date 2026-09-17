@@ -179,6 +179,29 @@ export function activeFilterCount(state: SessionFilterState): number {
   );
 }
 
+/**
+ * The active filters as short human phrases — `["Search: “swim”", "Days: Tue,
+ * Thu"]` — for the disclaimer on a printed schedule, where the chips that say
+ * the same thing on screen don't exist. Empty when nothing is filtered.
+ */
+export function describeActiveFilters(state: SessionFilterState): string[] {
+  const parts: string[] = [];
+  const search = state.search.trim();
+  if (search) parts.push(`Search: “${search}”`);
+  if (state.activities.length) parts.push(`Activity: ${state.activities.join(", ")}`);
+  if (state.days.length) {
+    const days = [...state.days].sort((a, b) => a - b).map((d) => DAY_LABELS[d]);
+    parts.push(`${days.length === 1 ? "Day" : "Days"}: ${days.join(", ")}`);
+  }
+  if (state.times.length) {
+    const times = TIME_BANDS.filter((b) => state.times.includes(b.value)).map((b) => b.label);
+    parts.push(`Time of day: ${times.join(", ")}`);
+  }
+  if (state.spaces.length) parts.push(`Where: ${state.spaces.join(", ")}`);
+  if (state.ages.length) parts.push(`For: ${state.ages.join(", ")}`);
+  return parts;
+}
+
 /** Parse `widget_configs.enabled_filters` (or a preview query param) into known keys. */
 export function parseEnabledFilters(value: string[] | string | null | undefined): SessionFilterKey[] {
   if (!value) return [];

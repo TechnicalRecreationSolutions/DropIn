@@ -10,6 +10,31 @@ export type SpaceHotspot = Database["public"]["Tables"]["space_hotspots"]["Row"]
 export type MapContextElement =
   Database["public"]["Tables"]["map_context_elements"]["Row"];
 
+/**
+ * One tag as a schedule view renders it (migration 050) — the facility's
+ * vocabulary flattened out of `tags` + `session_template_tags`.
+ *
+ * `color` is non-null by schema: it is the legend entry on a printed board, and
+ * has nothing to fall back to the way a template's colour falls back to its
+ * sport category.
+ */
+export interface SessionTag {
+  id: string;
+  label: string;
+  color: string;
+}
+
+/**
+ * One registration link (migration 050). `label` is required and is the only
+ * thing rendered — "Register here", never the URL itself, which is unreadable
+ * on a printed schedule and meaningless on screen.
+ */
+export interface SessionLink {
+  id: string;
+  label: string;
+  url: string;
+}
+
 /** A hotspot joined with its space's display info, as returned to the public floorplan view. */
 export type SpaceHotspotWithSpace = SpaceHotspot & {
   spaceName: string;
@@ -66,6 +91,33 @@ export type ExpandedSession = {
   templateId: string | null;
   templateName: string | null;
   templateColor: string | null;
+
+  /**
+   * Plain text from the template, shown in the session detail modal (050).
+   * Null for a session with no template, and redacted to null for a `reserved`
+   * occurrence alongside templateName — a description is quite capable of
+   * naming the holder the label just withheld.
+   */
+  templateDescription: string | null;
+
+  /**
+   * The template's tags, in staff-chosen order (050). Cards render the first
+   * two and leave the rest to the modal, so the order is what decides which
+   * two reach a printed schedule.
+   *
+   * Always an array, never null — an untagged session is `[]`, so every view
+   * can map over it without a guard. Empty for `reserved` occurrences seen by
+   * an outsider, for the same reason as templateDescription.
+   */
+  templateTags: SessionTag[];
+
+  /**
+   * Ordered registration links from the template, at most 3 (050). Opened from
+   * the detail modal in a new tab; `label` is always present and is what gets
+   * rendered — never the bare URL. Empty array, never null; emptied for
+   * `reserved` occurrences seen by an outsider.
+   */
+  templateLinks: SessionLink[];
 
   /**
    * What this booking does to the space (migration 046). 'drop_in' is

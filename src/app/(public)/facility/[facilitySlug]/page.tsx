@@ -2,7 +2,8 @@ import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import Link from "next/link";
 import { MapPin, Globe, Phone, Clock } from "lucide-react";
-import { cacheLife } from "next/cache";
+import { cacheLife, cacheTag } from "next/cache";
+import { widgetConfigCacheTag } from "@/lib/cache/tags";
 import { createPublicClient } from "@/lib/supabase/public";
 import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -41,6 +42,11 @@ async function getFacilityPageData(facilitySlug: string) {
     .maybeSingle();
 
   if (!facility) return null;
+
+  // This entry carries the org's widget settings (colour, views, filters, print
+  // button), and "hours" is far too long for a publish to take to appear here.
+  // PATCH /api/widget-config expires the tag.
+  cacheTag(widgetConfigCacheTag(facility.org_id));
 
   // Both depend only on the facility row, so they are issued together.
   const [{ data: scheduleGroups }, { data: widgetConfig }, { data: org }] = await Promise.all([
@@ -112,15 +118,17 @@ export default async function FacilityDetailPage({ params }: PageProps) {
   // The same setting as the embed: an org configures its visitor filters once,
   // on the widget page, and both public surfaces honour it.
   const enabledFilters = parseEnabledFilters(widgetConfig?.enabled_filters ?? DEFAULT_ENABLED_FILTERS);
+  // Likewise the Print button (migration 051). `=== true`: absent before 051 lands.
+  const allowPrint = widgetConfig?.allow_print === true;
 
   return (
-    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+    <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
       {/* Breadcrumb */}
       {/* The middle crumb used to be "Facilities", pointing at the cross-org
           search index; later it linked to the org's own public page. Both are
           gone (see docs/PLAN.md §3a) — the org name is shown as plain text
           rather than left dangling as a link to nowhere. */}
-      <nav className="text-sm text-muted-foreground mb-6">
+      <nav className="text-sm text-muted-foreground mb-6 print:hidden">
         <Link href="/" className="hover:text-foreground transition-colors">Home</Link>
         <span className="mx-2">›</span>
         {org && (
@@ -132,10 +140,10 @@ export default async function FacilityDetailPage({ params }: PageProps) {
         <span className="text-foreground">{facility.name}</span>
       </nav>
 
-      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-8">
+      <div className="lg:grid lg:grid-cols-[1fr_320px] lg:gap-8 print:block">
         {/* Left: Schedule + heading */}
         <div>
-          <div className="flex items-center gap-3 mb-1">
+          <div className="flex items-center gap-3 mb-1 print:hidden">
             {org?.logo_url && (
               <span className="relative size-10 sm:size-12 rounded-lg shrink-0 overflow-hidden border border-border bg-card">
                 <OrgImage src={org.logo_url} alt={`${org.name} logo`} sizes="48px" className="object-contain" />
@@ -143,28 +151,30 @@ export default async function FacilityDetailPage({ params }: PageProps) {
             )}
             <h1 className="text-2xl sm:text-3xl font-bold text-foreground">{facility.name}</h1>
           </div>
-          <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4">
+          <div className="flex items-center gap-1.5 text-muted-foreground text-sm mb-4 print:hidden">
             <MapPin className="w-4 h-4 shrink-0" />
             <span>{facility.address_line1}, {facility.city}, {facility.province} {facility.postal_code}</span>
           </div>
 
           {facility.description && (
-            <p className="text-muted-foreground text-sm mb-6 max-w-2xl">{facility.description}</p>
+            <p className="text-muted-foreground text-sm mb-6 max-w-2xl print:hidden">{facility.description}</p>
           )}
 
           {/* Weekly schedule — client component for interactivity */}
-          <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-border overflow-hidden">
+          <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-border overflow-hidden print:border-0">
             <FacilityScheduleClient
               orgId={facility.org_id}
               facilityId={facility.id}
               allowedTemplates={allowedTemplates}
               enabledFilters={enabledFilters}
+              allowPrint={allowPrint}
+              printSubtitle={[org?.name, facility.name].filter(Boolean).join(" · ")}
             />
           </OrgThemeProvider>
         </div>
 
         {/* Right sidebar: info + schedules list */}
-        <aside className="mt-8 lg:mt-0 space-y-5">
+        <aside className="mt-8 lg:mt-0 space-y-5 print:hidden">
           {/* Contact / info card */}
           <div className="bg-card rounded-xl border border-border p-5 space-y-3">
             <h2 className="font-semibold text-foreground">Information</h2>

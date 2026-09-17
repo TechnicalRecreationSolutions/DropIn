@@ -9,6 +9,7 @@ import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import { getSessionCardStyle } from "./sessionCardColor";
+import SessionTags from "./SessionTags";
 import { DAYS, dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
@@ -184,6 +185,7 @@ export default function WeeklyScheduleGrid({
                             <p className="text-xs opacity-75 leading-tight mt-0.5">
                               {formatSessionTime(session.start)}–{formatSessionTime(session.end)}
                             </p>
+                            <SessionTags tags={session.templateTags} className="mt-1" />
                             {isLive && (
                               <span
                                 className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide text-white px-1.5 py-0.5 rounded-full"

@@ -463,6 +463,9 @@ export type Database = {
           department_id: string | null;
           name: string;
           color: string | null;
+          // Plain text shown in the public session detail modal (050). No
+          // markdown — see the migration header.
+          description: string | null;
           default_duration_minutes: number;
           // Seed values for a session placed from this template (047). Defaults,
           // not constraints — sessions.occupancy_kind/disclosure (046) remain the
@@ -481,6 +484,7 @@ export type Database = {
           | "updated_at"
           | "department_id"
           | "color"
+          | "description"
           | "occupancy_kind"
           | "disclosure"
           | "display_order"
@@ -488,10 +492,14 @@ export type Database = {
         > & {
           department_id?: string | null;
           color?: string | null;
+          description?: string | null;
           occupancy_kind?: "drop_in" | "program" | "rental" | "closure";
           disclosure?: "public" | "reserved" | "internal";
           display_order?: number;
           is_active?: boolean;
+          // Writable: no updated_at trigger on this table, and PATCH sets it on
+          // every write so a tags-only or links-only update still touches a row.
+          updated_at?: string;
         };
         Update: Partial<
           Database["public"]["Tables"]["session_templates"]["Insert"]
@@ -511,6 +519,81 @@ export type Database = {
         >;
         Update: Partial<
           Database["public"]["Tables"]["session_template_spaces"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      // The facility's tag vocabulary (050). Deliberately a table rather than a
+      // text[] on the template: three coordinators typing "Women's Only" three
+      // ways makes the public legend useless. Unique per facility on
+      // lower(trim(label)).
+      tags: {
+        Row: {
+          id: string;
+          org_id: string;
+          facility_id: string;
+          label: string;
+          // NOT NULL, unlike session_templates.color — the colour *is* the
+          // legend entry on a printed schedule and has nothing to fall back to.
+          color: string;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["tags"]["Row"],
+          "id" | "created_at" | "updated_at" | "display_order"
+        > & {
+          display_order?: number;
+          // Writable: there is no updated_at trigger on this table, so a rename
+          // or recolour has to set it explicitly (PATCH /api/tags/[id]).
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["tags"]["Insert"]>;
+        Relationships: [];
+      };
+      session_template_tags: {
+        Row: {
+          session_template_id: string;
+          tag_id: string;
+          org_id: string;
+          // Which two reach a session card; the rest go to the detail modal.
+          display_order: number;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_template_tags"]["Row"],
+          "created_at" | "display_order"
+        > & {
+          display_order?: number;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["session_template_tags"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      session_template_links: {
+        Row: {
+          id: string;
+          session_template_id: string;
+          org_id: string;
+          // Required, and never substituted by the URL. "Register here", not
+          // "https://anc.ca.saanich.bc.ca/mrmfinal/...".
+          label: string;
+          // http/https only, CHECKed in the database as well as the route —
+          // this value ends up in an href on a public page.
+          url: string;
+          // 0..2, UNIQUE per template. That pair is the "max 3" rule.
+          display_order: number;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["session_template_links"]["Row"],
+          "id" | "created_at" | "display_order"
+        > & {
+          display_order?: number;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["session_template_links"]["Insert"]
         >;
         Relationships: [];
       };
@@ -680,6 +763,8 @@ export type Database = {
           allowed_templates: ("grid" | "list" | "map" | "floorplan" | "board")[];
           /** 044: which visitor-facing schedule filters the widget renders. */
           enabled_filters: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
+          /** 051: whether visitors get a Print button. */
+          allow_print: boolean;
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -699,6 +784,7 @@ export type Database = {
           | "custom_title"
           | "allowed_templates"
           | "enabled_filters"
+          | "allow_print"
           | "facility_id"
           | "department_id"
           | "updated_at"
@@ -715,6 +801,7 @@ export type Database = {
           custom_title?: string | null;
           allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "board")[];
           enabled_filters?: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
+          allow_print?: boolean;
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;
@@ -823,7 +910,9 @@ export type Database = {
             | "facility_view"
             | "schedule_view"
             | "view_change"
-            | "session_duration";
+            | "session_duration"
+            // Registration link followed from the session detail modal (050).
+            | "link_click";
           // Renamed from program_id in 011_collapse_program_into_schedule_group.sql
           schedule_group_id: string | null;
           facility_id: string | null;
@@ -939,7 +1028,9 @@ export type Database = {
             | "facility_view"
             | "schedule_view"
             | "view_change"
-            | "session_duration";
+            | "session_duration"
+            // Registration link followed from the session detail modal (050).
+            | "link_click";
           schedule_group_id: string | null;
           facility_id: string | null;
           view_template: "grid" | "list" | "map" | "floorplan" | "board" | null;

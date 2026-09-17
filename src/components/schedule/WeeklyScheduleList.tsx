@@ -14,6 +14,7 @@ import { dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
+import SessionTags from "./SessionTags";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { DAYS } from "@/lib/schedule/weekGeometry";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
@@ -229,6 +230,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                                 {[session.spaceNames.join(", "), session.locationDetail].filter(Boolean).join(" · ")}
                               </span>
                             )}
+                            <SessionTags tags={session.templateTags} className="mt-1" />
                           </span>
                           {isLive && (
                             <span

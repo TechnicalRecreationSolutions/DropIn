@@ -8,7 +8,7 @@ program coordinator or communications officer, not a developer — see
 
 | | Where it lives | How it changes | Also affects |
 | --- | --- | --- | --- |
-| **Published settings** — views + default view, brand colour, heading, visitor filters | `widget_configs` / `widget_config_scopes` | The single **Publish changes** bar | The org's public schedule page (`/facility/[slug]`) and every already-pasted embed, immediately |
+| **Published settings** — views + default view, brand colour, heading, visitor filters, print button | `widget_configs` / `widget_config_scopes` | The single **Publish changes** bar | The org's public schedule page (`/facility/[slug]`) and every already-pasted embed, immediately |
 | **Snippet options** — theme, height, embed method, and the optional single-facility narrowing | Only inside the snippet on the customer's site | Re-copy the code and re-paste it | Nothing until then |
 
 The old single-card layout interleaved the two, which is what produced the recurring "I changed
@@ -21,10 +21,11 @@ excepted, as a visual choice, which is why the code panel flags itself as stale 
 | File | Role |
 | --- | --- |
 | `WidgetStudio.tsx` | Orchestrator: config state, dirty tracking, publish, preview URL, the four steps |
-| `StepCard.tsx` | Numbered step chrome |
+| `ui/step-card.tsx` | Numbered step chrome — shared with the session-template form |
 | `LayoutPicker.tsx` + `LayoutThumbnail.tsx` | Step 2 — which views are enabled, and which loads first |
 | `BrandColorField.tsx` | Step 2 — presets, hex entry, white-text contrast warning |
 | `VisitorFilterToggles.tsx` | Step 3 — which general filters (search/activity/day/time/where/age/week) visitors get |
+| `PrintToggle.tsx` | Step 3 — the visitor Print button (`allow_print`, migration 051). Disabled with a note until 051 is applied: the studio only sends `allowPrint` when the loaded row has the column, because naming a missing column fails the whole publish |
 | `FilterEditor.tsx` | Step 1, whole — the schedule list: empty = everything, one = that schedule, 2+ = a visitor switcher. Collapsible rows with breadcrumbs and publish warnings |
 | `InstallPanel.tsx` | Step 4 — embed method, snippet, height, per-page facility narrowing, CMS instructions |
 | `PreviewWindow.tsx` | Near-fullscreen preview dialog: the real `/widget/[orgId]` in an iframe, desktop/tablet/phone framing, quick-tweak strip |
@@ -44,7 +45,7 @@ excepted, as a visual choice, which is why the code panel flags itself as stale 
   repeats the two most visual controls (brand colour, light/dark) on a strip along its bottom;
   they write to the same state the steps do.
 - **The preview shows unsaved state** via preview-only query params on `/widget/[orgId]`
-  (`preview=1` plus `templates`, `primary`, `title`). A real embed never sends `preview`, so it
+  (`preview=1` plus `templates`, `primary`, `title`, `filters`, `print`). A real embed never sends `preview`, so it
   always renders saved values; `primary` is re-validated server-side because it reaches a style
   attribute. The iframe `src` is debounced (400ms) so typing a hex doesn't reload it per keystroke.
 - **`previewVersion`** forces a remount after a publish, when the `src` itself hasn't changed.
@@ -57,6 +58,13 @@ excepted, as a visual choice, which is why the code panel flags itself as stale 
   facility's entries rather than ignoring it.
 - **`savedState`** — not just a signature — is the baseline, so Discard can restore it after a
   publish without re-reading a stale react-query cache.
+- **"Immediately" on `/facility/[slug]` needs a cache expiry.** That page's data is
+  `"use cache"` with `cacheLife("hours")`, and until 2026-09-16 nothing expired it,
+  so a publish (colour, views, filters, print button) reached the embed at once and the
+  facility page hours later. The entry is now tagged `widgetConfigCacheTag(orgId)`
+  (`src/lib/cache/tags.ts`), and the PATCH expires it with `{ expire: 0 }` right after
+  the row is written. Anything else that caches this row needs the same tag.
+  Facility, schedule and session edits still don't expire it; that's a separate gap.
 - **`widget_configs.secondary_color` is unread by anything** and no longer has a control. Don't
   reintroduce one without a place it actually renders.
 

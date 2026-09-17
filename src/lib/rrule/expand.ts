@@ -13,6 +13,9 @@ type FacilityRow = Database["public"]["Tables"]["facilities"]["Row"];
 type DepartmentRow = Database["public"]["Tables"]["departments"]["Row"];
 type SpaceRow = Database["public"]["Tables"]["spaces"]["Row"];
 type SessionTemplateRow = Database["public"]["Tables"]["session_templates"]["Row"];
+type TagRow = Database["public"]["Tables"]["tags"]["Row"];
+type SessionTemplateLinkRow =
+  Database["public"]["Tables"]["session_template_links"]["Row"];
 
 export type SessionWithRelations = SessionRow & {
   // Nullable: an embedded PostgREST filter (e.g. schedule_groups.department_id=eq...)
@@ -31,8 +34,27 @@ export type SessionWithRelations = SessionRow & {
   session_spaces: {
     spaces: Pick<SpaceRow, "id" | "name" | "display_order"> | null;
   }[];
-  // Null when the session has no template_id, or the template was archived/deleted.
-  session_templates: Pick<SessionTemplateRow, "id" | "name" | "color"> | null;
+  // Null when the session has no template_id, or the template was archived/
+  // deleted — and, before migration 050, for every anonymous caller, because
+  // session_templates had no public-read policy and PostgREST nulls an embedded
+  // resource that RLS filters. That is why the public schedule showed the
+  // schedule *group* name on every card. 050 adds the policy; the nullability
+  // here is still real for the other two reasons.
+  session_templates:
+    | (Pick<SessionTemplateRow, "id" | "name" | "color" | "description"> & {
+        // Presentation only, both nested one level deeper by PostgREST. The
+        // ordering these arrive in is not guaranteed by the embed, so both are
+        // sorted on display_order below rather than trusted.
+        session_template_tags: {
+          display_order: number;
+          tags: Pick<TagRow, "id" | "label" | "color"> | null;
+        }[];
+        session_template_links: Pick<
+          SessionTemplateLinkRow,
+          "id" | "label" | "url" | "display_order"
+        >[];
+      })
+    | null;
 };
 
 /** One resolved occurrence's time range, plus whether an exception modified it. */
@@ -160,6 +182,28 @@ export function expandSessions(
       .filter((space) => space !== null)
       .sort((a, b) => a.display_order - b.display_order || a.name.localeCompare(b.name));
 
+    const template = session.session_templates;
+
+    // Built once per session and shared by reference across every occurrence of
+    // it, unlike spaceIds/spaceNames which are rebuilt per occurrence below.
+    // A 120-day org-wide expand produces tens of thousands of occurrences, and
+    // these are read-only presentation data — nothing downstream mutates them
+    // in place (applyDisclosure and subtractExclusiveClaims both spread into
+    // fresh objects). Keep it that way: a mutation here would reach every
+    // occurrence of the session at once.
+    const templateTags = (template?.session_template_tags ?? [])
+      .filter((row) => row.tags !== null)
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((row) => ({
+        id: row.tags!.id,
+        label: row.tags!.label,
+        color: row.tags!.color,
+      }));
+
+    const templateLinks = (template?.session_template_links ?? [])
+      .sort((a, b) => a.display_order - b.display_order)
+      .map((link) => ({ id: link.id, label: link.label, url: link.url }));
+
     const occurrences = expandOccurrenceTimes(session, exceptions, params);
 
     for (const occ of occurrences) {
@@ -184,9 +228,12 @@ export function expandSessions(
         departmentName: department?.name ?? null,
         spaceIds: attachedSpaces.map((s) => s.id),
         spaceNames: attachedSpaces.map((s) => s.name),
-        templateId: session.session_templates?.id ?? null,
-        templateName: session.session_templates?.name ?? null,
-        templateColor: session.session_templates?.color ?? null,
+        templateId: template?.id ?? null,
+        templateName: template?.name ?? null,
+        templateColor: template?.color ?? null,
+        templateDescription: template?.description ?? null,
+        templateTags,
+        templateLinks,
         occupancyKind: session.occupancy_kind,
         disclosure: session.disclosure,
         // Staff-only, and deliberately not sourced from the session row: the
