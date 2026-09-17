@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { DIRECTORY_CACHE_TAG } from "@/lib/cache/tags";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
 
@@ -54,6 +56,10 @@ export async function DELETE(
   if (!data) {
     return NextResponse.json({ error: "Facility not found" }, { status: 404 });
   }
+
+  // A deleted facility must leave the public directory now, not after the
+  // cache's next refresh (src/lib/directory/listings.ts).
+  revalidateTag(DIRECTORY_CACHE_TAG, { expire: 0 });
 
   return NextResponse.json({ ok: true });
 }

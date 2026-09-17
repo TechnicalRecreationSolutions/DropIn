@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server";
+import { revalidateTag } from "next/cache";
+import { DIRECTORY_CACHE_TAG } from "@/lib/cache/tags";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
@@ -126,6 +128,7 @@ export async function POST(request: Request) {
         { status: 500 }
       );
     }
+    expireDirectory();
     return NextResponse.json({ ok: true, facilityId });
   }
 
@@ -138,5 +141,17 @@ export async function POST(request: Request) {
     );
   }
 
+  expireDirectory();
   return NextResponse.json({ ok: true, facilityId: facility.id });
+}
+
+/**
+ * Any facility save can change the public directory: the listing flag, the
+ * publish state, the name, the address or its coordinates. Expired on every
+ * save rather than only when one of those changed — the directory is one
+ * cheap query set, and a missed case would leave a centre invisible.
+ * `expire: 0` so the staff member who just opted in sees it on /find.
+ */
+function expireDirectory() {
+  revalidateTag(DIRECTORY_CACHE_TAG, { expire: 0 });
 }

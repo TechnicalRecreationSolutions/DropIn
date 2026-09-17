@@ -36,6 +36,11 @@ export const RATE_LIMITS = {
    *  join plus RRULE expansion, and unlike the routes above this one has no
    *  auth requirement at all. */
   sessionsExpand: { limit: 180, windowSeconds: 60 },
+  /** The public directory (/api/public/v1/directory). No auth, and a future
+   *  native app will call it too. Each call is served from a shared cache, so
+   *  this limit is about scraping and floods, not database cost; a person
+   *  typing into a search box stays well under it. */
+  directory: { limit: 120, windowSeconds: 60 },
   /** Creates Stripe customers and checkout sessions — a paid API. */
   checkout: { limit: 10, windowSeconds: 300 },
   /** Parses a 10 MB spreadsheet in memory. CPU-bound. */
