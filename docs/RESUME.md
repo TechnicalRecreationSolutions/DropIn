@@ -10,16 +10,13 @@ records of finished work, not live handoffs — see [Related docs](#related-docs
 
 ## State right now
 
-**Three branch positions, and only one of them is deployed:**
-
-| Ref | At | What it holds |
-|---|---|---|
-| `origin/main` (deployed) | `3f6e085` | Everything up to the session-template delete. **Production runs this.** |
-| local `main` | `fb5881f` | + the internal-view track (10 commits, migrations 046–049) + tags/links (050) + the print button (051). **Not pushed**: the push was blocked in the agent session, so run it yourself. |
-| `feat/directory` | local `main` + 6 commits (`4d43e47`…) | The resident directory, phases 1–5 (migration 052) and the L5 privacy fix. **Not pushed.** |
-
-Pushing `main` deploys the internal-view work. That's intended: it was
-fast-forwarded on purpose so the directory could build on it.
+**Everything is pushed and deployed.** On 2026-09-17, `main` was pushed with
+the internal-view track (migrations 046–049), tags/links (050) and the print
+button (051), then fast-forwarded to `feat/directory` (migration 052, the
+resident directory and the L5 privacy fix) and pushed again. Vercel had it live
+in about two minutes; `/robots.txt`, `/find` and the directory API answered
+from production. `feat/internal-view` and `feat/directory` are on GitHub too,
+and both are fully contained in `main`.
 
 - Migrations **through `052`** are applied to the hosted database, checked by
   querying it (050 and 051 by column probe, 052 by `verify-ae`). Production code
@@ -134,14 +131,16 @@ The ones that matter most:
 - [ ] **Login rate limiting** — Supabase dashboard. Cannot be done in app code:
       `LoginForm` calls `signInWithPassword()` straight from the browser, so the
       request never reaches this app.
-- [ ] **Browser-verify the CSP in production.** Done on 2026-09-16 against a
-      *local production build* by `scripts/verify/verify-ai.mjs` (`/`, `/find`,
-      a facility page, and the widget framed on another origin: all clean). Once
-      the directory is deployed, run
-      `node scripts/verify/verify-ai.mjs --app=https://drop-in-ten.vercel.app`.
-- [ ] **Clear the rate-limit table and schedule its sweep.** It had kept raw IP
-      addresses (SECURITY.md → L5, fixed in code). Run
-      `SELECT public.sweep_rate_limits();` once, then schedule it with `pg_cron`.
+- [x] **Browser-verify the CSP in production.** Done 2026-09-17:
+      `node scripts/verify/verify-ai.mjs --app=https://drop-in-ten.vercel.app`
+      passed 22/22 (`/`, `/find`, a facility page, and the widget framed on
+      another origin, with a positive control).
+- [x] **Clear the rate-limit table.** Done 2026-09-17: the sweep removed 249
+      stale rows, and the 2 remaining raw-IP rows (written by the old production
+      build) were deleted once the fix was live. A fresh production request was
+      confirmed to store a hashed key.
+- [ ] **Schedule the rate-limit sweep** with `pg_cron` (SECURITY.md → owner
+      actions). It still only runs when someone runs it by hand.
 - [ ] **Custom domain, then raise HSTS.** `max-age` is currently **3600** — a
       deliberate low value for a domain still in flux. Raise it once the real
       domain is in place, not before.
@@ -182,14 +181,14 @@ broken at least once to prove it catches the bug it targets.
 
 ### Before the directory is worth visiting
 
-1. **Push** `main`, then merge `feat/directory` into it. It's a fast-forward;
-   nothing else has landed on `main` since. Push again, and Vercel deploys.
+1. ~~Push and deploy~~ — done 2026-09-17.
 2. **List the real centres.** On each facility's edit page, tick "List in the
    Dropin directory". Nothing is listed yet, so `/find` says "No centres are
    listed yet".
 3. **Give them a public schedule** (see the section above). A listed centre
    with an empty week is the first thing a resident will see.
-4. Run `verify-ai` against production, and do the two owner items above.
+4. ~~Run `verify-ai` against production and clear the rate-limit table~~ — done
+   2026-09-17. Scheduling the sweep is still open.
 
 ### Things this session found that are worth carrying forward
 

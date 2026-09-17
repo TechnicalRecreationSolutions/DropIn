@@ -49,11 +49,10 @@ Two caveats on "0 open", because the number is easy to over-read:
 
 - **These are code findings.** [Owner-only actions](#owner-only-actions) are
   still outstanding and one of them — custom SMTP — is a launch blocker.
-- **M7's CSP has been verified in a browser against a local production build,
-  not yet against the deployment.** `scripts/verify/verify-ai.mjs` (2026-09-16)
-  loads `/`, `/find`, a facility page and the widget framed on another origin
-  with the policy enforced. Re-run it with `--app=` pointed at production once
-  the directory work is deployed.
+- **M7's CSP is now verified in a browser against production** (2026-09-17,
+  `scripts/verify/verify-ai.mjs --app=https://drop-in-ten.vercel.app`, 22/22):
+  `/`, `/find`, a facility page and the widget framed on another origin, with
+  the policy enforced and a positive control.
 
 **2026-09-16, trust boundary moved** (rule 3): the resident directory added a
 public, unauthenticated API (`/api/public/v1/directory`), a public page that
@@ -101,8 +100,12 @@ the `directory:` bucket that recorded it is a 32-hex digest. **Falsified:**
 restoring the raw key turned that check red with `directory:::1`. The
 falsification row was deleted afterwards.
 
-**Left for the owner:** 3 rows keyed by a raw IP written before the fix, and
-the unscheduled sweep. See [Owner-only actions](#owner-only-actions).
+**Cleanup, 2026-09-17, after the fix was deployed:** `sweep_rate_limits()`
+removed 249 stale rows. It keeps rows under a day old, so the 2 raw-IP rows
+still being written by the old production build survived it; they were deleted
+directly once production was hashing. A fresh production request then wrote a
+hashed `directory:` key and no raw-IP row remained. The sweep itself is still
+unscheduled; see [Owner-only actions](#owner-only-actions).
 
 ### H4 — Dependency vulnerabilities (12 → 0)
 **High · closed 2026-08-07 · no migration**
@@ -819,9 +822,8 @@ Not fixable from the codebase. Unticked items are outstanding.
       Upgrade on the deployed site.
 - [ ] Verify Supabase PITR/backups are on, and run a restore test
 - [ ] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`).
-      **Still unscheduled as of 2026-09-16** (249 of 258 rows were over a day
-      old). Running `SELECT public.sweep_rate_limits();` once also removes the
-      3 rows that still hold a raw IP from before L5.
+      **Still unscheduled.** It was run once by hand on 2026-09-17 (249 rows
+      removed). Note it only deletes rows older than a day.
 - [ ] Review Supabase auth logs for any `updateUser` call setting a `role` field
       *(retroactive check for C1 exploitation)*
 - [ ] Set up alerting: repeated auth failures, 4xx/5xx spikes, unusual per-user spend
@@ -829,14 +831,14 @@ Not fixable from the codebase. Unticked items are outstanding.
       `<Placeholder>` values** — legal entity name, jurisdiction, contact
       address, retention periods, liability cap. They render as visible amber
       highlights, so the pages are launch-blocking by construction *(M8)*.
-- [ ] **Load `/`, a facility page and an embedded widget in a browser with the
-      CSP live** and confirm a clean console. Headers are verified; runtime in
+- [x] **Load `/`, a facility page and an embedded widget in a browser with the
+      CSP live** and confirm a clean console. **Done in production 2026-09-17**
+      (`verify-ai`, 22/22). Headers are verified; runtime in
       production is not *(M7)*. **2026-09-16:** done against a local production
       build by `scripts/verify/verify-ai.mjs` (22 checks, including the widget
       framed on a different origin and a positive control proving violations
-      are caught). Remaining: run it with `--app=` set to the deployment once
-      the directory work is live. It writes throwaway fixtures to the database
-      and removes them afterwards. The policy tightened on 2026-08-12: with Mapbox
+      are caught), then against production on 2026-09-17. It writes throwaway
+      fixtures to the database and removes them afterwards. The policy tightened on 2026-08-12: with Mapbox
       gone it allows **no third-party origin at all**, and `blob:` was dropped
       from `img-src`/`worker-src`/`child-src` because mapbox-gl's tile worker was
       its only user. Verified clean locally against the new policy.
