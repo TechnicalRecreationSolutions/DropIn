@@ -104,8 +104,8 @@ falsification row was deleted afterwards.
 removed 249 stale rows. It keeps rows under a day old, so the 2 raw-IP rows
 still being written by the old production build survived it; they were deleted
 directly once production was hashing. A fresh production request then wrote a
-hashed `directory:` key and no raw-IP row remained. The sweep itself is still
-unscheduled; see [Owner-only actions](#owner-only-actions).
+hashed `directory:` key and no raw-IP row remained. The sweep has run hourly
+since migration `053` (same day).
 
 ### H4 — Dependency vulnerabilities (12 → 0)
 **High · closed 2026-08-07 · no migration**
@@ -821,9 +821,12 @@ Not fixable from the codebase. Unticked items are outstanding.
       different strings. Verify with Stripe dashboard in Live mode, or by clicking
       Upgrade on the deployed site.
 - [ ] Verify Supabase PITR/backups are on, and run a restore test
-- [ ] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`).
-      **Still unscheduled.** It was run once by hand on 2026-09-17 (249 rows
-      removed). Note it only deletes rows older than a day.
+- [x] Enable `pg_cron` and schedule `sweep_rate_limits()` hourly (migration `025`).
+      **Done 2026-09-17 by migration `053`** (job `sweep-rate-limits`,
+      `0 * * * *`; `cron.schedule` returned job id 1). It had been run once by
+      hand earlier that day (249 rows removed). It only deletes rows older than a
+      day. Confirm a successful run with the `cron.job_run_details` query at the
+      bottom of `053`.
 - [ ] Review Supabase auth logs for any `updateUser` call setting a `role` field
       *(retroactive check for C1 exploitation)*
 - [ ] Set up alerting: repeated auth failures, 4xx/5xx spikes, unusual per-user spend

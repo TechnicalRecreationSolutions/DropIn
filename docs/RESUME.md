@@ -139,8 +139,9 @@ The ones that matter most:
       stale rows, and the 2 remaining raw-IP rows (written by the old production
       build) were deleted once the fix was live. A fresh production request was
       confirmed to store a hashed key.
-- [ ] **Schedule the rate-limit sweep** with `pg_cron` (SECURITY.md → owner
-      actions). It still only runs when someone runs it by hand.
+- [x] **Schedule the rate-limit sweep.** Done 2026-09-17 with migration `053`
+      (pg_cron job `sweep-rate-limits`, hourly; `cron.schedule` returned job 1).
+      Its first run hadn’t been checked yet; the query is at the bottom of `053`.
 - [ ] **Custom domain, then raise HSTS.** `max-age` is currently **3600** — a
       deliberate low value for a domain still in flux. Raise it once the real
       domain is in place, not before.
@@ -188,7 +189,7 @@ broken at least once to prove it catches the bug it targets.
 3. **Give them a public schedule** (see the section above). A listed centre
    with an empty week is the first thing a resident will see.
 4. ~~Run `verify-ai` against production and clear the rate-limit table~~ — done
-   2026-09-17. Scheduling the sweep is still open.
+   2026-09-17, and the sweep is now scheduled (migration `053`).
 
 ### Things this session found that are worth carrying forward
 
