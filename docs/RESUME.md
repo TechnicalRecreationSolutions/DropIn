@@ -16,7 +16,7 @@ records of finished work, not live handoffs — see [Related docs](#related-docs
 |---|---|---|
 | `origin/main` (deployed) | `3f6e085` | Everything up to the session-template delete. **Production runs this.** |
 | local `main` | `fb5881f` | + the internal-view track (10 commits, migrations 046–049) + tags/links (050) + the print button (051). **Not pushed**: the push was blocked in the agent session, so run it yourself. |
-| `feat/directory` | local `main` + 5 commits | The resident directory, phases 1–5 (migration 052). **Not pushed.** |
+| `feat/directory` | local `main` + 6 commits (`4d43e47`…) | The resident directory, phases 1–5 (migration 052) and the L5 privacy fix. **Not pushed.** |
 
 Pushing `main` deploys the internal-view work. That's intended: it was
 fast-forwarded on purpose so the directory could build on it.
@@ -175,7 +175,7 @@ route, Nominatim for geocoding, free on every plan, and launch now.
 | `22e2763` | Phase 2: `GET /api/public/v1/directory`, versioned, cached and rate-limited. |
 | `087eda5` | Phase 3: `/find`, with search, sport chips, "Use my location" and saved centres, built for phones first. |
 | `ba1784f` | Phase 4: `sitemap.xml`, `robots.txt`, canonical tags and a breadcrumb back to `/find`. Also fixes a pre-existing bug: **facility pages stayed stale for hours after any edit**; they now refresh on save and delete. |
-| (phase 5) | CSP checked in a browser (`verify-ai`). **L5**: the rate limiter stored raw IPs, now hashed. `/privacy` corrected (local storage, location, Nominatim). Docs. |
+| `e58e02f`, `bb223d4` | Phase 5: CSP checked in a browser (`verify-ai`). **L5**: the rate limiter stored raw IPs, now hashed. `/privacy` corrected (local storage, location, Nominatim). Docs. |
 
 Harnesses `verify-ae` through `verify-ai` all pass, and each was deliberately
 broken at least once to prove it catches the bug it targets.
