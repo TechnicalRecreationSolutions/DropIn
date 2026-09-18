@@ -67,3 +67,18 @@ scripts/verify/.probe.mjs
 # ours to redistribute. Read them locally; they stay out of the repo.
 *.xlsx
 Pool Layout Map with depths.pdf
+
+# Verification-harness artifacts.
+#
+# verify-ad, verify-ag and verify-aj default `--out=` to "." (the repo root),
+# so running any of them drops PDFs and PNGs next to package.json. They are
+# evidence from one run against one throwaway fixture, not source — re-run the
+# harness to regenerate. The --shots= harnesses (aa, ac, q, z) write nothing
+# unless you pass a directory, so they need no entry here.
+#
+# Anchored with a leading slash on purpose: an unanchored *.pdf would also
+# shadow "SCP Lengths Schedule Aug 10-16.pdf", which IS tracked.
+/verify-*.png
+/verify-*.pdf
+/zones-desktop.png
+/zones-mobile.png
