@@ -10,6 +10,8 @@ const CreateSpaceSchema = z.object({
   name: z.string().min(1),
   description: z.string().nullish(),
   capacity: z.number().int().positive().nullish(),
+  /** Free-text grouping label (migration 054) — display only, see SpacesPanel. */
+  zone_name: z.string().trim().max(60).nullish(),
 });
 
 /**
@@ -29,7 +31,8 @@ export async function GET(request: Request) {
     .from("spaces")
     .select("*")
     .eq("org_id", membership.org_id)
-    .order("display_order", { ascending: true });
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   if (facilityId) query = query.eq("facility_id", facilityId);
   if (departmentId) query = query.eq("department_id", departmentId);
@@ -79,6 +82,19 @@ export async function POST(request: Request) {
     if (!department) return NextResponse.json({ error: "Department not found" }, { status: 404 });
   }
 
+  // Append rather than pile up at 0. Every space created before migration 054
+  // took the column default, so eight lanes all sorted equal and Postgres
+  // returned them in heap order — which is why lane order looked random and
+  // changed after an edit. New rows now get a real position.
+  const { data: lastPlaced } = await supabase
+    .from("spaces")
+    .select("display_order")
+    .eq("org_id", membership.org_id)
+    .eq("facility_id", parsed.data.facility_id)
+    .order("display_order", { ascending: false })
+    .limit(1)
+    .maybeSingle();
+
   const { data, error } = await supabase
     .from("spaces")
     .insert({
@@ -89,6 +105,8 @@ export async function POST(request: Request) {
       slug: slugify(parsed.data.name),
       description: parsed.data.description ?? null,
       capacity: parsed.data.capacity ?? null,
+      zone_name: parsed.data.zone_name || null,
+      display_order: (lastPlaced?.display_order ?? 0) + 1,
       is_published: false,
     })
     .select("*")

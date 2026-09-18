@@ -8,9 +8,13 @@ interface SpaceFormProps {
   facilityId: string;
   spaceId?: string;
   departments: { id: string; name: string }[];
+  /** Zone labels already used at this facility — offered as suggestions so the
+   *  free-text field does not quietly sprout "Main pool" alongside "Main Pool". */
+  zoneNames?: string[];
   defaultValues?: {
     name?: string;
     department_id?: string | null;
+    zone_name?: string | null;
     description?: string;
     capacity?: number | null;
     is_published?: boolean;
@@ -23,6 +27,7 @@ export default function SpaceForm({
   facilityId,
   spaceId,
   departments,
+  zoneNames = [],
   defaultValues,
   redirectTo,
 }: SpaceFormProps) {
@@ -33,6 +38,7 @@ export default function SpaceForm({
   const [form, setForm] = useState({
     name: defaultValues?.name ?? "",
     department_id: defaultValues?.department_id ?? "",
+    zone_name: defaultValues?.zone_name ?? "",
     description: defaultValues?.description ?? "",
     capacity: defaultValues?.capacity != null ? String(defaultValues.capacity) : "",
     is_published: defaultValues?.is_published ?? false,
@@ -69,6 +75,7 @@ export default function SpaceForm({
         body: JSON.stringify({
           facility_id: facilityId,
           department_id: form.department_id || null,
+          zone_name: form.zone_name.trim() || null,
           name: form.name,
           description: form.description || null,
           capacity,
@@ -125,6 +132,32 @@ export default function SpaceForm({
           </select>
         </div>
       )}
+
+      <div>
+        <label htmlFor="zone_name" className={labelClass}>Zone</label>
+        {/* Free text with suggestions rather than a picker: a zone is a label
+            the Spaces page groups by, not a record, so there is nothing to
+            create first. The datalist is what keeps the spelling consistent. */}
+        <input
+          id="zone_name"
+          name="zone_name"
+          type="text"
+          list="space-zone-names"
+          value={form.zone_name}
+          onChange={handleChange}
+          className={fieldClass}
+          placeholder="Optional — e.g. Main Pool, Gym Floor"
+        />
+        <datalist id="space-zone-names">
+          {zoneNames.map((zone) => (
+            <option key={zone} value={zone} />
+          ))}
+        </datalist>
+        <p className="mt-1 text-xs text-muted-foreground">
+          Groups this space with others on the Spaces page. Doesn&apos;t affect booking — sessions
+          still claim each space individually.
+        </p>
+      </div>
 
       <div>
         <label htmlFor="capacity" className={labelClass}>Capacity</label>

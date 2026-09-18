@@ -33,6 +33,9 @@ export interface CommandSpace {
   isPublished: boolean;
   /** Null for spaces that sit directly under the facility. */
   departmentId: string | null;
+  /** Free-text grouping label (migration 054). Display only — the Spaces page
+   *  renders subsections from it; nothing books or joins against it. */
+  zoneName?: string | null;
 }
 
 /** A facility and everything inside it — one "building box" on the command centre. */

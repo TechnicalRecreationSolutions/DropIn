@@ -213,6 +213,9 @@ export type Database = {
           description: string | null;
           capacity: number | null;
           display_order: number;
+          /** Free-text grouping label for the Spaces page (migration 054).
+           *  Display only — nothing joins to it and it is never bookable. */
+          zone_name: string | null;
           is_published: boolean;
           created_at: string;
           updated_at: string;
@@ -226,12 +229,14 @@ export type Database = {
           | "description"
           | "capacity"
           | "display_order"
+          | "zone_name"
           | "is_published"
         > & {
           department_id?: string | null;
           description?: string | null;
           capacity?: number | null;
           display_order?: number;
+          zone_name?: string | null;
           is_published?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["spaces"]["Insert"]>;

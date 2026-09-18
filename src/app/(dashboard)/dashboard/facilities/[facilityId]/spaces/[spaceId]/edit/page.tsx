@@ -27,7 +27,7 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
 
   const { data: space } = await supabase
     .from("spaces")
-    .select("id, name, department_id, description, capacity, is_published")
+    .select("*")
     .eq("id", spaceId)
     .eq("facility_id", facilityId)
     .single();
@@ -39,6 +39,21 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
     .select("id, name")
     .eq("facility_id", facilityId)
     .order("display_order", { ascending: true });
+
+  // Zone labels already in use at this facility, for the form's suggestions.
+  // select("*") so this still works before migration 054 is applied.
+  const { data: zoneRows } = await supabase
+    .from("spaces")
+    .select("*")
+    .eq("facility_id", facilityId);
+
+  const zoneNames = [
+    ...new Set(
+      (zoneRows ?? [])
+        .map((s) => s.zone_name?.trim())
+        .filter((z): z is string => !!z)
+    ),
+  ].sort((a, b) => a.localeCompare(b));
 
   return (
     <div className="max-w-2xl mx-auto">
@@ -59,9 +74,11 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
         facilityId={facilityId}
         spaceId={spaceId}
         departments={departments ?? []}
+        zoneNames={zoneNames}
         defaultValues={{
           name: space.name,
           department_id: space.department_id,
+          zone_name: space.zone_name ?? "",
           description: space.description ?? "",
           capacity: space.capacity,
           is_published: space.is_published,

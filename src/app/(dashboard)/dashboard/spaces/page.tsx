@@ -61,16 +61,27 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
   const supabase = await createClient();
   const { facility: facilityParam } = await searchParams;
 
-  const [{ data: facilityRows }, { data: spaceRows }] =
+  const [{ data: facilityRows }, { data: spaceRows }, { data: departmentRows }] =
     await Promise.all([
       supabase
         .from("facilities")
         .select("id, name, city, province, is_published, photo_urls")
         .eq("org_id", orgId)
         .order("name"),
+      // select("*") rather than a column list so the page still renders on a
+      // database where migration 054 (zone_name) has not been applied yet.
+      // created_at breaks display_order ties — without it, rows sharing a
+      // position come back in Postgres heap order, which changes on every
+      // update. That is the bug that made lane order look random.
       supabase
         .from("spaces")
-        .select("id, name, capacity, is_published, facility_id, department_id")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("departments")
+        .select("id, name, facility_id")
         .eq("org_id", orgId)
         .order("display_order", { ascending: true }),
     ]);
@@ -87,7 +98,15 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
       capacity: s.capacity,
       isPublished: s.is_published,
       departmentId: s.department_id,
+      // Optional-chained: absent until migration 054 is applied.
+      zoneName: s.zone_name ?? null,
     }));
+
+  // The panel groups by department, so it needs this building's own — already
+  // in display order from the query above.
+  const departments = (departmentRows ?? [])
+    .filter((d) => d.facility_id === facility.id)
+    .map((d) => ({ id: d.id, name: d.name }));
 
   const facilityCards = facilityRows.map((f) => {
     const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
@@ -104,8 +123,7 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
 
       <SpacesPanel
         facility={{ id: facility.id, name: facility.name, spaces }}
-        departmentId={null}
-        departmentLabel={null}
+        departments={departments}
       />
     </>
   );
@@ -140,7 +158,11 @@ function SpacesBodySkeleton() {
           <Skeleton key={i} className="h-24 w-56 rounded-xl shrink-0" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-xl" />
+      {/* Two department sections — the shape the body actually resolves to,
+          so the swap does not jump. */}
+      {Array.from({ length: 2 }).map((_, i) => (
+        <Skeleton key={i} className="h-40 rounded-xl" />
+      ))}
     </div>
   );
 }

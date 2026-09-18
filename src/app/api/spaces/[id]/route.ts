@@ -9,6 +9,8 @@ const UpdateSpaceSchema = z.object({
   department_id: z.string().uuid().nullish(),
   description: z.string().nullish(),
   capacity: z.number().int().positive().nullish(),
+  /** Free-text grouping label (migration 054) — display only, see SpacesPanel. */
+  zone_name: z.string().trim().max(60).nullish(),
   is_published: z.boolean().optional(),
 });
 
@@ -60,6 +62,10 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const payload = {
     ...parsed.data,
     ...(parsed.data.name ? { slug: slugify(parsed.data.name) } : {}),
+    // A cleared field arrives as "" from the form; "" and null both mean
+    // "not in a zone", and storing only one of them keeps the page's grouping
+    // from sprouting an empty-named section.
+    ...("zone_name" in parsed.data ? { zone_name: parsed.data.zone_name || null } : {}),
   };
 
   const { data, error } = await supabase

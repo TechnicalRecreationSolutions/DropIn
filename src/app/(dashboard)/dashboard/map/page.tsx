@@ -64,7 +64,7 @@ async function MapBody({ searchParams }: MapPageProps) {
 
   const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
     supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
-    supabase.from("spaces").select("id, name, facility_id").eq("org_id", orgId).order("display_order", { ascending: true }),
+    supabase.from("spaces").select("id, name, facility_id").eq("org_id", orgId).order("display_order", { ascending: true }).order("created_at", { ascending: true }),
   ]);
 
   if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;

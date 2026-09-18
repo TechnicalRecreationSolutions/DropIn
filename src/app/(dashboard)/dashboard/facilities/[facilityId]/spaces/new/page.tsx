@@ -33,6 +33,21 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
     .eq("facility_id", facilityId)
     .order("display_order", { ascending: true });
 
+  // Zone labels already in use at this facility, for the form's suggestions.
+  // select("*") so this still works before migration 054 is applied.
+  const { data: zoneRows } = await supabase
+    .from("spaces")
+    .select("*")
+    .eq("facility_id", facilityId);
+
+  const zoneNames = [
+    ...new Set(
+      (zoneRows ?? [])
+        .map((s) => s.zone_name?.trim())
+        .filter((z): z is string => !!z)
+    ),
+  ].sort((a, b) => a.localeCompare(b));
+
   return (
     <div className="max-w-2xl mx-auto">
       <Breadcrumb
@@ -53,6 +68,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
       <SpaceForm
         facilityId={facilityId}
         departments={departments ?? []}
+        zoneNames={zoneNames}
         defaultValues={departmentId ? { department_id: departmentId } : undefined}
         // Back to the Spaces page this was launched from.
         redirectTo={spacesHref(facilityId)}

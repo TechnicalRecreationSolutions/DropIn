@@ -121,7 +121,8 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
       .from("spaces")
       .select("id, name, capacity, is_published, facility_id, department_id")
       .eq("org_id", orgId)
-      .order("display_order", { ascending: true }),
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
     // Relational select — cast needed until Supabase CLI generates types with FK relations
     supabase
       .from("session_templates")

@@ -61,7 +61,8 @@ export default async function DeckPage({ searchParams }: DeckPageProps) {
       .from("spaces")
       .select("id, name, facility_id")
       .eq("org_id", orgId)
-      .order("display_order", { ascending: true }),
+      .order("display_order", { ascending: true })
+      .order("created_at", { ascending: true }),
   ]);
 
   const facilities = facilityRows ?? [];

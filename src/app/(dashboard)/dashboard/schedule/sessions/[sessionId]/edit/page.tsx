@@ -64,7 +64,8 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
     .from("spaces")
     .select("id, name, facility_id, department_id")
     .eq("org_id", orgContext.org.id)
-    .order("display_order", { ascending: true });
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   const { data: sessionSpaceRows } = await supabase
     .from("session_spaces")

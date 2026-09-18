@@ -57,7 +57,8 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
     .from("spaces")
     .select("id, name, facility_id, department_id")
     .eq("org_id", orgContext.org.id)
-    .order("display_order", { ascending: true });
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
 
   return (
     <div className="max-w-2xl mx-auto space-y-6">
