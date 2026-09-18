@@ -7,6 +7,7 @@ import type {
   OrgMembership,
   Organization,
   Subscription,
+  OrgScopes,
 } from "@/types/app.types";
 
 /**
@@ -50,6 +51,13 @@ type OrgContextRow = OrgMembership & {
   organizations:
     | (Organization & { subscriptions: Subscription | Subscription[] | null })
     | null;
+  membership_scopes:
+    | {
+        department_id: string | null;
+        facility_id: string | null;
+        departments: { facility_id: string } | { facility_id: string }[] | null;
+      }[]
+    | null;
 };
 
 export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
@@ -77,10 +85,16 @@ export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
   // This replaces a 3-request sequential chain. Against hosted Supabase each
   // hop cost ~85ms of network latency regardless of how trivial the query was,
   // so the chain alone added ~255ms to every dashboard navigation.
-  const { data } = await t.step("membership+org+subscription", () =>
+  // `membership_scopes` rides along on the same request rather than costing a
+  // fourth hop. The nested `departments(facility_id)` is what makes a
+  // coordinator's facility scope DERIVED rather than a second list someone has
+  // to keep in sync — same union `user_scope_facility_ids()` computes in SQL.
+  const { data } = await t.step("membership+org+subscription+scopes", () =>
     supabase
       .from("org_memberships")
-      .select("*, organizations!inner(*, subscriptions(*))")
+      .select(
+        "*, organizations!inner(*, subscriptions(*)), membership_scopes(department_id, facility_id, departments(facility_id))"
+      )
       .eq("user_id", claims.sub)
       .order("joined_at", { ascending: true })
       .limit(1)
@@ -91,7 +105,7 @@ export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
 
   if (!data?.organizations) return null;
 
-  const { organizations, ...membership } = data;
+  const { organizations, membership_scopes, ...membership } = data;
   const { subscriptions, ...org } = organizations;
 
   return {
@@ -100,5 +114,47 @@ export const getOrgContext = cache(async (): Promise<OrgContext | null> => {
     subscription: Array.isArray(subscriptions)
       ? subscriptions[0] ?? null
       : subscriptions ?? null,
+    scopes: toScopes(membership_scopes),
   };
 });
+
+/**
+ * Flattens the embedded scope rows into two id lists.
+ *
+ * Both lists come back **empty for an owner or manager**, who hold no scope
+ * rows. That means "not scoped", never "sees nothing" — see `isScoped()` in
+ * lib/auth/roles.ts, which is the guard every caller must go through.
+ */
+function toScopes(
+  rows:
+    | {
+        department_id: string | null;
+        facility_id: string | null;
+        departments?: { facility_id: string } | { facility_id: string }[] | null;
+      }[]
+    | null
+): OrgScopes {
+  const departmentIds = new Set<string>();
+  const facilityIds = new Set<string>();
+
+  for (const row of rows ?? []) {
+    if (row.department_id) departmentIds.add(row.department_id);
+    if (row.facility_id) facilityIds.add(row.facility_id);
+
+    // A coordinator's departments imply their buildings. PostgREST returns an
+    // embedded to-one either as an object or as a one-element array depending
+    // on how it resolved the relationship, so tolerate both — the same unwrap
+    // the subscriptions embed above does, for the same reason.
+    const dept = row.departments;
+    if (Array.isArray(dept)) {
+      for (const d of dept) if (d?.facility_id) facilityIds.add(d.facility_id);
+    } else if (dept?.facility_id) {
+      facilityIds.add(dept.facility_id);
+    }
+  }
+
+  return {
+    departmentIds: [...departmentIds],
+    facilityIds: [...facilityIds],
+  };
+}

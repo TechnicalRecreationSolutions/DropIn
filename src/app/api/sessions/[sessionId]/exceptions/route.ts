@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfSession } from "@/lib/auth/scope-lookup";
 import { expandOccurrenceTimes } from "@/lib/rrule/expand";
 import type { Database } from "@/types/database.types";
 
@@ -59,11 +61,19 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
   }
 
   // session_exceptions is member-writable at the RLS layer (migration 024
-  // deliberately left sessions/session_exceptions/session_spaces that way,
-  // same as PATCH /api/sessions/[sessionId] — see that route's header), so
-  // no owner|admin check here either.
+  // was deliberate while `member` meant "read plus schedule editing". Migration
+  // 055 retired that role and added `aux`, which must not be able to cancel an
+  // occurrence, so this is now gated on the session's department like the rest
+  // of the schedule-content routes.
   const membership = await getRouteMembership(supabase, user.id);
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
+
+  const department = await departmentOfSession(supabase, sessionId, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const denied = requirePermission(membership, "session:write", department);
+  if (denied) return denied;
 
   const { data: session } = await supabase
     .from("sessions")

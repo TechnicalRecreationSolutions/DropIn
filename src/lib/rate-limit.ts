@@ -47,6 +47,17 @@ export const RATE_LIMITS = {
   checkout: { limit: 10, windowSeconds: 300 },
   /** Parses a 10 MB spreadsheet in memory. CPU-bound. */
   importFile: { limit: 10, windowSeconds: 300 },
+  /** Sends a staff invitation email. Outbound mail again, so the same
+   *  reasoning as signup — but keyed on the INVITER, not the IP, because the
+   *  risk is one compromised manager account spraying invitations, and a whole
+   *  recreation centre can share an IP. Generous enough to onboard a shift. */
+  staffInvite: { limit: 20, windowSeconds: 3600 },
+  /** Looking an invitation up by token. It is a guessing oracle by nature:
+   *  invitation_by_token() answers "valid or not" to an unauthenticated caller.
+   *  The tokens are 32 random bytes so guessing is not a practical attack and
+   *  this is belt-and-braces (migration 023 asked for it explicitly), but the
+   *  accept page loads it once and a retry costs nothing. */
+  invitationLookup: { limit: 20, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

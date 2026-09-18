@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 const ReorderSchema = z.object({
   facility_id: z.string().uuid(),
@@ -27,9 +28,15 @@ export async function PATCH(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });
-  }
+
+  // Manager-level, NOT department-scoped like the rest of /api/spaces — and
+  // deliberately so. This route rewrites `display_order` across the whole
+  // facility, spanning every department in it (see the doc comment above for
+  // why a partial list cannot be accepted). A coordinator reordering their own
+  // department would be renumbering everyone else's spaces as a side effect,
+  // so the operation belongs to whoever owns the building.
+  const denied = requirePermission(membership, "facility:edit");
+  if (denied) return denied;
 
   let body: unknown;
   try {

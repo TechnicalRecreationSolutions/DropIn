@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { stripe } from "@/lib/stripe/client";
 import { getStripePriceId, type PaidPlanTier } from "@/lib/stripe/prices";
 import { TRIAL_PERIOD_DAYS } from "@/lib/stripe/plans";
@@ -35,9 +36,8 @@ export async function POST(request: Request) {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage billing" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "billing:manage");
+  if (denied) return denied;
 
   let body: unknown;
   try {

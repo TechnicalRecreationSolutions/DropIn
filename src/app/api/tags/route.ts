@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 const CreateTagSchema = z.object({
   facility_id: z.string().uuid(),
@@ -44,12 +45,11 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json(
-      { error: "Only org owners and admins can manage tags" },
-      { status: 403 }
-    );
-  }
+  // Coordinators may CREATE a tag — they are the ones labelling sessions, and
+  // a tag is additive. Renaming or deleting one is "tag:manage" and stays with
+  // managers, because it rewrites every schedule already using it.
+  const denied = requirePermission(membership, "tag:create");
+  if (denied) return denied;
 
   let body: unknown;
   try {

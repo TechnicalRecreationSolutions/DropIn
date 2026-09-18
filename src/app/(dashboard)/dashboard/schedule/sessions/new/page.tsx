@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import SessionForm from "@/components/schedule-editor/SessionForm";
 
 interface NewSessionPageProps {
@@ -72,7 +73,15 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
       </div>
       <SessionForm
         orgId={orgContext.org.id}
-        canEditScheduleDetails={["owner", "admin"].includes(orgContext.membership.role)}
+        canEditScheduleDetails={can(
+          { role: orgContext.membership.role, scopes: orgContext.scopes },
+          "schedule-group:write",
+          // No schedule preselected means a coordinator's answer depends on
+          // which one they pick, so this fails closed and the form stays
+          // read-only until the route re-renders scoped. The POST route checks
+          // the real department either way.
+          scoped?.department_id ?? null
+        )}
         scheduleGroups={scoped ? [scoped] : scheduleGroupList}
         defaultScheduleGroupId={scoped?.id}
         spaces={allSpaces ?? []}

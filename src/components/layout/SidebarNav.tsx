@@ -129,6 +129,10 @@ export default function SidebarNav({ orgId, onNavigate, collapsed }: SidebarNavP
         </>
       )}
       <SidebarMenu
+        // Defaults to the LEAST privileged role while the tree is loading, so a
+        // slow network shows too little rather than briefly offering Billing to
+        // a lifeguard. Fail closed, even in a loading state.
+        role={data?.role ?? "aux"}
         selection={selection}
         hasFacility={(data?.facilities.length ?? 0) > 0}
         onNavigate={onNavigate}

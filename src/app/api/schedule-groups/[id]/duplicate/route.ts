@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfScheduleGroup } from "@/lib/auth/scope-lookup";
 import { slugify } from "@/lib/utils/slugify";
 
 const DateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
@@ -35,9 +37,14 @@ export async function POST(request: Request, { params }: { params: Promise<{ id:
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage schedules" }, { status: 403 });
+  // The copy lands in the SOURCE's department, so authority over the source is
+  // the whole question — there is no second department to check.
+  const department = await departmentOfScheduleGroup(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "schedule-group:write", department);
+  if (denied) return denied;
 
   let body: unknown;
   try {

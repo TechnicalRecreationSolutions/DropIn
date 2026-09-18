@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfScheduleGroup } from "@/lib/auth/scope-lookup";
 
 const DateString = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
 
@@ -75,9 +77,14 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
 
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can review schedule weeks" }, { status: 403 });
+  // Approving a week is department work: a coordinator signs off their own
+  // schedules, which is the point of the role.
+  const department = await departmentOfScheduleGroup(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "week-review:write", department);
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   const parsed = ReviewSchema.safeParse(body);

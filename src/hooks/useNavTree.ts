@@ -1,6 +1,7 @@
 "use client";
 
 import { useQuery } from "@tanstack/react-query";
+import type { OrgRole } from "@/types/app.types";
 
 export interface NavTreeFacility {
   id: string;
@@ -24,6 +25,13 @@ export interface NavTreeScheduleGroup {
 }
 
 interface NavTreeResponse {
+  /**
+   * The viewer's role, so the sidebar can stop offering pages they cannot
+   * open. Served from /api/nav-tree because it is already fetched once per
+   * dashboard load and cached — see that route for why this is presentation
+   * rather than a control.
+   */
+  role: OrgRole;
   facilities: NavTreeFacility[];
   departments: NavTreeDepartment[];
   scheduleGroups: NavTreeScheduleGroup[];

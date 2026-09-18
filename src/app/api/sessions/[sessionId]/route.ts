@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfSession } from "@/lib/auth/scope-lookup";
 import { findSessionConflict } from "@/lib/sessions/conflicts";
 
 const PatchSessionSchema = z.object({
@@ -48,6 +50,16 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ se
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization found" }, { status: 403 });
+
+  // Dragging a session to a new time is schedule editing, which before
+  // migration 055 any org member could do — including, once the ladder gained
+  // `aux`, a lifeguard. Gated on the session's own department now.
+  const department = await departmentOfSession(supabase, sessionId, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const denied = requirePermission(membership, "session:write", department);
+  if (denied) return denied;
 
   // A drag only sends the fields it changed — merge with the existing row to
   // build the full candidate findSessionConflict() needs. Space membership

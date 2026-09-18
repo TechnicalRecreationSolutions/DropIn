@@ -1,5 +1,5 @@
 import { Suspense } from "react";
-import DashboardBottomNav from "@/components/layout/DashboardBottomNav";
+
 import MobileTreeSheetProvider from "@/components/layout/MobileTreeSheetProvider";
 import OrgGuard from "@/components/layout/OrgGuard";
 import Providers from "@/components/layout/Providers";
@@ -7,6 +7,7 @@ import {
   TreeNavSection,
   TopbarSection,
   MobileSheetSection,
+  BottomNavSection,
 } from "@/components/layout/DashboardChromeSections";
 import {
   TreeNavSkeleton,
@@ -70,7 +71,7 @@ export default function DashboardLayout({
           </div>
 
           <Suspense fallback={<BottomNavSkeleton />}>
-            <DashboardBottomNav />
+            <BottomNavSection />
           </Suspense>
         </div>
       </MobileTreeSheetProvider>

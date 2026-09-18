@@ -7,6 +7,7 @@ import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentsPanel from "@/components/department/DepartmentsPanel";
+import UnassignedCallout from "@/components/department/UnassignedCallout";
 import Streamed from "@/components/ui/streamed";
 
 interface DepartmentsPageProps {
@@ -63,7 +64,13 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
   const supabase = await createClient();
   const { facility: facilityParam } = await searchParams;
 
-  const [{ data: facilityRows }, { data: departmentRows }] = await Promise.all([
+  const [
+    { data: facilityRows },
+    { data: departmentRows },
+    { data: groupRows },
+    { data: spaceRows },
+    { count: coordinatorCount },
+  ] = await Promise.all([
     supabase
       .from("facilities")
       .select("id, name, city, province, is_published, photo_urls")
@@ -74,6 +81,23 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
       .select("id, name, description, is_published, facility_id")
       .eq("org_id", orgId)
       .order("display_order", { ascending: true }),
+    // For the unassigned callout: rows with no department are the ones a
+    // coordinator provably cannot reach (migration 055 §7).
+    supabase
+      .from("schedule_groups")
+      .select("id, name, facility_id, department_id")
+      .eq("org_id", orgId)
+      .is("department_id", null),
+    supabase
+      .from("spaces")
+      .select("id, name, facility_id, department_id")
+      .eq("org_id", orgId)
+      .is("department_id", null),
+    supabase
+      .from("org_memberships")
+      .select("id", { count: "exact", head: true })
+      .eq("org_id", orgId)
+      .eq("role", "coordinator"),
   ]);
 
   if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
@@ -100,6 +124,13 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
         facilities={facilityCards}
         activeFacilityId={facility.id}
         hrefFor={departmentsHref}
+      />
+
+      <UnassignedCallout
+        facilityId={facility.id}
+        scheduleGroups={(groupRows ?? []).filter((g) => g.facility_id === facility.id)}
+        spaces={(spaceRows ?? []).filter((s) => s.facility_id === facility.id)}
+        hasCoordinators={(coordinatorCount ?? 0) > 0}
       />
 
       <DepartmentsPanel facility={facility} departments={departments} />

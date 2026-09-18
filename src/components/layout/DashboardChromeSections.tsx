@@ -3,6 +3,7 @@ import { getClaims } from "@/lib/auth/claims";
 import TreeNav from "./TreeNav";
 import DashboardTopbar from "./DashboardTopbar";
 import MobileTreeSheetContents from "./MobileTreeSheetContents";
+import DashboardBottomNav from "./DashboardBottomNav";
 
 /**
  * Server components that own the org lookup for each piece of dashboard chrome.
@@ -34,6 +35,13 @@ export async function TreeNavSection() {
       role={orgContext.membership.role}
     />
   );
+}
+
+export async function BottomNavSection() {
+  const orgContext = await getOrgContext();
+  if (!orgContext) return null;
+
+  return <DashboardBottomNav role={orgContext.membership.role} />;
 }
 
 export async function TopbarSection() {

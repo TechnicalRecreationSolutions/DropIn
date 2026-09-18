@@ -13,6 +13,18 @@
  * then, keep this file in sync with the migrations by hand.
  */
 
+/**
+ * The staff role ladder (055_staff_roles_and_scopes.sql).
+ *
+ * Declared here rather than in app.types.ts because it IS a database CHECK
+ * constraint, and app.types.ts already imports from this file — deriving the
+ * other way round would be circular. app.types.ts re-exports it.
+ */
+export type OrgRole = "owner" | "manager" | "coordinator" | "aux";
+
+/** Every role except `owner`: ownership moves by transfer, never by invitation. */
+export type InvitableRole = Exclude<OrgRole, "owner">;
+
 export type Json =
   | string
   | number
@@ -94,17 +106,26 @@ export type Database = {
           id: string;
           org_id: string;
           user_id: string;
-          role: "owner" | "admin" | "member";
+          // CHECK (role IN ('owner','manager','coordinator','aux')) as of
+          // 055_staff_roles_and_scopes.sql. 'admin' and 'member' are retired.
+          role: OrgRole;
           invited_by: string | null;
           joined_at: string;
+          // Snapshot of auth.users.email at join time (055), NOT a live join —
+          // auth.users is unreadable under RLS, so this is the only way a staff
+          // list can say who anyone is. Written once by accept_invitation().
+          email: string | null;
+          display_name: string | null;
         };
         // role has a DEFAULT 'member'; invited_by is nullable.
         Insert: Omit<
           Database["public"]["Tables"]["org_memberships"]["Row"],
-          "id" | "joined_at" | "role" | "invited_by"
+          "id" | "joined_at" | "role" | "invited_by" | "email" | "display_name"
         > & {
-          role?: "owner" | "admin" | "member";
+          role?: OrgRole;
           invited_by?: string | null;
+          email?: string | null;
+          display_name?: string | null;
         };
         Update: Partial<
           Database["public"]["Tables"]["org_memberships"]["Insert"]
@@ -954,14 +975,66 @@ export type Database = {
         Update: never;
         Relationships: [];
       };
+      // Added in 055_staff_roles_and_scopes.sql. What a coordinator or aux
+      // staffer can reach. EXACTLY ONE of department_id / facility_id is set
+      // (CHECK num_nonnulls = 1): department_id scopes a coordinator,
+      // facility_id scopes aux staff.
+      //
+      // An EMPTY scope list grants NOTHING — see docs/PLAN-staff-roles.md §4.
+      membership_scopes: {
+        Row: {
+          id: string;
+          membership_id: string;
+          org_id: string;
+          department_id: string | null;
+          facility_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["membership_scopes"]["Row"],
+          "id" | "created_at" | "department_id" | "facility_id"
+        > & {
+          department_id?: string | null;
+          facility_id?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["membership_scopes"]["Insert"]
+        >;
+        Relationships: [];
+      };
+      // Added in 056_invitation_flow.sql. Mirrors membership_scopes exactly,
+      // including the exclusive arc — accept_invitation() copies these rows
+      // across verbatim.
+      invitation_scopes: {
+        Row: {
+          id: string;
+          invitation_id: string;
+          org_id: string;
+          department_id: string | null;
+          facility_id: string | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["invitation_scopes"]["Row"],
+          "id" | "created_at" | "department_id" | "facility_id"
+        > & {
+          department_id?: string | null;
+          facility_id?: string | null;
+        };
+        Update: Partial<
+          Database["public"]["Tables"]["invitation_scopes"]["Insert"]
+        >;
+        Relationships: [];
+      };
       staff_invitations: {
         Row: {
           id: string;
           org_id: string;
           email: string;
-          // CHECK (role IN ('admin', 'member')) — unlike org_memberships,
-          // 'owner' is never an invitable role (001_initial_schema.sql).
-          role: "admin" | "member";
+          // CHECK (role IN ('manager','coordinator','aux')) as of
+          // 056_invitation_flow.sql — unlike org_memberships, 'owner' is never
+          // an invitable role. Ownership moves by transfer_ownership() only.
+          role: InvitableRole;
           token: string;
           invited_by: string;
           accepted_at: string | null;
@@ -972,7 +1045,7 @@ export type Database = {
           Database["public"]["Tables"]["staff_invitations"]["Row"],
           "id" | "token" | "created_at" | "role" | "accepted_at" | "expires_at"
         > & {
-          role?: "admin" | "member";
+          role?: InvitableRole;
           accepted_at?: string | null;
           expires_at?: string;
         };
@@ -1055,6 +1128,43 @@ export type Database = {
       };
     };
     Functions: {
+      // ── Staff invitations (056_invitation_flow.sql) ────────────────────────
+      // Looks an invitation up BY TOKEN. SECURITY DEFINER, so the token is an
+      // argument that must be known up front rather than a row filter applied
+      // after the grant — an RLS USING clause cannot express "only if you
+      // supplied the secret", which was migration 023's CRITICAL finding.
+      // Returns no token, no scope rows, and a MASKED email.
+      invitation_by_token: {
+        Args: { p_token: string };
+        Returns: {
+          org_name: string;
+          org_logo_url: string | null;
+          role: InvitableRole;
+          email: string;
+          scope_count: number;
+          expires_at: string;
+        }[];
+      };
+      // Validates, creates the membership with an email snapshot, copies the
+      // invitation's scopes across and stamps accepted_at — in ONE transaction.
+      // Raises (→ a PostgREST error, message already written for a person) when
+      // the token is unknown, used, expired, or was sent to another address.
+      accept_invitation: {
+        Args: { p_token: string };
+        Returns: { joined_org_id: string; joined_role: OrgRole }[];
+      };
+      // Resigning. Separate from "a manager removed you" because 055 §7 blocks
+      // self-modification on org_memberships outright. The owner cannot leave.
+      leave_organization: {
+        Args: { p_org_id: string };
+        Returns: undefined;
+      };
+      // The only thing that changes an owner row (055 §8). Demote-then-promote
+      // in one statement: never zero owners, never two.
+      transfer_ownership: {
+        Args: { p_org_id: string; p_new_owner_id: string };
+        Returns: undefined;
+      };
       // Atomic fixed-window rate limiter (025_rate_limiting_and_analytics_lockdown.sql).
       // Called only through the service-role client — see src/lib/rate-limit.ts.
       check_rate_limit: {

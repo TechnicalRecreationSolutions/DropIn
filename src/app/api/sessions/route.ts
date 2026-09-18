@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfSession } from "@/lib/auth/scope-lookup";
 import { findSessionConflict } from "@/lib/sessions/conflicts";
 
 const SessionSchema = z.object({
@@ -66,6 +68,26 @@ export async function POST(request: Request) {
     .single();
 
   if (!scheduleGroup) return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
+
+  // This route had NO role check at all before migration 055 — org membership
+  // alone was the gate, which was the documented intent when `member` meant
+  // "read plus schedule editing". With `aux` in the ladder that same code
+  // hands a lifeguard the power to rewrite the schedule, so the gate is now
+  // the destination schedule's department.
+  const denied = requirePermission(membership, "session:write", scheduleGroup.department_id);
+  if (denied) return denied;
+
+  // Moving an existing session between schedules needs authority over where it
+  // is coming FROM as well, or a coordinator could pull another department's
+  // session into their own — the destination check above would wave it through.
+  if (sessionId) {
+    const sourceDepartment = await departmentOfSession(supabase, sessionId, membership.org_id);
+    if (sourceDepartment === undefined) {
+      return NextResponse.json({ error: "Session not found" }, { status: 404 });
+    }
+    const deniedSource = requirePermission(membership, "session:write", sourceDepartment);
+    if (deniedSource) return deniedSource;
+  }
 
   // Every space must belong to the same facility as the schedule it's attached to
   if (fields.space_ids.length > 0) {
@@ -222,6 +244,13 @@ export async function DELETE(request: Request) {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 403 });
+
+  const department = await departmentOfSession(supabase, sessionId, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Session not found" }, { status: 404 });
+  }
+  const denied = requirePermission(membership, "session:write", department);
+  if (denied) return denied;
 
   const { error } = await supabase
     .from("sessions")

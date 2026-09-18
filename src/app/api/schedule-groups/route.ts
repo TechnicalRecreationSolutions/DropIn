@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { slugify } from "@/lib/utils/slugify";
 import { SPORT_CATEGORY_IDS } from "@/lib/utils/sport-categories";
 
@@ -63,9 +64,6 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage schedules" }, { status: 403 });
-  }
 
   let body: unknown;
   try {
@@ -77,6 +75,22 @@ export async function POST(request: Request) {
   const parsed = CreateScheduleGroupSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const fields = parsed.data;
+
+  // Authorization runs AFTER parsing here, unlike the org-wide routes: which
+  // department this schedule lands in is what decides the answer, and that only
+  // exists once the body is validated. A coordinator may create a schedule in
+  // their own department and nowhere else.
+  //
+  // `department_id` may legitimately be null (migration 011 made it nullable,
+  // and `Pickleball Open Play` is one today). That is owner/manager territory,
+  // and `can()` refuses a coordinator for it — matching
+  // `can_write_department(NULL)` returning FALSE in the database.
+  const denied = requirePermission(
+    membership,
+    "schedule-group:write",
+    fields.department_id ?? null
+  );
+  if (denied) return denied;
 
   if (fields.starts_on && fields.ends_on && fields.ends_on < fields.starts_on) {
     return NextResponse.json({ error: "End date must be on or after the start date." }, { status: 400 });

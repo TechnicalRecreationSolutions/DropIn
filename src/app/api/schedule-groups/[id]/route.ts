@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfScheduleGroup } from "@/lib/auth/scope-lookup";
 import { slugify } from "@/lib/utils/slugify";
 import { SPORT_CATEGORY_IDS } from "@/lib/utils/sport-categories";
 import { findPublishOverlap } from "@/lib/schedule/publishOverlap";
@@ -49,9 +51,15 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage schedules" }, { status: 403 });
+
+  // The department this schedule already sits in decides who may edit it.
+  const currentDepartment = await departmentOfScheduleGroup(supabase, id, membership.org_id);
+  if (currentDepartment === undefined) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
   }
+
+  const denied = requirePermission(membership, "schedule-group:write", currentDepartment);
+  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -63,6 +71,19 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const parsed = UpdateScheduleGroupSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
   const fields = parsed.data;
+
+  // A department change needs authority over BOTH ends, or a coordinator could
+  // push a schedule into a department they have no authority over — or out of
+  // their own and permanently beyond their reach. Mirrors RLS, where the
+  // coordinator policy's USING tests the old row and WITH CHECK the new one.
+  if (fields.department_id !== undefined && fields.department_id !== currentDepartment) {
+    const deniedTarget = requirePermission(
+      membership,
+      "schedule-group:write",
+      fields.department_id ?? null
+    );
+    if (deniedTarget) return deniedTarget;
+  }
 
   const { data: existing } = await supabase
     .from("schedule_groups")
@@ -200,9 +221,14 @@ export async function DELETE(_request: Request, { params }: { params: Promise<{ 
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage schedules" }, { status: 403 });
+
+  const department = await departmentOfScheduleGroup(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Schedule not found" }, { status: 404 });
   }
+
+  const denied = requirePermission(membership, "schedule-group:write", department);
+  if (denied) return denied;
 
   const { data, error } = await supabase
     .from("schedule_groups")

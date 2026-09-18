@@ -17,7 +17,8 @@ priority over launch configuration. Nothing here degrades by waiting.
 |---|---|
 | 1. Environment variables | **Done.** All 11 set for Production. |
 | 2. Supabase auth URLs | **Done.** Site URL and Redirect URLs point at `drop-in-ten.vercel.app`. |
-| 3. Custom SMTP | **Deferred** until the real Dropin domain exists — see below. |
+| 3. Custom SMTP (**auth** mail) | **Deferred** until the real domain exists — see below. |
+| 3b. `RESEND_*` (**app** mail) | **Deferred**, same reason. Staff invitations fall back to "copy this link" and work without it. |
 | 4. Stripe webhook | **Not started.** Independent of everything else. |
 | 5. Browser-verify CSP | **Done.** Headers verified by curl; in-browser check passed against production (`verify-ai`, 22/22, 2026-09-17), including the widget framed on another origin. |
 | 6. Custom domain + raise HSTS | **Not started.** |
@@ -55,10 +56,43 @@ to the team alias for exactly this reason.
 
 ### The domain decision is now the bottleneck
 
-Five separate things all point at the same address and change together:
-`NEXT_PUBLIC_APP_URL`, the two Supabase auth URLs, the Stripe webhook endpoint,
-the Resend sending domain, and raising `HSTS_MAX_AGE`. Deferring SMTP until the
-domain exists avoids verifying a throwaway sending domain and replacing it later.
+**Seven** separate things point at the same address and change together. None
+can be finished first; all are cheap once the domain exists.
+
+| # | Thing | Where | Blocked because |
+|---|---|---|---|
+| 1 | `NEXT_PUBLIC_APP_URL` | Vercel env | Origin of every canonical tag, `sitemap.xml` URL, `robots.txt` Sitemap line, Stripe return URL, widget snippet and invitation link |
+| 2 | Site URL + Redirect URLs | Supabase → Auth | Confirmation links land here |
+| 3 | Stripe webhook endpoint | Stripe dashboard | `https://<domain>/api/stripe/webhook` |
+| 4 | **Auth** mail sending domain | Supabase → Auth → SMTP | Provider must verify a domain you own |
+| 5 | **App** mail sending domain | `RESEND_*` in `.env.local` | Same verification, *separate path* — see below |
+| 6 | `HSTS_MAX_AGE` → `63072000` | `next.config.ts` | Deliberately `3600` while the domain is in flux |
+| 7 | `privacy@` / `legal@` addresses | `/privacy`, `/terms` | Two of the 13 legal placeholders are addresses at your domain |
+
+Deferring all of it until the domain exists avoids verifying a throwaway
+sending domain and replacing it later.
+
+### Two email paths, not one
+
+Easy to conflate, and they fail differently. Both need a verified sending
+domain; neither is a "turn on Resend" switch.
+
+| | Sent by | Configured in | Carries | Without it |
+|---|---|---|---|---|
+| **Auth mail** | Supabase | Dashboard → Auth → SMTP (any SMTP provider) | Signup confirmation, password reset | Built-in mailer: ~2/hour **and generally only to addresses in your Supabase org** |
+| **App mail** | this app | `RESEND_API_KEY` + `RESEND_FROM_EMAIL` | Staff invitations (`src/lib/staff/invitationEmail.ts`) | Invitation is still created; the dialog falls back to **"copy this link"**, which works |
+
+The consequence worth planning around: **staff onboarding is blocked on the
+auth path, not the app path.** Even if you paste an invitation link by hand,
+the invitee must still confirm a new account, and that email is Supabase's.
+Against the built-in mailer it will most likely never reach a personal Gmail
+at all. Adding staff is therefore a one-at-a-time, test-account activity until
+step 4 is done.
+
+`src/lib/staff/invitationEmail.ts` is the only real Resend integration in the
+repo. It never throws: the invitation row is already committed by the time it
+runs, so a failed send is reported as "created, copy the link" rather than
+failing the request and inviting a retry that would mint a second invitation.
 
 ### Testing signup before SMTP
 

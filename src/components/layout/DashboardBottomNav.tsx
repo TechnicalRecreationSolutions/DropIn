@@ -10,6 +10,8 @@ import {
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
+import { can, isReadOnly } from "@/lib/auth/roles";
+import type { OrgRole } from "@/types/app.types";
 
 /**
  * Bottom navigation bar for the org dashboard on mobile devices.
@@ -18,6 +20,11 @@ import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
  * "Browse" opens the same Facility > Department > Schedule tree sheet as
  * the topbar hamburger — two entry points into one hierarchy browser,
  * since the desktop TreeNav sidebar has no room to exist on mobile.
+ *
+ * Aux staff get a two-item bar — Home and Schedule. "Data" imports a
+ * spreadsheet over the schedule, which is the last thing a lifeguard's thumb
+ * should be able to reach on a phone, so it is removed rather than disabled
+ * (same reasoning as SidebarMenu).
  */
 const navLinks = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
@@ -28,9 +35,15 @@ const trailingNavLinks = [
   { href: "/dashboard/data-sources", label: "Data", icon: Database },
 ];
 
-export default function DashboardBottomNav() {
+export default function DashboardBottomNav({ role }: { role: OrgRole }) {
   const pathname = usePathname();
   const { open: openTreeSheet } = useMobileTreeSheet();
+  // The role arrives as a prop from BottomNavSection rather than from a client
+  // fetch: it is already in hand server-side (getOrgContext() is cache()d and
+  // shared across all four chrome sections), so a fetch here would be a second
+  // request AND a flash of the wrong navigation while it resolved.
+  const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
+  const canImport = can(actor, "import:use");
 
   function renderLink(item: (typeof navLinks)[number]) {
     const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -52,7 +65,16 @@ export default function DashboardBottomNav() {
   return (
     <nav className="lg:hidden fixed bottom-0 left-0 right-0 z-50 bg-card border-t border-border safe-area-pb">
       <div className="flex">
-        {navLinks.map(renderLink)}
+        {navLinks
+          .map((item) =>
+            // isReadOnly() rather than can(…, "session:write"): that
+            // permission is department-scoped, so asking it without one here
+            // would answer false for a coordinator and mislabel their tab.
+            item.href === "/dashboard/schedule" && isReadOnly(role)
+              ? { ...item, label: "Schedule" }
+              : item
+          )
+          .map(renderLink)}
         <button
           type="button"
           onClick={openTreeSheet}
@@ -61,7 +83,7 @@ export default function DashboardBottomNav() {
           <Compass className="w-5 h-5" />
           Browse
         </button>
-        {trailingNavLinks.map(renderLink)}
+        {canImport && trailingNavLinks.map(renderLink)}
       </div>
     </nav>
   );

@@ -3,6 +3,7 @@ import { revalidateTag } from "next/cache";
 import { DIRECTORY_CACHE_TAG, facilitySlugCacheTag } from "@/lib/cache/tags";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 /**
  * DELETE /api/facilities/[facilityId] — remove a facility and everything under it.
@@ -31,12 +32,8 @@ export async function DELETE(
 
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json(
-      { error: "Only org owners and admins can delete a facility." },
-      { status: 403 }
-    );
-  }
+  const denied = requirePermission(membership, "facility:delete");
+  if (denied) return denied;
 
   // Scoped by org_id as well as id — RLS already restricts the row, but the
   // explicit predicate means a policy regression can't turn this into a

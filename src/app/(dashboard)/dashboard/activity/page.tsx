@@ -1,5 +1,6 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import ActivityLogView from "@/components/activity/ActivityLogView";
@@ -71,7 +72,10 @@ async function ActivityLogBody() {
 
   const entries = (data ?? []) as ActivityEntry[];
   const nextCursor = entries.length === PAGE_SIZE ? entries[entries.length - 1].created_at : null;
-  const canRevert = orgContext.membership.role === "owner" || orgContext.membership.role === "admin";
+  const canRevert = can(
+    { role: orgContext.membership.role, scopes: orgContext.scopes },
+    "activity:revert"
+  );
   const actors = Array.from(
     new Set((actorRows ?? []).map((r) => r.actor_email as string))
   ).sort((a, b) => a.localeCompare(b));

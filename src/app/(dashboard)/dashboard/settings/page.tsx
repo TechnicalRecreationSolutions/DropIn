@@ -1,7 +1,10 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { Skeleton } from "@/components/ui/skeleton";
 import OrgSettingsForm from "@/components/org/OrgSettingsForm";
+import TransferOwnership, { type TransferCandidate } from "@/components/org/TransferOwnership";
+import { createClient } from "@/lib/supabase/server";
 import Streamed from "@/components/ui/streamed";
 
 export const metadata = { title: "Organization settings" };
@@ -48,14 +51,36 @@ async function OrgSettingsBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
-  const { org, membership } = orgContext;
-  const canEdit = ["owner", "admin"].includes(membership.role);
+  const { org, membership, scopes } = orgContext;
+  const actor = { role: membership.role, scopes };
+  const canEdit = can(actor, "org:edit-settings");
+  const canTransfer = can(actor, "org:transfer-ownership");
+
+  // Ownership can only go to someone already inside the org — transferring to a
+  // stranger would mean minting a membership and handing over the organization
+  // in one unreviewable step, which transfer_ownership() refuses outright.
+  let candidates: TransferCandidate[] = [];
+  if (canTransfer) {
+    const supabase = await createClient();
+    const { data } = await supabase
+      .from("org_memberships")
+      .select("id, email, role")
+      .eq("org_id", org.id)
+      .neq("user_id", membership.user_id)
+      .order("joined_at", { ascending: true });
+
+    candidates = (data ?? []).map((m) => ({
+      membershipId: m.id,
+      email: m.email,
+      role: m.role,
+    }));
+  }
 
   return (
     <>
       {!canEdit && (
         <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">
-          Only owners and admins can change these settings.
+          Only the owner and managers can change these settings.
         </p>
       )}
 
@@ -75,6 +100,8 @@ async function OrgSettingsBody() {
           postal_code: org.postal_code ?? "",
         }}
       />
+
+      {canTransfer && <TransferOwnership orgName={org.name} candidates={candidates} />}
     </>
   );
 }

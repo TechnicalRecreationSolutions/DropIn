@@ -29,6 +29,8 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
   const queryClient = useQueryClient();
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  /** Not an error — something that happened and that nobody else will mention. */
+  const [notice, setNotice] = useState<string | null>(null);
 
   async function handleDelete(department: DepartmentRow) {
     if (!confirm(`Delete "${department.name}"? Schedules in it keep their sessions but lose this grouping.`)) {
@@ -36,6 +38,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
     }
 
     setError(null);
+    setNotice(null);
     setDeletingId(department.id);
 
     const res = await fetch(`/api/departments/${department.id}`, { method: "DELETE" });
@@ -45,6 +48,18 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
       setError(data.error ?? "Could not delete department.");
       setDeletingId(null);
       return;
+    }
+
+    // Who just lost all their access (migration 055 §5.3). The cascade is
+    // correct and completely silent — the only signal anyone gets is this one.
+    const { stranded } = (await res.json().catch(() => ({}))) as { stranded?: string[] };
+    if (stranded?.length) {
+      const one = stranded.length === 1;
+      setNotice(
+        `${stranded.join(", ")} ${one ? "was" : "were"} assigned only to this ` +
+          `department, so ${one ? "that account" : "those accounts"} can no longer ` +
+          `see anything. Assign another department on the Staff page.`
+      );
     }
 
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
@@ -71,6 +86,17 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
 
       {error && (
         <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+      )}
+
+      {/* Not an error — the delete worked. This is the only place anyone is
+          told that a coordinator just lost all their access to it. */}
+      {notice && (
+        <p
+          role="status"
+          className="text-sm text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-3 py-2.5 rounded-lg"
+        >
+          {notice}
+        </p>
       )}
 
       {departments.length === 0 ? (

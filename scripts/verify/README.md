@@ -37,6 +37,7 @@ node scripts/verify/verify-ah.mjs  # robots.txt, sitemap.xml, facility breadcrum
 node scripts/verify/verify-ai.mjs --app=http://localhost:3002  # CSP in a real browser; PRODUCTION BUILD ONLY (22 assertions)
 node scripts/verify/verify-aj.mjs  # space zones + display order (migration 054), in a real browser (13 assertions)
 node scripts/verify/verify-ak.mjs  # department scoping of the space pickers (6 assertions)
+node scripts/verify/verify-al.mjs  # staff roles, scopes + invitations (migrations 055/056) — NEEDS BOTH APPLIED
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```
@@ -100,6 +101,7 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 
 | | |
 |---|---|
+| `verify-al` | The whole role matrix (055/056), asserted **against PostgREST directly** rather than through the API routes — a coordinator confined to their department, an aux staffer who can read the internal schedule and write nothing, the NULL-department schedule group staying owner/manager-only, a coordinator with zero scopes reaching nothing, managers barred from the owner row, nobody editing their own row, `staff_invitations` returning nothing to anon (regression guard on migration 023), a token that cannot be redeemed twice or from the wrong address, and a transfer leaving exactly one owner |
 | `verify-e` | Facility delete's **cascade** (departments/groups/spaces/sessions all gone, a second org's identical tree untouched), the owner/admin line on both features, cross-org delete answering 404, org PATCH stripping `slug` and `status`, empty string stored as NULL, and both new pages rendering server-side |
 | `verify-f` | Session-conflict detection and recurrence expansion (`src/lib/rrule/expand.ts`, see its README): a genuine overlap still 409s, a same-space pair that only *touches* and recurs across a DST boundary does not, an evening session's expanded occurrence lands on its configured local weekday rather than the day before, and a session on an unpublished Space doesn't crash the public (anonymous) schedule read |
 | `verify-g` | Schedule-group publish gate: a start date but no end date now publishes (POST and PATCH), no start date still doesn't, and a genuine space overlap between two open-ended published schedules is still caught |

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { slugify } from "@/lib/utils/slugify";
 
 const CreateSpaceSchema = z.object({
@@ -46,9 +47,6 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });
-  }
 
   let body: unknown;
   try {
@@ -59,6 +57,16 @@ export async function POST(request: Request) {
 
   const parsed = CreateSpaceSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  // Authorization runs after parsing: the department this space lands in is
+  // what decides the answer. Creating a space with no department is
+  // owner/manager territory, which is what `can()` returns for a null here.
+  const denied = requirePermission(
+    membership,
+    "space:write",
+    parsed.data.department_id ?? null
+  );
+  if (denied) return denied;
 
   // Verify the facility belongs to the caller's own org — facility_id has no
   // DB-level org boundary check, so this must be enforced here.

@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfSpace } from "@/lib/auth/scope-lookup";
 import { slugify } from "@/lib/utils/slugify";
 
 const UpdateSpaceSchema = z.object({
@@ -23,9 +25,14 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });
+  // A coordinator may manage only the spaces in their own departments.
+  // A space with no department (11 of 23 today) is owner/manager territory.
+  const department = await departmentOfSpace(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Space not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "space:write", department);
+  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -92,9 +99,14 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage spaces" }, { status: 403 });
+  // A coordinator may manage only the spaces in their own departments.
+  // A space with no department (11 of 23 today) is owner/manager territory.
+  const department = await departmentOfSpace(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Space not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "space:write", department);
+  if (denied) return denied;
 
   const { error } = await supabase
     .from("spaces")

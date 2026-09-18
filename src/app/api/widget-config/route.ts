@@ -4,6 +4,7 @@ import { widgetConfigCacheTag } from "@/lib/cache/tags";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { DEFAULT_ENABLED_FILTERS, SESSION_FILTER_KEYS } from "@/lib/schedule/sessionFilters";
 import type { Database } from "@/types/database.types";
 
@@ -117,9 +118,8 @@ export async function PATCH(request: Request) {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage the widget" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "widget:edit");
+  if (denied) return denied;
 
   let body: unknown;
   try {

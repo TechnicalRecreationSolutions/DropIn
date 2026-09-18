@@ -7,6 +7,7 @@ import { commandCentreHref, sessionsHref } from "@/lib/schedule/commandCentreHre
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
+import { isReadOnly } from "@/lib/auth/roles";
 import type { CommandFacility } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import Streamed from "@/components/ui/streamed";
@@ -265,6 +266,12 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
         widgetTemplates={widgetTemplates}
         facilities={facilities}
+        // Aux staff read this page and change nothing. Asked as "is this role
+        // read-only" rather than can(…, "session:write"), because that
+        // permission is department-scoped and a coordinator's answer depends
+        // on which schedule is open — a question this page cannot ask once for
+        // the whole render. The per-schedule answer is enforced by the routes.
+        canEdit={!isReadOnly(orgContext.membership.role)}
       />
     </div>
   );

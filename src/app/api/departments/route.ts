@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { slugify } from "@/lib/utils/slugify";
 
 const CreateDepartmentSchema = z.object({
@@ -38,9 +39,8 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage departments" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "department:create");
+  if (denied) return denied;
 
   let body: unknown;
   try {

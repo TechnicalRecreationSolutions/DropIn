@@ -58,6 +58,20 @@ interface ScheduleCommandCentreProps {
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
   facilities: CommandFacility[];
+  /**
+   * False for an aux staffer (lifeguard, instructor, front desk), who reads
+   * the internal schedule and changes nothing.
+   *
+   * This is NOT the same as Patron view. Patron view re-fetches the week as an
+   * outsider — redacted names, internal bookings gone — whereas an aux staffer
+   * sees the *whole* staff week and simply cannot act on it. Collapsing the two
+   * would hide from the lifeguard the very rental notes they are looking the
+   * schedule up to read.
+   *
+   * Presentation only: every route these controls call enforces the same rule
+   * server-side, and 055 §5 enforces it again in RLS.
+   */
+  canEdit?: boolean;
 }
 
 const ALL_VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorplan"];
@@ -94,6 +108,7 @@ export default function ScheduleCommandCentre({
   orgPrimaryColor,
   widgetTemplates,
   facilities,
+  canEdit = true,
 }: ScheduleCommandCentreProps) {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
@@ -273,7 +288,7 @@ export default function ScheduleCommandCentre({
   // A continuous schedule is always-open hours rather than placed sessions,
   // so there is nothing to build into it, and no week editor makes sense.
   const isContinuous = scheduleGroup?.scheduleType === "continuous";
-  const canCreate = !!scheduleGroup && !isContinuous;
+  const canCreate = canEdit && !!scheduleGroup && !isContinuous;
   const inWeekEditor = !!scheduleGroup && !isContinuous && !!weekParam;
 
   // Only the week editor fetches a week's sessions — the list above it does
@@ -723,7 +738,9 @@ export default function ScheduleCommandCentre({
                          Offering drag, duplicate or delete over a redacted,
                          partial week would invite staff to edit what they can
                          only half see. */
-                      <ScheduleEditingProvider value={audience === "public" ? null : editing}>
+                      <ScheduleEditingProvider
+                        value={audience === "public" || !canEdit ? null : editing}
+                      >
                         <ScheduleView
                           template={activeView}
                           sessions={sessions ?? []}

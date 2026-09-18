@@ -2,9 +2,43 @@
 
 Open this first; it points at everything else.
 
-**Last updated 2026-09-16**, at the end of the session that brought back a
-resident directory (`/find`). This file is the single entry point. The per-track `RESUME-*.md` files are historical
+**Last updated 2026-09-18**, at the end of the session that built multi-account
+staff roles (see the box below). The session before it brought back a resident
+directory (`/find`). This file is the single entry point. The per-track `RESUME-*.md` files are historical
 records of finished work, not live handoffs — see [Related docs](#related-docs).
+
+---
+
+## Multi-account staff roles — shipped 2026-09-18
+
+Four roles: `owner` / `manager` / `coordinator` (department-scoped) /
+`aux` (facility-scoped, read-only). `admin` and `member` are retired — there
+were zero rows of either, which is why the restructure was free.
+
+Design and decisions: [`docs/PLAN-staff-roles.md`](PLAN-staff-roles.md).
+
+**Migrations `055` and `056` are applied.** `verify-al` passes 41/41, five of
+its assertions were falsified to prove it is sensitive, and the new pages were
+rendered in a browser as each role (32 more checks). Nothing is committed yet.
+
+Two things to know:
+
+- **Billing is now owner-only** (was `owner|admin`). A Manager cannot cancel
+  the subscription or delete the org — that was the point of keeping Owner
+  separate.
+- **Invitations are created but not emailed.** `RESEND_API_KEY` and
+  `RESEND_FROM_EMAIL` are still absent from `.env.local`, so the invite dialog
+  falls back to "copy this link", which works fine. Note this is *not* launch
+  blocker 1 below: that one is Supabase's own mailer, which the invitee still
+  needs in order to confirm a new account, and it caps staff onboarding at
+  roughly two people an hour until custom SMTP is configured.
+
+While applying `055` it also closed a real hole: migration 024 deliberately
+left `sessions`, `session_exceptions` and `session_spaces` writable by any org
+member, which was correct when `member` meant "read plus schedule editing". An
+`aux` account is a member, and the publishable key is in the browser bundle —
+so before this, a lifeguard account would have been able to delete every
+session in the organization through PostgREST.
 
 ---
 
@@ -83,10 +117,25 @@ deliberate: the response is identical whether or not the address already exists,
 which is what closes the enumeration hole. The fix is delivery capacity, not
 code.
 
-Supabase dashboard → Project Settings → Auth → SMTP. Resend is implied by
-`RESEND_FROM_EMAIL` in `.env.example`; no app dependency is needed. Note that
-`RESEND_API_KEY` and `RESEND_FROM_EMAIL` are **not** in the local `.env.local`
-today, and `resend` appears in exactly one file (the Stripe webhook).
+Supabase dashboard → Project Settings → Auth → SMTP.
+
+**The full picture lives in [`docs/DEPLOYMENT.md`](DEPLOYMENT.md) → "The domain
+decision is now the bottleneck".** Seven things point at the same address and
+all change together; there is a table there, and it is the single copy — do not
+restate it here, it will drift.
+
+The two-line version:
+
+- Everything is blocked on **owning a domain**. Every mail provider requires a
+  verified sending domain before it will send for you.
+- There are **two independent email paths** and they fail differently:
+  *auth* mail (Supabase → SMTP) and *app* mail (`RESEND_*`, staff invitations).
+  Only the first blocks anything — invitations already fall back to
+  "copy this link" and work today.
+
+Worth knowing: the built-in mailer is not merely slow. It generally delivers
+**only to addresses in your Supabase organization**, so a real lifeguard's
+Gmail will most likely never receive a confirmation at all.
 
 Until this is done, treat signup as demo-only.
 
@@ -276,7 +325,9 @@ adding features," and each time the work went elsewhere. **That list still isn't
 written down anywhere**, and it remains the main thing blocking planning. Docs
 that describe a "next phase" are *not* authorization to build it — ask.
 
-- (your feature list)
+- ~~Multiple staff accounts per organization~~ — you asked for this on
+  2026-09-18 and it is built; see the box at the top of this file.
+- (the rest of your feature list)
 
 ### Known and unscheduled
 

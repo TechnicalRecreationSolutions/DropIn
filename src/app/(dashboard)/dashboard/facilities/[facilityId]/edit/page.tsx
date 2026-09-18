@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import FacilityForm from "@/components/facility/FacilityForm";
@@ -28,7 +29,10 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
   if (!facility) notFound();
 
   const impact = await getFacilityDeletionImpact(facilityId, orgContext.org.id);
-  const canDelete = ["owner", "admin"].includes(orgContext.membership.role);
+  const canDelete = can(
+    { role: orgContext.membership.role, scopes: orgContext.scopes },
+    "facility:delete"
+  );
 
   return (
     <div className="max-w-2xl mx-auto">

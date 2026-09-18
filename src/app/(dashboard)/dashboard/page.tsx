@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { formatDistanceToNow } from "date-fns";
@@ -83,6 +85,15 @@ function scheduleGroupHref(sg: { facility_id: string; department_id: string | nu
 async function DashboardOverview({ searchParams }: DashboardPageProps) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+
+  // Aux staff land on the schedule, not here.
+  //
+  // This page is a management overview — conflict counts, analytics, "add a
+  // facility", schedules needing review. None of it is actionable for someone
+  // who can only read, and a lifeguard opening the app to check tomorrow's
+  // lanes should not have to navigate past it. Their scoped facility is picked
+  // up by the command centre from the sidebar, which only offers theirs.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();

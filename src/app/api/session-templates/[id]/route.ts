@@ -2,6 +2,8 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
+import { departmentOfTemplate } from "@/lib/auth/scope-lookup";
 import {
   TemplateLinksSchema,
   replaceTemplateTags,
@@ -36,9 +38,12 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage session templates" }, { status: 403 });
+  const department = await departmentOfTemplate(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "session-template:write", department);
+  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -175,9 +180,12 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage session templates" }, { status: 403 });
+  const department = await departmentOfTemplate(supabase, id, membership.org_id);
+  if (department === undefined) {
+    return NextResponse.json({ error: "Template not found" }, { status: 404 });
   }
+  const denied = requirePermission(membership, "session-template:write", department);
+  if (denied) return denied;
 
   const { error } = await supabase
     .from("session_templates")

@@ -1,5 +1,6 @@
 import { notFound } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import SessionForm from "@/components/schedule-editor/SessionForm";
 
@@ -90,7 +91,11 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
       </div>
       <SessionForm
         orgId={orgContext.org.id}
-        canEditScheduleDetails={["owner", "admin"].includes(orgContext.membership.role)}
+        canEditScheduleDetails={can(
+          { role: orgContext.membership.role, scopes: orgContext.scopes },
+          "schedule-group:write",
+          scheduleGroup?.department_id ?? null
+        )}
         scheduleGroups={[{
           id: scheduleGroup.id,
           name: scheduleGroup.name,

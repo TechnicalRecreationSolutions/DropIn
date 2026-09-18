@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 const UpdateTagSchema = z.object({
   label: z.string().trim().min(1).max(40).optional(),
@@ -30,9 +31,8 @@ export async function PATCH(request: Request, { params }: { params: Promise<{ id
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage tags" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "tag:manage");
+  if (denied) return denied;
 
   let body: unknown;
   try {
@@ -71,9 +71,8 @@ export async function DELETE(request: Request, { params }: { params: Promise<{ i
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage tags" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "tag:manage");
+  if (denied) return denied;
 
   const { error } = await supabase
     .from("tags")

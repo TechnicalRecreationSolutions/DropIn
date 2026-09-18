@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 /**
  * POST /api/activity/[id]/revert — undo a single logged change.
@@ -17,9 +18,8 @@ export async function POST(_request: Request, { params }: { params: Promise<{ id
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can revert a change" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "activity:revert");
+  if (denied) return denied;
 
   const { error } = await supabase.rpc("revert_activity", { p_activity_id: id });
   if (error) {

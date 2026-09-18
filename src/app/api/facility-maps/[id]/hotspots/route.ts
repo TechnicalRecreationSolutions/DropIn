@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 const HotspotSchema = z.object({
   space_id: z.string().uuid(),
@@ -58,9 +59,8 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage the facility map" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "map:edit");
+  if (denied) return denied;
 
   let body: unknown;
   try {

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import {
   TemplateLinksSchema,
   replaceTemplateTags,
@@ -62,9 +63,7 @@ export async function POST(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage session templates" }, { status: 403 });
-  }
+
 
   let body: unknown;
   try {
@@ -75,6 +74,16 @@ export async function POST(request: Request) {
 
   const parsed = CreateSessionTemplateSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
+
+  // After parsing: the department the template belongs to decides the answer.
+  // A facility-wide template (department_id null — see the schema's note) is
+  // owner/manager territory, which is what a null yields here.
+  const denied = requirePermission(
+    membership,
+    "session-template:write",
+    parsed.data.department_id ?? null
+  );
+  if (denied) return denied;
 
   // Verify the facility belongs to the caller's own org.
   const { data: facility } = await supabase

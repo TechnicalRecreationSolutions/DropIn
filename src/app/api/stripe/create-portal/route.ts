@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { stripe } from "@/lib/stripe/client";
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
@@ -19,9 +20,8 @@ export async function POST() {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
-  if (!["owner", "admin"].includes(membership.role)) {
-    return NextResponse.json({ error: "Only org owners and admins can manage billing" }, { status: 403 });
-  }
+  const denied = requirePermission(membership, "billing:manage");
+  if (denied) return denied;
 
   const { data: org } = await supabase
     .from("organizations")
