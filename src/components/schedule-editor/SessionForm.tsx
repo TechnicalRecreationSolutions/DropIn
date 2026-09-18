@@ -161,16 +161,29 @@ export default function SessionForm({
   const selectedGroup = scheduleGroups.find((sg) => sg.id === scheduleGroupId);
   const selectedFacilityId = selectedGroup?.facility_id;
   const selectedDepartmentId = selectedGroup?.department_id ?? null;
-  // Scoped to the schedule's own department — otherwise every space in the
-  // building shows up here, e.g. a tennis court in an Aquatics session's
-  // space picker. Spaces with no department of their own (department_id
-  // null) stay available to every schedule in the facility, mirroring
-  // SpacesPanel's "whole building" treatment of unassigned spaces.
-  const facilitySpaces = spaces.filter(
-    (s) =>
-      s.facility_id === selectedFacilityId &&
-      (s.department_id === null || s.department_id === selectedDepartmentId)
+  /**
+   * Scoped to the schedule's own department, strictly.
+   *
+   * This used to also admit every space with `department_id` null, on the
+   * theory that an untagged space belongs to the whole building. In practice
+   * null means two different things — "shared by everyone" and "nobody has
+   * filed it yet" — and they are indistinguishable, so the second one leaked:
+   * a tennis court showed up in an Aquatics session's space picker at a
+   * facility that already had a Tennis department for it to live in.
+   *
+   * A strict match still covers a building that skips departments entirely:
+   * its schedules have `department_id` null too, so its untagged spaces match.
+   * What it gives up is a genuinely shared space appearing under two
+   * departments at once — file it under the one that owns it, or leave the
+   * schedule itself department-less.
+   */
+  const facilityDepartmentSpaces = spaces.filter((s) => s.facility_id === selectedFacilityId);
+  const facilitySpaces = facilityDepartmentSpaces.filter(
+    (s) => s.department_id === selectedDepartmentId
   );
+  // An empty or short picker is otherwise a dead end — the fix is on another
+  // page, so say so rather than letting it look like nothing exists.
+  const hiddenSpaceCount = facilityDepartmentSpaces.length - facilitySpaces.length;
 
   // Skips the second request entirely for the common case of a session saved
   // without touching its schedule's program details. Compared against
@@ -456,7 +469,11 @@ export default function SessionForm({
       <div className="border-t border-border pt-5">
         <label className={labelClass}>Spaces</label>
         {facilitySpaces.length === 0 ? (
-          <p className="text-sm text-muted-foreground/70">No spaces set up for this facility.</p>
+          <p className="text-sm text-muted-foreground/70">
+            {hiddenSpaceCount > 0
+              ? `No spaces are in this schedule's department yet. ${hiddenSpaceCount} other space${hiddenSpaceCount === 1 ? "" : "s"} in this building ${hiddenSpaceCount === 1 ? "is" : "are"} filed elsewhere — assign ${hiddenSpaceCount === 1 ? "it" : "them"} on the Spaces page.`
+              : "No spaces set up for this facility."}
+          </p>
         ) : (
           <>
             <div className="flex gap-1.5 flex-wrap">

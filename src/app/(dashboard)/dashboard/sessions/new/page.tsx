@@ -43,11 +43,20 @@ export default async function NewSessionTemplatePage({ searchParams }: NewSessio
     department = data;
   }
 
-  const { data: spaces } = await supabase
+  // A template belongs to one department, so its "usual spaces" picker offers
+  // that department's spaces only — the same strict scoping as the session
+  // builder (see the note in SessionForm.tsx). A template with no department
+  // matches the untagged spaces, which is how a department-less building works.
+  const spacesQuery = supabase
     .from("spaces")
     .select("id, name")
     .eq("facility_id", facility.id)
-    .order("display_order", { ascending: true });
+    .order("display_order", { ascending: true })
+    .order("created_at", { ascending: true });
+
+  const { data: spaces } = await (department?.id
+    ? spacesQuery.eq("department_id", department.id)
+    : spacesQuery.is("department_id", null));
 
   const redirectTo = sessionsHref({
     facilityId: facility.id,

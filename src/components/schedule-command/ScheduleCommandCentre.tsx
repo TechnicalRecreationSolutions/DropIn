@@ -321,12 +321,13 @@ export default function ScheduleCommandCentre({
   const editing: ScheduleEditingApi = useMemo(
     () => ({
       templates: scheduleGroup?.templates ?? [],
-      // Scoped to the schedule's own department — a schedule under Aquatics
-      // should only offer pool spaces, not every space in the building (e.g.
-      // a tennis court). Spaces with no department of their own stay
-      // available to every schedule in the facility, mirroring SpacesPanel.
+      // Scoped to the schedule's own department, strictly — a schedule under
+      // Aquatics should only offer pool spaces, not every space in the building.
+      // The untagged-spaces-belong-to-everyone exception that used to live here
+      // is what let the tennis court through: see the long note in
+      // SessionForm.tsx, which this must stay in step with.
       spaces: (facility?.spaces ?? []).filter(
-        (s) => s.departmentId === null || s.departmentId === (scheduleGroup?.departmentId ?? null)
+        (s) => s.departmentId === (scheduleGroup?.departmentId ?? null)
       ),
       // Not filtered by department: a bulkhead is a property of the building,
       // so every schedule in it sees the same set of states (migration 048,
