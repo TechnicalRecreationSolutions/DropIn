@@ -51,6 +51,7 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
       <FacilityForm
         facilityId={facilityId}
         orgId={orgContext.org.id}
+        orgVerified={!!orgContext.org.approved_at}
         defaultValues={{
           photo_urls: facility.photo_urls ?? [],
           name: facility.name,

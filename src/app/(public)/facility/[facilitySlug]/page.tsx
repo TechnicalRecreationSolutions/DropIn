@@ -79,7 +79,7 @@ async function getFacilityPageData(facilitySlug: string) {
     // public route to link to (see docs/PLAN.md §3a), so this is display-only.
     supabase
       .from("organizations_public")
-      .select("name, logo_url")
+      .select("name, logo_url, is_verified")
       .eq("id", facility.org_id)
       .maybeSingle(),
   ]);
@@ -96,11 +96,16 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   // openGraph carries no template, but the root layout sets `siteName: "Dropin"`,
   // so the brand is already present there too.
   if (!data) return notFoundMetadata("Facility Not Found");
-  const { facility } = data;
+  const { facility, org } = data;
 
   return {
     title: facility.name,
     alternates: { canonical: `/facility/${facility.slug}` },
+    // An unverified org's page still serves — the centre's own site may link
+    // to it — but search engines are not invited to rank it against the real
+    // centre's (migration 057). Verification reaches here when the page's
+    // cache entry turns over: hours, or sooner on the next facility save.
+    ...(org?.is_verified ? {} : { robots: { index: false, follow: false } }),
     description:
       facility.description ??
       `Drop-in schedules at ${facility.name} in ${facility.city}, ${facility.province}.`,
@@ -136,7 +141,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
           gone (see docs/PLAN.md §3a) — the org name is shown as plain text
           rather than left dangling as a link to nowhere. */}
       <nav className="text-sm text-muted-foreground mb-6 print:hidden">
-        {facility.listed_in_directory ? (
+        {facility.listed_in_directory && org?.is_verified ? (
           <Link href="/find" className="hover:text-foreground transition-colors">Find a centre</Link>
         ) : (
           <Link href="/" className="hover:text-foreground transition-colors">Home</Link>

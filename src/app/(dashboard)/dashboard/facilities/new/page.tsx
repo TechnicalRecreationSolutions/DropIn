@@ -18,7 +18,7 @@ export default async function NewFacilityPage() {
           A facility is a physical location where your schedules take place.
         </p>
       </div>
-      <FacilityForm orgId={orgContext.org.id} locationStatus="pending" />
+      <FacilityForm orgId={orgContext.org.id} orgVerified={!!orgContext.org.approved_at} locationStatus="pending" />
     </div>
   );
 }

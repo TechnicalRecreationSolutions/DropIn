@@ -38,6 +38,7 @@ node scripts/verify/verify-ai.mjs --app=http://localhost:3002  # CSP in a real b
 node scripts/verify/verify-aj.mjs  # space zones + display order (migration 054), in a real browser (13 assertions)
 node scripts/verify/verify-ak.mjs  # department scoping of the space pickers (6 assertions)
 node scripts/verify/verify-al.mjs  # staff roles, scopes + invitations (migrations 055/056) — NEEDS BOTH APPLIED
+node scripts/verify/verify-am.mjs --app=http://localhost:3001  # impersonation guards: global facility slugs, platform-only org columns, verified-only directory (migration 057; 21 assertions). The verify→listed flip needs a PRODUCTION BUILD — `next dev` serves the stale page past 10 s
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```

@@ -109,42 +109,83 @@ export async function POST(request: Request) {
             ? { lat: null, lng: null, geocoded_at: null }
             : { geocoded_at: null };
 
-  const payload = {
+  const fieldsToSave = {
     ...fields,
     ...location,
     org_id: membership.org_id,
-    slug: slugify(fields.name),
   };
 
   const table = supabase.from("facilities");
 
   if (isEditing) {
-    const { error } = await table
-      .update(payload)
-      .eq("id", facilityId)
-      .eq("org_id", membership.org_id);
+    const { slug, error } = await withAvailableSlug(fields.name, previousSlug, (candidate) =>
+      table
+        .update({ ...fieldsToSave, slug: candidate })
+        .eq("id", facilityId)
+        .eq("org_id", membership.org_id)
+    );
 
     if (error) {
-      return NextResponse.json(
-        { error: error.code === "23505" ? "A facility with that name already exists." : "Failed to update facility." },
-        { status: 500 }
-      );
+      return NextResponse.json({ error: "Failed to update facility." }, { status: 500 });
     }
-    expirePublicPages(payload.slug, previousSlug);
+    expirePublicPages(slug, previousSlug);
     return NextResponse.json({ ok: true, facilityId });
   }
 
-  const { data: facility, error } = await table.insert(payload).select("id").single();
+  let createdId: string | undefined;
+  const { slug, error } = await withAvailableSlug(fields.name, null, async (candidate) => {
+    const result = await table.insert({ ...fieldsToSave, slug: candidate }).select("id").single();
+    createdId = result.data?.id;
+    return result;
+  });
 
-  if (error) {
-    return NextResponse.json(
-      { error: error.code === "23505" ? "A facility with that name already exists." : "Failed to create facility." },
-      { status: 500 }
-    );
+  if (error || !createdId) {
+    return NextResponse.json({ error: "Failed to create facility." }, { status: 500 });
   }
 
-  expirePublicPages(payload.slug, null);
-  return NextResponse.json({ ok: true, facilityId: facility.id });
+  expirePublicPages(slug, null);
+  return NextResponse.json({ ok: true, facilityId: createdId });
+}
+
+/** Past this many clashes on one name, something other than a namesake is going on. */
+const MAX_SLUG_ATTEMPTS = 20;
+
+/**
+ * Facility slugs are one public namespace across every organization (migration
+ * 057): /facility/[slug] is looked up by slug alone, and when two orgs shared
+ * one the lookup errored and the *first* centre's page stopped rendering. So a
+ * clash is resolved by suffixing -2, -3, ... rather than rejected — two orgs
+ * can legitimately both run an "Aquatic Centre".
+ *
+ * The clash is found by attempting the write, not by reading first: RLS hides
+ * other orgs' unpublished facilities from this client, so a read would miss
+ * exactly the rows most likely to collide. 23505 on `facilities` can only be
+ * the slug (the id is generated).
+ *
+ * A facility already on a suffixed slug for its name keeps it, so re-saving
+ * "Crystal Pool" at crystal-pool-2 does not move its URL — even after
+ * crystal-pool has been freed.
+ */
+async function withAvailableSlug(
+  name: string,
+  previousSlug: string | null,
+  write: (slug: string) => PromiseLike<{ error: { code: string } | null }>
+): Promise<{ slug: string; error: { code: string } | null }> {
+  const base = slugify(name);
+  const candidates = [base, ...Array.from({ length: MAX_SLUG_ATTEMPTS - 1 }, (_, i) => `${base}-${i + 2}`)];
+  if (previousSlug && candidates.includes(previousSlug)) {
+    candidates.splice(candidates.indexOf(previousSlug), 1);
+    candidates.unshift(previousSlug);
+  }
+
+  let last: { code: string } | null = null;
+  for (const slug of candidates) {
+    const { error } = await write(slug);
+    if (!error) return { slug, error: null };
+    if (error.code !== "23505") return { slug, error };
+    last = error;
+  }
+  return { slug: base, error: last };
 }
 
 /**

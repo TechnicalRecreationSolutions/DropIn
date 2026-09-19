@@ -20,7 +20,8 @@ const MAX_LISTINGS = 1000;
  * Uses the cookie-free public client, so RLS answers as a resident would.
  * Listed means `is_published AND listed_in_directory` (migration 052), and the
  * owning organization must be active — `organizations_public` only returns
- * active orgs, so a pending or suspended org's buildings drop out here.
+ * active orgs, so a pending or suspended org's buildings drop out here — and
+ * verified (`is_verified`, migration 057).
  *
  * `POST /api/facilities` and `DELETE /api/facilities/[id]` expire the tag, so
  * opting in or out shows at once. A schedule being published or ended changes
@@ -68,7 +69,7 @@ export async function getDirectoryListings(): Promise<DirectoryFacility[]> {
       .or(`ends_on.is.null,ends_on.gte.${cutoff}`),
     supabase
       .from("organizations_public")
-      .select("id, name, logo_url")
+      .select("id, name, logo_url, is_verified")
       .in("id", orgIds),
   ]);
   if (groupsRes.error) throw new Error(`directory: schedule groups read failed: ${groupsRes.error.message}`);
@@ -84,7 +85,9 @@ export async function getDirectoryListings(): Promise<DirectoryFacility[]> {
 
   return facilities.flatMap((f): DirectoryFacility[] => {
     const org = orgsById.get(f.org_id);
-    if (!org?.name) return [];
+    // Unverified orgs stay out: listing is Dropin vouching that this account
+    // really runs the centre it names (migration 057).
+    if (!org?.name || !org.is_verified) return [];
 
     const sports = [...(sportsByFacility.get(f.id) ?? [])]
       .map((id) => ({ id, label: getSportCategory(id)?.label ?? id }))

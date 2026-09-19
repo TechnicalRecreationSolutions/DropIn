@@ -99,7 +99,9 @@ const cleanup = { users: [], orgs: [] };
 try {
   const { data: org } = await admin
     .from("organizations")
-    .insert({ name: `ZZ Verify-AH Rec ${stamp}`, slug: `zz-verify-ah-${stamp}`, status: "active" })
+    .insert({ name: `ZZ Verify-AH Rec ${stamp}`, slug: `zz-verify-ah-${stamp}`, status: "active",
+      // Verified: an unverified org is kept out of the sitemap and noindexed (057).
+      approved_at: new Date().toISOString() })
     .select("id")
     .single();
   cleanup.orgs.push(org.id);
@@ -108,7 +110,7 @@ try {
   const password = `Zah!${stamp}aA9`;
   const { data: userData } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   cleanup.users.push(userData.user.id);
-  await admin.from("org_memberships").insert({ org_id: org.id, user_id: userData.user.id, role: "admin" });
+  await admin.from("org_memberships").insert({ org_id: org.id, user_id: userData.user.id, role: "manager" });
   const { data: signIn } = await anon.auth.signInWithPassword({ email, password });
   const cookie = sessionCookies(signIn.session);
 

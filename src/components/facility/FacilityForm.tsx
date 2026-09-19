@@ -17,6 +17,12 @@ interface FacilityFormProps {
   facilityId?: string;
   /** Owning org — decides the storage folder uploads land in. */
   orgId: string;
+  /**
+   * Whether the platform has verified this org (migration 057). An unverified
+   * org can tick the directory box, but nothing is listed until verification,
+   * and the form says so rather than let the facility silently not appear.
+   */
+  orgVerified: boolean;
   defaultValues?: {
     photo_urls?: string[];
     name?: string;
@@ -46,7 +52,7 @@ const LOCATION_NOTE: Record<NonNullable<FacilityFormProps["locationStatus"]>, st
   pending: "The address will be looked up on the map when you save.",
 };
 
-export default function FacilityForm({ facilityId, orgId, defaultValues, locationStatus }: FacilityFormProps) {
+export default function FacilityForm({ facilityId, orgId, orgVerified, defaultValues, locationStatus }: FacilityFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = !!facilityId;
@@ -219,6 +225,13 @@ export default function FacilityForm({ facilityId, orgId, defaultValues, locatio
             Residents can find this facility and its schedule by searching Dropin.
             {!form.is_published && " Only shown while the facility is published."}
           </p>
+          {form.listed_in_directory && !orgVerified && (
+            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+              Your organization hasn’t been verified yet. We confirm that each account
+              really runs the centres it lists before they appear in the directory — we’ll
+              be in touch, and this facility will show up once that’s done.
+            </p>
+          )}
           {form.listed_in_directory && locationStatus && (
             <p
               className={

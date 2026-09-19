@@ -1099,6 +1099,8 @@ export type Database = {
           city: string | null;
           province: string | null;
           country: string;
+          /** `approved_at IS NOT NULL` (migration 057). */
+          is_verified: boolean;
         };
         Relationships: [];
       };
