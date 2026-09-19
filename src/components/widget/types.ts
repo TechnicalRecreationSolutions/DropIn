@@ -106,3 +106,6 @@ export function publishedSignature(s: PublishedSettings): string {
 }
 
 export type { ScheduleTemplate };
+
+/** Step 4's building select — the locked Floorplan card in step 2 scrolls to it. */
+export const SCOPE_FACILITY_SELECT_ID = "widget-scope-facility";

@@ -100,6 +100,24 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     department = d;
   }
 
+  // An org with exactly one published building: an unscoped embed is that
+  // building's embed, so it can offer the floorplan. The studio's step 4
+  // building picker only exists for multi-building orgs, so without this a
+  // one-building org could never put its map in the widget. Used for the data
+  // scope and the floorplan only — the header and print subtitle still follow
+  // what the snippet actually named.
+  let onlyFacility: { id: string; name: string } | null = null;
+  if (!facility) {
+    const { data: published } = await supabase
+      .from("facilities")
+      .select("id, name")
+      .eq("org_id", orgId)
+      .eq("is_published", true)
+      .limit(2);
+    if (published?.length === 1) onlyFacility = published[0];
+  }
+  const dataFacility = facility ?? onlyFacility;
+
   // allowedTemplates reflects the org's saved widget_configs row for this
   // exact facility+department scope by default. The configurator's own
   // unsaved preview passes ?preview=1&templates=grid,list to see a choice
@@ -238,9 +256,12 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     isPreview && previewList.length > 0
       ? previewList
       : widgetConfig?.allowed_templates ?? ["grid", "list", "map"];
-  // Floorplan only makes sense scoped to a single facility — an org-wide
-  // embed (no facilityId) has no one facility map to show.
-  const allowedTemplates = facility
+  // Floorplan draws one building, so it needs one: named by the snippet,
+  // inferred for a one-building org, or taken from the switcher — every entry
+  // names a facility and WidgetScheduleClient hands the selected entry's to
+  // the view, so the map follows the visitor's pick. Only an embed across
+  // several buildings with no switcher has no one map to show.
+  const allowedTemplates = dataFacility || scopes.length > 0
     ? rawAllowedTemplates
     : rawAllowedTemplates.filter((t) => t !== "floorplan");
 
@@ -286,7 +307,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
 
         <WidgetScheduleClient
           orgId={org.id}
-          facilityId={facility?.id}
+          facilityId={dataFacility?.id}
           departmentId={department?.id}
           theme={theme === "dark" ? "dark" : "light"}
           allowedTemplates={allowedTemplates}

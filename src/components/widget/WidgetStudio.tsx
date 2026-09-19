@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useQuery } from "@tanstack/react-query";
+import { useQueries, useQuery } from "@tanstack/react-query";
 import { Check, Copy, Eye, Loader2, Moon, Sun, Sparkles } from "lucide-react";
 import {
   DEFAULT_ENABLED_FILTERS,
@@ -12,12 +12,13 @@ import { cn } from "@/lib/utils/cn";
 import BrandColorField from "./BrandColorField";
 import FilterEditor from "./FilterEditor";
 import InstallPanel from "./InstallPanel";
-import LayoutPicker from "./LayoutPicker";
+import LayoutPicker, { type FloorplanState, type MapStatus } from "./LayoutPicker";
 import PreviewWindow from "./PreviewWindow";
 import VisitorFilterToggles from "./VisitorFilterToggles";
 import PrintToggle from "./PrintToggle";
 import StepCard from "@/components/ui/step-card";
 import {
+  SCOPE_FACILITY_SELECT_ID,
   publishedSignature,
   savedScopeToLocal,
   type EmbedMethod,
@@ -104,20 +105,55 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   /** The snippet text as it stood the last time it was copied, or null if never. */
   const [lastCopiedCode, setLastCopiedCode] = useState<string | null>(null);
 
-  // Floorplan is drawn per facility, and `/widget/[orgId]` only offers it to a
-  // request that names one — so the toggle follows the snippet's own scope
-  // (step 4), the single place a facility now reaches the embed.
-  const { data: facilityMapData } = useQuery({
-    queryKey: ["widget-facility-map", scopeFacilityId],
-    queryFn: async () => {
-      const res = await fetch(`/api/facility-maps?facilityId=${scopeFacilityId}`);
-      if (!res.ok) throw new Error(`Failed to load facility map (${res.status})`);
-      const data = await res.json();
-      return data.facilityMap as { is_published: boolean } | null;
-    },
-    enabled: !!scopeFacilityId,
+  // Floorplan is drawn per building, so the embed needs one — in the same
+  // order of precedence the widget itself uses: the snippet's own scope
+  // (step 4), else the step 1 switcher (the map follows the visitor's pick, so
+  // every entry's building counts), else the org's only building.
+  // /widget/[orgId] applies the same rule when deciding to offer Floorplan.
+  const floorplanFacilityIds = useMemo(() => {
+    if (scopeFacilityId) return [scopeFacilityId];
+    const fromSwitcher = [...new Set(scopeRows.map((r) => r.facilityId).filter(Boolean))];
+    if (fromSwitcher.length > 0) return fromSwitcher;
+    return facilities.length === 1 ? [facilities[0].id] : [];
+  }, [scopeFacilityId, scopeRows, facilities]);
+  const floorplanFollowsSwitcher = !scopeFacilityId && scopeRows.some((r) => r.facilityId);
+
+  const facilityMapQueries = useQueries({
+    queries: floorplanFacilityIds.map((id) => ({
+      queryKey: ["widget-facility-map", id],
+      queryFn: async () => {
+        const res = await fetch(`/api/facility-maps?facilityId=${id}`);
+        if (!res.ok) throw new Error(`Failed to load facility map (${res.status})`);
+        const data = await res.json();
+        return data.facilityMap as { is_published: boolean } | null;
+      },
+    })),
   });
-  const floorplanAvailable = !!scopeFacilityId && !!facilityMapData?.is_published;
+  const floorplanState: FloorplanState =
+    floorplanFacilityIds.length === 0
+      ? { kind: "pick-facility" }
+      : {
+          kind: "buildings",
+          followsSwitcher: floorplanFollowsSwitcher,
+          buildings: floorplanFacilityIds.map((id, i) => {
+            const q = facilityMapQueries[i];
+            const map: MapStatus = q.isLoading
+              ? "checking"
+              : !q.data
+                ? "none"
+                : q.data.is_published
+                  ? "published"
+                  : "draft";
+            return { id, name: facilities.find((f) => f.id === id)?.name ?? "This building", map };
+          }),
+        };
+
+  /** "Choose a building" on the locked Floorplan card — step 4 is a page away. */
+  function goToFacilityPicker() {
+    const select = document.getElementById(SCOPE_FACILITY_SELECT_ID);
+    select?.scrollIntoView({ behavior: "smooth", block: "center" });
+    select?.focus({ preventScroll: true });
+  }
 
   const { data: widgetConfigData, isLoading: loading } = useQuery({
     queryKey: ["widget-config", orgId],
@@ -459,7 +495,9 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
           <LayoutPicker
             value={allowedTemplates}
             onChange={setAllowedTemplates}
-            floorplanAvailable={floorplanAvailable}
+            floorplan={floorplanState}
+            onAddBuildings={addRowPerFacility}
+            onPickFacility={goToFacilityPicker}
             disabled={loading || saving}
           />
         </div>

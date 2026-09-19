@@ -3,7 +3,7 @@
 import { useState } from "react";
 import { Check, Code2, Copy, ExternalLink, Frame, Link2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import type { EmbedMethod, WidgetFacility } from "./types";
+import { SCOPE_FACILITY_SELECT_ID, type EmbedMethod, type WidgetFacility } from "./types";
 
 interface InstallPanelProps {
   /** The snippet for the current method — HTML for script/iframe, the URL itself for link. */
@@ -270,17 +270,18 @@ export default function InstallPanel({
       {facilities.length > 1 && (
         <label className="block">
           <span className="block text-sm font-medium text-foreground mb-1">
-            Show only one facility on this page?
+            Pasting this on one building’s own page?
           </span>
           <select
+            id={SCOPE_FACILITY_SELECT_ID}
             value={scopeFacilityId}
             onChange={(e) => onScopeFacilityChange(e.target.value)}
             className="w-full sm:max-w-sm px-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-blue-500"
           >
-            <option value="">Everything above — the full schedule</option>
+            <option value="">No — show everything from step 1</option>
             {facilities.map((f) => (
               <option key={f.id} value={f.id}>
-                {f.name} only
+                {f.name}’s page only
                 {f.isPublished ? "" : " — draft"}
               </option>
             ))}
@@ -290,7 +291,7 @@ export default function InstallPanel({
               ? switcherCount > 1
                 ? "This copy of the code shows only that facility, and its switcher narrows to that facility's schedules."
                 : "This copy of the code shows only that facility."
-              : "Paste a different copy on each page if you want each one narrowed. Travels in the code — re-copy it after changing."}
+              : "Only needed if your website has a separate page per building — pick it there and that copy of the code shows just that building. Visitors can already switch buildings with the step 1 switcher. Travels in the code — re-copy it after changing."}
           </span>
         </label>
       )}

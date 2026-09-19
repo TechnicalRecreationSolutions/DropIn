@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { Check, Lock, Star } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { mapHref } from "@/lib/schedule/commandCentreHref";
 import LayoutThumbnail from "./LayoutThumbnail";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -9,9 +11,37 @@ interface LayoutPickerProps {
   /** Ordered — index 0 is the view the widget boots into. */
   value: ScheduleTemplate[];
   onChange: (next: ScheduleTemplate[]) => void;
-  /** Floorplan needs the snippet scoped to one facility (step 4) whose map is published. */
-  floorplanAvailable: boolean;
+  /** Which buildings the floorplan would draw, and whether each has a map to draw. */
+  floorplan: FloorplanState;
+  /** Adds one step 1 switcher entry per building. */
+  onAddBuildings: () => void;
+  /** Takes the admin to step 4's building picker. */
+  onPickFacility: () => void;
   disabled?: boolean;
+}
+
+export type MapStatus = "checking" | "none" | "draft" | "published";
+
+/**
+ * What the Floorplan card knows. A map is drawn per building, so the embed
+ * needs a building: the step 4 snippet scope, the org's only building, or —
+ * the usual case — the step 1 switcher, whose every entry names one and whose
+ * selected entry the floorplan follows. Each building's map status is listed
+ * so the card can say exactly which ones still need drawing or publishing and
+ * link to each.
+ */
+export type FloorplanState =
+  | { kind: "pick-facility" }
+  | {
+      kind: "buildings";
+      /** True when the floorplan follows the step 1 switcher. */
+      followsSwitcher: boolean;
+      buildings: { id: string; name: string; map: MapStatus }[];
+    };
+
+/** Locked while no building is known, or none of them has a published map yet. */
+export function floorplanLocked(state: FloorplanState): boolean {
+  return state.kind === "pick-facility" || !state.buildings.some((b) => b.map === "published");
 }
 
 const LAYOUTS: { value: ScheduleTemplate; label: string; blurb: string }[] = [
@@ -31,7 +61,14 @@ const LAYOUTS: { value: ScheduleTemplate; label: string; blurb: string }[] = [
  * order already round-trips through the API as an array, so the default view is
  * a free feature; it just needed to be sayable.
  */
-export default function LayoutPicker({ value, onChange, floorplanAvailable, disabled }: LayoutPickerProps) {
+export default function LayoutPicker({
+  value,
+  onChange,
+  floorplan,
+  onAddBuildings,
+  onPickFacility,
+  disabled,
+}: LayoutPickerProps) {
   function toggle(template: ScheduleTemplate) {
     if (value.includes(template)) {
       // At least one view has to stay on — a widget with nothing to render is
@@ -52,7 +89,8 @@ export default function LayoutPicker({ value, onChange, floorplanAvailable, disa
       {LAYOUTS.map(({ value: template, label, blurb }) => {
         const checked = value.includes(template);
         const isDefault = checked && value[0] === template;
-        const locked = template === "floorplan" && !floorplanAvailable;
+        const isFloorplan = template === "floorplan";
+        const locked = isFloorplan && floorplanLocked(floorplan);
         const isDisabled = disabled || locked;
 
         return (
@@ -75,7 +113,7 @@ export default function LayoutPicker({ value, onChange, floorplanAvailable, disa
             >
               <span className="sr-only">
                 {label}
-                {locked ? " — needs a published facility map" : ""}
+                {locked ? ` — ${floorplanSummary(floorplan)}` : ""}
               </span>
             </button>
 
@@ -93,8 +131,15 @@ export default function LayoutPicker({ value, onChange, floorplanAvailable, disa
                 {locked && <Lock className="w-3 h-3 text-muted-foreground" />}
               </p>
               <p className="text-[11px] leading-snug text-muted-foreground mt-0.5">
-                {locked ? "Needs one facility: pick it in step 4 and publish its map." : blurb}
+                {isFloorplan ? floorplanSummary(floorplan) ?? blurb : blurb}
               </p>
+              {isFloorplan && (
+                <FloorplanActions
+                  state={floorplan}
+                  onAddBuildings={onAddBuildings}
+                  onPickFacility={onPickFacility}
+                />
+              )}
             </div>
 
             {/* In flow, not floated over the blurb — overlapping the copy made
@@ -129,5 +174,80 @@ export default function LayoutPicker({ value, onChange, floorplanAvailable, disa
         );
       })}
     </div>
+  );
+}
+
+/**
+ * The card's one-line state, or null for the plain blurb (one building, map
+ * published — nothing to explain).
+ */
+function floorplanSummary(state: FloorplanState): string | null {
+  if (state.kind === "pick-facility") {
+    return "Draws one building — add your buildings to the switcher in step 1, or pick one in step 4.";
+  }
+  const { buildings, followsSwitcher } = state;
+  if (buildings.some((b) => b.map === "checking")) return "Checking maps…";
+  if (buildings.length === 1 && !followsSwitcher) {
+    const [b] = buildings;
+    if (b.map === "none") return `${b.name} has no map yet.`;
+    if (b.map === "draft") return `${b.name}'s map is still a draft.`;
+    return null;
+  }
+  const ready = buildings.filter((b) => b.map === "published").length;
+  if (ready === buildings.length) {
+    return `Follows the switcher — ${buildings.length === 1 ? "its building's" : `all ${buildings.length}`} map${buildings.length === 1 ? "" : "s"} ready.`;
+  }
+  return `Follows the switcher — ${ready} of ${buildings.length} building maps ready.`;
+}
+
+const actionClass =
+  "pointer-events-auto inline-flex text-[11px] font-semibold text-blue-700 dark:text-blue-400 hover:underline";
+
+/**
+ * The fixes, as controls on the card. The card's text layer is
+ * pointer-events-none (the whole tile is one toggle button underneath, which
+ * is disabled while locked), so each control takes its events back.
+ */
+function FloorplanActions({
+  state,
+  onAddBuildings,
+  onPickFacility,
+}: {
+  state: FloorplanState;
+  onAddBuildings: () => void;
+  onPickFacility: () => void;
+}) {
+  if (state.kind === "pick-facility") {
+    return (
+      <div className="mt-1.5 flex flex-col items-start gap-1">
+        <button type="button" onClick={onAddBuildings} className={actionClass}>
+          Add each building to the switcher →
+        </button>
+        <button type="button" onClick={onPickFacility} className={actionClass}>
+          Or pick one in step 4 →
+        </button>
+      </div>
+    );
+  }
+
+  const missing = state.buildings.filter((b) => b.map === "none" || b.map === "draft");
+  if (missing.length === 0) return null;
+  const single = state.buildings.length === 1 && !state.followsSwitcher;
+
+  return (
+    <ul className="mt-1.5 space-y-1">
+      {missing.map((b) => (
+        <li key={b.id} className="text-[11px] leading-snug text-muted-foreground">
+          {!single && (
+            <span>
+              {b.name}: {b.map === "none" ? "no map" : "draft"} ·{" "}
+            </span>
+          )}
+          <Link href={mapHref(b.id)} className={actionClass}>
+            {b.map === "none" ? "Draw its map →" : "Publish its map →"}
+          </Link>
+        </li>
+      ))}
+    </ul>
   );
 }
