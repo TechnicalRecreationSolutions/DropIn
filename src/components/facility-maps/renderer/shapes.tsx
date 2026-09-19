@@ -1,6 +1,6 @@
 "use client";
 
-import type { RenderShape, RenderContextElement, SpaceStatusInfo } from "./types";
+import type { RenderShape, RenderContextElement, SpaceAlert, SpaceStatusInfo } from "./types";
 import {
   MAP_COLORS,
   SHAPE_SHADOW,
@@ -88,6 +88,68 @@ function SelectionRing({ rect, r }: { rect: UnitRect; r: number }) {
 }
 
 /**
+ * The pill that carries a transition alert ("Ends in 6 min", "→ Aquafit
+ * 7:30 PM"). Sized from the map's rendered width rather than a fixed pixel
+ * size, so it stays readable when the map fills a lobby TV and does not
+ * swamp a phone. `anchor` "middle" centres it on (x, y); "end" right-aligns
+ * it there (pool lanes, where it sits at the lane's far end). When the full
+ * text would be wider than `maxWidth` — a long session name on a phone-width
+ * map — the alert's short form is drawn instead, so the pill never spills
+ * off its shape or covers the lane name.
+ */
+export function AlertTag({
+  x,
+  y,
+  alert,
+  maxWidth,
+  pxPerUnit,
+  anchor = "middle",
+}: {
+  x: number;
+  y: number;
+  alert: SpaceAlert;
+  maxWidth: number;
+  pxPerUnit: number;
+  anchor?: "middle" | "end";
+}) {
+  const mapPx = pxPerUnit * 1000; // VIEW_W
+  const fs = clamp(11, mapPx / 70, 20) / pxPerUnit;
+  const h = fs * 1.75;
+  // No text measurement in SVG without a layout pass — an average glyph
+  // width is close enough for a pill that only needs to contain the text.
+  const widthOf = (t: string) => t.length * fs * 0.58 + fs * 1.3;
+  const text = widthOf(alert.tag) <= maxWidth ? alert.tag : alert.shortTag;
+  const w = widthOf(text);
+  const left = anchor === "end" ? x - w : x - w / 2;
+  const top = Math.max(0, y - h / 2);
+  return (
+    <g pointerEvents="none">
+      <rect
+        x={left}
+        y={top}
+        width={w}
+        height={h}
+        rx={h / 2}
+        fill={MAP_COLORS.alert}
+        stroke="#FFFFFF"
+        strokeWidth={1.5 / pxPerUnit}
+      />
+      <text
+        x={left + w / 2}
+        y={top + h / 2}
+        fontSize={fs}
+        fontWeight={700}
+        fill={MAP_COLORS.alertText}
+        textAnchor="middle"
+        dominantBaseline="central"
+      >
+        {text}
+      </text>
+    </g>
+  );
+}
+
+/**
  * Centered name + optional status lines, counter-rotated so text stays
  * horizontal whatever the shape's rotation. `onDark` picks text colors for
  * water/wood/acrylic vs. pale room floors.
@@ -109,7 +171,8 @@ function LabelBlock({
 }) {
   const { cx, cy } = centerOf(rect);
   const pxWidth = rect.w * pxPerUnit;
-  if (pxWidth < 44) return null;
+  const showName = pxWidth >= 44;
+  if (!showName && !status?.alert) return null;
 
   const nameFs = fsUnits(clamp(12, rect.h * pxPerUnit * 0.22, 17), pxPerUnit, rect.h * 0.3);
   const subFs = nameFs * 0.8;
@@ -121,20 +184,28 @@ function LabelBlock({
 
   const nameY = showStatusLines ? cy - subFs * 0.9 : cy;
 
+  // This group is counter-rotated about the centre, so its coordinates are
+  // screen-aligned: the top of the rotated shape's bounding box is half its
+  // rotated height above the centre. The tag straddles that edge.
+  const theta = (rotation * Math.PI) / 180;
+  const halfBoundH = (Math.abs(rect.w * Math.sin(theta)) + Math.abs(rect.h * Math.cos(theta))) / 2;
+
   return (
     <g transform={rotation ? `rotate(${-rotation} ${cx} ${cy})` : undefined} pointerEvents="none">
-      <text
-        x={cx}
-        y={nameY}
-        fontSize={nameFs}
-        fontWeight={700}
-        fill={nameFill}
-        textAnchor="middle"
-        dominantBaseline="central"
-      >
-        {name}
-      </text>
-      {showStatusLines && status && (
+      {showName && (
+        <text
+          x={cx}
+          y={nameY}
+          fontSize={nameFs}
+          fontWeight={700}
+          fill={nameFill}
+          textAnchor="middle"
+          dominantBaseline="central"
+        >
+          {name}
+        </text>
+      )}
+      {showName && showStatusLines && status && (
         <>
           <text
             x={cx}
@@ -158,6 +229,15 @@ function LabelBlock({
             {status.timeLabel}
           </text>
         </>
+      )}
+      {status?.alert && (
+        <AlertTag
+          x={cx}
+          y={cy - halfBoundH}
+          alert={status.alert}
+          maxWidth={Math.max(rect.w, rect.h) * 1.2}
+          pxPerUnit={pxPerUnit}
+        />
       )}
     </g>
   );
@@ -191,8 +271,8 @@ function StatusOverlay({
       rx={r}
       fill={live ? MAP_COLORS.accent : soonFill}
       fillOpacity={live ? (onWater ? 0.4 : 0.26) : onWater ? 0.5 : 0.2}
-      stroke={live ? MAP_COLORS.accent : MAP_COLORS.soonStroke}
-      strokeWidth={live ? 3 : 2.5}
+      stroke={status.alert ? MAP_COLORS.alert : live ? MAP_COLORS.accent : MAP_COLORS.soonStroke}
+      strokeWidth={status.alert ? 5 : live ? 3 : 2.5}
       pointerEvents="none"
     />
   );
@@ -263,8 +343,9 @@ export function PoolShape({
         const stripe: UnitRect = { x: water.x, y: water.y + i * stripeH, w: water.w, h: stripeH };
         const status = lane.status;
         const stripeCy = stripe.y + stripe.h / 2;
-        const showSession =
-          !!status && stripePxW >= 160 && stripePxH >= 13;
+        const alert = status?.alert;
+        // An alert tag takes the session text's place at the lane's far end.
+        const showSession = !!status && !alert && stripePxW >= 160 && stripePxH >= 13;
         const sessionText =
           status && (stripePxW >= 250 ? `${status.title} · ${status.timeLabel}` : status.title);
         const selected = lane.shape.spaceId === selectedSpaceId;
@@ -288,8 +369,8 @@ export function PoolShape({
                 width={stripe.w - 2}
                 height={stripe.h - 2}
                 fill="none"
-                stroke={live ? "rgba(255,255,255,0.9)" : MAP_COLORS.soonStroke}
-                strokeWidth={live ? 1.5 : 2}
+                stroke={alert ? MAP_COLORS.alert : live ? "rgba(255,255,255,0.9)" : MAP_COLORS.soonStroke}
+                strokeWidth={alert ? 3.5 : live ? 1.5 : 2}
                 pointerEvents="none"
               />
             )}
@@ -345,6 +426,20 @@ export function PoolShape({
                 >
                   {sessionText}
                 </text>
+              </g>
+            )}
+            {alert && (
+              <g
+                transform={rotation ? `rotate(${-rotation} ${stripe.x + stripe.w - laneFs * 0.5} ${stripeCy})` : undefined}
+              >
+                <AlertTag
+                  x={stripe.x + stripe.w - laneFs * 0.5}
+                  y={stripeCy}
+                  alert={alert}
+                  maxWidth={stripe.w * 0.6}
+                  pxPerUnit={pxPerUnit}
+                  anchor="end"
+                />
               </g>
             )}
             {selected && <SelectionRing rect={stripe} r={0} />}

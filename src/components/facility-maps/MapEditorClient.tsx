@@ -2,18 +2,24 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { Eye, EyeOff, Undo2, Redo2, Smartphone, X } from "lucide-react";
-import ShapeCanvas, { type EditableShape, type EditableContextElement } from "./ShapeCanvas";
+import { Eye, EyeOff, Undo2, Redo2, Smartphone, X, Save } from "lucide-react";
+import ShapeCanvas, { unitKeyOf, type EditableShape, type EditableContextElement } from "./ShapeCanvas";
 import ShapePalette from "./ShapePalette";
-import ShapeAssignmentList from "./ShapeAssignmentList";
+import MapSpacesPanel, { type MapSpace } from "./MapSpacesPanel";
 import FacilityMapSvg from "./renderer/FacilityMapSvg";
 import { placementRect, type ArmedPlacement, type ContextItem } from "./placement";
 import type { ShapePreset } from "@/lib/facility-shapes/presets";
+import { cn } from "@/lib/utils/cn";
 
 interface MapEditorClientProps {
   facilityId: string;
-  spaces: { id: string; name: string }[];
+  /** This building's spaces, in display order. */
+  spaces: MapSpace[];
+  /** This building's departments, in display order — the sidebar groups by them. */
+  departments: { id: string; name: string }[];
 }
+
+type SidebarTab = "spaces" | "add";
 
 interface FacilityMapRow {
   id: string;
@@ -49,8 +55,19 @@ const HISTORY_LIMIT = 50;
  * Undo/redo history records a snapshot per completed gesture or atomic
  * edit (ShapeCanvas's onCommit), not per drag frame — Ctrl+Z / Ctrl+Shift+Z
  * or the toolbar buttons.
+ *
+ * Layout: one toolbar (undo/redo, preview, save, publish), then the canvas
+ * beside a sticky two-tab sidebar. "Spaces" (MapSpacesPanel) mirrors the
+ * Spaces page's department → zone grouping and says which spaces are on the
+ * map; "Add shape" is the preset palette. "Place" on an unplaced space
+ * switches to the palette with that space targeted, so the next shape put
+ * down is that space rather than whichever unplaced space came first.
  */
-export default function MapEditorClient({ facilityId, spaces: initialSpaces }: MapEditorClientProps) {
+export default function MapEditorClient({
+  facilityId,
+  spaces: initialSpaces,
+  departments,
+}: MapEditorClientProps) {
   const queryClient = useQueryClient();
   const [shapes, setShapes] = useState<EditableShape[]>([]);
   const [contexts, setContexts] = useState<EditableContextElement[]>([]);
@@ -68,6 +85,11 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   // placement so several of the same shape can be dropped in a row; the
   // user cancels via the card, Escape, or picking something else.
   const [armed, setArmed] = useState<ArmedPlacement | null>(null);
+  const [selectedKey, setSelectedKey] = useState<string | null>(null);
+  const [tab, setTab] = useState<SidebarTab>("spaces");
+  // "Place" on an unplaced space in the sidebar — the next preset placed
+  // uses this space (as its first lane, for a pool).
+  const [placingSpaceId, setPlacingSpaceId] = useState<string | null>(null);
 
   // History: refs hold the machinery (mutated in handlers only); a version
   // counter re-renders the undo/redo buttons.
@@ -236,6 +258,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
         // Global, not just canvas-focused — armed a card by clicking it,
         // focus can still be on that button when Escape is pressed.
         setArmed((current) => (current ? null : current));
+        setPlacingSpaceId(null);
       }
     }
     window.addEventListener("keydown", handleKey);
@@ -260,7 +283,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   }
 
   /** Creates a space (unpublished), retrying with numeric suffixes on name conflicts. */
-  async function createSpace(baseName: string): Promise<{ id: string; name: string } | null> {
+  async function createSpace(baseName: string): Promise<MapSpace | null> {
     const taken = new Set(spacesRef.current.map((s) => s.name.toLowerCase()));
     let candidate = baseName;
     let suffix = 2;
@@ -274,7 +297,15 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
       });
       if (res.ok) {
         const data = await res.json();
-        const space = { id: data.space.id as string, name: data.space.name as string };
+        // Created with no department or zone — it lands under "Whole
+        // building" here and on the Spaces page, where it can be refiled.
+        const space: MapSpace = {
+          id: data.space.id as string,
+          name: data.space.name as string,
+          isPublished: false,
+          departmentId: null,
+          zoneName: null,
+        };
         spacesRef.current = [...spacesRef.current, space];
         setSpaces(spacesRef.current);
         return space;
@@ -294,12 +325,21 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     return max + 1;
   }
 
-  async function provisionSpaces(count: number, laneNaming: boolean, fallbackName: string) {
+  async function provisionSpaces(
+    count: number,
+    laneNaming: boolean,
+    fallbackName: string,
+    preferredSpaceId: string | null = null
+  ) {
     // Read assignment through the refs — component state may predate a
     // just-finished queued placement.
     const assigned = new Set(liveRef.current.shapes.map((s) => s.space_id));
     const available = spacesRef.current.filter((s) => !assigned.has(s.id));
-    const result = [...available.slice(0, count)];
+    // A space picked in the sidebar goes first, so it is the one placed (or
+    // lane 1 of a pool); the rest fill in display order as before.
+    const preferred = available.find((s) => s.id === preferredSpaceId);
+    const ordered = preferred ? [preferred, ...available.filter((s) => s !== preferred)] : available;
+    const result = [...ordered.slice(0, count)];
     let laneStart = nextLaneNumber();
     while (result.length < count) {
       const created = await createSpace(laneNaming ? `Lane ${laneStart++}` : fallbackName);
@@ -333,16 +373,42 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   /** Fires when the canvas is tapped while a palette card is armed. */
   function handleCanvasPlace(dropFraction: { x: number; y: number }) {
     if (!armed) return;
-    if (armed.kind === "preset") enqueuePlacement(() => placePreset(armed.preset, dropFraction));
-    else enqueuePlacement(() => placeContext(armed.item, dropFraction));
+    if (armed.kind === "context") {
+      enqueuePlacement(() => placeContext(armed.item, dropFraction));
+      return;
+    }
+    const target = placingSpaceId;
+    enqueuePlacement(() => placePreset(armed.preset, dropFraction, target));
+    if (target) {
+      // A targeted placement is one-shot: that space is now placed, so the
+      // next tap must not put down a second shape for some other space.
+      setPlacingSpaceId(null);
+      setArmed(null);
+      setTab("spaces");
+    }
   }
 
-  async function placePreset(preset: ShapePreset, dropFraction: { x: number; y: number }) {
+  function handlePlaceSpace(spaceId: string) {
+    setPlacingSpaceId(spaceId);
+    setSelectedKey(null);
+    setTab("add");
+  }
+
+  async function placePreset(
+    preset: ShapePreset,
+    dropFraction: { x: number; y: number },
+    targetSpaceId: string | null
+  ) {
     const map = await ensureFacilityMap();
     if (!map) return;
 
     setSaveError(null);
-    const targetSpaces = await provisionSpaces(preset.laneCount, preset.laneCount > 1, preset.label);
+    const targetSpaces = await provisionSpaces(
+      preset.laneCount,
+      preset.laneCount > 1,
+      preset.label,
+      targetSpaceId
+    );
     if (!targetSpaces) {
       setSaveError("Could not create spaces for this shape. Please try again.");
       return;
@@ -353,18 +419,23 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
     // A single-lane preset (laneCount 1) is just a group of one — same
     // shape, no groupId/laneIndex, matching every standalone shape today.
     const groupId = preset.laneCount > 1 ? crypto.randomUUID() : null;
+    // label null = show the space's own name. It used to be copied in at
+    // placement (the preset's "Tennis Court" even when an existing "Court A"
+    // was assigned), so the map and the Spaces page named the same thing
+    // differently, and renaming a space never reached the map.
     const newShapes: EditableShape[] = Array.from({ length: preset.laneCount }, (_, i) => ({
       key: crypto.randomUUID(),
       space_id: targetSpaces[i].id,
       ...rect,
       rotation: 0,
-      label: groupId ? targetSpaces[i].name : preset.label,
+      label: null,
       presetKey: preset.key,
       groupId,
       laneIndex: groupId ? i : null,
     }));
 
     applyCommitted((current) => ({ ...current, shapes: [...current.shapes, ...newShapes] }));
+    if (targetSpaceId) setSelectedKey(unitKeyOf(newShapes[0]));
   }
 
   async function placeContext(item: ContextItem, dropFraction: { x: number; y: number }) {
@@ -411,7 +482,7 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
       space_id: targetSpaces[i].id,
       x: offsetX,
       y: offsetY,
-      label: newGroupId ? targetSpaces[i].name : m.label,
+      label: newGroupId ? null : m.label,
       groupId: newGroupId,
       laneIndex: newGroupId ? i : null,
     }));
@@ -538,49 +609,49 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
   const canvasHeight = facilityMap?.canvas_height ?? 15;
   const assignedSpaceIds = new Set(shapes.map((s) => s.space_id));
   const allSpacesPlaced = spaces.length > 0 && spaces.every((s) => assignedSpaceIds.has(s.id));
+  const assignedCount = spaces.filter((s) => assignedSpaceIds.has(s.id)).length;
+  const placingSpace = placingSpaceId ? (spaces.find((s) => s.id === placingSpaceId) ?? null) : null;
+  const iconButton =
+    "p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors";
+  const handleChange = (nextShapes: EditableShape[], nextContexts: EditableContextElement[]) =>
+    applyLive({ shapes: nextShapes, contexts: nextContexts });
 
   return (
-    <div className="max-w-[1000px] mx-auto space-y-4">
-      {/* One toolbar strip instead of a floating caption + floating buttons —
-          reads as a single control bar for the editor below it. */}
-      <div className="flex items-center justify-between gap-3 flex-wrap bg-card rounded-xl border border-border shadow-sm px-4 py-3">
-        <p className="text-sm text-muted-foreground">
-          Build a map of this facility — visitors will tap it to see what&apos;s happening where.
-        </p>
-        <div className="flex items-center gap-2 shrink-0">
-          <button
-            onClick={undo}
-            disabled={!canUndo}
-            className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-            aria-label="Undo"
-            title="Undo (Ctrl+Z)"
-          >
-            <Undo2 className="w-4 h-4" />
-          </button>
-          <button
-            onClick={redo}
-            disabled={!canRedo}
-            className="p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors"
-            aria-label="Redo"
-            title="Redo (Ctrl+Shift+Z)"
-          >
-            <Redo2 className="w-4 h-4" />
-          </button>
+    <div className="space-y-4">
+      {/* One control bar for the whole editor. Save lives here rather than
+          under the canvas, so it stays in reach however long the sidebar gets. */}
+      <div className="flex items-center gap-2 flex-wrap bg-card rounded-xl border border-border shadow-sm px-3 py-2.5">
+        <button onClick={undo} disabled={!canUndo} className={iconButton} aria-label="Undo" title="Undo (Ctrl+Z)">
+          <Undo2 className="w-4 h-4" />
+        </button>
+        <button onClick={redo} disabled={!canRedo} className={iconButton} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+          <Redo2 className="w-4 h-4" />
+        </button>
+
+        <span className="text-xs text-muted-foreground ml-1 hidden sm:inline" aria-live="polite">
+          {saving ? "Saving…" : dirty ? "Unsaved changes" : facilityMap ? "All changes saved" : "Not started"}
+        </span>
+
+        <div className="ml-auto flex items-center gap-2">
           <button
             onClick={() => setShowPreview(true)}
             disabled={shapes.length === 0}
             className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
           >
-            <Smartphone className="w-4 h-4" /> Preview
+            <Smartphone className="w-4 h-4" /> <span className="hidden sm:inline">Preview</span>
+          </button>
+          <button
+            onClick={handleSave}
+            disabled={!dirty || saving || !facilityMap}
+            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save"}
           </button>
           {facilityMap && (
             <button
               onClick={handleTogglePublish}
-              className={`inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg transition-colors ${
-                facilityMap.is_published
-                  ? "border border-border text-foreground hover:bg-muted"
-                  : "bg-blue-600 text-white hover:bg-blue-700"
-              }`}
+              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
+              title={facilityMap.is_published ? "Visitors can see this map" : "Only staff can see this map"}
             >
               {facilityMap.is_published ? (
                 <>
@@ -596,59 +667,113 @@ export default function MapEditorClient({ facilityId, spaces: initialSpaces }: M
         </div>
       </div>
 
-      {/* Canvas and palette side by side on wide screens: the palette is
-          what you reach for on every placement, so it's sticky next to the
-          canvas rather than trailing below it. The placed-shape settings
-          list and Save button live in the LEFT column, stacked directly
-          under the canvas — not as a full-width row below the whole grid,
-          which (when the palette column runs taller than the canvas, as it
-          usually does with 5 categories of presets) left a large dead gap
-          between the canvas and that list. */}
-      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,720px)_260px] gap-4 items-start">
-        <div className="space-y-4">
-          <div className="bg-card rounded-2xl border border-border shadow-sm p-3">
-            <ShapeCanvas
-              canvasWidth={canvasWidth}
-              canvasHeight={canvasHeight}
-              shapes={shapes}
-              contextElements={contexts}
-              spaces={spaces}
-              onChange={(nextShapes, nextContexts) => applyLive({ shapes: nextShapes, contexts: nextContexts })}
-              onCommit={commit}
-              onDuplicate={handleDuplicate}
-              armed={armed}
-              onPlace={handleCanvasPlace}
-              onCancelArm={() => setArmed(null)}
-            />
-          </div>
+      {saveError && <p className="text-sm text-red-600">{saveError}</p>}
 
-          {saveError && <p className="text-sm text-red-600">{saveError}</p>}
-
-          <ShapeAssignmentList
+      {/* Canvas beside a sticky sidebar on wide screens; stacked on phones,
+          sidebar under the canvas. */}
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
+        <div className="bg-card rounded-2xl border border-border shadow-sm p-3 min-w-0">
+          <ShapeCanvas
+            canvasWidth={canvasWidth}
+            canvasHeight={canvasHeight}
             shapes={shapes}
             contextElements={contexts}
             spaces={spaces}
-            onChange={(nextShapes, nextContexts) => applyLive({ shapes: nextShapes, contexts: nextContexts })}
+            onChange={handleChange}
             onCommit={commit}
+            onDuplicate={handleDuplicate}
+            armed={armed}
+            onPlace={handleCanvasPlace}
+            onCancelArm={() => {
+              setArmed(null);
+              setPlacingSpaceId(null);
+            }}
+            selectedKey={selectedKey}
+            onSelect={(key) => {
+              setSelectedKey(key);
+              // Selecting on the canvas shows its settings, which live on
+              // the Spaces tab — unless a palette card is armed, when the
+              // user is mid-placement and the palette must stay put.
+              if (key && !armed) setTab("spaces");
+            }}
           />
-
-          <button
-            onClick={handleSave}
-            disabled={!dirty || saving || !facilityMap}
-            className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-          >
-            {saving ? "Saving…" : "Save map"}
-          </button>
         </div>
 
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-3 lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] lg:overflow-y-auto">
-          <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
-          {allSpacesPlaced && (
-            <p className="text-xs text-muted-foreground/70 mt-2">
-              All existing spaces are placed — placing another preset creates new spaces automatically.
-            </p>
-          )}
-        </div>
+        <aside
+          aria-label="Map spaces"
+          className="bg-card rounded-2xl border border-border shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] flex flex-col min-h-0">
+          <div role="tablist" aria-label="Map sidebar" className="flex border-b border-border shrink-0">
+            {(
+              [
+                ["spaces", `Spaces · ${assignedCount}/${spaces.length}`],
+                ["add", "Add shape"],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                role="tab"
+                aria-selected={tab === value}
+                onClick={() => setTab(value)}
+                className={cn(
+                  "flex-1 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  tab === value
+                    ? "border-blue-600 text-foreground"
+                    : "border-transparent text-muted-foreground hover:text-foreground"
+                )}
+              >
+                {label}
+              </button>
+            ))}
+          </div>
+
+          <div role="tabpanel" className="p-3 overflow-y-auto min-h-0">
+            {tab === "spaces" ? (
+              <MapSpacesPanel
+                facilityId={facilityId}
+                spaces={spaces}
+                departments={departments}
+                shapes={shapes}
+                contextElements={contexts}
+                selectedKey={selectedKey}
+                onSelect={setSelectedKey}
+                onPlaceSpace={handlePlaceSpace}
+                placingSpaceId={placingSpaceId}
+                onChange={handleChange}
+                onCommit={commit}
+              />
+            ) : (
+              <>
+                {placingSpace && (
+                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm">
+                    <p className="flex-1 text-foreground">
+                      Placing <span className="font-semibold">{placingSpace.name}</span> — pick a
+                      shape, then tap the map.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setPlacingSpaceId(null);
+                        setArmed(null);
+                        setTab("spaces");
+                      }}
+                      className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                    >
+                      Cancel
+                    </button>
+                  </div>
+                )}
+                <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
+                {allSpacesPlaced && !placingSpace && (
+                  <p className="text-xs text-muted-foreground/70 mt-2">
+                    All existing spaces are placed — placing another preset creates new spaces
+                    automatically.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </aside>
       </div>
 
       {/* Visitor preview — the map exactly as the public floorplan renders it, at phone width. */}

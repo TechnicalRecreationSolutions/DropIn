@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import Link from "next/link";
 import { Layers, MapPin, Plus, Eye, EyeOff, ChevronUp, ChevronDown } from "lucide-react";
 import type { CommandSpace } from "@/components/schedule-command/types";
+import { buildSpaceSections, flattenSections, zoneKeyOf } from "@/lib/spaces/grouping";
 
 interface SpaceSectionsProps {
   facilityId: string;
@@ -13,29 +14,15 @@ interface SpaceSectionsProps {
   spaces: CommandSpace[];
 }
 
-/** One zone's worth of chips inside a department — `zoneName` null = not in a zone. */
-interface ZoneGroup {
-  zoneName: string | null;
-  spaces: CommandSpace[];
-}
-
-interface Section {
-  /** Null for the "whole building" bucket, which always sorts last. */
-  departmentId: string | null;
-  label: string;
-  zones: ZoneGroup[];
-  total: number;
-  published: number;
-}
-
 /**
  * The grouped body of the Spaces page: department sections, zone subsections,
  * and the up/down controls that set `display_order`.
  *
  * Client-side because reordering needs optimistic state — and because the
  * flattened save order has to be derived from exactly the same grouping the
- * screen is rendering. Keeping `buildSections` and `flatten` in one file is
- * what guarantees that: reorder writes positions 1..N in render order, so the
+ * screen is rendering. Using the shared `buildSpaceSections` /
+ * `flattenSections` pair (lib/spaces/grouping) for both is what guarantees that:
+ * reorder writes positions 1..N in render order, so the
  * session editors (one flat `display_order` list per facility) end up agreeing
  * with what this page shows.
  */
@@ -73,10 +60,10 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
     if (!saving) setOrder(spaces);
   }
 
-  const sections = buildSections(order, departments);
+  const sections = buildSpaceSections(order, departments);
 
   async function move(space: CommandSpace, delta: -1 | 1) {
-    const current = buildSections(order, departments);
+    const current = buildSpaceSections(order, departments);
     const section = current.find((s) => s.departmentId === space.departmentId);
     const zone = section?.zones.find((z) => z.zoneName === zoneKeyOf(space));
     if (!zone) return;
@@ -88,7 +75,7 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
     // Swap inside the group the user can see, then flatten the whole facility —
     // see the note above on why the save is never just the moved pair.
     [zone.spaces[index], zone.spaces[target]] = [zone.spaces[target], zone.spaces[index]];
-    const next = flatten(current);
+    const next = flattenSections(current);
 
     setOrder(next);
     setError(null);
@@ -217,90 +204,6 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
       ))}
     </div>
   );
-}
-
-/** "" and null both mean "not in a zone" — see the API's normalization note. */
-function zoneKeyOf(space: CommandSpace): string | null {
-  const name = space.zoneName?.trim();
-  return name ? name : null;
-}
-
-/**
- * Departments in their own display order, each with its zones, then the
- * unassigned bucket last. Empty departments are dropped: a heading with nothing
- * under it is noise on a page whose complaint was too many rows.
- *
- * Every space lands in exactly one place — a space whose department is not in
- * `departments` falls through to the "whole building" bucket rather than
- * vanishing, because `flatten` has to return the full facility.
- */
-function buildSections(
-  spaces: CommandSpace[],
-  departments: { id: string; name: string }[]
-): Section[] {
-  const known = new Set(departments.map((d) => d.id));
-  const sections: Section[] = [];
-
-  const push = (departmentId: string | null, label: string, members: CommandSpace[]) => {
-    if (members.length === 0) return;
-    sections.push({
-      departmentId,
-      label,
-      zones: buildZones(members),
-      total: members.length,
-      published: members.filter((s) => s.isPublished).length,
-    });
-  };
-
-  for (const department of departments) {
-    push(
-      department.id,
-      department.name,
-      spaces.filter((s) => s.departmentId === department.id)
-    );
-  }
-
-  // department_id null means "available to every schedule in the building" —
-  // the hot tub, the parking lot — not "misfiled". The label says so.
-  push(
-    null,
-    "Whole building",
-    spaces.filter((s) => s.departmentId === null || !known.has(s.departmentId))
-  );
-
-  return sections;
-}
-
-/** Zones in first-appearance order, so reordering a space can move its zone too. */
-function buildZones(spaces: CommandSpace[]): ZoneGroup[] {
-  const zones: ZoneGroup[] = [];
-  const byName = new Map<string, ZoneGroup>();
-  let ungrouped: ZoneGroup | null = null;
-
-  for (const space of spaces) {
-    const key = zoneKeyOf(space);
-    if (key === null) {
-      if (!ungrouped) ungrouped = { zoneName: null, spaces: [] };
-      ungrouped.spaces.push(space);
-      continue;
-    }
-    let zone = byName.get(key);
-    if (!zone) {
-      zone = { zoneName: key, spaces: [] };
-      byName.set(key, zone);
-      zones.push(zone);
-    }
-    zone.spaces.push(space);
-  }
-
-  // Loose spaces sit under the named zones, never between them.
-  if (ungrouped) zones.push(ungrouped);
-  return zones;
-}
-
-/** Render order, top to bottom — exactly what gets saved as `display_order`. */
-function flatten(sections: Section[]): CommandSpace[] {
-  return sections.flatMap((section) => section.zones.flatMap((zone) => zone.spaces));
 }
 
 interface SpaceChipProps {

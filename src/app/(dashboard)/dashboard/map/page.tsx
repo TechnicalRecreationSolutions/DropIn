@@ -5,11 +5,8 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { mapHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
-import type { Database } from "@/types/database.types";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
-import FloorplanOverview, {
-  type FloorplanOverviewFacility,
-} from "@/components/facility-maps/FloorplanOverview";
+import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import Streamed from "@/components/ui/streamed";
 
 interface MapPageProps {
@@ -40,7 +37,10 @@ export default function MapPage({ searchParams }: MapPageProps) {
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
         <h1 className="text-2xl font-bold text-foreground">Floorplan</h1>
-        <p className="text-muted-foreground mt-1">The map visitors see for your building. Drawn per building.</p>
+        <p className="text-muted-foreground mt-1">
+          The map visitors see for your building. Every shape is one of your spaces — they&apos;re
+          listed here the way the Spaces page groups them.
+        </p>
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this
@@ -62,112 +62,67 @@ async function MapBody({ searchParams }: MapPageProps) {
   const supabase = await createClient();
   const { facility: facilityParam } = await searchParams;
 
-  const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
-    supabase.from("facilities").select("id, name").eq("org_id", orgId).order("name"),
-    supabase.from("spaces").select("id, name, facility_id").eq("org_id", orgId).order("display_order", { ascending: true }).order("created_at", { ascending: true }),
-  ]);
+  // Same three reads as the Spaces page, so the editor's sidebar can group
+  // spaces exactly as that page does. select("*") on spaces for the same
+  // reason given there (zone_name arrives with migration 054).
+  const [{ data: facilityRows }, { data: spaceRows }, { data: departmentRows }] =
+    await Promise.all([
+      supabase
+        .from("facilities")
+        .select("id, name, city, province, is_published, photo_urls")
+        .eq("org_id", orgId)
+        .order("name"),
+      supabase
+        .from("spaces")
+        .select("*")
+        .eq("org_id", orgId)
+        .order("display_order", { ascending: true })
+        .order("created_at", { ascending: true }),
+      supabase
+        .from("departments")
+        .select("id, name, facility_id")
+        .eq("org_id", orgId)
+        .order("display_order", { ascending: true }),
+    ]);
 
   if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
 
   const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
   const spaces = (spaceRows ?? [])
     .filter((s) => s.facility_id === facility.id)
-    .map((s) => ({ id: s.id, name: s.name }));
+    .map((s) => ({
+      id: s.id,
+      name: s.name,
+      isPublished: s.is_published,
+      departmentId: s.department_id,
+      zoneName: s.zone_name ?? null,
+    }));
+  const departments = (departmentRows ?? [])
+    .filter((d) => d.facility_id === facility.id)
+    .map((d) => ({ id: d.id, name: d.name }));
 
-  const overviewFacilities = await buildOverviewFacilities(supabase, orgId, facilityRows, spaceRows ?? []);
+  // The same compact pill picker the Spaces page uses. It replaced a grid of
+  // floorplan thumbnails that pushed the editor below the fold on any org
+  // with more than one building.
+  const facilityCards = facilityRows.map((f) => {
+    const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
+    return { ...f, meta: `${count} space${count !== 1 ? "s" : ""}` };
+  });
 
   return (
     <>
-      <div className="max-w-[1000px] mx-auto">
-        <FloorplanOverview facilities={overviewFacilities} activeFacilityId={facility.id} hrefFor={mapHref} />
-      </div>
+      <FacilityCardPicker facilities={facilityCards} activeFacilityId={facility.id} hrefFor={mapHref} />
 
       {/* Keyed on the facility so switching buildings rebuilds the editor
           rather than leaving the previous building's shapes on canvas. */}
-      <MapEditorClient key={facility.id} facilityId={facility.id} spaces={spaces} />
+      <MapEditorClient
+        key={facility.id}
+        facilityId={facility.id}
+        spaces={spaces}
+        departments={departments}
+      />
     </>
   );
-}
-
-/**
- * Batches every facility's map + hotspots + context elements into the small
- * read-only render shape FloorplanOverview needs, so the org's buildings can
- * be scanned as a grid instead of clicked through one at a time. Skipped
- * entirely by the caller for single-facility orgs (FloorplanOverview also
- * no-ops in that case, kept as a second guard against a wasted round trip).
- */
-async function buildOverviewFacilities(
-  supabase: Awaited<ReturnType<typeof createClient>>,
-  orgId: string,
-  facilityRows: { id: string; name: string }[],
-  spaceRows: { id: string; name: string; facility_id: string }[]
-): Promise<FloorplanOverviewFacility[]> {
-  if (facilityRows.length < 2) return [];
-
-  const { data: mapRows } = await supabase
-    .from("facility_maps")
-    .select("id, facility_id, canvas_width, canvas_height, is_published")
-    .eq("org_id", orgId);
-
-  const mapIds = (mapRows ?? []).map((m) => m.id);
-  let hotspotRows: Database["public"]["Tables"]["space_hotspots"]["Row"][] = [];
-  let contextRows: Database["public"]["Tables"]["map_context_elements"]["Row"][] = [];
-  if (mapIds.length > 0) {
-    const [hotspotsRes, contextsRes] = await Promise.all([
-      supabase.from("space_hotspots").select("*").in("facility_map_id", mapIds),
-      supabase.from("map_context_elements").select("*").in("facility_map_id", mapIds),
-    ]);
-    hotspotRows = hotspotsRes.data ?? [];
-    contextRows = contextsRes.data ?? [];
-  }
-
-  const spaceNameById = new Map(spaceRows.map((s) => [s.id, s.name]));
-  const spaceCountByFacility = new Map<string, number>();
-  for (const s of spaceRows) {
-    spaceCountByFacility.set(s.facility_id, (spaceCountByFacility.get(s.facility_id) ?? 0) + 1);
-  }
-
-  return facilityRows.map((facility) => {
-    const mapRow = (mapRows ?? []).find((m) => m.facility_id === facility.id);
-    const hotspots = mapRow ? hotspotRows.filter((h) => h.facility_map_id === mapRow.id) : [];
-    const contexts = mapRow ? contextRows.filter((c) => c.facility_map_id === mapRow.id) : [];
-
-    return {
-      id: facility.id,
-      name: facility.name,
-      spaceCount: spaceCountByFacility.get(facility.id) ?? 0,
-      map: mapRow
-        ? {
-            canvasWidth: mapRow.canvas_width,
-            canvasHeight: mapRow.canvas_height,
-            isPublished: mapRow.is_published,
-          }
-        : null,
-      shapes: hotspots.map((h) => ({
-        key: h.id,
-        spaceId: h.space_id,
-        x: Number(h.x),
-        y: Number(h.y),
-        width: Number(h.width),
-        height: Number(h.height),
-        rotation: Number(h.rotation),
-        presetKey: h.preset_key,
-        displayName: h.label ?? spaceNameById.get(h.space_id) ?? "",
-        groupId: h.group_id,
-        laneIndex: h.lane_index,
-      })),
-      contextElements: contexts.map((c) => ({
-        key: c.id,
-        kind: c.kind,
-        x: Number(c.x),
-        y: Number(c.y),
-        width: Number(c.width),
-        height: Number(c.height),
-        rotation: Number(c.rotation),
-        label: c.label,
-      })),
-    };
-  });
 }
 
 function NoFacilities() {
@@ -194,10 +149,11 @@ function NoFacilities() {
 function MapBodySkeleton() {
   return (
     <div className="space-y-6" aria-busy="true">
-      <div className="max-w-[1000px] mx-auto">
-        <Skeleton className="h-40 rounded-xl" />
+      <Skeleton className="h-12 rounded-xl" />
+      <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
+        <Skeleton className="h-[500px] rounded-2xl" />
+        <Skeleton className="h-[500px] rounded-2xl" />
       </div>
-      <Skeleton className="h-[500px] rounded-xl" />
     </div>
   );
 }

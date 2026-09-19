@@ -62,6 +62,22 @@ interface ShapeCanvasProps {
   onPlace: (dropFraction: Point) => void;
   /** Escape while armed cancels placement instead of (or in addition to) deselecting. */
   onCancelArm: () => void;
+  /**
+   * The selected edit unit — see `unitKeyOf`. Controlled so the map editor's
+   * spaces sidebar and this canvas select the same thing: clicking a space in
+   * the list highlights its shape here, and clicking a shape here highlights
+   * its space there.
+   */
+  selectedKey: string | null;
+  onSelect: (unitKey: string | null) => void;
+}
+
+/**
+ * The selection key for a placed shape: lanes of one pool move as a single
+ * unit, so every lane of a group selects the group.
+ */
+export function unitKeyOf(shape: Pick<EditableShape, "key" | "groupId">): string {
+  return shape.groupId === null ? shape.key : `group:${shape.groupId}`;
 }
 
 interface Point {
@@ -127,9 +143,10 @@ export default function ShapeCanvas({
   armed,
   onPlace,
   onCancelArm,
+  selectedKey,
+  onSelect,
 }: ShapeCanvasProps) {
   const containerRef = useRef<HTMLDivElement>(null);
-  const [selectedKey, setSelectedKey] = useState<string | null>(null);
   const [guides, setGuides] = useState<{ v: number | null; h: number | null }>({ v: null, h: null });
   const [ghostAt, setGhostAt] = useState<Point | null>(null);
 
@@ -181,7 +198,7 @@ export default function ShapeCanvas({
         seenGroups.add(s.groupId);
         const members = shapes.filter((m) => m.groupId === s.groupId);
         result.push({
-          unitKey: `group:${s.groupId}`,
+          unitKey: unitKeyOf(s),
           kind: "group",
           rect: s,
           memberKeys: new Set(members.map((m) => m.key)),
@@ -226,7 +243,7 @@ export default function ShapeCanvas({
     } else {
       onChange(shapes.filter((s) => !unit.memberKeys.has(s.key)), contextElements);
     }
-    setSelectedKey(null);
+    onSelect(null);
     onCommit();
   }
 
@@ -252,7 +269,7 @@ export default function ShapeCanvas({
       onPlace(pointFromEvent(e));
       return;
     }
-    setSelectedKey(null);
+    onSelect(null);
   }
 
   let ghostRect: { x: number; y: number; width: number; height: number } | null = null;
@@ -314,7 +331,7 @@ export default function ShapeCanvas({
 
   function startMove(e: React.PointerEvent, unit: EditUnit) {
     e.stopPropagation();
-    setSelectedKey(unit.unitKey);
+    onSelect(unit.unitKey);
     const p = pointFromEvent(e);
     const grabOffsetX = p.x - unit.rect.x;
     const grabOffsetY = p.y - unit.rect.y;
@@ -440,7 +457,7 @@ export default function ShapeCanvas({
         e.preventDefault();
         return removeUnit(selectedUnit);
       case "Escape":
-        return setSelectedKey(null);
+        return onSelect(null);
       case "d":
       case "D":
         if ((e.ctrlKey || e.metaKey) && selectedUnit.shape) {
@@ -590,7 +607,7 @@ export default function ShapeCanvas({
             <div className="text-center px-6">
               <p className="text-sm font-semibold text-muted-foreground">Build your facility</p>
               <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
-                Tap a pool, court, or room in the palette below, then tap here to place it. Add zones
+                Pick a pool, court, or room under “Add shape”, then tap here to place it. Add zones
                 like &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
               </p>
             </div>

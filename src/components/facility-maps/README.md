@@ -9,8 +9,8 @@ There are two experiences built on one rendering engine:
 
 | Piece | Where | What it does |
 |---|---|---|
-| **Builder** (`MapEditorClient`, `ShapeCanvas`, `ShapePalette`, `ShapeAssignmentList`) | Dashboard → Facility → Map tab | Admins tap a preset or context item to arm it, tap the canvas to place it, arrange the result, and publish. Canvas and palette sit side by side (palette sticky) on wide screens; the per-shape space/label list is a separate, secondary section further down the page. |
-| **Viewer** (`src/components/schedule/FloorplanView.tsx`) | Public schedule "floorplan" template + widget embeds | Visitors see the map with live/soon/free status, tap a space for details, and preview other times today. |
+| **Builder** (`MapEditorClient`, `ShapeCanvas`, `ShapePalette`, `MapSpacesPanel`) | Dashboard → Map (`/dashboard/map`) | One toolbar (undo/redo, preview, save, publish), then the canvas beside a sticky two-tab sidebar: **Spaces** lists the building's spaces grouped exactly like the Spaces page (department → zone, via `lib/spaces/grouping.ts`) and marks each one placed or not; **Add shape** is the preset palette. |
+| **Viewer** (`src/components/schedule/FloorplanView.tsx` + `FloorplanLegend.tsx`) | Public schedule "floorplan" template + widget embeds | Visitors see the map with live/soon/free status and transition alerts, a legend panel (heads up / on now / up next), tap a space for details, and preview other times today. |
 
 Both draw through **`renderer/FacilityMapSvg`** — see [`renderer/README.md`](./renderer/README.md)
 for the engine's architecture and how to add a new preset. Because there is one renderer,
@@ -28,6 +28,16 @@ for the engine's architecture and how to add a new preset. Because there is one 
 
 ## Builder behaviors worth knowing
 
+- **The map is a picture of the Spaces page** — the sidebar groups spaces with the
+  same `buildSpaceSections` the Spaces page uses, so a space sits in the same
+  department and zone on both. Placed spaces select their shape (and a canvas click
+  selects the space in the list — selection is controlled by `MapEditorClient`, keyed
+  by `unitKeyOf`). **Place** on an unplaced space targets the next preset at that
+  space (lane 1 for a pool), one-shot.
+- **Labels default to the space name** — new shapes save `label = null`, so renaming
+  a space on the Spaces page renames it on the map. The label field is an override
+  only. (Shapes placed before 2026-09-18 carry a copied-in label; clearing the field
+  reverts them to the space name.)
 - **Tap-to-arm placement** — tapping a card in `ShapePalette` arms it (`placement.ts`'s
   `ArmedPlacement`); `ShapeCanvas` then shows a live dashed sizing ghost under the
   cursor/finger and places on the next background tap there, computed by the shared
@@ -57,9 +67,19 @@ for the engine's architecture and how to add a new preset. Because there is one 
 
 - Status per space at the viewed time: **live** (org-accent wash + session + end time),
   **soon** (amber, starting within 60 min), **free** (plain material). Live wins.
+  Rules live in `src/lib/floorplan/spaceStatus.ts` (pure; tested by verify-an).
+- **Transition alerts** sit on top of the status, as a burnt-orange outline plus a tag
+  pill — deliberately not a new fill: **changeover** (live session ends within 15 min
+  and another starts in that space within 15 min of it: "→ Aquafit 7:30 PM"),
+  **ending** ("Ends in 6 min"), **starting** ("Starts in 12 min"). A tag too wide for
+  its shape falls back to a short form ("→ 7:30 PM", "Ends 6m").
+- **Legend panel** (`FloorplanLegend`): color key, then Heads up / On now / Up next,
+  one row per session occurrence (a lesson across six lanes is one row). Beside the
+  map when the container is ≥ 56rem wide, under it otherwise — a container query,
+  because the same view runs full-page, in a narrow widget iframe, and on a big screen.
 - The time control previews any time today; leaving "now" is deliberately loud (amber
   handle and "Viewing 7:30 PM" readout) so a previewed evening is never mistaken for
   the present.
-- The summary strip above the map doubles as the status color legend.
+- The summary strip above the map is the at-a-glance count; the legend has the detail.
 - Tapping a space opens `SpaceDetailSheet` — live session with cost and age/skill,
   plus "Next up here" with start time and price.

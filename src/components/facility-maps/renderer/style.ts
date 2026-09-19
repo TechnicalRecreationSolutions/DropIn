@@ -51,6 +51,13 @@ export const MAP_COLORS = {
   soonFill: "#F5A623",
   soonStroke: "#E8960C",
   soonText: "#8A5B04",
+  /**
+   * Transition alerts (ending / changeover / starting within minutes). A
+   * burnt orange rather than the "soon" amber, so an alert outline still
+   * reads on top of an amber "soon" wash.
+   */
+  alert: "#C2410C",
+  alertText: "#FFFFFF",
 
   card: "#FFFFFF",
 } as const;

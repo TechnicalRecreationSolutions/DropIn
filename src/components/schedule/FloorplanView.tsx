@@ -1,15 +1,15 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { useFacilityMap } from "@/hooks/useFacilityMap";
-import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { formatSessionTime, minutesOfDayIn, nowAsSessionTime, sessionDateString } from "@/lib/utils/dates";
+import { computeFloorplanStatus } from "@/lib/floorplan/spaceStatus";
 import FacilityMapSvg from "@/components/facility-maps/renderer/FacilityMapSvg";
-import type { RenderShape, RenderContextElement, SpaceStatusInfo } from "@/components/facility-maps/renderer/types";
+import type { RenderShape, RenderContextElement } from "@/components/facility-maps/renderer/types";
 import SpaceDetailSheet from "./SpaceDetailSheet";
 import TimeControl from "./TimeControl";
+import FloorplanLegend from "./FloorplanLegend";
 
 interface FloorplanViewProps {
   facilityId: string;
@@ -17,9 +17,6 @@ interface FloorplanViewProps {
 }
 
 const DEFAULT_RANGE = { startMinutes: 360, endMinutes: 1320 }; // 6am–10pm fallback
-
-/** A session starting within this many minutes of the viewed time shows as "starting soon". */
-const SOON_THRESHOLD_MINUTES = 60;
 
 // The scrub slider is "time of day at this building" — sessions carry no
 // timezone (dropin/docs/RESUME-timezone-removal.md), so every position on it
@@ -35,14 +32,19 @@ const SOON_THRESHOLD_MINUTES = 60;
  * visitor who doesn't know what "Lane 3" means can still find the right
  * spot by sight — water looks like water, courts carry their markings.
  *
- * Layout is a single column — summary strip, full-width map, time control —
- * so the map keeps every pixel of width on phones. Every space carries one
- * of three visual states at the viewed time: live (org-accent wash +
- * session name), starting soon (amber, within SOON_THRESHOLD_MINUTES), or
- * free (its plain material); live wins when both would apply. The summary
- * strip doubles as the color legend. Tapping a space opens
- * SpaceDetailSheet with the live session, cost, and what's next in that
- * spot.
+ * Layout follows the space it is given, not the viewport (a container
+ * query — the same component runs full-page, in a narrow widget iframe, and
+ * on a lobby screen): narrow, it is one column — summary strip, full-width
+ * map, time control, then FloorplanLegend — so the map keeps every pixel
+ * of width on phones; wide, the legend moves beside the map.
+ *
+ * Every space carries one of three states at the viewed time — live
+ * (org-accent wash + session name), starting soon (amber), or free — plus,
+ * when a transition is minutes away, an alert drawn as an orange outline
+ * and a tag ("Ends in 6 min", "→ Aquafit 7:30 PM"). The rules and
+ * thresholds live in lib/floorplan/spaceStatus.ts. Tapping a space (or a
+ * legend row) opens SpaceDetailSheet with the live session, cost, and
+ * what's next in that spot.
  *
  * The time control previews the map at any time today (defaulting to the
  * current moment), spanning today's actual earliest-to-latest session time
@@ -104,56 +106,6 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
 
   const viewedTimeLabel = formatSessionTime(scrubDate);
 
-  const liveSessionBySpaceId = useMemo(() => {
-    const map = new Map<string, ExpandedSession>();
-    for (const session of sessions) {
-      if (session.spaceIds.length === 0) continue;
-      const { isLive } = getSessionLiveStatus(session, scrubDate);
-      if (!isLive) continue;
-      for (const spaceId of session.spaceIds) map.set(spaceId, session);
-    }
-    return map;
-  }, [sessions, scrubDate]);
-
-  // Earliest session starting after the viewed time (today) per space — for
-  // the detail sheet's "Next up here" and the summary's "next session at".
-  const nextSessionBySpaceId = useMemo(() => {
-    const map = new Map<string, ExpandedSession>();
-    for (const session of sessions) {
-      if (session.spaceIds.length === 0) continue;
-      if (sessionDateString(session.start) !== sessionDateString(scrubDate)) continue;
-      if (session.start <= scrubDate) continue;
-      for (const spaceId of session.spaceIds) {
-        const earliest = map.get(spaceId);
-        if (!earliest || session.start < earliest.start) map.set(spaceId, session);
-      }
-    }
-    return map;
-  }, [sessions, scrubDate]);
-
-  // live > soon > free per space; "soon" is the next session starting within
-  // the threshold of the viewed time.
-  const statusBySpaceId = useMemo(() => {
-    const map = new Map<string, SpaceStatusInfo>();
-    for (const [spaceId, session] of liveSessionBySpaceId) {
-      map.set(spaceId, {
-        status: "live",
-        title: sessionDisplayLabel(session),
-        timeLabel: `ends ${formatSessionTime(session.end)}`,
-      });
-    }
-    const soonCutoff = new Date(scrubDate.getTime() + SOON_THRESHOLD_MINUTES * 60_000);
-    for (const [spaceId, session] of nextSessionBySpaceId) {
-      if (map.has(spaceId) || session.start > soonCutoff) continue;
-      map.set(spaceId, {
-        status: "soon",
-        title: sessionDisplayLabel(session),
-        timeLabel: `starts ${formatSessionTime(session.start)}`,
-      });
-    }
-    return map;
-  }, [liveSessionBySpaceId, nextSessionBySpaceId, scrubDate]);
-
   const dataHotspots = data?.hotspots;
   const dataContextElements = data?.contextElements;
 
@@ -189,7 +141,19 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
     }));
   }, [dataContextElements]);
 
-  // Summary counts cover only spaces actually on the map.
+  // Only spaces actually on the map count — for the status, the summary
+  // and the legend alike.
+  const floorplanStatus = useMemo(
+    () => computeFloorplanStatus(sessions, scrubDate, new Set(renderShapes.map((s) => s.spaceId))),
+    [sessions, scrubDate, renderShapes]
+  );
+  const { statusBySpaceId, liveSessionBySpaceId, nextSessionBySpaceId } = floorplanStatus;
+
+  const spaceNames = useMemo(
+    () => new Map(renderShapes.map((s) => [s.spaceId, s.displayName])),
+    [renderShapes]
+  );
+
   const summary = useMemo(() => {
     const mappedSpaceIds = new Set(renderShapes.map((s) => s.spaceId));
     let live = 0;
@@ -204,8 +168,18 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
       if (!mappedSpaceIds.has(spaceId)) continue;
       if (!nextStart || session.start < nextStart) nextStart = session.start;
     }
-    return { live, soon, free: mappedSpaceIds.size - live - soon, nextStart };
-  }, [renderShapes, statusBySpaceId, nextSessionBySpaceId]);
+    // Whether anything already ran here today before the viewed time — the
+    // difference between "no sessions today" and "no MORE sessions today",
+    // which a visitor reading the map in the evening needs to tell apart.
+    const today = sessionDateString(scrubDate);
+    const hadEarlier = sessions.some(
+      (s) =>
+        sessionDateString(s.start) === today &&
+        s.end <= scrubDate &&
+        s.spaceIds.some((id) => mappedSpaceIds.has(id))
+    );
+    return { live, soon, free: mappedSpaceIds.size - live - soon, nextStart, hadEarlier };
+  }, [renderShapes, statusBySpaceId, nextSessionBySpaceId, sessions, scrubDate]);
 
   if (isLoading) {
     return (
@@ -239,56 +213,72 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   const selectedHotspot = hotspots.find((h) => h.space_id === selectedSpaceId) ?? null;
 
   return (
-    <div className="p-4 sm:p-6">
-      {/* Summary strip — doubles as the status color legend. */}
-      <div className="flex items-center gap-4 flex-wrap mb-3 text-xs font-medium text-muted-foreground">
-        {summary.live > 0 && (
-          <span className="inline-flex items-center gap-1.5">
-            <span
-              className="w-2.5 h-2.5 rounded-full"
-              style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
-            />
-            {summary.live} on {isViewingNow ? "now" : `at ${viewedTimeLabel}`}
-          </span>
-        )}
-        {summary.soon > 0 && (
-          <span className="inline-flex items-center gap-1.5">
-            <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-            {summary.soon} starting soon
-          </span>
-        )}
-        {summary.live === 0 && summary.soon === 0 && (
-          <span className="text-muted-foreground/70">
-            {summary.nextStart
-              ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatSessionTime(summary.nextStart)}`
-              : "No sessions here today"}
-          </span>
-        )}
-        {summary.free > 0 && (summary.live > 0 || summary.soon > 0) && (
-          <span className="text-muted-foreground/70 ml-auto">{summary.free} free</span>
-        )}
+    <div className="p-4 sm:p-6 @container">
+      <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,1fr)_300px] @4xl:items-start">
+        <div className="min-w-0">
+          {/* Summary strip — the at-a-glance count; FloorplanLegend has the detail. */}
+          <div className="flex items-center gap-4 flex-wrap mb-3 text-xs font-medium text-muted-foreground">
+            {summary.live > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <span
+                  className="w-2.5 h-2.5 rounded-full"
+                  style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
+                />
+                {summary.live} on {isViewingNow ? "now" : `at ${viewedTimeLabel}`}
+              </span>
+            )}
+            {summary.soon > 0 && (
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
+                {summary.soon} starting soon
+              </span>
+            )}
+            {summary.live === 0 && summary.soon === 0 && (
+              <span className="text-muted-foreground/70">
+                {summary.nextStart
+                  ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatSessionTime(summary.nextStart)}`
+                  : !summary.hadEarlier
+                    ? "No sessions here today"
+                    : isViewingNow
+                      ? "No more sessions today"
+                      : `No more sessions after ${viewedTimeLabel}`}
+              </span>
+            )}
+            {summary.free > 0 && (summary.live > 0 || summary.soon > 0) && (
+              <span className="text-muted-foreground/70 ml-auto">{summary.free} free</span>
+            )}
+          </div>
+
+          <FacilityMapSvg
+            className="rounded-xl overflow-hidden border border-border"
+            canvasWidth={Number(facilityMap.canvas_width)}
+            canvasHeight={Number(facilityMap.canvas_height)}
+            shapes={renderShapes}
+            contextElements={renderContext}
+            statusBySpaceId={statusBySpaceId}
+            selectedSpaceId={selectedSpaceId}
+            onSpaceClick={setSelectedSpaceId}
+          />
+
+          <TimeControl
+            startMinutes={todaysRange.startMinutes}
+            endMinutes={todaysRange.endMinutes}
+            valueMinutes={scrubMinutes}
+            isNow={isViewingNow}
+            nowMinutes={nowMinutes}
+            onChange={handleScrub}
+            onJumpToNow={handleJumpToNow}
+          />
+        </div>
+
+        <FloorplanLegend
+          status={floorplanStatus}
+          spaceNames={spaceNames}
+          viewingNow={isViewingNow}
+          viewedTimeLabel={viewedTimeLabel}
+          onSpaceClick={setSelectedSpaceId}
+        />
       </div>
-
-      <FacilityMapSvg
-        className="rounded-xl overflow-hidden border border-border"
-        canvasWidth={Number(facilityMap.canvas_width)}
-        canvasHeight={Number(facilityMap.canvas_height)}
-        shapes={renderShapes}
-        contextElements={renderContext}
-        statusBySpaceId={statusBySpaceId}
-        selectedSpaceId={selectedSpaceId}
-        onSpaceClick={setSelectedSpaceId}
-      />
-
-      <TimeControl
-        startMinutes={todaysRange.startMinutes}
-        endMinutes={todaysRange.endMinutes}
-        valueMinutes={scrubMinutes}
-        isNow={isViewingNow}
-        nowMinutes={nowMinutes}
-        onChange={handleScrub}
-        onJumpToNow={handleJumpToNow}
-      />
 
       {selectedHotspot && (
         <SpaceDetailSheet

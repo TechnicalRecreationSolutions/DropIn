@@ -49,6 +49,20 @@ export interface SpaceStatusInfo {
   title: string;
   /** Ready-to-render time note, e.g. "ends 7:45 PM" or "starts 7:30 PM". */
   timeLabel: string;
+  /**
+   * Set when a transition is close (lib/floorplan/spaceStatus.ts). Drawn as
+   * an amber outline plus a tag on the shape rather than a different fill,
+   * so the fill keeps meaning just "live" or "soon".
+   */
+  alert?: SpaceAlert;
+}
+
+export interface SpaceAlert {
+  kind: "ending" | "changeover" | "starting";
+  /** Short tag text, e.g. "Ends in 6 min" or "→ Aquafit 7:30 PM". */
+  tag: string;
+  /** Fallback when `tag` will not fit its shape, e.g. "Ends 6m" or "→ 7:30 PM". */
+  shortTag: string;
 }
 
 export type StatusBySpaceId = ReadonlyMap<string, SpaceStatusInfo>;
