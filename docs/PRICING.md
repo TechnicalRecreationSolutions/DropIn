@@ -180,20 +180,34 @@ patron-experience argument at all; it closes on staff time alone.
 The capability ladder is short on purpose (see the market pattern above), and
 every rung is a real mechanism in this codebase rather than invented copy.
 
+**[`pricing-tiers.md`](pricing-tiers.md) is the authority on this table**, not
+this file. It was settled feature by feature on 2026-09-20 against a support-load
+rule, and it covers rungs this summary does not. Where the two disagree, that one
+wins.
+
 | Capability | Mechanism | From |
 |---|---|---|
 | Grid, list, space views | `allowed_templates` default `["grid","list","map"]` | Starter |
 | Embed widget, brand colour | `widget_configs` (one row per org, migration `045`) | Starter |
-| CSV import | `/dashboard/import` | Starter |
-| Floorplan and board views | `ScheduleTemplate`; `LayoutPicker` already locks `floorplan` behind `floorplanAvailable` | Standard |
+| Printable schedules | `allow_print` (migration `051`) | Starter |
+| Write-time conflict blocking | `findSessionConflict` — correctness, never a tier lever | all |
+| CSV import | `/dashboard/import` | **Standard** |
+| Floorplan and board views | `ScheduleTemplate`; `LayoutPicker` also locks `floorplan` behind `floorplanAvailable` | Standard |
+| Manager and coordinator roles | migrations `055`/`056` — accounts stay unlimited on every tier | Standard |
 | Visitor schedule filtering | `widget_config_scopes` (migration `043`) | Standard |
-| Activity log, per-week review | `activity_log`, `schedule_week_reviews` (`037`–`039`) | Standard |
+| Activity log, per-week review, conflict manager | `activity_log`, `schedule_week_reviews`, `session_conflict_dismissals` (`037`–`039`) | Standard |
 | Analytics history | `analytics_events` (migration `041`) — 30d / 365d / 730d / ∞ | all |
 
 Starter getting grid, list and map is not a compromise — it is the existing
 `allowed_templates` default, which already encodes the natural entry bundle.
 `map` needs no drawing (it is space columns); `floorplan` needs a drawn
 `facility_maps` row, which is genuinely a larger-customer feature.
+
+**CSV import moved to Standard on 2026-09-20**, reversing the row this table
+used to carry. `/api/import/commit` writes no `session_spaces`, so an imported
+schedule is invisible in the map, floorplan, board and deck views until someone
+assigns spaces by hand — 1.5–3 support hours against Starter's 3-hour budget,
+spent on the customers paying least. Reasoning in `pricing-tiers.md` §4.1.
 
 ---
 
@@ -270,6 +284,7 @@ Steps 1–3 are blocked on you. Steps 4–6 are code and verification.
 
 | Doc | What for |
 |---|---|
+| [`pricing-tiers.md`](pricing-tiers.md) | **Which features go in which tier.** Settled 2026-09-20. Also the full feature inventory and the evidence that nothing is gated |
 | [`RESUME.md`](RESUME.md) | Current state, launch blockers |
 | [`DEPLOYMENT.md`](DEPLOYMENT.md) | Stripe webhook and price-ID setup |
 | [`SECURITY.md`](SECURITY.md) | Finding M3 — why a price-ID gap must never downgrade a customer |
