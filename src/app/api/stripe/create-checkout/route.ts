@@ -4,12 +4,23 @@ import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
 import { requirePermission } from "@/lib/auth/guard";
 import { stripe } from "@/lib/stripe/client";
-import { getStripePriceId, type PaidPlanTier } from "@/lib/stripe/prices";
+import {
+  getStripePriceId,
+  hasInterval,
+  type BillingInterval,
+  type PaidPlanTier,
+} from "@/lib/stripe/prices";
 import { TRIAL_PERIOD_DAYS } from "@/lib/stripe/plans";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 
+/**
+ * `interval` defaults to "month" so an older client — or anything posting the
+ * pre-2026-09-20 body shape, which had no interval at all — keeps working
+ * unchanged rather than 400ing on a field it does not know to send.
+ */
 const CreateCheckoutSchema = z.object({
   tier: z.enum(["pro", "enterprise"]),
+  interval: z.enum(["month", "year"]).default("month"),
 });
 
 const APP_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
@@ -49,13 +60,32 @@ export async function POST(request: Request) {
   const parsed = CreateCheckoutSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid tier" }, { status: 400 });
 
-  const { tier } = parsed.data as { tier: PaidPlanTier };
+  const { tier, interval } = parsed.data as {
+    tier: PaidPlanTier;
+    interval: BillingInterval;
+  };
+
+  // An unconfigured ANNUAL price is a known product state, not a broken
+  // deployment — the annual Stripe prices do not exist yet and their env vars
+  // are deliberately optional (see lib/stripe/prices). The billing page does
+  // not offer the choice unless hasInterval() says it can, so reaching here
+  // means a client posted past the UI. 400 with a straight answer.
+  //
+  // Note the asymmetry with the monthly case below: that one throws a 500,
+  // because a missing *monthly* price IS a broken deployment and dressing it
+  // up as a product decision is what this route used to get wrong.
+  if (interval === "year" && !hasInterval("year")) {
+    return NextResponse.json(
+      { error: "Annual billing is not available yet. Choose monthly, or contact us." },
+      { status: 400 }
+    );
+  }
 
   // Throws if the price env var is unset — a 500 is correct here. This used to
   // return 400 "This plan is not available for checkout", which made a broken
   // deployment look like a deliberate product decision. The schema above
   // restricts tier to pro|enterprise, so `free` never reaches this.
-  const stripePriceId = getStripePriceId(tier);
+  const stripePriceId = getStripePriceId(tier, interval);
 
   // Fetch or create Stripe customer
   const { data: org } = await supabase
@@ -100,9 +130,14 @@ export async function POST(request: Request) {
     line_items: [{ price: stripePriceId, quantity: 1 }],
     success_url: `${APP_URL}/dashboard/billing?success=1`,
     cancel_url: `${APP_URL}/dashboard/billing?cancelled=1`,
-    metadata: { org_id: org.id, tier },
+    // `interval` is recorded for support and for reading the Stripe dashboard;
+    // nothing derives entitlement from it. The tier still comes from the price
+    // ID on the subscription (webhook → getPlanTierFromPriceId), because
+    // metadata is what *we* claimed at checkout and the price is what Stripe
+    // actually billed. When those disagree, the money is the truth.
+    metadata: { org_id: org.id, tier, interval },
     subscription_data: {
-      metadata: { org_id: org.id, tier },
+      metadata: { org_id: org.id, tier, interval },
       // Published on the pricing page and in the terms, so it has to be set
       // here or the copy is a promise the product does not keep.
       ...(priorSubscription ? {} : { trial_period_days: TRIAL_PERIOD_DAYS }),

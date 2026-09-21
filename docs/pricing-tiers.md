@@ -778,9 +778,50 @@ before it is a pricing one.
 | **Emailed staff invitations** | Code path exists, keys absent, copy-a-link fallback | Configuration, not code — needs a domain |
 | **Custom domain** (an Enterprise bullet) | Removed from `adds` 2026-09-20 | 3–5 days plus Vercel domain automation |
 | **Uptime commitment** (a Multi-site bullet) | Removed from `adds` 2026-09-20 | Not a code task — an operational commitment |
-| **Annual billing** — advertised on every tier | **No checkout path exists.** See below | Half a day, plus 3 more Stripe prices |
+| **Annual billing** — advertised on every tier | **Code shipped 2026-09-20; waiting on Stripe prices.** See below | Two env vars, once the prices exist |
 
-### Annual billing is advertised and cannot be charged
+### Annual billing — the mechanism now exists, the prices do not
+
+**Fixed 2026-09-20**, after the finding below. `create-checkout` takes an
+`interval`, `prices.ts` maps (tier, interval) to a price ID, and the billing
+page offers a Monthly/Yearly toggle.
+
+It **ships dark**. The annual Stripe prices do not exist yet, so
+`STRIPE_PRICE_PRO_ANNUAL` and `STRIPE_PRICE_ENTERPRISE_ANNUAL` are deliberately
+*optional* env vars — making them required would have taken every deployment
+down at the next boot to enable something nobody can buy. With them unset the
+toggle is not rendered, checkout refuses `interval: "year"` with an explanatory
+400 rather than a 500, and the page is byte-identical to before. Setting both
+turns it on with no code change; setting only one leaves it off on purpose.
+
+Three things worth keeping from building it:
+
+- **The reverse lookup had to stop throwing.** `getPlanTierFromPriceId()` used
+  to call `getStripePriceId()` for every known tier, which is safe only while
+  every price is a *required* env var. With an optional one present, that
+  `requireEnv` throws while identifying a perfectly valid **monthly**
+  subscription — the webhook 500s, Stripe retries forever, no entitlement is
+  ever written. Strictly worse than the bug being fixed. It now scans
+  configured prices only. Demonstrated, not reasoned about: restoring the old
+  implementation crashes the harness with
+  `Missing required environment variable STRIPE_PRICE_PRO_ANNUAL` thrown from
+  `getPlanTierFromPriceId`.
+- **The "Current plan" card was quietly wrong.** It printed
+  `${priceMonthly}/month`, true only while monthly was the only purchasable
+  thing. `subscriptions` has no interval column — migration 004 stores period
+  *dates*, not a cadence — so once annual exists the app cannot know which an
+  org pays. The price was removed from that line rather than guessed; Stripe's
+  portal is authoritative and the tier's list price is on its card below. A
+  future interval column would let it be stated again.
+- **The public pricing page correctly gets no toggle.** Its CTA is "Start free
+  trial" → `/signup`, not checkout, so there is no interval for it to carry.
+  The choice belongs on the billing page, where the purchase actually happens.
+
+**Still true until the prices exist:** both pricing surfaces advertise a yearly
+figure and the FAQ promises two months free. That copy remains unhonourable
+until an owner creates the prices and sets the two variables.
+
+### The finding that prompted it
 
 Found 2026-09-20 while listing the Stripe prices, *after* the `adds` cleanup —
 because it lives in the price block rather than the feature list, and the

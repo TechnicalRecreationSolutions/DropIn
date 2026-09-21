@@ -3,7 +3,7 @@ import { headers } from "next/headers";
 import Stripe from "stripe";
 import { stripe } from "@/lib/stripe/client";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { getPlanTierFromPriceId } from "@/lib/stripe/prices";
+import { getPlanTierFromPriceId, priceEnvVarNames } from "@/lib/stripe/prices";
 import type { Json } from "@/types/database.types";
 
 // Raw body is required for Stripe signature verification — no body parsing
@@ -179,7 +179,9 @@ async function upsertSubscription(subscription: Stripe.Subscription, db: ReturnT
     // processed=false where it can be found.
     throw new Error(
       `Unrecognised Stripe price "${priceId ?? "none"}" on subscription ${subscription.id}. ` +
-        `Check STRIPE_PRICE_PRO_MONTHLY / STRIPE_PRICE_ENTERPRISE_MONTHLY in this environment.`
+        `Check these in this environment: ${priceEnvVarNames().join(", ")}. ` +
+        `The annual ones are optional and may legitimately be unset — but then ` +
+        `no annual subscription can be recognised either.`
     );
   }
 

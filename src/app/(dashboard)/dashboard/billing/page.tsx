@@ -1,9 +1,11 @@
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
 import { STORED_TIER_TO_PLAN, type StoredPlanTier } from "@/lib/stripe/plans";
+import { hasInterval } from "@/lib/stripe/prices";
 import { Skeleton } from "@/components/ui/skeleton";
 import BillingClient from "./BillingClient";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -23,10 +25,7 @@ export default function BillingPage() {
     <div className="max-w-3xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Billing</h1>
-        <p className="text-muted-foreground mt-1">
-          Manage your Dropin subscription.
-        </p>
+        <PageHeader title="Billing" />
       </div>
 
       <Suspense fallback={<Skeleton className="h-64 rounded-xl" aria-busy="true" />}>
@@ -48,5 +47,12 @@ async function BillingBody() {
   const stored = (orgContext.subscription?.plan_tier ?? "free") as StoredPlanTier;
   const currentTier = STORED_TIER_TO_PLAN[stored] ?? null;
 
-  return <BillingClient currentTier={currentTier} />;
+  // Whether annual is sellable is a *server* fact — it depends on secret price
+  // env vars, which read as `undefined` in the browser. So it is resolved here
+  // and passed down as a boolean; BillingClient must never try to work it out
+  // for itself. Today this is false everywhere, and the yearly figures on the
+  // cards render as information rather than as a choice.
+  const annualAvailable = hasInterval("year");
+
+  return <BillingClient currentTier={currentTier} annualAvailable={annualAvailable} />;
 }

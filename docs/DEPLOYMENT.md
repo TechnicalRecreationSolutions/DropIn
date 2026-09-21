@@ -133,6 +133,24 @@ follows.
 | `STRIPE_PRICE_ENTERPRISE_MONTHLY` | Same, for Enterprise |
 | `ANALYTICS_IP_SALT` | IP hashes become trivially reversible — the "no raw PII" claim in the privacy policy fails |
 
+### Optional — annual billing, off until both are set
+
+| Variable | What it enables |
+|---|---|
+| `STRIPE_PRICE_PRO_ANNUAL` | Yearly billing for Standard |
+| `STRIPE_PRICE_ENTERPRISE_ANNUAL` | Yearly billing for Multi-site |
+
+**Set both or neither.** `hasInterval("year")` in `src/lib/stripe/prices.ts` is
+all-or-nothing: with only one configured, the billing page keeps hiding the
+Monthly/Yearly toggle, because a toggle beside a button that 400s is worse than
+no toggle. With neither set, annual is simply not offered and an annual request
+is refused with a 400 that explains itself — deliberately not a 500, so a
+not-yet-enabled feature never looks like a broken deployment.
+
+Both pricing surfaces already advertise a yearly figure and the FAQ promises two
+months free, so **until these exist, that copy is a promise the product cannot
+keep.** Setting them is the whole of turning it on; no code change is needed.
+
 ### Also needed — not validated, so these fail quietly
 
 | Variable | What breaks if absent or wrong |
@@ -213,7 +231,8 @@ configuration.
    is rejected and no subscription is ever recorded — the exact failure class as
    finding M3.
 3. In live mode, `STRIPE_PRICE_PRO_MONTHLY` and `STRIPE_PRICE_ENTERPRISE_MONTHLY`
-   are **different strings** from the test-mode IDs.
+   are **different strings** from the test-mode IDs. The same applies to the
+   optional `_ANNUAL` pair above.
 
 **Test:** complete a real checkout, then query the `subscriptions` table and
 confirm a row exists with the right tier. A 200 response from the webhook is not

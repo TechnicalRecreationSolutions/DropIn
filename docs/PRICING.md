@@ -251,6 +251,14 @@ Nothing in this file is enforced. Specifically:
 3. Add the new price env vars to `src/lib/env.ts`, `.env.example` and Vercel.
    Follow the existing pattern: the server should refuse to boot without them
    rather than quietly mis-price.
+
+   **Annual for Standard and Multi-site is already wired** (2026-09-20) and
+   needs only the two prices: set `STRIPE_PRICE_PRO_ANNUAL` and
+   `STRIPE_PRICE_ENTERPRISE_ANNUAL` and the Monthly/Yearly toggle appears. Those
+   two are *optional* by design — see `docs/DEPLOYMENT.md` — so they are the
+   exception to the "refuse to boot" rule above, and the reason is that annual
+   had to ship before the prices existed. Starter and Enterprise still have no
+   price at either cadence and remain contact-sales until step 2 lands.
 4. Run one test-mode checkout and confirm the trial actually lands on the
    subscription — read it back from Stripe and from `subscriptions`, not from a
    200 response. (See `SECURITY.md` finding M3 for why a Stripe 200 proves
