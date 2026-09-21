@@ -111,7 +111,7 @@ export const PLANS: Record<PlanTier, Plan> = {
       "Public facility page",
       "Embeddable widget — grid, list and space views",
       "Your brand colour and logo",
-      "CSV import",
+      "Printable schedules",
       "30 days of analytics",
     ],
   },
@@ -130,8 +130,10 @@ export const PLANS: Record<PlanTier, Plan> = {
     views: ["grid", "list", "map", "floorplan", "board"],
     adds: [
       "Floorplan and board views",
+      "CSV import",
+      "Manager and coordinator accounts",
       "Let visitors filter between your schedules",
-      "Activity log and per-week review",
+      "Activity log, per-week review and conflict manager",
       "12 months of analytics",
       "Priority email support",
     ],
@@ -149,11 +151,16 @@ export const PLANS: Record<PlanTier, Plan> = {
       analyticsHistoryDays: 730,
     },
     views: ["grid", "list", "map", "floorplan", "board"],
+    // "One embed spanning every facility" was removed 2026-09-20: since
+    // migration 045 there is ONE widget_configs row per organization, so an
+    // embed already spans every facility on every tier including Starter. It
+    // described the architecture, not a tier capability. "Uptime commitment"
+    // went with it — there is no monitoring, status page or SLA behind it.
+    // See docs/pricing-tiers.md §4.8.
     adds: [
-      "One embed spanning every facility",
+      "Everything in Standard, across up to 12 buildings",
       "24 months of analytics",
       "Guided onboarding for your first schedule",
-      "Uptime commitment",
     ],
   },
   enterprise: {
@@ -169,9 +176,14 @@ export const PLANS: Record<PlanTier, Plan> = {
       analyticsHistoryDays: -1,
     },
     views: ["grid", "list", "map", "floorplan", "board"],
+    // "Custom domain" was removed 2026-09-20: it does not exist and is not
+    // built. The remaining lines are all things an owner can actually deliver
+    // by hand for a quoted customer — invoicing, a named contact, a security
+    // review (docs/SECURITY.md), and an export run as a query. Product
+    // capabilities that do not exist do not belong here, however quoted the
+    // tier. See docs/pricing-tiers.md §5.4.
     adds: [
       "Purchase order and annual invoicing",
-      "Custom domain",
       "Unlimited analytics history",
       "A named contact and onboarding support",
       "Security review and data export on request",

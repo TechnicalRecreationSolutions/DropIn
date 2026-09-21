@@ -17,7 +17,13 @@ export type WidgetConfig =
   Database["public"]["Tables"]["widget_configs"]["Row"];
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 
-export type PlanTier = "free" | "pro" | "enterprise";
+// `PlanTier` deliberately does NOT live here. It used to, as
+// "free" | "pro" | "enterprise", with zero importers — every PlanTier in the app
+// resolves to @/lib/stripe/plans, where the name means the four-tier CATALOGUE
+// (starter | standard | multisite | enterprise) rather than what the database
+// column can hold. Two exported types, one name, different members, and no
+// compiler help when a gate imports the wrong one. The stored vocabulary is
+// `StoredPlanTier` in that same module, next to the bridge that translates it.
 
 /**
  * The staff role ladder. Defined in database.types.ts, where it mirrors the
