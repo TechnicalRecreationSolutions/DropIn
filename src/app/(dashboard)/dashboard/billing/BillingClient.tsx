@@ -301,6 +301,32 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
         })}
       </div>
 
+      {/* Yearly is a published price on every card above, so when it cannot be
+          bought self-serve there has to be *some* way to ask for it. Without
+          this the page quotes an annual figure and offers no path to it, which
+          is the same broken promise the yearly copy made before checkout
+          learned about intervals — just moved one screen along.
+
+          Disappears on its own once the annual Stripe prices are configured,
+          because then the toggle at the top does the job. */}
+      {!annualAvailable && (
+        <div className="bg-card rounded-xl border border-border p-5">
+          <p className="text-sm font-semibold text-foreground">
+            Prefer to pay yearly?
+          </p>
+          <p className="mt-1 text-sm text-muted-foreground">
+            Yearly billing is two months free. It isn&rsquo;t self-serve yet —
+            email us and we&rsquo;ll set it up for you.
+          </p>
+          <a
+            href="mailto:hello@dropin.app?subject=Yearly%20billing"
+            className="mt-3 inline-block px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
+          >
+            Ask about yearly billing
+          </a>
+        </div>
+      )}
+
       <div className="bg-card rounded-xl border border-border p-5">
         <p className="text-sm font-semibold text-foreground">Unlimited on every plan</p>
         <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2">

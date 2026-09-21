@@ -813,13 +813,24 @@ Three things worth keeping from building it:
   org pays. The price was removed from that line rather than guessed; Stripe's
   portal is authoritative and the tier's list price is on its card below. A
   future interval column would let it be stated again.
-- **The public pricing page correctly gets no toggle.** Its CTA is "Start free
-  trial" → `/signup`, not checkout, so there is no interval for it to carry.
-  The choice belongs on the billing page, where the purchase actually happens.
+- **The two pages gate the toggle differently, on purpose.** The billing page
+  hides its switch unless the annual prices are configured, because that page
+  *starts a purchase* and offering a cadence checkout would refuse is a support
+  call. The public pricing page (`components/marketing/PricingGrid.tsx`) shows
+  its switch unconditionally, because every card's CTA is "Start free trial" →
+  `/signup` whichever interval is displayed — nothing there buys anything, so
+  the switch is presentation over a published price. Do not "fix" that
+  asymmetry by gating the marketing page on the price env vars: they are
+  server-only secrets, and reading them would force the whole section dynamic
+  to answer a question it does not need to ask.
 
-**Still true until the prices exist:** both pricing surfaces advertise a yearly
-figure and the FAQ promises two months free. That copy remains unhonourable
-until an owner creates the prices and sets the two variables.
+**While the prices do not exist**, the billing page shows a "Prefer to pay
+yearly?" card with a contact link, and it disappears on its own once the toggle
+can do the job. That matters because every card quotes an annual figure: a page
+that prints a price and offers no way to act on it is the same broken promise
+the yearly copy made before checkout learned about intervals, just moved one
+screen along. Yearly is fulfillable by hand today, and self-serve the moment an
+owner creates the prices and sets the two variables.
 
 ### The finding that prompted it
 

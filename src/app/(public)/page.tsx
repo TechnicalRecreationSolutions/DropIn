@@ -17,15 +17,13 @@ import {
   Clock,
 } from "lucide-react";
 import {
-  PLANS,
-  TIER_ORDER,
-  FEATURED_TIER,
   ALWAYS_UNLIMITED,
   TRIAL_PERIOD_DAYS,
   LOWEST_MONTHLY,
   dollars,
 } from "@/lib/stripe/plans";
 import FaqSection from "@/components/marketing/FaqSection";
+import PricingGrid from "@/components/marketing/PricingGrid";
 import WidgetPreview from "@/components/marketing/WidgetPreview";
 
 /**
@@ -109,20 +107,6 @@ const sampleSchedule = [
   { time: "4:00 PM", name: "Public Skate", tag: "Arena", icon: CircleDot },
   { time: "6:30 PM", name: "Youth Basketball", tag: "Gym", icon: Dumbbell },
 ];
-
-/**
- * How each tier's facility allowance reads on the card.
- *
- * The facility is the billed unit — see docs/PRICING.md — so it gets its own
- * line above the capability list rather than being buried in it. Everything
- * else is unlimited on every tier and is stated once, below the grid.
- */
-function facilityLine(tier: (typeof TIER_ORDER)[number]): string {
-  const { facilities } = PLANS[tier].limits;
-  if (facilities === -1) return "Unlimited facilities";
-  if (facilities === 1) return "1 facility";
-  return `Up to ${facilities} facilities`;
-}
 
 export default function HomePage() {
   return (
@@ -357,91 +341,7 @@ export default function HomePage() {
             trial, cancel anytime.
           </p>
 
-          <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
-            {TIER_ORDER.map((tier) => {
-              const plan = PLANS[tier];
-              const featured = tier === FEATURED_TIER;
-              return (
-                <div
-                  key={tier}
-                  className={
-                    featured
-                      ? "relative flex flex-col rounded-xl border-2 border-blue-600 bg-card p-6 shadow-sm"
-                      : "relative flex flex-col rounded-xl border border-border bg-card p-6"
-                  }
-                >
-                  {featured && (
-                    <span className="absolute -top-3 left-6 rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-semibold text-white">
-                      Most centres
-                    </span>
-                  )}
-                  <p className="font-semibold text-foreground">{plan.name}</p>
-
-                  {plan.priceMonthly === null ? (
-                    <>
-                      <p className="mt-2 text-3xl font-extrabold text-foreground">
-                        Let&rsquo;s talk
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        {plan.priceAnnualFrom !== null &&
-                          `From $${dollars(plan.priceAnnualFrom)}/year`}
-                      </p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="mt-2 text-3xl font-extrabold text-foreground">
-                        ${dollars(plan.priceMonthly)}
-                        <span className="text-sm font-medium text-muted-foreground">/mo</span>
-                      </p>
-                      <p className="mt-1 text-sm text-muted-foreground">
-                        or ${dollars(plan.priceAnnual!)}/year
-                      </p>
-                    </>
-                  )}
-
-                  <p className="mt-3 text-sm text-muted-foreground">{plan.blurb}</p>
-
-                  <p className="mt-4 text-sm font-semibold text-foreground">
-                    {facilityLine(tier)}
-                  </p>
-                  {plan.limits.extraFacilityMonthly !== null && (
-                    <p className="text-sm text-muted-foreground">
-                      then ${dollars(plan.limits.extraFacilityMonthly)}/mo each
-                    </p>
-                  )}
-
-                  <ul className="mt-3 space-y-2 flex-1">
-                    {plan.adds.map((line) => (
-                      <li key={line} className="flex items-start gap-2 text-sm text-foreground">
-                        <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
-                        {line}
-                      </li>
-                    ))}
-                  </ul>
-
-                  {plan.priceMonthly === null ? (
-                    <a
-                      href="mailto:hello@dropin.app?subject=Enterprise plan"
-                      className="mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
-                    >
-                      Contact us
-                    </a>
-                  ) : (
-                    <Link
-                      href="/signup"
-                      className={
-                        featured
-                          ? "mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                          : "mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
-                      }
-                    >
-                      Start free trial
-                    </Link>
-                  )}
-                </div>
-              );
-            })}
-          </div>
+          <PricingGrid />
 
           {/* Stated once rather than repeated as a tick on all four cards. */}
           <div className="mt-8 rounded-xl border border-border bg-card p-5">
