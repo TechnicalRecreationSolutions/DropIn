@@ -776,11 +776,59 @@ before it is a pricing one.
 | **Notifications of any kind** | Does not exist — no table, no route, no component | 5–8 days for a first digest, and **blocked on SMTP** |
 | **Any data export** (CSV, ICS, PDF-of-data) | Does not exist | 2–3 days for CSV; ICS is 3–4 and invites a sync conversation |
 | **Emailed staff invitations** | Code path exists, keys absent, copy-a-link fallback | Configuration, not code — needs a domain |
-| **Custom domain** (an Enterprise bullet) | Does not exist | 3–5 days plus Vercel domain automation |
-| **Uptime commitment** (a Multi-site bullet) | No monitoring, no status page, no SLA | Not a code task — an operational commitment |
+| **Custom domain** (an Enterprise bullet) | Removed from `adds` 2026-09-20 | 3–5 days plus Vercel domain automation |
+| **Uptime commitment** (a Multi-site bullet) | Removed from `adds` 2026-09-20 | Not a code task — an operational commitment |
+| **Annual billing** — advertised on every tier | **No checkout path exists.** See below | Half a day, plus 3 more Stripe prices |
 
-The last two are already printed on the pricing page via `PLANS[*].adds`. Worth a
-look before a customer reads them back to you.
+### Annual billing is advertised and cannot be charged
+
+Found 2026-09-20 while listing the Stripe prices, *after* the `adds` cleanup —
+because it lives in the price block rather than the feature list, and the
+cleanup was a sweep of `PLANS[*].adds`. Same class of problem as the four lines
+removed that day: published copy the product cannot honour.
+
+`priceAnnual` is populated for all three self-serve tiers, so both pricing
+surfaces render "or $890/year", "or $2,490/year", "or $5,490/year", and the FAQ
+promises two months free. But:
+
+- `create-checkout/route.ts` accepts `tier: z.enum(["pro","enterprise"])` and
+  **no interval parameter at all**, then passes one price ID to `line_items`.
+- `prices.ts` knows only `STRIPE_PRICE_PRO_MONTHLY` and
+  `STRIPE_PRICE_ENTERPRISE_MONTHLY`.
+
+So there is no code path that can charge an annual price on any tier.
+
+**It is not just an env var.** Annual needs a second price ID per tier, an
+interval selector in the UI, the parameter threaded through the route, and
+`getPlanTierFromPriceId()` widened to reverse-map six IDs instead of two. That
+last one is the careful part: `SECURITY.md` finding M3 is precisely about that
+lookup, and a price ID it fails to recognise must never fall back to `free`.
+
+Deferred with the rest of the billing work — there are no subscriptions, so
+nothing can be billed annually or monthly today. Recorded here so it is not
+rediscovered by a customer clicking a yearly price.
+
+### The full Stripe price list
+
+Seven, not the six that "three tiers, two intervals" suggests — Enterprise is
+quoted and invoiced, so it has no Stripe price, and the seventh is the
+per-facility add-on.
+
+| # | Price | Amount | Source |
+|---|---|---|---|
+| 1 | Starter — monthly | $89 | `PLANS.starter.priceMonthly` |
+| 2 | Starter — yearly | $890 | `PLANS.starter.priceAnnual` |
+| 3 | Standard — monthly | $249 | `PLANS.standard.priceMonthly` |
+| 4 | Standard — yearly | $2,490 | `PLANS.standard.priceAnnual` |
+| 5 | Multi-site — monthly | $549 | `PLANS.multisite.priceMonthly` |
+| 6 | Multi-site — yearly | $5,490 | `PLANS.multisite.priceAnnual` |
+| 7 | Extra facility — monthly | $45 | `EXTRA_FACILITY_MONTHLY` |
+
+**Two exist, both test mode**, and neither is named for the tier it now sells:
+`STRIPE_PRICE_PRO_MONTHLY` serves Standard and
+`STRIPE_PRICE_ENTERPRISE_MONTHLY` serves Multi-site, through
+`STORED_TIER_TO_PLAN`. Starter and Enterprise have no price at all, which is why
+both render a contact link instead of a checkout button.
 
 ---
 
