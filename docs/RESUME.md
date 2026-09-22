@@ -15,10 +15,13 @@ see [Related docs](#related-docs).
 ## Where the branch is
 
 Everything below that was uncommitted landed in **one commit, `de89572`**, on
-the branch **`feat/pending-2026-09-21`**, which is **pushed** to origin. `main`
-is untouched and still at `587f3ae`, two commits behind and zero ahead — so the
-merge is a fast-forward whenever you want it. Nothing is deployed until it
-reaches `main`.
+the branch `feat/pending-2026-09-21`, fast-forwarded into **`main`** and
+**pushed** (`main` is now `2637d2f`). Vercel auto-deploys from `main`, so this
+is live.
+
+Before the push the whole pending suite was re-run green against one server:
+**711 assertions across 12 harnesses**, 0 failed — aq 11, ar 26, as 78, at 59,
+au 52, av 49, aw 165, ax 78, ay 72, q 52, aa 28, ac 41.
 
 It is one commit rather than eight because the eight tracks share files —
 `dates.ts`, `schedule.types.ts`, `expand.ts`, and the ~25 page components the
