@@ -15,8 +15,10 @@ see [Related docs](#related-docs).
 ## Where the branch is
 
 Everything below that was uncommitted landed in **one commit, `de89572`**, on
-the branch **`feat/pending-2026-09-21`**. `main` is untouched and still at
-`587f3ae`, and nothing has been pushed.
+the branch **`feat/pending-2026-09-21`**, which is **pushed** to origin. `main`
+is untouched and still at `587f3ae`, two commits behind and zero ahead — so the
+merge is a fast-forward whenever you want it. Nothing is deployed until it
+reaches `main`.
 
 It is one commit rather than eight because the eight tracks share files —
 `dates.ts`, `schedule.types.ts`, `expand.ts`, and the ~25 page components the
