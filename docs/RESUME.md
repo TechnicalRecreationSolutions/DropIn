@@ -12,7 +12,20 @@ see [Related docs](#related-docs).
 
 ---
 
-## The Overview, rebuilt around today — 2026-09-21, NOT COMMITTED
+## Where the branch is
+
+Everything below that was uncommitted landed in **one commit, `de89572`**, on
+the branch **`feat/pending-2026-09-21`**. `main` is untouched and still at
+`587f3ae`, and nothing has been pushed.
+
+It is one commit rather than eight because the eight tracks share files —
+`dates.ts`, `schedule.types.ts`, `expand.ts`, and the ~25 page components the
+copy pass touched — so splitting them after the fact would have meant inventing
+boundaries that do not build. The commit message enumerates what is in it.
+
+---
+
+## The Overview, rebuilt around today — 2026-09-21, COMMITTED (de89572), NOT PUSHED
 
 `verify-ay` passes **72/72** (25 logic-only, the rest in a real browser across
 an owner and a coordinator context, at 1440px and 390px). Two assertions were
@@ -73,7 +86,7 @@ they named.
 
 ---
 
-## Spreadsheet canvas on the Map view — built 2026-09-21, NOT COMMITTED
+## Spreadsheet canvas on the Map view — built 2026-09-21, COMMITTED (de89572), NOT PUSHED
 
 `verify-aw` passes **165/165** (48 logic-only, 61 over HTTP, 56 in a real
 browser across four contexts, including a read-only one and a touch one).
@@ -220,7 +233,7 @@ reference list is read once, but a count changes with every click.
 
 ---
 
-## Departments — rebuilt 2026-09-21, NOT COMMITTED
+## Departments — rebuilt 2026-09-21, COMMITTED (de89572), NOT PUSHED
 
 The page that 058 and 059 both hang their editors off
 (`/dashboard/facilities/[id]/departments/[id]/edit`) had become one column of
@@ -313,7 +326,7 @@ Not built: nothing further is planned here. US states would slot into the same
 
 ---
 
-## Operating hours + all-day sessions — shipped 2026-09-21, NOT COMMITTED
+## Operating hours + all-day sessions — shipped 2026-09-21, COMMITTED (de89572), NOT PUSHED
 
 **Migration `058` is applied.** `verify-as` passes **78/78** against the live
 database, and nine deliberate falsifications each turned it red. `tsc`,
