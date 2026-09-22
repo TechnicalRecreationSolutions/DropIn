@@ -3,12 +3,19 @@
 Open this first; it points at everything else.
 
 **Last updated 2026-09-21**, at the end of the session that rebuilt the Overview
-around today (first box below). Earlier the same day: the spreadsheet canvas on
-the Map view, the analytics rebuild, department operating hours, all-day
-sessions, and statutory holidays. Before that: multi-account staff roles, and a
-resident directory (`/find`). This file is the single entry point. The per-track
-`RESUME-*.md` files are historical records of finished work, not live handoffs —
-see [Related docs](#related-docs).
+around today (first box below) and then **committed, merged and deployed eight
+tracks' worth of work that had been sitting uncommitted** — see
+[State right now](#state-right-now) for what that means for production, and
+[Where the branch is](#where-the-branch-is) for why it is one commit.
+
+Those eight: the Overview rebuild, the spreadsheet canvas on the Map view, the
+analytics rebuild, departments, department operating hours, all-day sessions,
+statutory holidays, spaces zones and the revived-form fix. Before that day:
+multi-account staff roles, and a resident directory (`/find`).
+
+This file is the single entry point. The per-track `RESUME-*.md` files are
+historical records of finished work, not live handoffs — see
+[Related docs](#related-docs).
 
 ---
 
@@ -30,7 +37,7 @@ boundaries that do not build. The commit message enumerates what is in it.
 
 ---
 
-## The Overview, rebuilt around today — 2026-09-21, COMMITTED (de89572), NOT PUSHED
+## The Overview, rebuilt around today — 2026-09-21, DEPLOYED
 
 `verify-ay` passes **72/72** (25 logic-only, the rest in a real browser across
 an owner and a coordinator context, at 1440px and 390px). Two assertions were
@@ -91,7 +98,7 @@ they named.
 
 ---
 
-## Spreadsheet canvas on the Map view — built 2026-09-21, COMMITTED (de89572), NOT PUSHED
+## Spreadsheet canvas on the Map view — 2026-09-21, DEPLOYED
 
 `verify-aw` passes **165/165** (48 logic-only, 61 over HTTP, 56 in a real
 browser across four contexts, including a read-only one and a touch one).
@@ -238,7 +245,7 @@ reference list is read once, but a count changes with every click.
 
 ---
 
-## Departments — rebuilt 2026-09-21, COMMITTED (de89572), NOT PUSHED
+## Departments — rebuilt 2026-09-21, DEPLOYED
 
 The page that 058 and 059 both hang their editors off
 (`/dashboard/facilities/[id]/departments/[id]/edit`) had become one column of
@@ -331,7 +338,7 @@ Not built: nothing further is planned here. US states would slot into the same
 
 ---
 
-## Operating hours + all-day sessions — shipped 2026-09-21, COMMITTED (de89572), NOT PUSHED
+## Operating hours + all-day sessions — 2026-09-21, DEPLOYED
 
 **Migration `058` is applied.** `verify-as` passes **78/78** against the live
 database, and nine deliberate falsifications each turned it red. `tsc`,
@@ -447,24 +454,41 @@ session in the organization through PostgREST.
 
 ## State right now
 
-**Everything is pushed and deployed.** On 2026-09-17, `main` was pushed with
-the internal-view track (migrations 046–049), tags/links (050) and the print
-button (051), then fast-forwarded to `feat/directory` (migration 052, the
-resident directory and the L5 privacy fix) and pushed again. Vercel had it live
-in about two minutes; `/robots.txt`, `/find` and the directory API answered
-from production. `feat/internal-view` and `feat/directory` are on GitHub too,
-and both are fully contained in `main`.
+**Everything is pushed and deployed.** `main` is `1f392c2`, pushed
+2026-09-21; Vercel auto-deploys from it and production answered 200 on `/` and
+`/find` afterwards.
 
-- Migrations **through `052`** are applied to the hosted database, checked by
-  querying it (050 and 051 by column probe, 052 by `verify-ae`). Production code
-  (`3f6e085`) runs fine against the newer schema.
-- `tsc`, `eslint src` and `next build` pass on `feat/directory`.
-- `npm audit` reports **0 vulnerabilities**, re-measured 2026-09-16.
-- Next **16.3.4**.
+**Read this before assuming what is live.** That push was not one feature. Eight
+tracks had been sitting uncommitted across several sessions and all shipped
+together in `de89572`: the Overview rebuild, the spreadsheet canvas, the
+analytics rebuild, departments, operating hours, statutory holidays, spaces
+zones, and the revived-form fix — plus the copy pass across ~25 pages. They
+shared too many files to split after the fact. If something looks different in
+production and you only remember one of those landing, this is why. Each has its
+own section above.
+
+Verified before the push, on 2026-09-21 unless stated:
+
+- Migrations **through `059`** are applied to the hosted database (`058` and
+  `059` proven applied by `verify-as`/`verify-at`, which cannot pass without
+  them).
+- The pending suite re-ran green against one server: **711 assertions across 12
+  harnesses**, 0 failed.
+- `tsc`, `eslint src` and `next build` pass on `main`.
+- `npm audit --omit=dev` reports **0 vulnerabilities**, re-measured 2026-09-21.
+- Next **16.3.4**, re-checked 2026-09-21.
 - Live at `https://drop-in-ten.vercel.app`; Vercel auto-deploys from `main`.
 
-Data, measured 2026-09-16: 4 facilities (3 published), 7 sessions, **none of
-them public** (see below), and no facility listed in the directory yet.
+**25 verification harnesses cannot run at all** and are not part of that 711.
+They insert `org_memberships` with `role: "admin"`, which migration 055 removed
+and a CHECK constraint rejects; the insert fails silently, so every request then
+403s with `"No organization found"` — a fixture bug that reads like a product
+one. `verify-q`, `verify-aa` and `verify-ac` were repaired (one line each,
+`"admin"` → `"owner"`); the rest were left alone. See `scripts/verify/README.md`.
+
+Data, measured 2026-09-16 and **not re-measured since**: 4 facilities (3
+published), 7 sessions, **none of them public** (see below), and no facility
+listed in the directory yet.
 
 ---
 
