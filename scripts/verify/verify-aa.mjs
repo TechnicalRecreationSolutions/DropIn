@@ -139,7 +139,7 @@ try {
   ids.users.push(userData.user.id);
   await admin
     .from("org_memberships")
-    .insert({ org_id: org.id, user_id: userData.user.id, role: "admin" });
+    .insert({ org_id: org.id, user_id: userData.user.id, role: "owner" });
 
   const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({ email, password });
   if (signInErr) throw new Error(`signIn: ${signInErr.message}`);

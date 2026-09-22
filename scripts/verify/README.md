@@ -112,6 +112,15 @@ that keeps serving: none of these throw. They just quietly do the wrong thing.
 4. **Assert the mechanism, not just the outcome.** `verify-f` asserts a genuine
    space overlap still 409s and that a same-space pair that only *touches*
    does not — checking only "a conflict was reported" would miss either half.
+5. **Check the fixture inserts, especially `org_memberships`.** Migration 055
+   replaced the old roles with `owner`/`manager`/`coordinator`/`aux` and added a
+   CHECK constraint. Every harness still inserting `role: "admin"` has a
+   membership insert that silently fails — nothing throws, because the insert's
+   error is not read — and then every request 403s with
+   `{"error":"No organization found"}`, which reads like a product bug rather
+   than a fixture one. **25 harnesses still do this** and cannot currently run;
+   `verify-q`, `verify-aa` and `verify-ac` were repaired. Fixing one is a
+   one-line change from `"admin"` to `"owner"`.
 
 ## What they cover
 
