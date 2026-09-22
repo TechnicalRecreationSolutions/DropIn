@@ -1,6 +1,7 @@
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import DepartmentForm from "@/components/department/DepartmentForm";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface NewDepartmentPageProps {
   params: Promise<{ facilityId: string }>;
@@ -18,10 +19,7 @@ export default async function NewDepartmentPage({ params }: NewDepartmentPagePro
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Add a department</h1>
-        <p className="text-muted-foreground mt-1">
-          A department groups related schedules together (e.g. Aquatics, Fitness).
-        </p>
+        <PageHeader title="Add a department" info="A department groups related schedules, such as Aquatics or Fitness." />
       </div>
 
       <DepartmentForm

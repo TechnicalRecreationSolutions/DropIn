@@ -32,7 +32,7 @@ export default async function OnboardingPage() {
       <div className="mb-8 text-center">
         <h1 className="text-2xl font-bold text-foreground">Set up your organization</h1>
         <p className="mt-2 text-sm text-muted-foreground">
-          You&apos;re signed in, but not yet part of an organization on Dropin. Create one to continue.
+          Create an organization to continue.
         </p>
       </div>
       <OnboardOrgForm suggestedName={suggestedName} />

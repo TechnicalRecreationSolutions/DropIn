@@ -4,6 +4,7 @@ import { useRef, useState } from "react";
 import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import OrgImage from "./OrgImage";
+import { LabelWithInfo } from "@/components/ui/info-tip";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_UPLOAD_BYTES,
@@ -97,7 +98,11 @@ export default function ImageUpload({
 
   return (
     <div>
-      <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+      {hint ? (
+        <LabelWithInfo info={hint} className="block text-sm font-medium text-foreground">{label}</LabelWithInfo>
+      ) : (
+        <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+      )}
 
       {value ? (
         <div className={cn("relative", aspect === "wide" ? "w-full max-w-xs" : "w-24")}>
@@ -177,7 +182,6 @@ export default function ImageUpload({
           {error}
         </p>
       )}
-      {hint && !error && <p className="text-xs text-muted-foreground/70 mt-1">{hint}</p>}
     </div>
   );
 }

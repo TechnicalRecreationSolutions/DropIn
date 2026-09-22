@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { AlertTriangle } from "lucide-react";
 import { commandCentreHref, spacesHref } from "@/lib/schedule/commandCentreHref";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface UnassignedCalloutProps {
   facilityId: string;
@@ -43,14 +44,14 @@ export default function UnassignedCallout({
     <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3">
       <div className="flex items-start gap-2">
         <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
-        <div>
+        <div className="flex items-center gap-1.5">
           <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
-            Not in any department — coordinators cannot see these
+            Hidden from coordinators
           </h2>
-          <p className="text-xs text-amber-900/80 dark:text-amber-200/80 mt-0.5">
-            A coordinator&apos;s access runs through departments, so anything filed under none
-            of them stays manager-only. Assign a department and it appears for them.
-          </p>
+          <InfoTip>
+            Coordinators only see what&apos;s in their departments, so these stay manager-only.
+            Assign a department to make them visible.
+          </InfoTip>
         </div>
       </div>
 

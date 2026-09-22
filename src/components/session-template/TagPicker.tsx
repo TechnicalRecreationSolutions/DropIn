@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { InfoTip } from "@/components/ui/info-tip";
 import { relativeLuminance } from "@/lib/utils/color";
 
 export interface TagOption {
@@ -133,7 +134,14 @@ export default function TagPicker({
 
   return (
     <div>
-      <p className="block text-sm font-medium text-foreground mb-1">Tags</p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-sm font-medium text-foreground">Tags</p>
+        <InfoTip>
+          Shown on every session placed from this template, in all views and on the printed board. The
+          first two appear on the card, the rest in the session details. Tags replace the asterisks and
+          colour keys of a printed schedule.
+        </InfoTip>
+      </div>
 
       {loading ? (
         <p className="text-sm text-muted-foreground/70">Loading tags…</p>
@@ -183,10 +191,7 @@ export default function TagPicker({
           </div>
 
           {tags.length === 0 && !creating && (
-            <p className="text-xs text-muted-foreground mt-1">
-              No tags yet for this facility. Tags replace the asterisks and colour keys on a
-              printed schedule — add the ones your building already uses.
-            </p>
+            <p className="text-xs text-muted-foreground mt-1">No tags yet for this facility.</p>
           )}
 
           {creating && (
@@ -258,10 +263,6 @@ export default function TagPicker({
             </div>
           )}
 
-          <p className="text-xs text-muted-foreground mt-1">
-            Shown on every session placed from this template, in all schedule views and on the
-            printed board. The first two appear on the card; the rest are in the session details.
-          </p>
         </>
       )}
     </div>

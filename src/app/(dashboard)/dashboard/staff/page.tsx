@@ -8,6 +8,7 @@ import Streamed from "@/components/ui/streamed";
 import StaffPanel from "@/components/staff/StaffPanel";
 import type { OrgRole } from "@/types/app.types";
 import type { InvitationRow, MemberRow, ScopeRow } from "@/components/staff/types";
+import { PageHeader } from "@/components/ui/info-tip";
 
 export const metadata = { title: "Staff" };
 
@@ -27,10 +28,7 @@ export default function StaffPage() {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Staff</h1>
-        <p className="text-muted-foreground mt-1">
-          Everyone who can sign in to your organization, and what each of them can change.
-        </p>
+        <PageHeader title="Staff" info="Everyone who can sign in to your organization, and what each person can change." />
       </div>
 
       <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>

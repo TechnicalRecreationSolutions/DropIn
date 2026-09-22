@@ -23,6 +23,18 @@ interface SessionModalProps {
 export default function SessionModal({ session, onClose, onDelete, isDeleting }: SessionModalProps) {
   const sport = getSportCategory(session.sportCategory);
 
+  // This modal closed on the backdrop and the X, and never on Escape. It went
+  // unnoticed while it was the only thing listening; on the editing canvas
+  // Escape now also means "clear the selection", so a modal that ignores it
+  // leaves the key doing something real and invisible behind an open dialog.
+  useEffect(() => {
+    function onKeyDown(event: KeyboardEvent) {
+      if (event.key === "Escape") onClose();
+    }
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
+  }, [onClose]);
+
   // `onDelete` is only ever passed by the dashboard command centre's staff
   // preview, so its presence is what distinguishes staff from a visitor — a
   // staff member checking their own schedule isn't a "click" worth counting,

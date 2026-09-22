@@ -6,6 +6,7 @@ import OrgSettingsForm from "@/components/org/OrgSettingsForm";
 import TransferOwnership, { type TransferCandidate } from "@/components/org/TransferOwnership";
 import { createClient } from "@/lib/supabase/server";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 export const metadata = { title: "Organization settings" };
 
@@ -32,10 +33,7 @@ export default function OrgSettingsPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Organization</h1>
-        <p className="text-muted-foreground mt-1">
-          Your organization&apos;s name, logo and contact details.
-        </p>
+        <PageHeader title="Organization" />
       </div>
 
       <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>

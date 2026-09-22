@@ -17,6 +17,7 @@ import PreviewWindow from "./PreviewWindow";
 import VisitorFilterToggles from "./VisitorFilterToggles";
 import PrintToggle from "./PrintToggle";
 import StepCard from "@/components/ui/step-card";
+import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
 import {
   SCOPE_FACILITY_SELECT_ID,
   publishedSignature,
@@ -461,8 +462,8 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
       <StepCard
         step={1}
-        title="What should it show?"
-        description="One list. Leave it empty for everything you run, name one schedule to show just that, or add several and visitors get a switcher."
+        title="What to show"
+        description="Leave it empty to show everything you run. Add one schedule to show just that, or several to give visitors a switcher."
         meta={<SavedBadge />}
       >
         <FilterEditor
@@ -480,17 +481,17 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
       <StepCard
         step={2}
-        title="Make it yours"
-        description="Choose the views visitors can use and match your brand. Open the preview to see it full size."
+        title="Look and feel"
+        description="Choose the views visitors can use and match your brand."
         meta={<SavedBadge />}
       >
         <div className="space-y-2">
-          <div className="flex items-baseline justify-between gap-3 flex-wrap">
-            <h3 className="text-sm font-medium text-foreground">Views visitors can switch between</h3>
-            <p className="text-xs text-muted-foreground">
-              The one marked <span className="font-medium text-foreground">Loads first</span> is what
-              they see on arrival.
-            </p>
+          <div className="flex items-center gap-1.5">
+            <h3 className="text-sm font-medium text-foreground">Views</h3>
+            <InfoTip>
+              The views visitors can switch between. The one marked{" "}
+              <span className="font-medium">Loads first</span> is what they see on arrival.
+            </InfoTip>
           </div>
           <LayoutPicker
             value={allowedTemplates}
@@ -508,24 +509,27 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <label className="block">
-            <span className="block text-sm font-medium text-foreground mb-1">Heading</span>
+          <div>
+            <LabelWithInfo htmlFor="widget-heading" className="block text-sm font-medium text-foreground" info="Shown in the coloured bar. Defaults to “Schedule”.">
+              Heading
+            </LabelWithInfo>
             <input
               type="text"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
               disabled={loading || saving}
+              id="widget-heading"
               placeholder="Schedule"
               aria-label="Widget heading"
               className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
-            <span className="block text-xs text-muted-foreground mt-1">
-              Shown in the coloured bar. Defaults to &ldquo;Schedule&rdquo;.
-            </span>
-          </label>
+          </div>
 
           <div>
-            <span className="block text-sm font-medium text-foreground mb-1">Theme</span>
+            <div className="flex items-center gap-1.5 mb-1">
+              <span className="text-sm font-medium text-foreground">Theme</span>
+              <InfoTip>Part of the embed code. Re-copy it in step 4 after changing.</InfoTip>
+            </div>
             <div className="flex gap-2">
               {([
                 { value: "light" as const, label: "Light", Icon: Sun },
@@ -548,17 +552,14 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
                 </button>
               ))}
             </div>
-            <span className="block text-xs text-muted-foreground mt-1">
-              Travels in the embed code — re-copy it in step 4 after changing.
-            </span>
           </div>
         </div>
       </StepCard>
 
       <StepCard
         step={3}
-        title="Let visitors find their session"
-        description="Optional. Filters that narrow whatever schedule is on screen — by what it is and when it runs — and a button to print the result."
+        title="Filters and printing"
+        description="Optional. Let visitors narrow the schedule by activity and time, and print what they see."
         meta={<SavedBadge />}
       >
         <VisitorFilterToggles
@@ -577,8 +578,8 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
       <StepCard
         step={4}
-        title="Put it on your website"
-        description="Pick whichever your site allows, then copy it in — or send it to whoever looks after the site."
+        title="Add to your website"
+        description="Pick whichever option your site allows, then copy it in or send it to whoever manages the site."
       >
         <InstallPanel
           embedCode={embedCode}
@@ -610,7 +611,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
               </p>
               {!saveError && (
                 <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
-                  Your views, colour, heading, filters and print button change for visitors only once you publish.
+                  Visitors see your changes once you publish.
                 </p>
               )}
             </div>

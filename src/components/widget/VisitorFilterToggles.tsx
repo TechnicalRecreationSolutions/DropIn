@@ -132,7 +132,7 @@ export default function VisitorFilterToggles({
       <p className="text-xs text-muted-foreground">
         {value.length === 0
           ? "No filter bar — visitors just read the schedule."
-          : "A filter only appears when that week has at least two of them to choose between, so an unused one never shows up empty."}
+          : "Each filter only appears when the week has two or more options to choose from."}
       </p>
     </div>
   );

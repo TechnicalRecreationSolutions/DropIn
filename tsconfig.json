@@ -40,7 +40,9 @@
     ".next-base/types/**/*.ts",
     ".next-base/dev/types/**/*.ts",
     ".next-verify/types/**/*.ts",
-    ".next-verify/dev/types/**/*.ts"
+    ".next-verify/dev/types/**/*.ts",
+    ".next-verify-ax/types/**/*.ts",
+    ".next-verify-ax/dev/types/**/*.ts"
   ],
   "exclude": [
     "node_modules"

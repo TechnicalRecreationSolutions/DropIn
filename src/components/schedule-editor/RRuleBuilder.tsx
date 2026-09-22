@@ -30,6 +30,23 @@ interface RRuleBuilderProps {
   onEndTimeChange: (time: string) => void;
   onValidFromChange: (date: string) => void;
   onValidUntilChange: (date: string) => void;
+  /** Migration 058: the session runs the department's whole open period and
+   *  keeps no times of its own. Replaces the two time pickers rather than
+   *  sitting beside them — a start time that is visible but ignored is worse
+   *  than one that is gone. */
+  followsOperatingHours: boolean;
+  onFollowsOperatingHoursChange: (next: boolean) => void;
+  /** False when the option cannot be offered at all — no department, or no
+   *  hours entered for it. The checkbox is still rendered, disabled, with
+   *  `followsUnavailableReason` saying which, because silently omitting it
+   *  makes the feature undiscoverable exactly for the people who have not set
+   *  it up yet. */
+  canFollowOperatingHours: boolean;
+  followsUnavailableReason?: string;
+  /** One-line rendering of the department's week, e.g. "Mon–Fri 6:00 AM –
+   *  9:00 PM, Sat–Sun 8:00 AM – 6:00 PM". Shown in place of the time range so
+   *  staff can see what they just agreed to. */
+  operatingHoursSummary?: string;
 }
 
 /**
@@ -49,6 +66,11 @@ export default function RRuleBuilder({
   onEndTimeChange,
   onValidFromChange,
   onValidUntilChange,
+  followsOperatingHours,
+  onFollowsOperatingHoursChange,
+  canFollowOperatingHours,
+  followsUnavailableReason,
+  operatingHoursSummary,
 }: RRuleBuilderProps) {
   const [frequency, setFrequency] = useState<RRuleFrequency>("weekly");
   const [selectedDays, setSelectedDays] = useState<string[]>(["MO", "WE", "FR"]);
@@ -166,29 +188,61 @@ export default function RRuleBuilder({
       {/* Time range */}
       <div>
         <p className="text-sm font-medium text-foreground mb-2">Time *</p>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">Start</label>
-            <input
-              type="time"
-              value={startTime}
-              onChange={(e) => onStartTimeChange(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
-          </div>
-          <span className="text-muted-foreground/70 mt-5">→</span>
-          <div className="flex-1">
-            <label className="text-xs text-muted-foreground mb-1 block">End</label>
-            <input
-              type="time"
-              value={endTime}
-              onChange={(e) => onEndTimeChange(e.target.value)}
-              required
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
-            />
+
+        <div className="flex items-start gap-3 mb-3">
+          <input
+            id="follows_operating_hours"
+            type="checkbox"
+            checked={followsOperatingHours}
+            disabled={!canFollowOperatingHours}
+            onChange={(e) => onFollowsOperatingHoursChange(e.target.checked)}
+            className="mt-0.5 w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500 disabled:opacity-50"
+          />
+          <div className="min-w-0">
+            <label
+              htmlFor="follows_operating_hours"
+              className={`text-sm font-medium ${canFollowOperatingHours ? "text-foreground" : "text-muted-foreground"}`}
+            >
+              All day — run the whole time we are open
+            </label>
+            <p className="text-xs text-muted-foreground">
+              {canFollowOperatingHours
+                ? "Takes its times from the department's operating hours, and follows them whenever they change. Days the department is closed are skipped."
+                : followsUnavailableReason}
+            </p>
           </div>
         </div>
+
+        {followsOperatingHours ? (
+          <div className="rounded-lg border border-border bg-muted/40 px-3 py-2.5">
+            <p className="text-xs font-medium text-muted-foreground mb-0.5">Operating hours</p>
+            <p className="text-sm text-foreground">{operatingHoursSummary}</p>
+          </div>
+        ) : (
+          <div className="flex items-center gap-3">
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-1 block">Start</label>
+              <input
+                type="time"
+                value={startTime}
+                onChange={(e) => onStartTimeChange(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+            <span className="text-muted-foreground/70 mt-5">→</span>
+            <div className="flex-1">
+              <label className="text-xs text-muted-foreground mb-1 block">End</label>
+              <input
+                type="time"
+                value={endTime}
+                onChange={(e) => onEndTimeChange(e.target.value)}
+                required
+                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              />
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Dates. A one-off has a date, not a range — showing "starts/ends" for
@@ -238,7 +292,20 @@ export default function RRuleBuilder({
       <div className="p-3 bg-blue-50 rounded-lg">
         <p className="text-xs font-medium text-blue-700 dark:text-blue-300 mb-0.5">Schedule summary</p>
         <p className="text-sm text-blue-900 dark:text-blue-200 capitalize">{summary}</p>
-        {startTime && endTime && (
+        {followsOperatingHours ? (
+          <p className="text-sm text-blue-800 dark:text-blue-300">
+            {operatingHoursSummary}
+            {isOnce
+              ? validFrom && ` · On ${validFrom}`
+              : (
+                  <>
+                    {validFrom && ` · Starting ${validFrom}`}
+                    {validUntil && ` until ${validUntil}`}
+                    {!validUntil && validFrom && " · Ongoing"}
+                  </>
+                )}
+          </p>
+        ) : startTime && endTime ? (
           <p className="text-sm text-blue-800 dark:text-blue-300">
             {startTime} – {endTime}
             {isOnce
@@ -251,7 +318,7 @@ export default function RRuleBuilder({
                   </>
                 )}
           </p>
-        )}
+        ) : null}
       </div>
     </div>
   );

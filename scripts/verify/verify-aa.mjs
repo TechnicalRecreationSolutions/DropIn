@@ -521,7 +521,7 @@ try {
 
     await summary.click();
     const panelText = (
-      await page.locator("text=Every program, rental and closure").locator("..").innerText()
+      await page.locator("text=All bookings at this building this week").locator("..").innerText()
     ).replace(/\s+/g, " ");
 
     // The editor is open on the Lengths group; this holder belongs to a rental in
@@ -559,7 +559,7 @@ try {
 
     // Filtering by kind. The fixture has all three, which is what makes this
     // fixture the right place to test it.
-    const panel = page.locator("text=Every program, rental and closure").locator("..");
+    const panel = page.locator("text=All bookings at this building this week").locator("..");
     const rentalChip = panel.getByRole("button", { name: /^Rental or club/ });
     check(
       "a chip is offered for each kind the week has",

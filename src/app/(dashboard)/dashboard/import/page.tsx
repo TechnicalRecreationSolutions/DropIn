@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import ImportWizard from "@/components/import/ImportWizard";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -23,10 +24,7 @@ export default function ImportPage() {
     <div className="max-w-2xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Import schedule</h1>
-        <p className="text-muted-foreground mt-1">
-          Upload a CSV file to bulk-import schedules and sessions.
-        </p>
+        <PageHeader title="Import schedule" info="Upload a CSV to bulk-import schedules and sessions." />
       </div>
 
       <Suspense fallback={<Skeleton className="h-56 rounded-xl" aria-busy="true" />}>

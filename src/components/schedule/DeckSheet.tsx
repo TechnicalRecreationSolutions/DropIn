@@ -226,8 +226,7 @@ export default function DeckSheet({ model, facilityName, day, printedAt }: DeckS
 
       {model.isEmpty && (
         <p className="deck-after mt-3 text-[11px] text-muted-foreground">
-          Nothing is scheduled on this day. The empty grid above is still worth posting if the
-          building is open — it is what the deck has to work from.
+          Nothing is scheduled on this day.
         </p>
       )}
 

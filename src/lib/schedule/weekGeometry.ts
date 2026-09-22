@@ -36,18 +36,39 @@ export function getSessionPixelPosition(
   return { top, height };
 }
 
+/**
+ * Converts a pixel offset from the top of a time-axis column into a snapped
+ * minute of the day.
+ *
+ * `grain` is separate from `SLOT_MINUTES` because the ruling and the quantum
+ * are different things: the rows stay half-hourly because that is what reads,
+ * while the canvas snaps to 15 so a 6:45 masters start is expressible (see
+ * `SNAP_MINUTES` in gridEdits.ts). The dialog path keeps the 30 it always had.
+ *
+ * Whatever grain a surface picks, it must use the same one for the preview it
+ * draws and the time it writes, or the block lands somewhere other than where
+ * it was dropped.
+ */
+export function pixelOffsetToMinuteOfDay(
+  offsetPx: number,
+  grain = SLOT_MINUTES,
+  gridStartHour = GRID_START_HOUR,
+  gridEndHour = GRID_END_HOUR
+): number {
+  const gridStartMinute = gridStartHour * 60;
+  const gridEndMinute = gridEndHour * 60;
+  const rawMinutes = gridStartMinute + (offsetPx / SLOT_HEIGHT_PX) * SLOT_MINUTES;
+  const snapped = Math.round(rawMinutes / grain) * grain;
+  return Math.max(gridStartMinute, Math.min(gridEndMinute - grain, snapped));
+}
+
 /** Converts a pixel offset from the top of a time-axis column into a snapped HH:MM start time. */
 export function pixelOffsetToStartTime(
   offsetPx: number,
   gridStartHour = GRID_START_HOUR,
   gridEndHour = GRID_END_HOUR
 ): string {
-  const gridStartMinute = gridStartHour * 60;
-  const gridEndMinute = gridEndHour * 60;
-  const rawMinutes = gridStartMinute + (offsetPx / SLOT_HEIGHT_PX) * SLOT_MINUTES;
-  const snapped = Math.round(rawMinutes / SLOT_MINUTES) * SLOT_MINUTES;
-  const clamped = Math.max(gridStartMinute, Math.min(gridEndMinute - SLOT_MINUTES, snapped));
-  return minutesToTimeString(clamped);
+  return minutesToTimeString(pixelOffsetToMinuteOfDay(offsetPx, SLOT_MINUTES, gridStartHour, gridEndHour));
 }
 
 /** Hour labels for a time-axis gutter, e.g. "6am", "7am", ... "9pm". */

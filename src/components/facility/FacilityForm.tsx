@@ -57,19 +57,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
   const queryClient = useQueryClient();
   const isEditing = !!facilityId;
 
-  const [form, setForm] = useState({
-    name: defaultValues?.name ?? "",
-    address_line1: defaultValues?.address_line1 ?? "",
-    city: defaultValues?.city ?? "",
-    province: defaultValues?.province ?? "AB",
-    postal_code: defaultValues?.postal_code ?? "",
-    phone: defaultValues?.phone ?? "",
-    email: defaultValues?.email ?? "",
-    website_url: defaultValues?.website_url ?? "",
-    description: defaultValues?.description ?? "",
-    is_published: defaultValues?.is_published ?? false,
-    listed_in_directory: defaultValues?.listed_in_directory ?? false,
-  });
+  const [form, setForm] = useState(() => initialForm(defaultValues));
 
   // Kept out of `form` because it isn't an input event — the upload control
   // sets a URL directly, and folding it in would mean widening handleChange's
@@ -78,6 +66,18 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Re-seed when the server hands down different defaults — see the note in
+  // components/space/SpaceForm.tsx. Compared by value, because the props are
+  // rebuilt on every server render.
+  const defaultsKey = JSON.stringify([initialForm(defaultValues), defaultValues?.photo_urls ?? []]);
+  const [seededFrom, setSeededFrom] = useState(defaultsKey);
+  if (seededFrom !== defaultsKey && !loading) {
+    setSeededFrom(defaultsKey);
+    setForm(initialForm(defaultValues));
+    setPhotoUrls(defaultValues?.photo_urls ?? []);
+    setError(null);
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
@@ -110,6 +110,18 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
       setError(data.error ?? "Something went wrong. Please try again.");
       setLoading(false);
       return;
+    }
+
+    // `cacheComponents` hides this route segment on navigation instead of
+    // unmounting it, and reuses the same instance next time — so without this
+    // the next "Add facility" opens holding the building just saved, photos
+    // and all, disabled on "Saving…" forever. See components/space/SpaceForm.tsx
+    // for the full note.
+    setLoading(false);
+    setError(null);
+    if (!isEditing) {
+      setForm(initialForm(defaultValues));
+      setPhotoUrls(defaultValues?.photo_urls ?? []);
     }
 
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
@@ -205,9 +217,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
           <label htmlFor="is_published" className="text-sm font-medium text-foreground">
             Publish this facility
           </label>
-          <p className="text-xs text-muted-foreground">
-            Included on your public schedule pages and embedded widget.
-          </p>
+          <p className="text-xs text-muted-foreground">Shows it on your public pages and widget.</p>
         </div>
       </div>
 
@@ -221,10 +231,9 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
           <label htmlFor="listed_in_directory" className="text-sm font-medium text-foreground">
             List in the Dropin directory
           </label>
-          <p className="text-xs text-muted-foreground">
-            Residents can find this facility and its schedule by searching Dropin.
-            {!form.is_published && " Only shown while the facility is published."}
-          </p>
+          {!form.is_published && (
+            <p className="text-xs text-muted-foreground">Only shown while the facility is published.</p>
+          )}
           {form.listed_in_directory && !orgVerified && (
             <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
               Your organization hasn’t been verified yet. We confirm that each account
@@ -268,4 +277,25 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
       </div>
     </form>
   );
+}
+
+/**
+ * The state this form opens in — shared by the initial `useState`, the
+ * re-seed, and the reset after a successful create, so the three can never
+ * drift apart. `photo_urls` sits outside it, for the reason given above.
+ */
+function initialForm(defaultValues: FacilityFormProps["defaultValues"]) {
+  return {
+    name: defaultValues?.name ?? "",
+    address_line1: defaultValues?.address_line1 ?? "",
+    city: defaultValues?.city ?? "",
+    province: defaultValues?.province ?? "AB",
+    postal_code: defaultValues?.postal_code ?? "",
+    phone: defaultValues?.phone ?? "",
+    email: defaultValues?.email ?? "",
+    website_url: defaultValues?.website_url ?? "",
+    description: defaultValues?.description ?? "",
+    is_published: defaultValues?.is_published ?? false,
+    listed_in_directory: defaultValues?.listed_in_directory ?? false,
+  };
 }

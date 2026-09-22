@@ -3,14 +3,21 @@
 import { useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Layers, Plus, Pencil, Trash2, Eye, EyeOff } from "lucide-react";
+import { Layers, Plus, Pencil, Trash2, Eye, EyeOff, Calendar, LayoutGrid, Clock } from "lucide-react";
 import { useQueryClient } from "@tanstack/react-query";
+import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
+import { cn } from "@/lib/utils/cn";
 
 export interface DepartmentRow {
   id: string;
   name: string;
   description: string | null;
   is_published: boolean;
+  /** Schedules and spaces filed under this department, for the card's stats. */
+  schedule_count: number;
+  space_count: number;
+  /** summarizeWeek() of its operating hours, or null when none are set. */
+  week_summary: string | null;
 }
 
 interface DepartmentsPanelProps {
@@ -19,10 +26,18 @@ interface DepartmentsPanelProps {
 }
 
 /**
- * The dedicated Departments page's list — mirrors SpacesPanel's shape.
- * Departments no longer have a detail page of their own (that scope lives in
- * the schedule command centre), so this is the only place staff can rename,
- * publish, or delete one.
+ * The dedicated Departments page's grid.
+ *
+ * Was a stack of full-width rows: a name, an optional description, a status
+ * pill, and two icon buttons. It read as a settings table — nothing on it said
+ * what a department *had*, so picking one meant opening it to find out, and
+ * the only thing a click could do was edit.
+ *
+ * Now the same cards the Facilities grid uses, one step smaller: the card body
+ * opens that department's schedule (the thing people actually came for), the
+ * stats say how much is in it, and the footer is a call to action — operating
+ * hours, which is the one piece of setup a department can silently be missing
+ * and the one that stops sessions running "the whole time we're open".
  */
 export default function DepartmentsPanel({ facility, departments }: DepartmentsPanelProps) {
   const router = useRouter();
@@ -71,9 +86,12 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
 
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Groups related schedules together in {facility.name} (e.g. Aquatics, Fitness).
+      <div className="flex items-center justify-between gap-3">
+        {/* Which building these cards belong to. The explanation of what a
+            department IS lives in the page header's (i) — repeating it here
+            cost four lines of a phone screen above the first card. */}
+        <p className="truncate text-sm text-muted-foreground">
+          In <span className="font-medium text-foreground">{facility.name}</span>
         </p>
         <Link
           href={newDepartmentHref}
@@ -85,7 +103,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">{error}</p>
       )}
 
       {/* Not an error — the delete worked. This is the only place anyone is
@@ -104,8 +122,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
           <Layers className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
           <h3 className="font-medium text-foreground mb-1">No departments yet</h3>
           <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-            Add a department (e.g. &quot;Aquatics&quot;, &quot;Fitness&quot;) to group related
-            schedules — optional, but useful once a building offers more than a few.
+            Optional. Group related schedules, such as &quot;Aquatics&quot; or &quot;Fitness&quot;.
           </p>
           <Link
             href={newDepartmentHref}
@@ -116,48 +133,123 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
           </Link>
         </div>
       ) : (
-        <div className="space-y-2">
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {departments.map((department) => (
-            <div
+            <DepartmentCard
               key={department.id}
-              className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border"
-            >
-              <Layers className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-              <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{department.name}</p>
-                {department.description && (
-                  <p className="text-xs text-muted-foreground truncate">{department.description}</p>
-                )}
-              </div>
-              {department.is_published ? (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-1 rounded-full shrink-0">
-                  <Eye className="w-3 h-3" /> Published
-                </span>
-              ) : (
-                <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-1 rounded-full shrink-0">
-                  <EyeOff className="w-3 h-3" /> Draft
-                </span>
-              )}
-              <Link
-                href={`/dashboard/facilities/${facility.id}/departments/${department.id}/edit`}
-                aria-label={`Edit ${department.name}`}
-                className="p-2 rounded-lg text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shrink-0"
-              >
-                <Pencil className="w-4 h-4" />
-              </Link>
-              <button
-                type="button"
-                onClick={() => handleDelete(department)}
-                disabled={deletingId === department.id}
-                aria-label={`Delete ${department.name}`}
-                className="p-2 rounded-lg text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 transition-colors shrink-0 disabled:opacity-50"
-              >
-                <Trash2 className="w-4 h-4" />
-              </button>
-            </div>
+              facilityId={facility.id}
+              department={department}
+              deleting={deletingId === department.id}
+              onDelete={() => handleDelete(department)}
+            />
           ))}
+
+          {/* The last tile, rather than only the button in the header: on a
+              phone the header scrolls away, and "one more" is the action
+              someone is most likely to want after reading the grid. */}
+          <Link
+            href={newDepartmentHref}
+            className="flex min-h-[7rem] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card/50 p-4 text-center text-sm text-muted-foreground transition-colors hover:border-blue-300 hover:text-foreground"
+          >
+            <Plus className="size-5" />
+            Add department
+          </Link>
         </div>
       )}
+    </div>
+  );
+}
+
+interface DepartmentCardProps {
+  facilityId: string;
+  department: DepartmentRow;
+  deleting: boolean;
+  onDelete: () => void;
+}
+
+function DepartmentCard({ facilityId, department, deleting, onDelete }: DepartmentCardProps) {
+  const editHref = `/dashboard/facilities/${facilityId}/departments/${department.id}/edit`;
+  const hasHours = !!department.week_summary;
+
+  return (
+    <div
+      data-department-card={department.name}
+      className={cn(
+        "relative flex flex-col rounded-xl border border-border bg-card transition-all",
+        "hover:border-blue-300 hover:shadow-sm",
+        deleting && "opacity-50"
+      )}
+    >
+      {/* The card body goes to the schedule, not to this page's own editor —
+          seeing what is in a department is the reason to click one. Editing is
+          the pencil, exactly as on the Facilities grid. */}
+      <Link href={commandCentreHref({ facilityId, departmentId: department.id })} className="block flex-1 p-4 pr-16">
+        <div className="flex items-start gap-2">
+          <Layers className="mt-0.5 size-4 shrink-0 text-blue-500" />
+          <h3 className="truncate font-semibold text-foreground">{department.name}</h3>
+        </div>
+
+        {department.description ? (
+          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{department.description}</p>
+        ) : (
+          <p className="mt-1 text-xs text-muted-foreground/70">No description</p>
+        )}
+
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+          <span className="inline-flex items-center gap-1">
+            <Calendar className="size-3.5" />
+            {department.schedule_count} schedule{department.schedule_count === 1 ? "" : "s"}
+          </span>
+          <span className="inline-flex items-center gap-1">
+            <LayoutGrid className="size-3.5" />
+            {department.space_count} space{department.space_count === 1 ? "" : "s"}
+          </span>
+          {department.is_published ? (
+            <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400">
+              <Eye className="size-3.5" /> Published
+            </span>
+          ) : (
+            <span className="inline-flex items-center gap-1">
+              <EyeOff className="size-3.5" /> Draft
+            </span>
+          )}
+        </div>
+      </Link>
+
+      <div className="absolute right-3 top-3 flex items-center gap-0.5">
+        <Link
+          href={editHref}
+          aria-label={`Edit ${department.name}`}
+          className="rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
+        >
+          <Pencil className="size-4" />
+        </Link>
+        <button
+          type="button"
+          onClick={onDelete}
+          disabled={deleting}
+          aria-label={`Delete ${department.name}`}
+          className="rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/40"
+        >
+          <Trash2 className="size-4" />
+        </button>
+      </div>
+
+      {/* The one piece of setup a department can be silently missing. A
+          department with no hours cannot offer "runs the whole time we're
+          open" to any of its sessions, and nothing else on this page says so. */}
+      <Link
+        href={`${editHref}#hours`}
+        className={cn(
+          "flex items-center gap-1.5 rounded-b-xl border-t px-4 py-2 text-xs transition-colors",
+          hasHours
+            ? "border-border text-muted-foreground hover:bg-muted"
+            : "border-amber-200 bg-amber-50 font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
+        )}
+      >
+        <Clock className="size-3.5 shrink-0" />
+        <span className="truncate">{hasHours ? department.week_summary : "Set operating hours"}</span>
+      </Link>
     </div>
   );
 }

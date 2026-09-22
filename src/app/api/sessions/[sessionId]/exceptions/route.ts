@@ -5,6 +5,7 @@ import { getRouteMembership } from "@/lib/auth/membership";
 import { requirePermission } from "@/lib/auth/guard";
 import { departmentOfSession } from "@/lib/auth/scope-lookup";
 import { expandOccurrenceTimes } from "@/lib/rrule/expand";
+import { fetchOperatingHours } from "@/lib/schedule/operating-hours-query";
 import type { Database } from "@/types/database.types";
 
 const WeekOverrideSchema = z.object({
@@ -77,11 +78,17 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
 
   const { data: session } = await supabase
     .from("sessions")
-    .select("id, rrule, dtstart, dtend_time, valid_from, valid_until")
+    .select("id, rrule, dtstart, dtend_time, valid_from, valid_until, follows_operating_hours")
     .eq("id", sessionId)
     .eq("org_id", membership.org_id)
     .maybeSingle();
   if (!session) return NextResponse.json({ error: "Session not found" }, { status: 404 });
+
+  // A session that follows operating hours (058) does not run on a day its
+  // department is closed, so those dates must not appear here — offering to
+  // cancel a day that never happens would write an exception that suppresses
+  // nothing, and staff would reasonably read it as "handled".
+  const operatingHours = await fetchOperatingHours(supabase, [department]);
 
   const rangeStart = new Date(weekStart + "T00:00:00Z");
   const rangeEnd = new Date(weekStart + "T00:00:00Z");
@@ -90,11 +97,22 @@ export async function POST(request: Request, { params }: { params: Promise<{ ses
 
   // Pass no exceptions here — this needs the base RRULE's occurrence dates
   // for the week, not the already-resolved (possibly already-cancelled) set.
-  const occurrences = expandOccurrenceTimes(session, [], { rangeStart, rangeEnd });
+  const occurrences = expandOccurrenceTimes(
+    session,
+    [],
+    { rangeStart, rangeEnd },
+    department ? operatingHours.get(department) : undefined
+  );
   if (occurrences.length === 0) {
     return NextResponse.json({ error: "This session has no occurrences in that week." }, { status: 400 });
   }
-  const dates = occurrences.map((o) => o.occurrenceDate);
+  // Deduped: a following session on a split-hours day yields one occurrence
+  // per window, and `session_exceptions` holds one row per DATE. Without this
+  // the upsert below would carry the same date twice and Postgres would
+  // reject the whole statement ("ON CONFLICT DO UPDATE command cannot affect
+  // row a second time") — a week-override that fails only for departments
+  // that close midday.
+  const dates = [...new Set(occurrences.map((o) => o.occurrenceDate))];
 
   if (action === "clear") {
     const { error } = await supabase

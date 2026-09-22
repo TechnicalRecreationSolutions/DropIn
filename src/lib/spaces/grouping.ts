@@ -113,3 +113,117 @@ function buildZones<T extends GroupableSpace>(spaces: T[]): ZoneGroup<T>[] {
 export function flattenSections<T extends GroupableSpace>(sections: SpaceSection<T>[]): T[] {
   return sections.flatMap((section) => section.zones.flatMap((zone) => zone.spaces));
 }
+
+/** Where a space sits in the rendered grouping: its zone, and its index in it. */
+interface SpaceLocation<T extends GroupableSpace> {
+  zone: ZoneGroup<T>;
+  index: number;
+}
+
+/**
+ * Takes already-built sections rather than building its own, because two
+ * spaces are compared by whether they came back in the SAME zone object.
+ * Locating each from its own `buildSpaceSections` pass gives two equal-looking
+ * zones that are never identical, and every drop is refused.
+ */
+function locateIn<T extends GroupableSpace>(
+  sections: SpaceSection<T>[],
+  spaceId: string
+): SpaceLocation<T> | null {
+  for (const section of sections) {
+    for (const zone of section.zones) {
+      const index = zone.spaces.findIndex((s) => s.id === spaceId);
+      if (index >= 0) return { zone, index };
+    }
+  }
+  return null;
+}
+
+/**
+ * Move one space to another slot inside ITS OWN zone, and return the whole
+ * facility in the new render order — exactly the list `/api/spaces/reorder`
+ * wants (see that route on why a partial list cannot be accepted).
+ *
+ * Returns null when the move is impossible or a no-op, so callers can bail
+ * without writing: unknown space, an index off either end of the zone, or a
+ * landing spot the space already occupies.
+ *
+ * Zone-bound on purpose, for both the arrows and the drag. A zone is
+ * `zone_name` and a section is `department_id`; crossing either is a change of
+ * WHICH department or zone a space belongs to, not of its position, and that
+ * is a different write on a different route. Reordering here only ever
+ * renumbers `display_order`.
+ */
+export function moveSpaceWithinZone<T extends GroupableSpace>(
+  spaces: T[],
+  departments: { id: string; name: string }[],
+  spaceId: string,
+  targetIndex: number
+): T[] | null {
+  const sections = buildSpaceSections(spaces, departments);
+  const found = locateIn(sections, spaceId);
+  if (!found) return null;
+
+  const { zone, index } = found;
+  if (targetIndex < 0 || targetIndex >= zone.spaces.length || targetIndex === index) return null;
+
+  // Lift-and-insert rather than swap: dropping A onto B has to put A where B
+  // was and push the rest along, and for the arrows (where the two are always
+  // adjacent) that is the same thing a swap did.
+  //
+  // Mutates the freshly grouped copy, never the caller's list — the optimistic
+  // state on the page is re-rendered from the return value.
+  const [moved] = zone.spaces.splice(index, 1);
+  zone.spaces.splice(targetIndex, 0, moved);
+
+  return flattenSections(sections);
+}
+
+/** One step up or down the zone — what the chip's arrows do. */
+export function moveSpaceByStep<T extends GroupableSpace>(
+  spaces: T[],
+  departments: { id: string; name: string }[],
+  spaceId: string,
+  delta: -1 | 1
+): T[] | null {
+  const found = locateIn(buildSpaceSections(spaces, departments), spaceId);
+  if (!found) return null;
+  return moveSpaceWithinZone(spaces, departments, spaceId, found.index + delta);
+}
+
+/**
+ * Drop one space onto another — what a drag does. The dragged space takes the
+ * target's slot; a target in a different zone or department is refused (null)
+ * rather than approximated, per `moveSpaceWithinZone`.
+ */
+export function moveSpaceOnto<T extends GroupableSpace>(
+  spaces: T[],
+  departments: { id: string; name: string }[],
+  spaceId: string,
+  overSpaceId: string
+): T[] | null {
+  if (spaceId === overSpaceId) return null;
+
+  // One grouping pass for both, so "same zone" can be object identity — see
+  // the note on `locateIn`.
+  const sections = buildSpaceSections(spaces, departments);
+  const from = locateIn(sections, spaceId);
+  const to = locateIn(sections, overSpaceId);
+  if (!from || !to || from.zone !== to.zone) return null;
+
+  return moveSpaceWithinZone(spaces, departments, spaceId, to.index);
+}
+
+/**
+ * The ids a space can legally be dropped onto: every space in its own zone,
+ * itself included. Read once when a drag starts, so each chip can say whether
+ * it is a target without re-grouping the whole facility on every render.
+ */
+export function zoneSiblingIds<T extends GroupableSpace>(
+  spaces: T[],
+  departments: { id: string; name: string }[],
+  spaceId: string
+): string[] {
+  const found = locateIn(buildSpaceSections(spaces, departments), spaceId);
+  return found ? found.zone.spaces.map((s) => s.id) : [];
+}

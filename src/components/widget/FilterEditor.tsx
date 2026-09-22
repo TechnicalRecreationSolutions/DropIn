@@ -192,8 +192,7 @@ export default function FilterEditor({
           Showing everything you run
         </h3>
         <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
-          Every published session, in one schedule. Name one facility or department to show just
-          that instead — or add two or more and visitors get a switcher at the top of the widget.
+          Add a facility or department to narrow it, or several to give visitors a switcher.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
           <button

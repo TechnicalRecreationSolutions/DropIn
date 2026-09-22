@@ -2,6 +2,7 @@
 
 import { Plus, Trash2, ArrowUp } from "lucide-react";
 import { MAX_TEMPLATE_LINKS } from "@/lib/sessions/templateRelations";
+import { InfoTip } from "@/components/ui/info-tip";
 
 export interface LinkDraft {
   label: string;
@@ -46,7 +47,13 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
 
   return (
     <div>
-      <p className="block text-sm font-medium text-foreground mb-1">Registration links</p>
+      <div className="flex items-center gap-1.5 mb-1">
+        <p className="text-sm font-medium text-foreground">Registration links</p>
+        <InfoTip>
+          Up to {MAX_TEMPLATE_LINKS}. Shown as buttons in the session details. Visitors see the label, not
+          the address.
+        </InfoTip>
+      </div>
 
       {links.length === 0 ? (
         <p className="text-sm text-muted-foreground/70">
@@ -114,10 +121,6 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
         </button>
       )}
 
-      <p className="text-xs text-muted-foreground mt-1">
-        Up to {MAX_TEMPLATE_LINKS}. Shown as buttons in the session details, opening in a new tab.
-        The label is what visitors read — the address itself is never shown.
-      </p>
     </div>
   );
 }

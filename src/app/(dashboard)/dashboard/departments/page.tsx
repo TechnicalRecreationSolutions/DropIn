@@ -9,6 +9,8 @@ import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentsPanel from "@/components/department/DepartmentsPanel";
 import UnassignedCallout from "@/components/department/UnassignedCallout";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
+import { groupHoursByDepartment, summarizeWeek } from "@/lib/schedule/operating-hours";
 
 interface DepartmentsPageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -36,13 +38,12 @@ export const instant = true;
 
 export default function DepartmentsPage({ searchParams }: DepartmentsPageProps) {
   return (
-    <div className="space-y-6">
+    // Same column width as the Facilities grid — this page now shows the same
+    // kind of cards, and a different width would read as a different place.
+    <div className="max-w-6xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Departments</h1>
-        <p className="text-muted-foreground mt-1">
-          Group related schedules together within a building — e.g. Aquatics, Fitness.
-        </p>
+        <PageHeader title="Departments" info="Groups of related schedules within a building, such as Aquatics or Fitness." />
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this
@@ -69,6 +70,7 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
     { data: departmentRows },
     { data: groupRows },
     { data: spaceRows },
+    { data: hourRows },
     { count: coordinatorCount },
   ] = await Promise.all([
     supabase
@@ -81,18 +83,24 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
       .select("id, name, description, is_published, facility_id")
       .eq("org_id", orgId)
       .order("display_order", { ascending: true }),
-    // For the unassigned callout: rows with no department are the ones a
-    // coordinator provably cannot reach (migration 055 §7).
+    // Two jobs, one query each. The rows with NO department are the ones a
+    // coordinator provably cannot reach (migration 055 §7) and drive the
+    // callout; the rest are what each department's card counts. Fetching both
+    // together rather than a count per department keeps this at one round trip
+    // per table — an org's schedules and spaces number in the dozens.
     supabase
       .from("schedule_groups")
       .select("id, name, facility_id, department_id")
-      .eq("org_id", orgId)
-      .is("department_id", null),
+      .eq("org_id", orgId),
     supabase
       .from("spaces")
       .select("id, name, facility_id, department_id")
-      .eq("org_id", orgId)
-      .is("department_id", null),
+      .eq("org_id", orgId),
+    // Operating hours (058) for the whole org, summarised per department below.
+    supabase
+      .from("department_hours")
+      .select("department_id, day_of_week, opens_at, closes_at")
+      .eq("org_id", orgId),
     supabase
       .from("org_memberships")
       .select("id", { count: "exact", head: true })
@@ -104,14 +112,25 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
 
   const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
 
+  // One pass over the org's hours rows, then a lookup per card. `summarizeWeek`
+  // is the same line the department edit page prints, so the two surfaces can
+  // never describe a week differently.
+  const hoursByDepartment = groupHoursByDepartment(hourRows ?? []);
+
   const departments = (departmentRows ?? [])
     .filter((d) => d.facility_id === facility.id)
-    .map((d) => ({
-      id: d.id,
-      name: d.name,
-      description: d.description,
-      is_published: d.is_published,
-    }));
+    .map((d) => {
+      const week = hoursByDepartment.get(d.id)?.week;
+      return {
+        id: d.id,
+        name: d.name,
+        description: d.description,
+        is_published: d.is_published,
+        schedule_count: (groupRows ?? []).filter((g) => g.department_id === d.id).length,
+        space_count: (spaceRows ?? []).filter((s) => s.department_id === d.id).length,
+        week_summary: week?.some((day) => day.length > 0) ? summarizeWeek(week) : null,
+      };
+    });
 
   const facilityCards = facilityRows.map((f) => {
     const count = (departmentRows ?? []).filter((d) => d.facility_id === f.id).length;
@@ -128,8 +147,8 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
 
       <UnassignedCallout
         facilityId={facility.id}
-        scheduleGroups={(groupRows ?? []).filter((g) => g.facility_id === facility.id)}
-        spaces={(spaceRows ?? []).filter((s) => s.facility_id === facility.id)}
+        scheduleGroups={(groupRows ?? []).filter((g) => g.facility_id === facility.id && !g.department_id)}
+        spaces={(spaceRows ?? []).filter((s) => s.facility_id === facility.id && !s.department_id)}
         hasCoordinators={(coordinatorCount ?? 0) > 0}
       />
 
@@ -162,12 +181,18 @@ function NoFacilities() {
 function DepartmentsBodySkeleton() {
   return (
     <div className="space-y-6" aria-busy="true">
-      <div className="flex gap-4 overflow-hidden">
+      <div className="flex gap-2 overflow-hidden">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-56 rounded-xl shrink-0" />
+          <Skeleton key={i} className="h-8 w-40 rounded-full shrink-0" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-xl" />
+      {/* Shaped like the grid it is standing in for, so the page does not
+          jump from one tall block to three cards as it streams in. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        {Array.from({ length: 3 }).map((_, i) => (
+          <Skeleton key={i} className="h-40 rounded-xl" />
+        ))}
+      </div>
     </div>
   );
 }

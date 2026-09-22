@@ -15,6 +15,8 @@ import {
   type Disclosure,
 } from "@/lib/sessions/occupancy";
 import { cn } from "@/lib/utils/cn";
+import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
+import { summarizeWeek } from "@/lib/schedule/operating-hours";
 
 /** Remembers the last schedule picked here, so entering several blocks for
  *  the same pool doesn't mean re-selecting it from the dropdown every time. */
@@ -51,12 +53,22 @@ interface SessionFormProps {
     department_id: string | null;
   }[];
   defaultScheduleGroupId?: string;
+  /** Every department's weekly operating hours, keyed by department id
+   *  (migration 058), indexed 0=Sunday..6=Saturday. Supplied for the whole
+   *  org rather than the current schedule's department alone, because the
+   *  schedule picker above can move this session to another building and the
+   *  all-day toggle has to re-answer "are there hours to follow?" without a
+   *  round trip. A department absent from this record has none. */
+  operatingHours?: Record<string, { opens: number; closes: number }[][]>;
   /** Present when editing an existing session instead of creating a new one. */
   sessionId?: string;
   initialValues?: {
     rrule: string;
     startTime: string;
     endTime: string;
+    /** Migration 058 — the session runs the department's whole open period
+     *  and carries no times of its own. */
+    followsOperatingHours?: boolean;
     validFrom: string;
     validUntil: string;
     spaceIds: string[];
@@ -82,6 +94,7 @@ export default function SessionForm({
   scheduleGroups,
   spaces,
   defaultScheduleGroupId,
+  operatingHours,
   sessionId,
   initialValues,
   redirectTo = "/dashboard/schedule",
@@ -98,6 +111,9 @@ export default function SessionForm({
   const [rrule, setRrule] = useState(initialValues?.rrule ?? DEFAULT_RRULE);
   const [startTime, setStartTime] = useState(initialValues?.startTime ?? "09:00");
   const [endTime, setEndTime] = useState(initialValues?.endTime ?? "10:00");
+  const [followsOperatingHours, setFollowsOperatingHours] = useState(
+    initialValues?.followsOperatingHours ?? false
+  );
   const [validFrom, setValidFrom] = useState(initialValues?.validFrom ?? "");
   const [validUntil, setValidUntil] = useState(initialValues?.validUntil ?? "");
   const [spaceIds, setSpaceIds] = useState<string[]>(initialValues?.spaceIds ?? []);
@@ -158,9 +174,71 @@ export default function SessionForm({
     setPhotoUrls(g.photo_urls ?? []);
   }
 
+  /**
+   * Put every field back to what this form opened with.
+   *
+   * `cacheComponents` hides a route segment on navigation instead of
+   * unmounting it, and reuses the same instance next time, so nothing here
+   * resets on its own — see the full note in components/space/SpaceForm.tsx.
+   * Without it, "Add session" after saving one reopens holding that session
+   * and stuck on "Saving…".
+   *
+   * The schedule is chosen the same way the mount effect above chooses it,
+   * including the last-used one from this browser — which, having just been
+   * written by a save, keeps consecutive sessions landing on the schedule
+   * being worked on. Spelled out field by field: the state is a dozen
+   * separate `useState` calls, and a partial reset is the failure worth
+   * guarding against.
+   */
+  function resetToDefaults() {
+    const last =
+      !isEditing && !defaultScheduleGroupId ? localStorage.getItem(LAST_SCHEDULE_GROUP_KEY) : null;
+    const groupId =
+      (last && scheduleGroups.some((sg) => sg.id === last)
+        ? last
+        : (defaultScheduleGroupId ?? scheduleGroups[0]?.id)) ?? "";
+
+    setScheduleGroupId(groupId);
+    setRrule(initialValues?.rrule ?? DEFAULT_RRULE);
+    setStartTime(initialValues?.startTime ?? "09:00");
+    setEndTime(initialValues?.endTime ?? "10:00");
+    setFollowsOperatingHours(initialValues?.followsOperatingHours ?? false);
+    setValidFrom(initialValues?.validFrom ?? "");
+    setValidUntil(initialValues?.validUntil ?? "");
+    setSpaceIds(initialValues?.spaceIds ?? []);
+    setLocationDetail(initialValues?.locationDetail ?? "");
+    setOccupancyKind(initialValues?.occupancyKind ?? "drop_in");
+    setDisclosure(initialValues?.disclosure ?? "public");
+    setHolderName(initialValues?.holderName ?? "");
+    setSetupNotes(initialValues?.setupNotes ?? "");
+    // The schedule's own descriptive fields belong to whichever schedule is
+    // now selected, not to the one the last session happened to be saved under.
+    applyGroupDefaults(groupId);
+  }
+
   const selectedGroup = scheduleGroups.find((sg) => sg.id === scheduleGroupId);
   const selectedFacilityId = selectedGroup?.facility_id;
   const selectedDepartmentId = selectedGroup?.department_id ?? null;
+
+  // Operating hours for the schedule currently picked (migration 058). Two
+  // distinct reasons the all-day option can be unavailable, and they get
+  // different explanations in the UI because they have different fixes:
+  // a schedule outside any department can never follow hours, while a
+  // department without hours yet just needs them entered.
+  const selectedHours = selectedDepartmentId
+    ? operatingHours?.[selectedDepartmentId]
+    : undefined;
+  const hasHours = !!selectedHours && selectedHours.some((day) => day.length > 0);
+  const canFollowHours = !!selectedDepartmentId && hasHours;
+
+  // Switching to a schedule that cannot follow hours silently un-follows the
+  // session rather than leaving a checked box that would save as fixed times
+  // taken from whatever is in the (hidden) time inputs. Done during render,
+  // the pattern this file already uses for re-seeding, so there is no frame
+  // where the box is checked and unusable.
+  if (followsOperatingHours && !canFollowHours) {
+    setFollowsOperatingHours(false);
+  }
   /**
    * Scoped to the schedule's own department, strictly.
    *
@@ -234,11 +312,20 @@ export default function SessionForm({
     setError(null);
 
     if (!validFrom) { setError("Start date is required."); return; }
-    if (!startTime || !endTime) { setError("Start and end time are required."); return; }
-    if (startTime >= endTime) { setError("End time must be after start time."); return; }
+    if (!followsOperatingHours) {
+      if (!startTime || !endTime) { setError("Start and end time are required."); return; }
+      if (startTime >= endTime) { setError("End time must be after start time."); return; }
+    }
 
     setLoading(true);
 
+    // A following session still sends times, and the server then REPLACES
+    // them with the department's real hours before storing (migration 058 §2,
+    // and the snapshot block in POST /api/sessions). Deriving the snapshot
+    // there rather than here is deliberate: this form is only one of several
+    // writers, and the fallback has to be sane for all of them. So these are
+    // whatever the time inputs last held, and it does not matter.
+    //
     // dtstart's digits are the literal local wall-clock date/time, "Z"-suffixed
     // with no real instant meaning (see dropin/docs/RESUME-timezone-removal.md)
     // — direct string construction, not a conversion.
@@ -252,6 +339,7 @@ export default function SessionForm({
         rrule,
         dtstart,
         dtend_time: endTime,
+        follows_operating_hours: followsOperatingHours,
         valid_from: validFrom,
         valid_until: validUntil || null,
         space_ids: spaceIds,
@@ -306,6 +394,10 @@ export default function SessionForm({
       }
     }
 
+    setLoading(false);
+    setError(null);
+    if (!isEditing) resetToDefaults();
+
     router.push(redirectTo);
     router.refresh();
   }
@@ -322,6 +414,11 @@ export default function SessionForm({
       setDeleting(false);
       return;
     }
+
+    // Same reason as the reset in handleSubmit — this editor is reused, and a
+    // `deleting` flag left set disables Remove the next time it is opened.
+    setDeleting(false);
+    setError(null);
 
     router.push(redirectTo);
     router.refresh();
@@ -340,7 +437,13 @@ export default function SessionForm({
 
       {/* Schedule selector */}
       <div>
-        <label htmlFor="schedule_group_id" className={labelClass}>Schedule *</label>
+        {isEditing ? (
+          <LabelWithInfo htmlFor="schedule_group_id" className={labelClass} info="To move this session to another schedule, delete it and create it there.">
+            Schedule *
+          </LabelWithInfo>
+        ) : (
+          <label htmlFor="schedule_group_id" className={labelClass}>Schedule *</label>
+        )}
         <select
           id="schedule_group_id"
           value={scheduleGroupId}
@@ -359,11 +462,6 @@ export default function SessionForm({
             </option>
           ))}
         </select>
-        {isEditing && (
-          <p className="text-xs text-muted-foreground mt-1">
-            To move this session to a different schedule, delete it and create a new one there.
-          </p>
-        )}
       </div>
 
       {/* Occupancy kind + disclosure (migration 046) */}
@@ -412,10 +510,10 @@ export default function SessionForm({
         </div>
 
         <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-3">
-          <p className="text-xs font-semibold text-foreground">
-            Staff only
-            <span className="font-normal text-muted-foreground"> — never shown to patrons, whatever is set above.</span>
-          </p>
+          <div className="flex items-center gap-1.5">
+            <p className="text-xs font-semibold text-foreground">Staff only</p>
+            <InfoTip>Never shown to patrons, whatever is set above.</InfoTip>
+          </div>
           <div>
             <label htmlFor="holder_name" className="block text-xs font-medium text-foreground mb-1">
               Who has this space
@@ -430,9 +528,9 @@ export default function SessionForm({
             />
           </div>
           <div>
-            <label htmlFor="setup_notes" className="block text-xs font-medium text-foreground mb-1">
+            <LabelWithInfo htmlFor="setup_notes" className="block text-xs font-medium text-foreground" info="What the guard on deck needs to set up before this starts.">
               Setup notes
-            </label>
+            </LabelWithInfo>
             <textarea
               id="setup_notes"
               rows={2}
@@ -441,9 +539,6 @@ export default function SessionForm({
               className={fieldClass}
               placeholder="e.g. Soft lane ropes, wave breakers out, polo nets at the deep end"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              What the guard on deck needs to set up before this starts.
-            </p>
           </div>
         </div>
       </div>
@@ -462,12 +557,21 @@ export default function SessionForm({
           onEndTimeChange={setEndTime}
           onValidFromChange={setValidFrom}
           onValidUntilChange={setValidUntil}
+          followsOperatingHours={followsOperatingHours}
+          onFollowsOperatingHoursChange={setFollowsOperatingHours}
+          canFollowOperatingHours={canFollowHours}
+          followsUnavailableReason={
+            !selectedDepartmentId
+              ? "Only available for schedules that belong to a department — operating hours are set per department."
+              : "This department has no operating hours yet. Set them on the department's page first."
+          }
+          operatingHoursSummary={summarizeWeek(selectedHours)}
         />
       </div>
 
       {/* Space */}
       <div className="border-t border-border pt-5">
-        <label className={labelClass}>Spaces</label>
+        <LabelWithInfo className={labelClass} info="Select every space this session uses at once, e.g. all 4 lanes for Lap Swim.">Spaces</LabelWithInfo>
         {facilitySpaces.length === 0 ? (
           <p className="text-sm text-muted-foreground/70">
             {hiddenSpaceCount > 0
@@ -497,9 +601,6 @@ export default function SessionForm({
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground mt-1">
-              Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).
-            </p>
           </>
         )}
       </div>
@@ -514,7 +615,7 @@ export default function SessionForm({
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-5 pt-4">
           <div>
-            <label htmlFor="location_detail" className={labelClass}>Additional location detail</label>
+            <LabelWithInfo htmlFor="location_detail" className={labelClass} info="Optional note shown next to the space, e.g. entry instructions.">Location detail</LabelWithInfo>
             <input
               id="location_detail"
               type="text"
@@ -523,19 +624,16 @@ export default function SessionForm({
               className={fieldClass}
               placeholder="e.g. Enter via the north doors"
             />
-            <p className="text-xs text-muted-foreground mt-1">
-              Optional free-text note shown alongside the space, e.g. entry instructions.
-            </p>
           </div>
 
           {canEditScheduleDetails && (
           <div className="border-t border-border pt-5 space-y-5">
-            <div>
+            <div className="flex items-center gap-1.5">
               <p className="text-sm font-medium text-foreground">Program details</p>
-              <p className="text-xs text-muted-foreground mt-0.5">
-                These describe the schedule itself, not just this session — saving here updates
-                {selectedGroup ? ` every session under “${selectedGroup.name}.”` : " the whole schedule."}
-              </p>
+              <InfoTip>
+                These describe the whole schedule. Saving here updates
+                {selectedGroup ? ` every session in “${selectedGroup.name}”.` : " every session in it."}
+              </InfoTip>
             </div>
 
             <div className="grid grid-cols-3 gap-4">
@@ -616,3 +714,4 @@ export default function SessionForm({
     </form>
   );
 }
+

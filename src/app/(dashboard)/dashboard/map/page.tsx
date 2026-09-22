@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface MapPageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -36,11 +37,7 @@ export default function MapPage({ searchParams }: MapPageProps) {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Floorplan</h1>
-        <p className="text-muted-foreground mt-1">
-          The map visitors see for your building. Every shape is one of your spaces — they&apos;re
-          listed here the way the Spaces page groups them.
-        </p>
+        <PageHeader title="Floorplan" info="The map visitors see for your building. Each shape is one of your spaces." />
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this

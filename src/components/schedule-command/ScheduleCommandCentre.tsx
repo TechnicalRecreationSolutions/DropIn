@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { ArrowLeft, CalendarPlus, Eye, ExternalLink, Info, Printer } from "lucide-react";
+import { ArrowLeft, CalendarPlus, Eye, ExternalLink, Info, Keyboard, PieChart, Printer } from "lucide-react";
 import type { ExpandedSession, ScheduleTemplate } from "@/types/schedule.types";
 import {
   useTemplateSchedule,
@@ -33,6 +33,15 @@ import {
   type ScheduleEditingApi,
 } from "@/components/schedule/editing/ScheduleEditingContext";
 import ScheduleDndProvider from "@/components/schedule/editing/ScheduleDndProvider";
+import {
+  ScheduleCanvasProvider,
+  useScheduleCanvasApi,
+} from "@/components/schedule/editing/ScheduleCanvasContext";
+import { useScheduleBatch } from "@/components/schedule/editing/useScheduleBatch";
+import { useCanvasKeyboard } from "@/components/schedule/editing/useCanvasKeyboard";
+import CanvasUndoBar from "@/components/schedule/editing/CanvasUndoBar";
+import CanvasSelectionChip from "@/components/schedule/editing/CanvasSelectionChip";
+import WeekPanel, { type WeekPanelTab } from "./WeekPanel";
 import TemplateRail from "@/components/schedule/editing/TemplateRail";
 import CreateSessionDialog, {
   type CreateSessionValues,
@@ -302,9 +311,17 @@ export default function ScheduleCommandCentre({
     audience,
   });
 
-  function refresh() {
+  // Stable identity: the canvas's batch hook holds this in its callbacks, and
+  // a fresh function each render would rebuild `run`/`undo`/`redo`, which in
+  // turn rebuilds the canvas API and re-renders every block on screen.
+  const refresh = useCallback(() => {
     queryClient.invalidateQueries({ queryKey: [SCHEDULE_RANGE_KEY] });
-  }
+  }, [queryClient]);
+
+  const batch = useScheduleBatch(refresh);
+
+  /** Which tab of the week panel is open, or null when it is closed. */
+  const [panelTab, setPanelTab] = useState<WeekPanelTab | null>(null);
 
   function handleSelectWeek(nextWeekStart: Date) {
     setWeekParam(localDateString(nextWeekStart));
@@ -326,7 +343,12 @@ export default function ScheduleCommandCentre({
         scheduleGroupName: session.scheduleGroupName,
         newDayLabel: dayLabel,
         newStartTime: startTime,
-        crossesMidnight: endMinutes >= 24 * 60,
+        // A following session (058) has no time to push past midnight — the
+        // drop's time is discarded server-side — so this guard would block a
+        // legitimate day-move purely on arithmetic about hours that are never
+        // going to be saved.
+        crossesMidnight: !session.followsOperatingHours && endMinutes >= 24 * 60,
+        followsOperatingHours: session.followsOperatingHours === true,
       },
       dayCode,
       durationMinutes,
@@ -371,6 +393,23 @@ export default function ScheduleCommandCentre({
     }),
     [scheduleGroup, facility, canCreate, deletingId, handleAddSession, handleReschedule]
   );
+
+  /**
+   * The Map view under a staff audience is the spreadsheet canvas: lanes
+   * across, time down, direct manipulation with an undo stack instead of a
+   * confirmation for every write. See `schedule/editing/README.md`.
+   *
+   * Gated on `canEdit`, not on `canCreate` — moving, resizing and deleting
+   * what is already there is useful in a schedule with no templates left to
+   * place, and `scheduleGroupId` below is what separately withholds paste.
+   */
+  const canvasEnabled = activeView === "map" && canEdit && audience !== "public";
+  const canvas = useScheduleCanvasApi({
+    batch,
+    scheduleGroupId: canCreate ? (scheduleGroup?.id ?? null) : null,
+    enabled: canvasEnabled,
+  });
+  useCanvasKeyboard(canvasEnabled ? canvas : null);
 
   async function handleConfirmCreate(values: CreateSessionValues) {
     // A one-off has no day codes to check — its day is `validFrom`. Keeping the
@@ -448,6 +487,12 @@ export default function ScheduleCommandCentre({
         // the original booking, and a duplicate is a different one.
         occupancy_kind: duplicating.occupancyKind,
         disclosure: duplicating.disclosure,
+        // Inherited for the same reason (058): a copy of an all-day block is
+        // still an all-day block. Without this the duplicate would take the
+        // column default and come back pinned to whichever window it happened
+        // to be copied from, silently stopping it following the hours. The
+        // times below are still sent — they become the new row's snapshot.
+        follows_operating_hours: duplicating.followsOperatingHours === true,
         rrule: buildRRuleString({ frequency: "weekly", days: dayCodes }),
         dtstart,
         dtend_time: endTime,
@@ -491,6 +536,10 @@ export default function ScheduleCommandCentre({
         // same booking must not silently become a public one.
         occupancy_kind: addingTime.occupancyKind,
         disclosure: addingTime.disclosure,
+        // `follows_operating_hours` is deliberately NOT inherited here, unlike
+        // in the duplicate path: this dialog exists to name a specific extra
+        // time, so carrying the flag over would discard the very times the
+        // staff member just typed (058).
         rrule: buildRRuleString({ frequency: "weekly", days: [dayCode] }),
         dtstart,
         dtend_time: endTime,
@@ -606,6 +655,8 @@ export default function ScheduleCommandCentre({
   const viewIsOffInWidget = !widgetTemplates.includes(activeView);
   // Map is the only view with a position to drop onto, and there's nothing
   // to drag until the scope narrows to one schedule with templates in it.
+
+  /** Whether the template rail's cards can be dragged off it onto the map. */
   const dragEnabled = activeView === "map" && canCreate && editing.templates.length > 0;
 
   return (
@@ -637,7 +688,14 @@ export default function ScheduleCommandCentre({
             onSelectWeek={handleSelectWeek}
           />
         ) : (
-          <ScheduleDndProvider editing={dragEnabled ? editing : null}>
+          <ScheduleDndProvider
+            // Mounted for the whole canvas, not only when a template can be
+            // dragged off the rail: moving and resizing what is already placed
+            // is the larger half of the editing, and it works in a schedule
+            // whose templates have all been used up.
+            editing={canvasEnabled || dragEnabled ? editing : null}
+            canvas={canvasEnabled ? canvas : null}
+          >
             <div className="space-y-3">
               <button
                 type="button"
@@ -668,12 +726,36 @@ export default function ScheduleCommandCentre({
                   <StaffClaimsPanel facilityId={facility.id} weekStart={editorWeekStart} />
 
                   <div className="flex flex-wrap items-center justify-between gap-2 px-4 py-2 border-b border-border bg-muted/30">
-                    <AudienceToggle value={audience} onChange={handleAudienceChange} />
+                    <div className="flex items-center gap-3 min-w-0">
+                      <AudienceToggle value={audience} onChange={handleAudienceChange} />
+                      {/* The only editing help that stays on the page: it
+                          changes as you click, and the rest is one button away
+                          in the week panel. */}
+                      {canvasEnabled && <CanvasSelectionChip canvas={canvas} />}
+                    </div>
                     <div className="flex items-center gap-3">
                       {audience === "public" && (
                         <p className="text-xs text-muted-foreground">
                           Editing is off while you look as a patron.
                         </p>
+                      )}
+                      <button
+                        type="button"
+                        onClick={() => setPanelTab("overview")}
+                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                      >
+                        <PieChart className="w-3.5 h-3.5" />
+                        Overview
+                      </button>
+                      {canvasEnabled && (
+                        <button
+                          type="button"
+                          onClick={() => setPanelTab("help")}
+                          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                        >
+                          <Keyboard className="w-3.5 h-3.5" />
+                          How to edit
+                        </button>
                       )}
                       {/* The deck sheet is one day, not a week, so this opens on
                           today when today is in the week being edited and on the
@@ -741,15 +823,21 @@ export default function ScheduleCommandCentre({
                       <ScheduleEditingProvider
                         value={audience === "public" || !canEdit ? null : editing}
                       >
-                        <ScheduleView
-                          template={activeView}
-                          sessions={sessions ?? []}
-                          weekStart={editorWeekStart}
-                          onWeekChange={handleSelectWeek}
-                          month={month}
-                          onMonthChange={setMonth}
-                          facilityId={facility?.id}
-                        />
+                        {/* Null on every surface but the staff Map view, which
+                            is what keeps selection, the clipboard and the
+                            keyboard shortcuts out of the read-only render
+                            path the widget shares. */}
+                        <ScheduleCanvasProvider value={canvasEnabled ? canvas : null}>
+                          <ScheduleView
+                            template={activeView}
+                            sessions={sessions ?? []}
+                            weekStart={editorWeekStart}
+                            onWeekChange={handleSelectWeek}
+                            month={month}
+                            onMonthChange={setMonth}
+                            facilityId={facility?.id}
+                          />
+                        </ScheduleCanvasProvider>
                       </ScheduleEditingProvider>
                     )}
                   </div>
@@ -771,7 +859,20 @@ export default function ScheduleCommandCentre({
                   )}
                 </div>
               </div>
+
             </div>
+
+            {canvasEnabled && <CanvasUndoBar batch={batch} />}
+
+            {/* The new home for everything you consult rather than place. */}
+            <WeekPanel
+              tab={panelTab}
+              onTabChange={setPanelTab}
+              facilityId={facility!.id}
+              departmentId={scheduleGroup.departmentId ?? null}
+              weekStart={editorWeekStart}
+              showHelp={canvasEnabled}
+            />
           </ScheduleDndProvider>
         )}
       </>

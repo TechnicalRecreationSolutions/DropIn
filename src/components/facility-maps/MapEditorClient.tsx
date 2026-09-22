@@ -766,8 +766,7 @@ export default function MapEditorClient({
                 <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
                 {allSpacesPlaced && !placingSpace && (
                   <p className="text-xs text-muted-foreground/70 mt-2">
-                    All existing spaces are placed — placing another preset creates new spaces
-                    automatically.
+                    All spaces are placed. New shapes create new spaces.
                   </p>
                 )}
               </>
@@ -828,8 +827,7 @@ export default function MapEditorClient({
               }))}
             />
             <p className="text-xs text-muted-foreground/70 mt-3">
-              Live-session highlights appear on the public schedule once sessions are assigned to
-              these spaces.
+              Shapes light up on the public schedule once sessions use their spaces.
             </p>
           </div>
         </div>

@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
+import { LabelWithInfo } from "@/components/ui/info-tip";
 
 interface ScheduleGroupFormProps {
   facilityId: string;
@@ -41,21 +42,26 @@ export default function ScheduleGroupForm({
   const queryClient = useQueryClient();
   const isEditing = !!scheduleGroupId;
 
-  const [form, setForm] = useState({
-    name: defaultValues?.name ?? "",
-    facility_id: facilityId,
-    department_id: defaultDepartmentId ?? "",
-    sport_category: defaultValues?.sport_category ?? "swimming",
-    cost_dollars: defaultValues?.cost_cents ? String(defaultValues.cost_cents / 100) : "0",
-    status: defaultValues?.status ?? "draft",
-    starts_on: defaultValues?.starts_on ?? "",
-    ends_on: defaultValues?.ends_on ?? "",
-  });
+  const [form, setForm] = useState(() =>
+    initialForm(facilityId, defaultDepartmentId, defaultValues)
+  );
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
   const [facilities, setFacilities] = useState<FacilityOption[]>([]);
   const [departments, setDepartments] = useState<DepartmentOption[]>([]);
+
+  // Re-seed when the server hands down different defaults — see the note in
+  // components/space/SpaceForm.tsx. Compared by value, because the props are
+  // rebuilt on every server render.
+  const defaultsKey = JSON.stringify(initialForm(facilityId, defaultDepartmentId, defaultValues));
+  const [seededFrom, setSeededFrom] = useState(defaultsKey);
+  if (seededFrom !== defaultsKey && !loading) {
+    setSeededFrom(defaultsKey);
+    setForm(initialForm(facilityId, defaultDepartmentId, defaultValues));
+    setError(null);
+  }
 
   // The org's facilities, for the picker. Org-wide, so fetched once.
   useEffect(() => {
@@ -137,6 +143,14 @@ export default function ScheduleGroupForm({
       return;
     }
 
+    // `cacheComponents` hides this route segment on navigation instead of
+    // unmounting it, and reuses the same instance next time — so without this
+    // the next "New schedule" opens holding the one just saved, disabled on
+    // "Saving…" forever. See components/space/SpaceForm.tsx for the full note.
+    setLoading(false);
+    setError(null);
+    if (!isEditing) setForm(initialForm(facilityId, defaultDepartmentId, defaultValues));
+
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
     // Built from what was actually saved, not the page's starting scope, so
     // a facility or department change lands on the schedule where it now
@@ -194,31 +208,25 @@ export default function ScheduleGroupForm({
 
       <div className="border-t border-border pt-5 space-y-4">
         <div>
-          <label htmlFor="status" className={labelClass}>Status</label>
+          <LabelWithInfo htmlFor="status" className={labelClass} info="Only published schedules appear on your public pages and widget.">Status</LabelWithInfo>
           <select id="status" name="status" value={form.status} onChange={handleChange} className={fieldClass}>
             <option value="draft">Draft</option>
             <option value="published">Published</option>
           </select>
-          <p className="text-xs text-muted-foreground mt-1">Only published schedules are visible on the public schedule page and widget.</p>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
-            <label htmlFor="starts_on" className={labelClass}>Starts</label>
+            <LabelWithInfo htmlFor="starts_on" className={labelClass} info="Needed to publish.">Starts</LabelWithInfo>
             <input id="starts_on" name="starts_on" type="date"
               value={form.starts_on} onChange={handleChange} className={fieldClass} />
           </div>
           <div>
-            <label htmlFor="ends_on" className={labelClass}>Ends (optional)</label>
+            <LabelWithInfo htmlFor="ends_on" className={labelClass} info="Leave blank for a schedule that keeps running, like a weekly drop-in.">Ends (optional)</LabelWithInfo>
             <input id="ends_on" name="ends_on" type="date"
               value={form.ends_on} onChange={handleChange} className={fieldClass} />
           </div>
         </div>
-        <p className="text-xs text-muted-foreground">
-          A start date is needed to publish. Leave &ldquo;Ends&rdquo; blank for a
-          schedule that just keeps running, like a weekly drop-in — that&rsquo;s
-          the common case, not the exception.
-        </p>
       </div>
 
       {error && (
@@ -237,4 +245,26 @@ export default function ScheduleGroupForm({
       </div>
     </form>
   );
+}
+
+/**
+ * The state this form opens in — shared by the initial `useState`, the
+ * re-seed, and the reset after a successful create, so the three can never
+ * drift apart.
+ */
+function initialForm(
+  facilityId: string,
+  defaultDepartmentId: string | undefined,
+  defaultValues: ScheduleGroupFormProps["defaultValues"]
+) {
+  return {
+    name: defaultValues?.name ?? "",
+    facility_id: facilityId,
+    department_id: defaultDepartmentId ?? "",
+    sport_category: defaultValues?.sport_category ?? "swimming",
+    cost_dollars: defaultValues?.cost_cents ? String(defaultValues.cost_cents / 100) : "0",
+    status: defaultValues?.status ?? "draft",
+    starts_on: defaultValues?.starts_on ?? "",
+    ends_on: defaultValues?.ends_on ?? "",
+  };
 }

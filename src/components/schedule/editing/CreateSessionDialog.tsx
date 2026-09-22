@@ -21,6 +21,7 @@ import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
 import { DAYS } from "@/lib/schedule/weekGeometry";
 import type { AddSessionTarget, EditorTemplate } from "./ScheduleEditingContext";
+import { LabelWithInfo } from "@/components/ui/info-tip";
 
 export interface CreateSessionValues {
   templateId: string;
@@ -246,16 +247,14 @@ export default function CreateSessionDialog({
                   </option>
                 ))}
               </select>
-              <p className="text-xs text-muted-foreground">
-                Changes this placement only — the template keeps its own defaults.
-              </p>
+              <p className="text-xs text-muted-foreground">Only affects this session, not the template.</p>
             </div>
           </details>
         </div>
 
         {spaces.length > 0 && (
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1.5">Spaces</label>
+            <LabelWithInfo className="block text-sm font-medium text-foreground" info="Select every space this session uses at once, e.g. all 4 lanes for Lap Swim.">Spaces</LabelWithInfo>
             <div className="flex gap-1.5 flex-wrap">
               {spaces.map((space) => {
                 const selected = spaceIds.includes(space.id);
@@ -277,7 +276,6 @@ export default function CreateSessionDialog({
                 );
               })}
             </div>
-            <p className="text-xs text-muted-foreground/70 mt-1">Select every space this session occupies at once (e.g. all 4 lanes for Lap Swim).</p>
           </div>
         )}
 

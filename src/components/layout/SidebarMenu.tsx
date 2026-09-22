@@ -9,6 +9,7 @@ import {
   DoorOpen,
   Layers,
   Map as MapIcon,
+  BarChart3,
   Database,
   Settings,
   CreditCard,
@@ -145,12 +146,21 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
       disabled: !hasFacility,
       disabledReason: needsFacility,
     },
+    // Reachable only through the overview's rotating stat tile until now,
+    // which is no way to find a whole section. Not facility-gated: the page
+    // is org-wide and its own facility filter narrows it.
+    {
+      href: "/dashboard/analytics",
+      label: "Analytics",
+      icon: BarChart3,
+      permission: "analytics:view",
+    },
   ];
 
   const settingsItems: MenuItem[] = [
     {
       href: "/dashboard/data-sources",
-      label: "Data Sources",
+      label: "Data sources",
       icon: Database,
       permission: "import:use",
     },

@@ -4,6 +4,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import WidgetStudio from "@/components/widget/WidgetStudio";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -23,10 +24,7 @@ export default function WidgetPage() {
     <div className="max-w-5xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Put your schedule on your website</h1>
-        <p className="text-muted-foreground mt-1">
-          Design the schedule box your visitors see, then copy the code that puts it on your site.
-        </p>
+        <PageHeader title="Website widget" info="Design the schedule your visitors see, then copy the code that puts it on your site." />
       </div>
 
       <Suspense fallback={<WidgetStudioSkeleton />}>

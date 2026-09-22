@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Check, Code2, Copy, ExternalLink, Frame, Link2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
 import { SCOPE_FACILITY_SELECT_ID, type EmbedMethod, type WidgetFacility } from "./types";
 
 interface InstallPanelProps {
@@ -268,10 +269,14 @@ export default function InstallPanel({
           its switcher to that facility's entries. Deliberately here and not in
           step 1: it changes nothing until the code is copied and pasted. */}
       {facilities.length > 1 && (
-        <label className="block">
-          <span className="block text-sm font-medium text-foreground mb-1">
-            Pasting this on one building’s own page?
-          </span>
+        <div>
+          <LabelWithInfo
+            htmlFor={SCOPE_FACILITY_SELECT_ID}
+            className="block text-sm font-medium text-foreground"
+            info="Only needed if your website has a separate page per building. Pick it here and this copy of the code shows just that building. Re-copy the code after changing."
+          >
+            Building page
+          </LabelWithInfo>
           <select
             id={SCOPE_FACILITY_SELECT_ID}
             value={scopeFacilityId}
@@ -286,21 +291,26 @@ export default function InstallPanel({
               </option>
             ))}
           </select>
-          <span className="block text-xs text-muted-foreground mt-1">
-            {scopeFacilityId
-              ? switcherCount > 1
-                ? "This copy of the code shows only that facility, and its switcher narrows to that facility's schedules."
-                : "This copy of the code shows only that facility."
-              : "Only needed if your website has a separate page per building — pick it there and that copy of the code shows just that building. Visitors can already switch buildings with the step 1 switcher. Travels in the code — re-copy it after changing."}
-          </span>
-        </label>
+          {scopeFacilityId && (
+            <span className="block text-xs text-muted-foreground mt-1">
+              {switcherCount > 1
+                ? "This code shows only that facility, and its switcher only lists that facility's schedules."
+                : "This code shows only that facility."}
+            </span>
+          )}
+        </div>
       )}
 
       {!isLink && (
         <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-3 sm:items-start">
           <label className="block">
-            <span className="block text-sm font-medium text-foreground mb-1">
+            <span className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1">
               {method === "iframe" ? "Height" : "Starting height"}
+              <InfoTip>
+                {method === "iframe"
+                  ? "The box stays this tall. A week grid usually needs 700–900px."
+                  : "Only used until the schedule loads. After that, the widget sizes itself."}
+              </InfoTip>
             </span>
             <div className="relative">
               <input
@@ -316,11 +326,6 @@ export default function InstallPanel({
               </span>
             </div>
           </label>
-          <p className="text-xs text-muted-foreground sm:pt-8">
-            {method === "iframe"
-              ? "The box stays this tall. Give it enough room for a busy week — a week grid usually wants 700–900px."
-              : "Only matters for the split second before the schedule loads — after that the widget measures itself and tells your page what height to use."}
-          </p>
         </div>
       )}
 
@@ -338,7 +343,7 @@ export default function InstallPanel({
             ))}
           </ol>
           <p className="mt-3 text-xs text-muted-foreground">
-            The link keeps working as you publish changes — you never have to send it out again.
+            The link stays the same when you publish changes.
           </p>
         </div>
       ) : (

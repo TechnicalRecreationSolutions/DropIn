@@ -4,6 +4,7 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import SpaceForm from "@/components/space/SpaceForm";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface EditSpacePageProps {
   params: Promise<{ facilityId: string; spaceId: string }>;
@@ -66,8 +67,7 @@ export default async function EditSpacePage({ params }: EditSpacePageProps) {
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Edit space</h1>
-        <p className="text-muted-foreground mt-1">Update this space&apos;s details.</p>
+        <PageHeader title="Edit space" />
       </div>
 
       <SpaceForm

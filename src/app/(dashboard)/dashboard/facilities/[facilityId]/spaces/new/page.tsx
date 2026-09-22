@@ -4,6 +4,7 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import SpaceForm from "@/components/space/SpaceForm";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface NewSpacePageProps {
   params: Promise<{ facilityId: string }>;
@@ -58,11 +59,7 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Add a space</h1>
-        <p className="text-muted-foreground mt-1">
-          A specific bookable location within this facility (e.g. Lane 3, Court A, Studio 2) that
-          sessions can be attached to.
-        </p>
+        <PageHeader title="Add a space" info="A bookable location in this facility, such as Lane 3, Court A or Studio 2." />
       </div>
 
       <SpaceForm

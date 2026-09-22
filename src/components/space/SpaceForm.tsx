@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
+import { LabelWithInfo } from "@/components/ui/info-tip";
 
 interface SpaceFormProps {
   facilityId: string;
@@ -35,17 +36,39 @@ export default function SpaceForm({
   const queryClient = useQueryClient();
   const isEditing = !!spaceId;
 
-  const [form, setForm] = useState({
-    name: defaultValues?.name ?? "",
-    department_id: defaultValues?.department_id ?? "",
-    zone_name: defaultValues?.zone_name ?? "",
-    description: defaultValues?.description ?? "",
-    capacity: defaultValues?.capacity != null ? String(defaultValues.capacity) : "",
-    is_published: defaultValues?.is_published ?? false,
-  });
+  const [form, setForm] = useState(() => initialForm(defaultValues));
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  /**
+   * Re-seed when the server hands down different defaults.
+   *
+   * Next hides route segments with React's `<Activity>` rather than
+   * unmounting them, and reuses the same instance when you return, so this
+   * component outlives the page it was opened from:
+   * `useState` runs once, ever, and every later visit re-renders it with new
+   * props and the OLD state. Without this, opening "+ Add" under Aquatics
+   * after having opened the plain "Add space" silently drops the
+   * `?departmentId=` seed, and the edit form reopens showing the row as it
+   * was before the last save.
+   *
+   * Compared by value, not identity: `defaultValues` is rebuilt on every
+   * server render, so an identity check would re-seed constantly and eat
+   * what is being typed.
+   *
+   * Adjusted during render rather than in an effect — an effect would paint
+   * the stale values once and then correct them. Never while a save is in
+   * flight: a render that started before the submit carries pre-save props,
+   * and adopting those would overwrite the values on their way to the server.
+   */
+  const defaultsKey = JSON.stringify(initialForm(defaultValues));
+  const [seededFrom, setSeededFrom] = useState(defaultsKey);
+  if (seededFrom !== defaultsKey && !loading) {
+    setSeededFrom(defaultsKey);
+    setForm(initialForm(defaultValues));
+    setError(null);
+  }
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
@@ -91,6 +114,26 @@ export default function SpaceForm({
       return;
     }
 
+    // Next wraps route segments in React's `<Activity>` under
+    // `cacheComponents`, so leaving this page hides it rather than unmounting
+    // it, and coming back REUSES the same component instance — state and all.
+    // /spaces/new is one URL, so "Add another space" lands right back on the
+    // component that submitted the first one. Nothing remounts it, so nothing
+    // resets it for us. (next/dist/docs/01-app/02-guides/preserving-ui-state.md,
+    // "Resetting form state on submit" — the documented fix is this one.)
+    //
+    // Left alone, the second "Add space" therefore opens pre-filled with the
+    // lane just saved and permanently disabled on "Saving…", because
+    // `loading` was only ever cleared on the error path. Both have to be
+    // cleared here, before navigating.
+    //
+    // Only the create form resets its fields: the edit form's state is now
+    // exactly what was written, so keeping it means a revived editor shows
+    // the saved space rather than the pre-edit props it was rendered with.
+    setLoading(false);
+    setError(null);
+    if (!isEditing) setForm(initialForm(defaultValues));
+
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
     router.push(redirectTo);
     router.refresh();
@@ -134,7 +177,7 @@ export default function SpaceForm({
       )}
 
       <div>
-        <label htmlFor="zone_name" className={labelClass}>Zone</label>
+        <LabelWithInfo htmlFor="zone_name" className={labelClass} info="Groups spaces on the Spaces page. Doesn't affect booking.">Zone</LabelWithInfo>
         {/* Free text with suggestions rather than a picker: a zone is a label
             the Spaces page groups by, not a record, so there is nothing to
             create first. The datalist is what keeps the spelling consistent. */}
@@ -153,10 +196,6 @@ export default function SpaceForm({
             <option key={zone} value={zone} />
           ))}
         </datalist>
-        <p className="mt-1 text-xs text-muted-foreground">
-          Groups this space with others on the Spaces page. Doesn&apos;t affect booking — sessions
-          still claim each space individually.
-        </p>
       </div>
 
       <div>
@@ -228,4 +267,20 @@ export default function SpaceForm({
       </div>
     </form>
   );
+}
+
+/**
+ * The blank (or department-seeded) state this form opens in — shared by the
+ * initial `useState` and by the reset after a successful create, so the two
+ * can never drift.
+ */
+function initialForm(defaultValues: SpaceFormProps["defaultValues"]) {
+  return {
+    name: defaultValues?.name ?? "",
+    department_id: defaultValues?.department_id ?? "",
+    zone_name: defaultValues?.zone_name ?? "",
+    description: defaultValues?.description ?? "",
+    capacity: defaultValues?.capacity != null ? String(defaultValues.capacity) : "",
+    is_published: defaultValues?.is_published ?? false,
+  };
 }

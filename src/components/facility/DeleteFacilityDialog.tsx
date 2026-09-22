@@ -69,6 +69,15 @@ export default function DeleteFacilityDialog({
       return;
     }
 
+    // `cacheComponents` hides the Facilities page on navigation rather than
+    // unmounting it, so this dialog is the same instance next time it opens —
+    // leaving `submitting` set would show a permanently disabled "Deleting…",
+    // and leaving the typed name behind would reopen the dialog already armed.
+    // See components/space/SpaceForm.tsx for the full note.
+    setSubmitting(false);
+    setConfirmation("");
+    setError(null);
+
     // The sidebar's facility list is React Query cached; without this it keeps
     // showing the deleted building until the next full load.
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });

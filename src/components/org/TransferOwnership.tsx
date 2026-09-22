@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
+import { InfoTip } from "@/components/ui/info-tip";
 
 export interface TransferCandidate {
   membershipId: string;
@@ -44,8 +45,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
     return (
       <Section>
         <p className="text-sm text-muted-foreground">
-          Ownership can only be handed to someone who is already on your team. Add them on the
-          Staff page first.
+          You can only transfer ownership to someone on your team. Add them on the Staff page first.
         </p>
       </Section>
     );
@@ -134,6 +134,13 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
                   setError(data.error ?? "Could not transfer ownership.");
                   return;
                 }
+                // This page is retained rather than unmounted on navigation,
+                // so reopening it would find the confirmation box still
+                // holding the org name — the destructive button armed before
+                // anyone typed. See components/space/SpaceForm.tsx.
+                setTarget("");
+                setConfirmName("");
+
                 // The caller's own role just changed, so every piece of chrome
                 // that reads it is stale — refresh before navigating.
                 router.refresh();
@@ -155,11 +162,11 @@ function Section({ children }: { children: React.ReactNode }) {
       <div className="flex items-center gap-2">
         <Crown className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">Ownership</h2>
+        <InfoTip>
+          Only the owner can manage billing, delete the organization, or transfer ownership. There is
+          always exactly one owner.
+        </InfoTip>
       </div>
-      <p className="text-xs text-muted-foreground">
-        The owner is the only account that can manage billing, delete the organization, or hand
-        it on. There is always exactly one.
-      </p>
       {children}
     </div>
   );

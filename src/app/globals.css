@@ -88,6 +88,50 @@
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.676 0.176 252);
+
+  /* ── Data-visualisation palette ───────────────────────────────────────────
+     The analytics charts' colors, as tokens rather than hex literals inside
+     each component, so light and dark swap in one place and a chart is
+     written against a role ("categorical slot 2") instead of a value.
+
+     `--chart-1..5` above are shadcn's greyscale defaults and are NOT this —
+     they encode nothing and are left untouched for any shadcn chart that
+     wants them.
+
+     Three ramps, each with one job (see the dataviz method):
+       --viz-cat-N   categorical — identity. Fixed order, never cycled, never
+                     reassigned by rank, so a template keeps its color as the
+                     counts move under it.
+       --viz-heat-N  sequential — magnitude, one hue light→dark. Step 1 sits
+                     near the surface because "one view" should recede.
+       --viz-ord-N   ordinal — ordered discrete buckets. Starts darker than
+                     the sequential ramp: every step here is a labelled
+                     segment that must stay visible against the surface.
+
+     Both categorical sets were run through the validator and pass every gate
+     (worst adjacent CVD ΔE 9.1 light / 8.4 dark). Light mode returns a
+     contrast warning on aqua/yellow/magenta, which obliges visible labels —
+     every breakdown that uses these ships its label and count as text. */
+  --viz-cat-1: #2a78d6;
+  --viz-cat-2: #eb6834;
+  --viz-cat-3: #1baf7a;
+  --viz-cat-4: #eda100;
+  --viz-cat-5: #e87ba4;
+
+  --viz-heat-0: oklch(0.96 0 0);
+  --viz-heat-1: #cde2fb;
+  --viz-heat-2: #9ec5f4;
+  --viz-heat-3: #6da7ec;
+  --viz-heat-4: #3987e5;
+  --viz-heat-5: #256abf;
+  --viz-heat-6: #104281;
+
+  --viz-ord-1: #86b6ef;
+  --viz-ord-2: #5598e7;
+  --viz-ord-3: #3987e5;
+  --viz-ord-4: #2a78d6;
+  --viz-ord-5: #256abf;
+  --viz-ord-6: #184f95;
 }
 
 .dark {
@@ -123,6 +167,32 @@
   --sidebar-accent-foreground: oklch(0.97 0 0);
   --sidebar-border: oklch(1 0 0 / 8%);
   --sidebar-ring: oklch(0.676 0.176 252);
+
+  /* Dark mode is a re-step of the same three ramps against the dark surface,
+     not an automatic flip of the light values. The sequential and ordinal
+     ramps run the other way here: on a dark surface it is the *dark* blues
+     that recede toward it, so "near zero" is the darkest step and the peak is
+     the lightest. */
+  --viz-cat-1: #3987e5;
+  --viz-cat-2: #d95926;
+  --viz-cat-3: #199e70;
+  --viz-cat-4: #c98500;
+  --viz-cat-5: #d55181;
+
+  --viz-heat-0: oklch(0.27 0 0);
+  --viz-heat-1: #0d366b;
+  --viz-heat-2: #104281;
+  --viz-heat-3: #1c5cab;
+  --viz-heat-4: #2a78d6;
+  --viz-heat-5: #5598e7;
+  --viz-heat-6: #9ec5f4;
+
+  --viz-ord-1: #184f95;
+  --viz-ord-2: #1c5cab;
+  --viz-ord-3: #256abf;
+  --viz-ord-4: #2a78d6;
+  --viz-ord-5: #3987e5;
+  --viz-ord-6: #6da7ec;
 }
 
 @layer base {

@@ -50,17 +50,22 @@ export function TopbarSkeleton() {
  */
 export function DashboardPageSkeleton() {
   return (
-    <div className="max-w-5xl mx-auto space-y-8" aria-busy="true">
+    <div className="max-w-5xl mx-auto space-y-6" aria-busy="true">
+      {/* Shaped like the Overview it stands in for: title + date, the alert
+          line, the today ribbon, then the schedule list. A skeleton whose
+          blocks land somewhere else is a second layout the eye has to
+          re-learn the moment the real one arrives. */}
       <div className="space-y-2">
         <Skeleton className="h-7 w-64" />
-        <Skeleton className="h-4 w-80" />
+        <Skeleton className="h-4 w-44" />
       </div>
-      <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
+      <Skeleton className="h-5 w-72" />
+      <div className="rounded-xl border border-border p-4 space-y-3">
+        <Skeleton className="h-4 w-52" />
+        <Skeleton className="h-24 w-full rounded-lg" />
       </div>
       <div className="space-y-3">
-        <Skeleton className="h-4 w-32" />
+        <Skeleton className="h-8 w-48" />
         <div className="rounded-xl border border-border divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3">

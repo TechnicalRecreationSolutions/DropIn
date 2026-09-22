@@ -2,10 +2,395 @@
 
 Open this first; it points at everything else.
 
-**Last updated 2026-09-18**, at the end of the session that built multi-account
-staff roles (see the box below). The session before it brought back a resident
-directory (`/find`). This file is the single entry point. The per-track `RESUME-*.md` files are historical
-records of finished work, not live handoffs — see [Related docs](#related-docs).
+**Last updated 2026-09-21**, at the end of the session that rebuilt the Overview
+around today (first box below). Earlier the same day: the spreadsheet canvas on
+the Map view, the analytics rebuild, department operating hours, all-day
+sessions, and statutory holidays. Before that: multi-account staff roles, and a
+resident directory (`/find`). This file is the single entry point. The per-track
+`RESUME-*.md` files are historical records of finished work, not live handoffs —
+see [Related docs](#related-docs).
+
+---
+
+## The Overview, rebuilt around today — 2026-09-21, NOT COMMITTED
+
+`verify-ay` passes **72/72** (25 logic-only, the rest in a real browser across
+an owner and a coordinator context, at 1440px and 390px). Two assertions were
+falsified to prove they bite. `tsc`, `eslint src` and `NEXT_DIST_DIR=.next-verify
+next build` are clean. **No migration.**
+
+`/dashboard` used to open with four count tiles, a table of schedule names, and
+a second list of the same names underneath badged with a *different* status
+vocabulary. It never showed a schedule. It now opens with **today**: the date in
+words, anything wrong named in a sentence, and a time-axis ribbon of today's
+occurrences at the selected facility, each block a link to that session.
+
+The rubric it was built against, the verdict on the old page, the five defects
+found by looking at the built page, and what was deliberately *not* done:
+[`docs/prompts/overview-ux.md`](prompts/overview-ux.md).
+
+**Decisions worth not relitigating:**
+
+- **The ribbon is a client component reading `useScheduleRange`.** It shares the
+  `/api/sessions/expand` cache family with every other schedule surface, so the
+  page pays nothing on the server for it and the next navigation to the schedule
+  is already warm. Expanding it server-side would be a second expansion of the
+  same data in front of the static shell.
+- **A problem names itself.** "Conflicts: 1" was an errand; the alert row says
+  which two schedules, in which space, at what time. The all-clear renders too —
+  silence is indistinguishable from the page not having checked.
+- **"Latest changes" is `activity_log`, not a re-sort of the table.** Two lists
+  of the same objects on one screen is a bug even when both are correct, and the
+  old pair disagreed: one schedule read "Modified" above and "Published" below.
+- **The create buttons ask `isReadOnly(role)`, not `can(…, "session:write")`.**
+  That permission is department-scoped, so `can()` without a department answers
+  **false for a coordinator** — the role whose whole job is filling schedules.
+  Same reasoning the command centre and bottom nav already carry.
+- **The activity count pages with `.range()`.** PostgREST caps a response at
+  1,000 rows with no error, so the old `.limit(5000)` reported a ceiling as a
+  total. Falsifying the fix reports 997 where the truth is 1,060.
+- **The phone gets cards, not a narrowed table.** A row whose Edit sits past a
+  sideways scroll inside a card is a read-only row.
+- **The stat row is three tiles, one of which looks forward.** "This week" draws
+  seven bars and names the empty days; it shares one `/api/sessions/expand`
+  request with the ribbon, and that request is the key the command centre opens
+  with, so the link out of the tile renders from cache.
+- **Data marks use `--viz-cat-1`, never shadcn's `--primary`.** The latter is
+  greyscale and encodes nothing; the former is the validated slot the analytics
+  charts already draw with, so the Overview's sparkline and the full ViewsChart
+  it links to are the same line.
+- **Nothing rotates on a timer.** The `AnalyticsTicker` is deleted: you cannot
+  scan, compare or point at a number that changes under you, and WCAG 2.2.2 says
+  the user must be able to stop it.
+
+**Five bugs the built page showed that review had not:** past blocks drawn
+`bg-muted` on a `bg-muted/40` backdrop (the whole morning invisible); the
+midnight tick labelled "12:00 PM"; the ribbon opening on empty time after the
+last session of the day; a zero-length occurrence stretched to midnight and
+reported "on now" for hours; and the coordinator gating above. Two harness
+locators were also passing against the topbar and sidebar rather than the tiles
+they named.
+
+---
+
+## Spreadsheet canvas on the Map view — built 2026-09-21, NOT COMMITTED
+
+`verify-aw` passes **165/165** (48 logic-only, 61 over HTTP, 56 in a real
+browser across four contexts, including a read-only one and a touch one).
+Several assertions were falsified to prove they bite. `tsc`, `eslint src` and
+`next build` are clean. **No migration** — every gesture writes columns that
+already exist.
+
+The staff Map view is a lane x time canvas with Excel's gestures: click and
+shift/Ctrl-click to select, drag to move between lanes and times, drag an edge
+to resize, drag the corner handle sideways to extend a session across lanes,
+Ctrl-C/X/V (paste keeps the copied range's lane and minute offsets and lands on
+the last-clicked cell), Ctrl-D to repeat a block below itself, Delete, arrow
+keys to nudge, and Ctrl-Z/Ctrl-Shift-Z. Dropping a block on a day chip changes
+its weekday. Alt scopes an edit to one date.
+
+Design, the gesture table and the traps: [`src/components/schedule/editing/README.md`](../src/components/schedule/editing/README.md).
+The rubric it was polished against: [`docs/prompts/canvas-gesture-polish.md`](prompts/canvas-gesture-polish.md).
+
+**Decisions worth not relitigating:**
+
+- **Direct manipulation replaces the confirm dialogs, on this surface only.**
+  A spreadsheet undoes rather than confirming, so writes land immediately and
+  `CanvasUndoBar` carries the account — including the **scope line** ("every
+  Tuesday", "this week only", "the whole recurring series"). That line is the
+  dialog's job moved after the fact and is not decoration. Grid, List and every
+  read-only surface keep the dialogs untouched.
+- **An edit replaces, it never collapses** (`src/lib/schedule/gridEdits.ts`).
+  Dragging the Wednesday block of a Mon/Wed/Fri series writes `BYDAY=MO,TH,FR`;
+  dragging the Lane 2 block of a Lanes 1-4 session writes 1, 6, 3, 4. The old
+  dialog path rebuilt the rule as just the drop target, collapsing a three-day
+  series to one day — tolerable behind a confirm, not behind a drag.
+- **The undo comes from the server**, computed from the rows as they were at
+  write time and returned by `POST /api/sessions/batch`. A client-built inverse
+  is wrong the first time two people edit the same week, and wrong by writing
+  its guess over a colleague's save.
+- **Writes are optimistic, and the optimism describes the SERVER's change**,
+  not the pointer's. A time drag writes `dtstart`, so every occurrence of the
+  series moves; only the dragged occurrence changes day. Undo and redo restore
+  a snapshot rather than recomputing, because the snapshot either side of an
+  edit *is* what undoing and redoing it produce.
+- **Alt = this date, not this week.** Date-scoped `session_exceptions`, unlike
+  the week-scoped `POST /api/sessions/[id]/exceptions`. Alt across lanes or days
+  is refused with a reason rather than approximated.
+- **The batch is a compensating rollback, not a transaction.** PostgREST has no
+  cross-statement transaction; a failed op replays the inverses of what landed
+  and the response says whether that itself succeeded.
+
+**Two refactors came with it, and both are load-bearing:**
+
+- `POST /api/sessions`' whole body moved to `src/lib/sessions/write.ts`
+  (`writeSession`), and the drag-patch to `patchSession` in the same file. Both
+  routes are now HTTP shells over them. The batch route needs identical
+  behaviour for a pasted block, and a second copy would be a second copy of the
+  operating-hours snapshot rule, the template/space scoping and the two "absent
+  means leave it alone" contracts.
+- `SessionModal` now closes on **Escape**. It never did — backdrop and X only —
+  which went unnoticed until Escape also meant "clear the selection".
+
+**Six bugs the harness caught that review had not:**
+
+1. **Every undo was rejected as invalid input.** Postgres returns `dtstart` as
+   `…+00:00` and `dtend_time` as `HH:MM:SS`; the route's own schema demands a
+   `Z` suffix and `HH:MM`. `toZulu()` normalises both — digits copied, never
+   converted.
+2. **The canvas keyboard fired underneath open dialogs.** The guard asked
+   whether the event *target* sat inside a `role="dialog"`, and the session
+   modal opens with focus still on `body`.
+3. **dnd-kit's `transform` was never applied**, so a dragged block did not move
+   at all — it faded and jumped on refetch.
+4. **`transition-all` animated `top`/`height`/`transform`**, so the block eased
+   toward the pointer a beat behind it. Only the shadow is eased now.
+5. **A move within one lane optimistically stripped the session's only space**
+   (`swapSpaceOnOccurrence` was missing the `from === to` guard `moveSpace`
+   opens with). The block jumped to the General column, its id changed with the
+   column, and the selection was pruned out from under the next keypress.
+6. **`useDndMonitor` took down every read-only render.** It throws outside a
+   `DndContext` rather than degrading, and `WeeklyScheduleMap` is also the
+   public widget and facility page. The drag is published through the canvas
+   context by whoever owns the DndContext instead. `verify-aw` §11 now drives
+   the same component as an `aux` staffer specifically to catch this class.
+
+### The week panel — the new home for everything you read
+
+`schedule-command/WeekPanel.tsx`, a right-hand sheet opened from two buttons in
+the toolbar strip above the grid. The left rail is now **only** session
+templates; nothing else competes with it.
+
+- **Overview** — what the week contains and how much of it. Per-kind totals
+  (drop-in, program, rental, closure) in two columns that are deliberately
+  different numbers, plus open vs unprogrammed hours and a per-day bar.
+- **How to edit** — the gesture reference that used to sit under the grid.
+
+**Two kinds of hour, and neither is a sum of durations.** "Hours" is the
+*union* of a kind's occurrences, so two rentals in two lanes at the same hour
+count once — the answer to "when is the building doing this". "Space-hours" is
+Σ duration × spaces held, so a two-hour booking of four lanes is eight — the
+answer to "how much of what we have did it consume". A naive sum is the wrong
+third answer: it double-counts anything parallel, and a busy Saturday can then
+report more hours than the day has. `verify-aw` §0b asserts exactly that case
+and it was falsified to prove it bites.
+
+**Three scoping decisions worth not relitigating:**
+
+- **The overview is the whole FACILITY's week**, not the open schedule group's.
+  The rental eating into a drop-in block usually lives under a different group,
+  and a total scoped to the editor would quietly omit it. Same query-key family
+  as every other surface, so an edit refreshes it.
+- **Drop-in figures are what is LEFT**, because `/api/sessions/expand`
+  subtracts exclusive claims before anyone sees them (046). "Drop-in: 18h"
+  means eighteen hours actually available to the public. It must never be fed
+  the `subtract: "none"` feed the shadow panel uses.
+- **Open hours come from 058 *and* 059.** `useDepartmentWeekHours` applies
+  holiday overrides on top of the recurring week, because Christmas Day is a
+  Monday and counting it as open would overstate capacity in the one week
+  someone is most likely to check. Absence means opposite things in the two
+  tables and both are honoured.
+
+When the department has no operating hours the whole open/unprogrammed block is
+**hidden**, not zeroed — a denominator nobody set is not a number worth
+printing — and the panel says which of the three reasons applies.
+
+The live selection count stayed on the page (`CanvasSelectionChip`): a
+reference list is read once, but a count changes with every click.
+
+
+**Known gaps, all deliberate, none blocking:**
+
+- **Resizing by touch.** Tap-to-select and drag-to-move work and are asserted
+  (§12); the edge grips are 6–10px and a 44px target is not achievable on a
+  24px block. Touch resizing wants a different interaction (tap, then pick a
+  time), which is its own piece of work.
+- **A lane collapse is not announced.** Dropping onto a lane the session
+  already holds merges the two, and only the refetch shows it. `timesIgnored`
+  (058) *is* announced, because that one leaves the block looking unmoved.
+- **Auto-scroll during a drag** is dnd-kit's default and is not asserted.
+- **Marquee (rubber-band) selection is not built.** Shift-click already takes
+  the lane/time rectangle between two blocks; `selectWithin()` is on the API
+  for whenever a surface wants to draw one.
+- **Only the Map view is a canvas.** The Grid view has no time axis — it is
+  stacked cards — so there is nothing there to resize against.
+- `handleConfirmReschedule` still collapses a multi-day series on the dialog
+  path. Nothing reaches it now (Grid and List cannot drag), but it is wrong and
+  should move onto `moveDay` when someone next touches it.
+
+---
+
+## Departments — rebuilt 2026-09-21, NOT COMMITTED
+
+The page that 058 and 059 both hang their editors off
+(`/dashboard/facilities/[id]/departments/[id]/edit`) had become one column of
+three tall cards — a name field, seven days of time inputs, a dozen holidays
+with three radios each — and three Save buttons scattered down it. Reading
+"when is Aquatics open?" meant scrolling past every control that could change
+it, and a week of typed hours could be abandoned by walking away from the one
+Save button below the fold.
+
+It is now a summary plus three sections
+(`components/department/DepartmentEditorShell.tsx`):
+
+- **Three tiles above the fold** — status, the week in one line
+  (`summarizeWeek`), the year's confirmed holidays — and each tile opens the
+  section that can change it.
+- **Sections, not scroll.** The open one is in the URL hash (`#hours`), read
+  through `useSyncExternalStore` rather than an effect, so a reload and a deep
+  link both land in the right place. Panels are **hidden, not unmounted**, so
+  switching never discards half-finished edits.
+- **Unsaved work is visible from anywhere.** Each editor reports its dirty
+  state through `components/department/section-dirty.tsx`; the tab gets a dot,
+  a banner names the section, and `beforeunload` catches a close. Details now
+  saves **without navigating away** (`redirectTo={null}`), because a redirect
+  would have taken the other sections' unsaved edits with it.
+- **Hours:** an open/closed switch per day (it remembers the day's hours while
+  it is off), a per-day total like `15h` to catch an AM/PM slip, a live
+  one-line summary of the draft, and "copy Monday to every day".
+- **Holidays:** one `<select>` per date instead of three radios, grouped by
+  month, with "observe all N statutory dates" and a "only the observed" filter.
+
+**The landing page** (`/dashboard/departments`) went the same way. It was a
+stack of full-width rows that said only a name, a description and a status —
+nothing about what a department *had*, and the only thing a click could do was
+edit. It is now the Facilities grid's cards, one step smaller
+(`DepartmentsPanel.tsx`): the body opens that department's schedule, the stats
+are its own schedule and space counts, and the footer is the call to action —
+its week from `summarizeWeek`, or an amber **"Set operating hours"** linking
+straight to `…/edit#hours`. Missing hours is the one setup gap nothing else
+surfaced, and it is why a session cannot be set to run "the whole time we're
+open". The counts cost one query each for the whole org rather than a count per
+card; the unassigned callout now filters those same rows.
+
+`node scripts/verify/verify-au.mjs` — **52/52** in a real browser, including
+the two assertions that matter: closing a day with the new switch removes that
+day's rows **in the database** and leaves the other five alone, and a card's
+counts are checked against a second department that has none, so they cannot
+pass by being a constant.
+
+---
+
+## Statutory holidays — built 2026-09-21, MIGRATION 059 APPLIED
+
+**Migration `059` is applied**, and `verify-at` passes **59/59** against the
+live database (not just the 26 logic-only ones). Still uncommitted.
+
+Two of those assertions were red on the first full run and **neither was a
+policy bug**: the harness signs its `anon` client in as the fixture owner to
+mint a session cookie, after which every "can an outsider see this?" read
+answers as a member. It now uses a second, never-signed-in `publicAnon` client
+— worth remembering before reading any future "anonymous caller can see X" red
+as a leak.
+
+Holidays override the weekly operating hours for specific dates, per
+department. Three answers per date — closed, different hours, or open as
+usual — and a session that follows the hours honours all three. Dates come
+from a **computed catalogue** (`src/lib/schedule/holiday-catalogue.ts`), never
+a seeded table: it derives each province's statutory days from rules, so no
+migration ships in December and nothing expires.
+
+**Decisions worth not relitigating:**
+
+- **The catalogue suggests; staff decide.** Nothing is stored until a human
+  ticks it, and the UI says the list is a starting point, not a legal one.
+  Being wrong about a province costs one unticked checkbox — which is the only
+  reason it is safe to have an opinion at all. BC and AB were checked
+  carefully (those are the provinces with facilities); the other eleven are
+  good-faith and unverified.
+- **`normal_hours` is stored even though it resolves to nothing.** It is how
+  the checklist remembers "we work that day" versus "nobody has looked". Drop
+  it and staff re-examine twelve dates every visit.
+- **Per department, not per org.** Measured first: every facility has one or
+  two departments, so the duplication is a few rows and one "copy to…" click,
+  and it buys each department an independent answer.
+- **⚠️ Absence means the OPPOSITE of what it means in 058.** No
+  `department_hours` row for a weekday = closed. No `department_holidays` row
+  for a date = ordinary. Both tables' headers say so; do not "fix" either.
+
+Not built: nothing further is planned here. US states would slot into the same
+`Jurisdiction` union and rule table.
+
+---
+
+## Operating hours + all-day sessions — shipped 2026-09-21, NOT COMMITTED
+
+**Migration `058` is applied.** `verify-as` passes **78/78** against the live
+database, and nine deliberate falsifications each turned it red. `tsc`,
+`eslint src` and `next build` are clean. **Nothing is committed yet** — it is
+all still in the working tree.
+
+A department now has a weekly pattern of open/close windows
+(`department_hours`), and a session can carry `follows_operating_hours` to say
+"I run the whole time we are open". The flag is a **pointer, not a prefill** —
+occurrence times resolve at read time in `expandOccurrenceTimes()`, so
+changing a department's hours moves every session following them with nothing
+to re-save.
+
+**Verifying.** The harness needs `--experimental-strip-types`, because
+section 0 imports the app's real TypeScript modules:
+
+```bash
+node --experimental-strip-types scripts/verify/verify-as.mjs              # 78, needs a server
+node --experimental-strip-types scripts/verify/verify-as.mjs --logic-only # 28, needs nothing
+```
+
+`--logic-only` runs section 0 alone — the real `expand.ts`, no database, no
+server, no migration. It is the fastest signal after touching the expansion
+code, and a failure there says the problem is arithmetic rather than schema or
+RLS. The `@/` alias and `rrule`'s ESM build are wired up for it in
+`scripts/verify/_alias-hooks.mjs`; that hook is reusable by any future
+logic-only harness.
+
+**Three things the database half caught that the logic half could not:**
+
+1. The snapshot was being computed **client-side in SessionForm**, so any
+   other caller (duplicate, space move, import) stored whatever times it had
+   in hand — making the fallback only as good as the caller. Moved into
+   `POST /api/sessions`, which now overwrites the payload's times whenever the
+   flag is set. This is the one real product bug the run found.
+2. Two harness assertions that were **passing for the wrong reason**. A
+   `program` vs a `drop_in` is deliberately not a conflict under 046's
+   residual rule, so the original section-7 check proved nothing; it now uses
+   two exclusive claims. And the conflict checks only ever exercised the
+   *other* side's hours lookup — breaking the **candidate's** lookup still ran
+   green until lanes 3 and 4 were added.
+3. An anonymous read is gated by the **per-week review** (037) and
+   `sessionWeekStart` is **Sunday**-based, so an approved row keyed on the
+   Monday matches nothing. Both are now asserted explicitly, in both
+   directions, so the gate can never become the silent reason a future run
+   "passes".
+
+**Four decisions worth not relitigating:**
+
+- **Windows are rows, not two columns.** Pools close midday. A single
+  open/close pair per weekday would make an all-day session claim the hours
+  the building is locked — wrong exactly where the feature is supposed to
+  help. A split day therefore produces **two occurrences**, and
+  `ExpandedSession.key` gained a `_w1` suffix to keep them distinct.
+- **Closed is the absence of rows.** No `is_closed` flag, no NULL-time row.
+- **Stat-holiday / date overrides are deliberately NOT built.** Not a
+  regression: a fixed-time session shows up on Christmas today too, and
+  `session_exceptions` already cancels a date by hand. When it is built it
+  resolves in `resolveOperatingWindows()` and nothing else moves.
+- **`dtstart`/`dtend_time` stay NOT NULL** for a following session — an RRULE
+  anchor plus a stale-tolerant snapshot. When hours cannot be resolved at all,
+  expansion falls back to them rather than emptying the schedule. Stale beats
+  vanished.
+
+This does **not** reverse migration 014's warning about fake all-day sessions:
+that was about `schedule_type = 'continuous'`, which has no discrete
+occurrences at all. These still do, so `session_exceptions` keeps working.
+
+Two loose ends, both deliberate:
+
+- The hours editor has its **own save button**, separate from the department
+  form's. Two saves on one page is not lovely; merging them would mean the
+  department form owning a child table it otherwise knows nothing about.
+- Session **templates** cannot default to all-day yet. The toggle is on the
+  session form only.
+
+Details live in the migration header and `src/lib/rrule/README.md`.
 
 ---
 

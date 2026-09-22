@@ -19,6 +19,7 @@ import { ROLE_DESCRIPTIONS, ROLE_LABELS, invitableRolesFor } from "@/lib/auth/ro
 import ScopePicker from "./ScopePicker";
 import type { DepartmentOption, FacilityOption } from "./types";
 import type { InvitableRole, OrgRole } from "@/types/app.types";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface InviteDialogProps {
   currentRole: OrgRole;
@@ -132,16 +133,14 @@ export default function InviteDialog({
         <DialogHeader>
           <DialogTitle>Add someone to your team</DialogTitle>
           <DialogDescription>
-            They will get an email inviting them to create an account. Nothing changes until
-            they accept.
+            We&rsquo;ll email them an invitation.
           </DialogDescription>
         </DialogHeader>
 
         {fallbackLink ? (
           <div className="space-y-3">
             <p className="text-sm text-foreground">
-              The invitation is ready, but we could not send the email. Send them this link
-              yourself — it works exactly the same way.
+              We couldn&rsquo;t send the email. Send them this link yourself instead.
             </p>
             <div className="flex gap-2">
               <Input readOnly value={fallbackLink} className="font-mono text-xs" />
@@ -176,9 +175,12 @@ export default function InviteDialog({
         ) : (
           <div className="space-y-5">
             <div className="space-y-1.5">
-              <label htmlFor="invite-email" className="text-sm font-medium text-foreground">
-                Their work email
-              </label>
+              <div className="flex items-center gap-1.5">
+                <label htmlFor="invite-email" className="text-sm font-medium text-foreground">
+                  Their work email
+                </label>
+                <InfoTip>The invitation only works from this address. Forwarding it won&rsquo;t let anyone else in.</InfoTip>
+              </div>
               <Input
                 id="invite-email"
                 type="email"
@@ -188,10 +190,6 @@ export default function InviteDialog({
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
               />
-              <p className="text-xs text-muted-foreground">
-                The invitation only works from this address — forwarding it does not let
-                anyone else in.
-              </p>
             </div>
 
             <div className="space-y-2">

@@ -7,6 +7,7 @@ import Breadcrumb from "@/components/layout/Breadcrumb";
 import FacilityForm from "@/components/facility/FacilityForm";
 import FacilityDangerZone from "@/components/facility/FacilityDangerZone";
 import { getFacilityDeletionImpact } from "@/lib/facilities/deletionImpact";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface EditFacilityPageProps {
   params: Promise<{ facilityId: string }>;
@@ -44,8 +45,7 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Edit facility</h1>
-        <p className="text-muted-foreground mt-1">Update this facility&apos;s details.</p>
+        <PageHeader title="Edit facility" />
       </div>
 
       <FacilityForm

@@ -175,9 +175,9 @@ try {
     await page.getByLabel("Template name *").waitFor({ state: "visible", timeout: 30000 });
 
     for (const [n, title] of [
-      [1, "What it is"],
-      [2, "What gets pre-filled"],
-      [3, "What patrons see"],
+      [1, "Name and colour"],
+      [2, "Defaults"],
+      [3, "Public details"],
     ]) {
       check(
         `step ${n} — "${title}" is present`,
@@ -239,7 +239,7 @@ try {
     check(
       "the step summary is visible on a phone, not dropped with the desktop header",
       ((await page
-        .locator("section", { has: page.getByRole("heading", { name: "What gets pre-filled" }) })
+        .locator("section", { has: page.getByRole("heading", { name: "Defaults" }) })
         .textContent()) ?? "").includes("Drop-in")
     );
     await page.setViewportSize({ width: 1280, height: 900 });
@@ -267,7 +267,7 @@ try {
 
     console.log("\n4. Step 2's header summarises itself");
 
-    const step2 = page.locator("section", { has: page.getByRole("heading", { name: "What gets pre-filled" }) });
+    const step2 = page.locator("section", { has: page.getByRole("heading", { name: "Defaults" }) });
     const step2Text = (await step2.textContent()) ?? "";
     check(
       "the header shows the duration, space count and occupancy without scrolling into the step",
@@ -306,7 +306,7 @@ try {
     );
 
     const preview = page.locator("section", {
-      has: page.getByRole("heading", { name: "What patrons see" }),
+      has: page.getByRole("heading", { name: "Public details" }),
     });
     const previewText = (await preview.textContent()) ?? "";
     check(
@@ -398,7 +398,7 @@ try {
     check(
       "step 3 — the tag comes back selected, so the preview is populated",
       ((await page
-        .locator("section", { has: page.getByRole("heading", { name: "What patrons see" }) })
+        .locator("section", { has: page.getByRole("heading", { name: "Public details" }) })
         .textContent()) ?? "").includes("Women's Only")
     );
     check(

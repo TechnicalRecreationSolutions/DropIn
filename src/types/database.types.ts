@@ -223,6 +223,69 @@ export type Database = {
         Update: Partial<Database["public"]["Tables"]["departments"]["Insert"]>;
         Relationships: [];
       };
+      department_hours: {
+        Row: {
+          id: string;
+          department_id: string;
+          org_id: string;
+          // 0=Sunday..6=Saturday, matching getUTCDay() — which is how a
+          // session occurrence's weekday must be read (058). A weekday with
+          // no row here is closed; there is no is_closed flag.
+          day_of_week: number;
+          // "HH:MM:SS" from the TIME column. Parse with timeToMinutes()
+          // (src/lib/schedule/operating-hours.ts), never with `new Date()`.
+          opens_at: string;
+          closes_at: string;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["department_hours"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["department_hours"]["Insert"]>;
+        Relationships: [];
+      };
+      // Migration 059. NOTE THE INVERSION vs department_hours above: there, a
+      // weekday with no rows is CLOSED; here, a date with no row is NORMAL and
+      // falls through to the weekly pattern. `observance` is what distinguishes
+      // 'closed' from 'normal_hours', since both have zero window rows.
+      department_holidays: {
+        Row: {
+          id: string;
+          department_id: string;
+          org_id: string;
+          /** "YYYY-MM-DD" — a calendar date, no instant, no zone. */
+          holiday_date: string;
+          name: string;
+          observance: "closed" | "custom_hours" | "normal_hours";
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["department_holidays"]["Row"],
+          "id" | "created_at" | "updated_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["department_holidays"]["Insert"]>;
+        Relationships: [];
+      };
+      department_holiday_windows: {
+        Row: {
+          id: string;
+          holiday_id: string;
+          org_id: string;
+          /** "HH:MM:SS" from the TIME column — parse with timeToMinutes(). */
+          opens_at: string;
+          closes_at: string;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["department_holiday_windows"]["Row"],
+          "id" | "created_at"
+        >;
+        Update: Partial<Database["public"]["Tables"]["department_holiday_windows"]["Insert"]>;
+        Relationships: [];
+      };
       spaces: {
         Row: {
           id: string;
@@ -657,6 +720,13 @@ export type Database = {
           // block and withholds the identity; the identity itself lives in
           // session_internal, which anon cannot read at all.
           disclosure: "public" | "reserved" | "internal";
+          // When true, each occurrence's start/end comes from the owning
+          // department's department_hours at read time, and a weekday with no
+          // window produces no occurrence at all (058). dtstart/dtend_time
+          // above are then only an RRULE anchor plus a stale-tolerant
+          // snapshot — never read them directly to render a following
+          // session; go through expandOccurrenceTimes().
+          follows_operating_hours: boolean;
           source: "manual" | "imported";
           is_active: boolean;
           created_at: string;
@@ -672,6 +742,7 @@ export type Database = {
           | "location_detail"
           | "occupancy_kind"
           | "disclosure"
+          | "follows_operating_hours"
           | "source"
           | "is_active"
         > & {
@@ -680,6 +751,7 @@ export type Database = {
           location_detail?: string | null;
           occupancy_kind?: "drop_in" | "program" | "rental" | "closure";
           disclosure?: "public" | "reserved" | "internal";
+          follows_operating_hours?: boolean;
           source?: "manual" | "imported";
           is_active?: boolean;
         };

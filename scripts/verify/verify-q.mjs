@@ -312,13 +312,13 @@ try {
     console.log("\n1. The studio loads with its four steps and a live preview alongside");
     // ---------------------------------------------------------------
     await page.goto(`${APP}/dashboard/widget`, { waitUntil: "networkidle" });
-    await page.getByRole("heading", { name: "What should it show?" }).waitFor({ timeout: 30000 });
+    await page.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
 
     for (const heading of [
-      "What should it show?",
-      "Make it yours",
-      "Let visitors find their session",
-      "Put it on your website",
+      "What to show",
+      "Look and feel",
+      "Filters and printing",
+      "Add to your website",
     ]) {
       check(`step visible: ${heading}`, await page.getByRole("heading", { name: heading }).isVisible());
     }
@@ -462,7 +462,7 @@ try {
     // ---------------------------------------------------------------
     console.log("\n7. Step 1 is one list: empty means everything, and one click fills it per facility");
     // ---------------------------------------------------------------
-    const filtersSection = page.locator("section").filter({ hasText: "What should it show?" });
+    const filtersSection = page.locator("section").filter({ hasText: "What to show" });
     check(
       "the empty list says what the embed does rather than drawing a widget inside the editor",
       (await filtersSection.getByRole("group", { name: "Choose a schedule" }).count()) === 0 &&
@@ -658,7 +658,7 @@ try {
     // ---------------------------------------------------------------
     console.log("\n11. Per-page narrowing is a property of the snippet, not a second saved config");
     // ---------------------------------------------------------------
-    await page.getByLabel("Show only one facility on this page?").selectOption(poolBuilding.id);
+    await page.getByLabel("Building page").selectOption(poolBuilding.id);
     const snippet = (await page.locator("pre").first().textContent()) ?? "";
     check(
       "choosing a facility puts it in the code rather than changing what is saved",
@@ -689,12 +689,12 @@ try {
       (await (await fetch(`${APP}/widget/${org.id}`)).text()).includes(laneLabel)
     );
     // Leave the snippet unscoped again so the screenshots below are the default.
-    await page.getByLabel("Show only one facility on this page?").selectOption("");
+    await page.getByLabel("Building page").selectOption("");
 
     if (SHOTS) {
       fs.mkdirSync(SHOTS, { recursive: true });
       await page.reload({ waitUntil: "networkidle" });
-      await page.getByRole("heading", { name: "What should it show?" }).waitFor({ timeout: 30000 });
+      await page.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
       await page.waitForTimeout(2500);
       await page.screenshot({ path: path.join(SHOTS, "studio-desktop.png"), fullPage: true });
 
@@ -721,7 +721,7 @@ try {
       const phone = await context.newPage();
       await phone.setViewportSize({ width: 390, height: 844 });
       await phone.goto(`${APP}/dashboard/widget`, { waitUntil: "networkidle" });
-      await phone.getByRole("heading", { name: "What should it show?" }).waitFor({ timeout: 30000 });
+      await phone.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
       await phone.waitForTimeout(2000);
       await phone.screenshot({ path: path.join(SHOTS, "studio-phone.png"), fullPage: true });
 

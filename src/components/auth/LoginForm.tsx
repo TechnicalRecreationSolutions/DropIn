@@ -33,6 +33,15 @@ export default function LoginForm() {
       return;
     }
 
+    // Signing out is `router.push("/")`, a client-side navigation, so under
+    // `cacheComponents` this page can still be the retained instance when
+    // /login is opened again — with `loading` stuck true, the button reads
+    // "Signing in…" and is disabled before anything has been typed. The
+    // password is cleared for the obvious reason. See
+    // components/space/SpaceForm.tsx for the full note.
+    setLoading(false);
+    setPassword("");
+
     router.push(redirectTo);
     router.refresh();
   }

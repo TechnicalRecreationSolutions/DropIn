@@ -11,6 +11,7 @@ import DepartmentPicker from "@/components/department/DepartmentPicker";
 import DeleteSessionTemplateButton from "@/components/session-template/DeleteSessionTemplateButton";
 import { Button } from "@/components/ui/button";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface SessionsPageProps {
   searchParams: Promise<{ facility?: string; department?: string }>;
@@ -59,11 +60,7 @@ export default function SessionsPage({ searchParams }: SessionsPageProps) {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Session templates</h1>
-        <p className="text-muted-foreground mt-1">
-          Reusable, color-coded activity definitions — build these once per department, then reuse
-          them across every schedule in it instead of filling out a form each time.
-        </p>
+        <PageHeader title="Session templates" info="Reusable, color-coded activities. Build one once per department, then place it on any schedule in it." />
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this

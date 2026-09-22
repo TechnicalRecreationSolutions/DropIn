@@ -2,6 +2,8 @@ import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import SessionForm from "@/components/schedule-editor/SessionForm";
+import { fetchOperatingHoursRecord } from "@/lib/schedule/operating-hours-query";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface NewSessionPageProps {
   searchParams: Promise<{ scheduleGroupId?: string }>;
@@ -61,16 +63,20 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
     .order("display_order", { ascending: true })
     .order("created_at", { ascending: true });
 
+  // Operating hours for every department the picker can reach (058), so the
+  // all-day toggle can answer for a schedule the user switches to without a
+  // round trip.
+  const operatingHours = await fetchOperatingHoursRecord(
+    supabase,
+    scheduleGroupList.map((sg) => sg.department_id)
+  );
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">Add session</h1>
-        <p className="text-muted-foreground mt-1">
-          {scoped
-            ? `Define a recurring time for ${scoped.name} at ${scoped.facility_name}.`
-            : "Define a recurring schedule for one of your schedules."}
-        </p>
-      </div>
+      <PageHeader
+        title="Add session"
+        subtitle={scoped ? `${scoped.name} · ${scoped.facility_name}` : undefined}
+      />
       <SessionForm
         orgId={orgContext.org.id}
         canEditScheduleDetails={can(
@@ -85,6 +91,7 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
         scheduleGroups={scoped ? [scoped] : scheduleGroupList}
         defaultScheduleGroupId={scoped?.id}
         spaces={allSpaces ?? []}
+        operatingHours={operatingHours}
       />
     </div>
   );

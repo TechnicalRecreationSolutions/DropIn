@@ -35,6 +35,11 @@ export default function OnboardOrgForm({ suggestedName = "" }: { suggestedName?:
       return;
     }
 
+    // This page is retained rather than unmounted on navigation, so a
+    // `loading` left set would greet a returning user with a disabled
+    // "Creating…". See components/space/SpaceForm.tsx for the full note.
+    setLoading(false);
+
     router.push(data.redirect ?? "/dashboard");
     router.refresh();
   }

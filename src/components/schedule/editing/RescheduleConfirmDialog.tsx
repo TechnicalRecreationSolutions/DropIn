@@ -17,6 +17,11 @@ export interface RescheduleTarget {
   newDayLabel: string;
   newStartTime: string; // HH:MM, for display
   crossesMidnight: boolean;
+  /** Migration 058: this session takes its times from the department's
+   *  operating hours, so the drop's TIME cannot be saved — only the day. Said
+   *  out loud before confirming, because the block would otherwise land back
+   *  on its original row and read as a failed drag. */
+  followsOperatingHours: boolean;
 }
 
 interface RescheduleConfirmDialogProps {
@@ -54,10 +59,24 @@ export default function RescheduleConfirmDialog({
         <DialogHeader>
           <DialogTitle>Move &ldquo;{target.templateName ?? target.scheduleGroupName}&rdquo;?</DialogTitle>
           <DialogDescription>
-            This moves the entire recurring series to every {target.newDayLabel} at{" "}
-            {formatTimeLabel(target.newStartTime)}.
+            {target.followsOperatingHours ? (
+              <>This moves the entire recurring series to every {target.newDayLabel}.</>
+            ) : (
+              <>
+                This moves the entire recurring series to every {target.newDayLabel} at{" "}
+                {formatTimeLabel(target.newStartTime)}.
+              </>
+            )}
           </DialogDescription>
         </DialogHeader>
+
+        {target.followsOperatingHours && !target.crossesMidnight && (
+          <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-lg">
+            This session runs the whole time the department is open, so it keeps those hours —
+            only the day changes. If it lands on a day the department is closed, it will not run
+            at all.
+          </p>
+        )}
 
         {target.crossesMidnight ? (
           <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">

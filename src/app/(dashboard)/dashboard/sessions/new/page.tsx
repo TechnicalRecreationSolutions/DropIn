@@ -3,6 +3,7 @@ import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import SessionTemplateForm from "@/components/session-template/SessionTemplateForm";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface NewSessionTemplatePageProps {
   searchParams: Promise<{ facility?: string; department?: string }>;
@@ -66,12 +67,10 @@ export default async function NewSessionTemplatePage({ searchParams }: NewSessio
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">New session template</h1>
-        <p className="text-muted-foreground mt-1">
-          Define a recurring activity once, then place it on every schedule in{" "}
-          {department ? department.name : facility.name}. Only a name and a length are
-          required — the rest can wait.
-        </p>
+        <PageHeader
+          title="New session template"
+          info={`Define an activity once, then place it on any schedule in ${department ? department.name : facility.name}. Only a name and a length are required.`}
+        />
       </div>
 
       <SessionTemplateForm

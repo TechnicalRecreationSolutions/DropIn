@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ExpandedSession } from "@/types/schedule.types";
@@ -28,6 +28,14 @@ import {
   type ScheduleEditingApi,
 } from "./editing/ScheduleEditingContext";
 import SessionActionsMenu from "./editing/SessionActionsMenu";
+import {
+  useScheduleCanvas,
+  canvasBlockId,
+  type CanvasBlock,
+  type ScheduleCanvasApi,
+} from "./editing/ScheduleCanvasContext";
+import { minutesOfDayIn, localDateString } from "@/lib/utils/dates";
+import { clampMinute, snap, MIN_DURATION_MINUTES } from "@/lib/schedule/gridEdits";
 
 interface WeeklyScheduleMapProps {
   sessions: ExpandedSession[];
@@ -36,6 +44,15 @@ interface WeeklyScheduleMapProps {
 }
 
 const GENERAL_COLUMN = "General";
+
+/** "7:15 AM" from a minute of the day — for the live labels a gesture draws,
+ *  which have a number rather than a Date to render. */
+function formatMinuteOfDay(minute: number): string {
+  const wrapped = ((minute % 1440) + 1440) % 1440;
+  const h = Math.floor(wrapped / 60);
+  const m = wrapped % 60;
+  return `${h % 12 || 12}:${String(m).padStart(2, "0")} ${h < 12 ? "AM" : "PM"}`;
+}
 
 /** A column before its overlapping sessions have been split into tracks. */
 type UnpackedColumn = Omit<MapColumn, "tracks">;
@@ -77,8 +94,26 @@ interface MapColumn {
  */
 export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }: WeeklyScheduleMapProps) {
   const editing = useScheduleEditing();
+  const canvas = useScheduleCanvas();
   const [selectedSession, setSelectedSession] = useState<ExpandedSession | null>(null);
   const [activeDayIndex, setActiveDayIndex] = useState<number>(() => dayIndexFromDate(new Date()));
+
+  /**
+   * The live drag, so the rest of a multi-selection can follow the block being
+   * dragged.
+   *
+   * Dragging one of six selected blocks moves all six — that is what the drop
+   * handler does — and showing only the one under the pointer moving means the
+   * other five appear to stay put right up until they jump. dnd-kit only
+   * transforms the element it is dragging, so the others are translated by the
+   * same, equally snapped, delta.
+   *
+   * Read off the canvas rather than from `useDndMonitor`. This component also
+   * renders the public widget and facility page, where no DndContext exists —
+   * and that hook throws rather than degrading, so it took every read-only
+   * render of the schedule down with it.
+   */
+  const drag = canvas?.dragGhost ?? null;
 
   const days = useMemo(() => {
     return Array.from({ length: 7 }, (_, i) => {
@@ -189,35 +224,68 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
   const timeLabels = useMemo(() => getHourLabels(GRID_START_HOUR, GRID_END_HOUR), []);
   const totalSlots = ((GRID_END_HOUR - GRID_START_HOUR) * 60) / 30;
 
+  // Everything the canvas needs to turn a gesture into an edit: which day is on
+  // screen, and the lane order that makes "one column to the right" and a
+  // relative paste expressible. Published from here because this component is
+  // the only thing that knows them — the context deliberately holds no opinion
+  // about how a surface is laid out.
+  const canvasColumns = useMemo(
+    () => columns.map((c) => ({ spaceId: c.spaceId, name: c.name })),
+    [columns]
+  );
+  const activeDayCode = DAYS[activeDayIndex].code;
+  const activeDayDate = localDateString(activeDay);
+  const setSurface = canvas?.setSurface;
+
+  useEffect(() => {
+    setSurface?.({ dayCode: activeDayCode, date: activeDayDate, columns: canvasColumns });
+  }, [setSurface, activeDayCode, activeDayDate, canvasColumns]);
+
+  // A residual fragment is a derived slice, not a stored block (see
+  // MapSessionBlock) — it is drawn, but it is not a cell: selecting one and
+  // pressing Delete would remove the whole session the slice came out of.
+  const canvasBlocks: CanvasBlock[] = useMemo(() => {
+    const built: CanvasBlock[] = [];
+    columns.forEach((col, columnIndex) => {
+      for (const session of col.sessions) {
+        if (session.residualSegment?.isSlice) continue;
+        built.push({
+          id: canvasBlockId(session, col.spaceId ?? col.name),
+          session,
+          columnIndex,
+          spaceId: col.spaceId,
+          startMinute: minutesOfDayIn(session.start),
+          endMinute: minutesOfDayIn(session.end),
+        });
+      }
+    });
+    return built;
+  }, [columns]);
+
+  const setBlocks = canvas?.setBlocks;
+  useEffect(() => {
+    setBlocks?.(canvasBlocks);
+  }, [setBlocks, canvasBlocks]);
+
   return (
     <div>
       <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
 
-      {/* Day selector chips */}
+      {/* Day selector chips. Under an editor they are also drop targets: the
+          columns of this view are all one day, so dropping onto a chip is the
+          only single gesture that can move a block to another weekday — the
+          alternative is cut, switch day, paste. */}
       <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 px-1">
         {days.map((day, i) => (
-          <button
+          <DayChip
             key={i}
-            onClick={() => setActiveDayIndex(i)}
-            className={cn(
-              "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
-              activeDayIndex === i
-                ? "text-white"
-                : "bg-muted text-muted-foreground hover:bg-border"
-            )}
-            style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
-          >
-            <span>{formatDayShort(day)}</span>
-            <span className="font-bold">{day.getDate()}</span>
-            <span
-              className={cn(
-                "text-[10px] leading-tight tabular-nums",
-                activeDayIndex === i ? "text-white/80" : "text-muted-foreground/70"
-              )}
-            >
-              {countByDayIndex[i] > 0 ? countByDayIndex[i] : "–"}
-            </span>
-          </button>
+            day={day}
+            dayCode={DAYS[i].code}
+            count={countByDayIndex[i]}
+            isActive={activeDayIndex === i}
+            droppable={!!canvas?.enabled}
+            onSelect={() => setActiveDayIndex(i)}
+          />
         ))}
       </div>
 
@@ -261,14 +329,17 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
                   .join(" "),
               }}
             >
-              {columns.map((col) => (
+              {columns.map((col, columnIndex) => (
                 <MapColumnView
                   key={col.spaceId ?? col.name}
                   column={col}
-                  dayCode={DAYS[activeDayIndex].code}
+                  columnIndex={columnIndex}
+                  dayCode={activeDayCode}
                   heightPx={gridHeightPx}
                   totalSlots={totalSlots}
                   editing={editing}
+                  canvas={canvas}
+                  drag={drag}
                   onSelectSession={setSelectedSession}
                 />
               ))}
@@ -298,17 +369,23 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
 
 function MapColumnView({
   column,
+  columnIndex,
   dayCode,
   heightPx,
   totalSlots,
   editing,
+  canvas,
+  drag,
   onSelectSession,
 }: {
   column: MapColumn;
+  columnIndex: number;
   dayCode: string;
   heightPx: number;
   totalSlots: number;
   editing: ScheduleEditingApi | null;
+  canvas: ScheduleCanvasApi | null;
+  drag: { blockId: string | null; x: number; y: number } | null;
   onSelectSession: (session: ExpandedSession) => void;
 }) {
   // Only real spaces are droppable — a "General"/free-text column has no
@@ -316,11 +393,31 @@ function MapColumnView({
   const droppable = !!editing && !!column.spaceId;
   const { setNodeRef, isOver } = useDroppable({
     id: `map-${column.spaceId ?? column.name}-${dayCode}`,
-    data: { type: "map-slot", spaceId: column.spaceId, spaceName: column.name, dayCode },
+    data: { type: "map-slot", spaceId: column.spaceId, spaceName: column.name, dayCode, columnIndex },
     disabled: !droppable,
   });
 
+  const surfaceRef = useRef<HTMLDivElement | null>(null);
   const isGeneral = column.name === GENERAL_COLUMN;
+  const isActiveColumn = canvas?.activeCell?.columnIndex === columnIndex;
+
+  /**
+   * Clicking empty grid sets the paste target and clears the selection — the
+   * two halves of clicking an empty cell in a spreadsheet. The minute comes
+   * from where the pointer actually was, so pasting lands at 7:15 when that is
+   * where you clicked, rather than at the top of the nearest half-hour row.
+   */
+  function handleBackgroundPointerDown(event: React.PointerEvent<HTMLDivElement>) {
+    if (!canvas?.enabled) return;
+    if (event.button !== 0) return;
+    if (event.target !== event.currentTarget) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const minute = clampMinute(
+      snap(GRID_START_HOUR * 60 + ((event.clientY - rect.top) / SLOT_HEIGHT_PX) * 30)
+    );
+    canvas.setActiveCell({ columnIndex, startMinute: minute });
+    if (!event.shiftKey && !event.metaKey && !event.ctrlKey) canvas.clearSelection();
+  }
 
   return (
     <div className="min-w-[160px]">
@@ -334,23 +431,48 @@ function MapColumnView({
         {column.name}
       </div>
       <div
-        ref={setNodeRef}
+        ref={(node) => {
+          setNodeRef(node);
+          surfaceRef.current = node;
+        }}
+        onPointerDown={handleBackgroundPointerDown}
+        // Read back by the fill handle via elementFromPoint: a pointer drag
+        // across lanes has to answer "which column am I over now", and the
+        // alternative — measuring every column's rect on every move — would
+        // re-measure a scrolling container mid-gesture.
+        data-canvas-column={columnIndex}
         className={cn(
-          "relative border border-t-0 border-border rounded-b-lg transition-colors",
-          isOver ? "bg-blue-50" : "bg-muted"
+          "relative border border-t-0 rounded-b-lg transition-colors",
+          // A drop target has to read as one in both themes; bg-blue-50 is
+          // invisible against a dark surface.
+          isOver ? "bg-blue-500/10 ring-2 ring-inset ring-blue-500" : "bg-muted",
+          isActiveColumn ? "border-blue-400" : "border-border"
         )}
         style={{ height: heightPx + "px" }}
       >
         {Array.from({ length: totalSlots }, (_, i) => (
           <div
             key={i}
-            className={cn("absolute inset-x-0 border-b", i % 2 === 0 ? "border-border" : "border-border")}
+            className={cn("absolute inset-x-0 border-b pointer-events-none", i % 2 === 0 ? "border-border" : "border-border")}
             style={{ top: i * SLOT_HEIGHT_PX + "px", height: SLOT_HEIGHT_PX + "px" }}
           />
         ))}
 
+        {/* The paste target. Drawn as a caret rather than a filled cell because
+            a cell has no height here — a paste keeps each copied block's own
+            duration and only its top-left corner lands on this line. */}
+        {canvas?.activeCell && canvas.activeCell.columnIndex === columnIndex && (
+          <div
+            aria-hidden
+            className="absolute inset-x-0 border-t-2 border-blue-500 pointer-events-none"
+            style={{
+              top: ((canvas.activeCell.startMinute - GRID_START_HOUR * 60) / 30) * SLOT_HEIGHT_PX + "px",
+            }}
+          />
+        )}
+
         {droppable && column.sessions.length === 0 && (
-          <p className="absolute inset-x-0 top-4 text-xs text-muted-foreground/70 text-center px-2">
+          <p className="absolute inset-x-0 top-4 text-xs text-muted-foreground/70 text-center px-2 pointer-events-none">
             Drop a template here
           </p>
         )}
@@ -360,9 +482,14 @@ function MapColumnView({
             <MapSessionBlock
               key={session.key}
               session={session}
+              blockId={canvasBlockId(session, column.spaceId ?? column.name)}
+              columnIndex={columnIndex}
+              spaceId={column.spaceId}
               trackIndex={trackIndex}
               trackCount={column.tracks.length}
               editing={editing}
+              canvas={canvas}
+              drag={drag}
               onSelect={onSelectSession}
             />
           ))
@@ -374,25 +501,35 @@ function MapColumnView({
 
 function MapSessionBlock({
   session,
+  blockId,
+  columnIndex,
+  spaceId,
   trackIndex,
   trackCount,
   editing,
+  canvas,
+  drag,
   onSelect,
 }: {
   session: ExpandedSession;
+  blockId: string;
+  columnIndex: number;
+  spaceId: string | null;
   /** Which sub-column of its space this block sits in, and how many there are. */
   trackIndex: number;
   trackCount: number;
   editing: ScheduleEditingApi | null;
+  canvas: ScheduleCanvasApi | null;
+  drag: { blockId: string | null; x: number; y: number } | null;
   onSelect: (session: ExpandedSession) => void;
 }) {
   // A residual fragment is a *derived* slice, not what staff entered: dragging
   // it would reschedule the whole 9–5 block to the fragment's two-hour window.
   // The block is still clickable, and still editable through its menu.
   const isFragment = !!session.residualSegment?.isSlice;
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+  const { attributes, listeners, setNodeRef, isDragging, transform } = useDraggable({
     id: `session-${session.sessionId}-${session.key}`,
-    data: { type: "session", session },
+    data: { type: "session", session, blockId, columnIndex, spaceId },
     disabled: !editing || isFragment,
   });
 
@@ -400,17 +537,181 @@ function MapSessionBlock({
   const isPast = session.end < nowAsSessionTime();
   const displayName = sessionDisplayLabel(session);
 
+  const selectable = !!canvas?.enabled && !isFragment;
+  const isSelected = selectable && canvas.selectedIds.has(blockId);
+
+  // Every other block of the same selection follows the one being dragged, by
+  // the same snapped delta. Only dnd-kit's own element gets `transform`, so
+  // without this a six-block selection shows one block moving and five that
+  // look like they were left behind.
+  const ghost =
+    drag && drag.blockId && drag.blockId !== blockId && isSelected
+      ? { x: drag.x, y: drag.y }
+      : null;
+
+  // While an edge is being dragged the block is drawn from this instead of
+  // from its stored times. Without it the block sits still until the write
+  // lands and a refetch comes back, which reads as a gesture that did nothing.
+  const [preview, setPreview] = useState<{ top: number; height: number } | null>(null);
+  const [previewLabel, setPreviewLabel] = useState<string | null>(null);
+  const [spanTo, setSpanTo] = useState<number | null>(null);
+
+  const startMinute = minutesOfDayIn(session.start);
+  const endMinute = minutesOfDayIn(session.end);
+
+  /**
+   * What the times would be if the pointer were released now.
+   *
+   * A drag's own translate is the only source for this — dnd-kit has already
+   * snapped it to the canvas grain (`snapToCanvasGrid`), and the drop handler
+   * derives the written time from the same translate, so the label cannot
+   * disagree with what gets saved.
+   */
+  const activeTranslateY = transform?.y ?? ghost?.y ?? 0;
+  const dragMinuteDelta = Math.round((activeTranslateY / SLOT_HEIGHT_PX) * 30);
+
+  /**
+   * Thickness of the two edge grips, in pixels, scaled to the block.
+   *
+   * A 15-minute block is 24px tall, and the fixed 10px grips took 6px off each
+   * end of it — half the block, leaving a 12px strip to grab it by. So the
+   * shortest sessions were the hardest to move, which is backwards: a short
+   * block is the one most often in the wrong place. At 6px they take a quarter
+   * instead of a half.
+   */
+  const renderedHeight = preview?.height ?? height;
+  const handleThickness = renderedHeight >= SLOT_HEIGHT_PX ? 10 : 6;
+
+  /**
+   * Take focus back after a keyboard gesture.
+   *
+   * Moving a block to another lane renders it from a different column, so React
+   * unmounts the old node and mounts a new one — and focus goes with it. One
+   * ArrowRight and the keyboard was addressing nothing, which makes the whole
+   * keyboard path a dead end on its second press. Keyed on the request's
+   * counter, not on selection, so it fires once per gesture and never steals
+   * focus from someone using a pointer.
+   */
+  const buttonRef = useRef<HTMLButtonElement | null>(null);
+  const focusSeq = canvas?.focusRequest.seq ?? 0;
+  const focusMine = canvas?.focusRequest.sessionId === session.sessionId;
+  useEffect(() => {
+    if (!focusMine) return;
+    buttonRef.current?.focus({ preventScroll: true });
+  }, [focusMine, focusSeq]);
+
+  const blockHint = !selectable
+    ? isFragment
+      ? `${displayName} — this is what is left of a longer block after another booking; open it to edit the block itself`
+      : displayName
+    : session.followsOperatingHours
+      ? `${displayName} — runs the whole time the department is open, so its times cannot be dragged`
+      : `${displayName} — double-click for details`;
+  const liveLabel =
+    previewLabel ??
+    ((isDragging || ghost) && dragMinuteDelta !== 0
+      ? `${formatMinuteOfDay(startMinute + dragMinuteDelta)}–${formatMinuteOfDay(endMinute + dragMinuteDelta)}`
+      : null);
+
+  function beginResize(event: React.PointerEvent, edge: "start" | "end") {
+    if (!canvas?.enabled || session.followsOperatingHours) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = event.currentTarget as HTMLElement;
+    handle.setPointerCapture(event.pointerId);
+
+    const originY = event.clientY;
+    let minutes = edge === "start" ? minutesOfDayIn(session.start) : minutesOfDayIn(session.end);
+
+    function onMove(moveEvent: PointerEvent) {
+      const deltaMinutes = ((moveEvent.clientY - originY) / SLOT_HEIGHT_PX) * 30;
+      const base = edge === "start" ? minutesOfDayIn(session.start) : minutesOfDayIn(session.end);
+      minutes = clampMinute(snap(base + deltaMinutes));
+      const startMin = edge === "start" ? minutes : minutesOfDayIn(session.start);
+      const endMin = edge === "end" ? minutes : minutesOfDayIn(session.end);
+      if (endMin - startMin < MIN_DURATION_MINUTES) return;
+      setPreview({
+        top: ((startMin - GRID_START_HOUR * 60) / 30) * SLOT_HEIGHT_PX,
+        height: ((endMin - startMin) / 30) * SLOT_HEIGHT_PX,
+      });
+      // The value, not just the shape. A block that is merely taller does not
+      // tell anyone whether it now ends at 9:00 or 9:15, which is the entire
+      // question the gesture is answering.
+      setPreviewLabel(`${formatMinuteOfDay(startMin)}–${formatMinuteOfDay(endMin)}`);
+    }
+
+    function onUp(upEvent: PointerEvent) {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      setPreview(null);
+      setPreviewLabel(null);
+      void canvas?.resizeBlock({ blockId, edge, toMinute: minutes, weekOnly: upEvent.altKey });
+    }
+
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+  }
+
+  function beginLaneSpan(event: React.PointerEvent) {
+    if (!canvas?.enabled) return;
+    event.preventDefault();
+    event.stopPropagation();
+    const handle = event.currentTarget as HTMLElement;
+    handle.setPointerCapture(event.pointerId);
+    let target = columnIndex;
+
+    function onMove(moveEvent: PointerEvent) {
+      const under = document
+        .elementFromPoint(moveEvent.clientX, moveEvent.clientY)
+        ?.closest<HTMLElement>("[data-canvas-column]");
+      if (!under) return;
+      target = Number(under.dataset.canvasColumn);
+      setSpanTo(target);
+    }
+
+    function onUp() {
+      handle.removeEventListener("pointermove", onMove);
+      handle.removeEventListener("pointerup", onUp);
+      setSpanTo(null);
+      if (target !== columnIndex) void canvas?.spanLanes({ blockId, toColumnIndex: target });
+    }
+
+    handle.addEventListener("pointermove", onMove);
+    handle.addEventListener("pointerup", onUp);
+  }
+
   return (
     <div
       ref={setNodeRef}
+      // Stable hooks for verify-aw: a selection ring is a class name, and a
+      // harness asserting on class names tests Tailwind rather than the canvas.
+      data-canvas-block={blockId}
+      data-canvas-selected={isSelected ? "true" : "false"}
       className={cn(
-        "absolute rounded-lg border-l-4 overflow-hidden transition-all",
+        "absolute rounded-lg border-l-4 overflow-visible group/block",
+        // NOT `transition-all`. That animated top/height/transform too, so a
+        // dragged block eased toward the pointer a beat behind it and a resized
+        // one grew after the fact — the two things a direct-manipulation canvas
+        // may never do. Only the shadow is worth easing.
+        "transition-shadow",
         editing && !isFragment && "cursor-grab active:cursor-grabbing touch-none",
-        isDragging && "opacity-40"
+        // Dragging used to only fade the block, because dnd-kit's `transform`
+        // was never applied — so nothing followed the pointer and the gesture
+        // read as broken until the write landed. It moves now; the fade is
+        // gone, and a shadow plus a raised z-index is what says "this one".
+        isDragging && "shadow-xl z-30 cursor-grabbing",
+        ghost && "shadow-lg z-20 opacity-90",
+        isSelected && "ring-2 ring-offset-1 ring-blue-600 z-10",
+        spanTo !== null && "opacity-70"
       )}
       style={{
-        top: top + "px",
-        height: height + "px",
+        top: (preview?.top ?? top) + "px",
+        height: (preview?.height ?? height) + "px",
+        transform: transform
+          ? `translate3d(${transform.x}px, ${transform.y}px, 0)`
+          : ghost
+            ? `translate3d(${ghost.x}px, ${ghost.y}px, 0)`
+            : undefined,
         // Horizontal share of the column. A single track reproduces the old
         // `inset-x-1` exactly; two or more sit side by side, which is the only
         // way a program booked over a drop-in block is visible at all.
@@ -423,17 +724,61 @@ function MapSessionBlock({
       {...(editing && !isFragment ? attributes : {})}
     >
       <button
+        ref={buttonRef}
         type="button"
-        onClick={() => onSelect(session)}
-        className="w-full h-full flex flex-col items-stretch justify-start text-left px-2 py-1 hover:brightness-95 focus:outline-none focus:ring-2 focus:ring-blue-500 rounded-md"
-        title={displayName}
+        // On a canvas a single click selects, like any spreadsheet cell, and
+        // the details move to a double click. With no canvas above it — the
+        // widget, a public facility page — the single click still opens the
+        // modal, because there is nothing there to select into.
+        onClick={(event) => {
+          if (!selectable) {
+            onSelect(session);
+            return;
+          }
+          event.stopPropagation();
+          canvas.selectBlock(
+            blockId,
+            event.shiftKey ? "range" : event.metaKey || event.ctrlKey ? "toggle" : "replace"
+          );
+        }}
+        onDoubleClick={() => onSelect(session)}
+        // A pointer and a keyboard mean different things by "activate". A
+        // mouse click selects and a double-click opens; from the keyboard
+        // there is no double-press, so Enter takes the "open" role and Space
+        // keeps the "select" one. Without this split a keyboard user could
+        // select a block and never reach its details.
+        onKeyDown={(event) => {
+          if (!selectable) return;
+          if (event.key === "Enter") {
+            event.preventDefault();
+            onSelect(session);
+          }
+        }}
+        aria-pressed={selectable ? isSelected : undefined}
+        className={cn(
+          "w-full h-full flex flex-col items-stretch justify-start text-left px-2 py-1 hover:brightness-95 rounded-md overflow-hidden",
+          // A visible focus ring, always — the canvas is navigable by Tab and
+          // an invisible focus makes the arrow keys act on nothing anyone can
+          // see. `focus-visible` rather than `focus` so a pointer click does
+          // not leave a ring behind on every block it touches.
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+        )}
+        // A block that cannot take a gesture has to say so where the gesture
+        // would be tried. Withholding the grip silently leaves someone
+        // hunting for a handle that was never going to be there.
+        title={blockHint}
       >
         <p className={cn("text-xs font-semibold leading-tight truncate", editing && "pr-4")}>
           {displayName}
         </p>
-        {height >= SLOT_HEIGHT_PX && (
-          <p className="text-xs opacity-75 leading-tight truncate">
-            {formatSessionTime(session.start)}–{formatSessionTime(session.end)}
+        {(liveLabel || height >= SLOT_HEIGHT_PX) && (
+          <p
+            className={cn(
+              "text-xs leading-tight truncate",
+              liveLabel ? "font-semibold opacity-100 tabular-nums" : "opacity-75"
+            )}
+          >
+            {liveLabel ?? `${formatSessionTime(session.start)}–${formatSessionTime(session.end)}`}
           </p>
         )}
         {/* Blocks here are drawn to the height of their own duration, so a
@@ -445,9 +790,117 @@ function MapSessionBlock({
         )}
       </button>
 
+      {/* Edge handles. A session that follows its department's operating hours
+          (058) has no time of its own to drag, so it gets none — offering a
+          grip that the server is required to ignore would read as a bug.
+
+          They are sized against the block, not fixed: a 15-minute block is 24px
+          tall, and two 10px grips centred on its edges left about 4px of body
+          that could actually be grabbed to move it. So the shortest blocks in
+          the schedule were the ones that could not be dragged — exactly
+          backwards, since a short block is the one most often in the wrong
+          place. Each grip also sits half outside the block, so what it takes
+          from the draggable body is half its height, not all of it. */}
+      {selectable && !session.followsOperatingHours && (
+        <>
+          <div
+            onPointerDown={(event) => beginResize(event, "start")}
+            style={{ height: handleThickness, top: -handleThickness / 2 }}
+            className={cn(
+              "absolute inset-x-3 flex items-center cursor-ns-resize touch-none transition-opacity",
+              // Hover is not available on a touch screen, so a selected block
+              // shows its grips outright — which is also the state someone is
+              // in when they mean to resize.
+              isSelected ? "opacity-100" : "opacity-0 group-hover/block:opacity-100"
+            )}
+            role="presentation"
+            aria-hidden
+          >
+            <div className="mx-auto h-1 w-8 rounded-full bg-blue-600 shadow" />
+          </div>
+          <div
+            onPointerDown={(event) => beginResize(event, "end")}
+            style={{ height: handleThickness, bottom: -handleThickness / 2 }}
+            className={cn(
+              "absolute inset-x-3 flex items-center cursor-ns-resize touch-none transition-opacity",
+              isSelected ? "opacity-100" : "opacity-0 group-hover/block:opacity-100"
+            )}
+            role="presentation"
+            aria-hidden
+          >
+            <div className="mx-auto h-1 w-8 rounded-full bg-blue-600 shadow" />
+          </div>
+        </>
+      )}
+
+      {/* The fill handle. Dragged sideways it extends the session across the
+          lanes it crosses — one session in Lanes 1-4, which is how the schema
+          models a shared lap-swim block, rather than four copies of it.
+          Square and cornered so it cannot be mistaken for the round edge
+          grips, which do something else entirely. */}
+      {selectable && (
+        <div
+          onPointerDown={beginLaneSpan}
+          className={cn(
+            "absolute -right-1 -bottom-1 w-3 h-3 rounded-sm bg-blue-600 border border-white cursor-ew-resize touch-none transition-opacity",
+            isSelected ? "opacity-100" : "opacity-0 group-hover/block:opacity-100"
+          )}
+          title="Drag sideways to extend across lanes"
+          role="presentation"
+          aria-hidden
+        />
+      )}
+
       {editing && (
         <SessionActionsMenu session={session} editing={editing} className="absolute top-1 right-1" />
       )}
     </div>
+  );
+}
+
+/** A day chip that is also a drop target while an editor is mounted. */
+function DayChip({
+  day,
+  dayCode,
+  count,
+  isActive,
+  droppable,
+  onSelect,
+}: {
+  day: Date;
+  dayCode: string;
+  count: number;
+  isActive: boolean;
+  droppable: boolean;
+  onSelect: () => void;
+}) {
+  const { setNodeRef, isOver } = useDroppable({
+    id: `map-day-${dayCode}`,
+    data: { type: "map-day", dayCode },
+    disabled: !droppable,
+  });
+
+  return (
+    <button
+      ref={setNodeRef}
+      onClick={onSelect}
+      className={cn(
+        "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
+        isActive ? "text-white" : "bg-muted text-muted-foreground hover:bg-border",
+        isOver && !isActive && "ring-2 ring-blue-500 bg-blue-50"
+      )}
+      style={isActive ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
+    >
+      <span>{formatDayShort(day)}</span>
+      <span className="font-bold">{day.getDate()}</span>
+      <span
+        className={cn(
+          "text-[10px] leading-tight tabular-nums",
+          isActive ? "text-white/80" : "text-muted-foreground/70"
+        )}
+      >
+        {count > 0 ? count : "–"}
+      </span>
+    </button>
   );
 }

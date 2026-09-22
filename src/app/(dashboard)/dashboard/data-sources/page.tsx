@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { Upload, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 // Unrelated to session-time removal (dropin/docs/RESUME-timezone-removal.md):
 // created_at is a real instant, not a session occurrence, and this page
@@ -36,11 +37,7 @@ export default function DataSourcesPage() {
     <div className="max-w-4xl mx-auto space-y-8">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Data Sources</h1>
-        <p className="text-muted-foreground mt-1">
-          Cross-org history for everything imported into Dropin. To add new data, navigate
-          to the facility, department, or schedule it belongs to and use &quot;Add data&quot; there.
-        </p>
+        <PageHeader title="Data sources" info="Everything imported into Dropin. To add data, open the facility, department or schedule it belongs to and use “Add data”." />
       </div>
 
       <Link

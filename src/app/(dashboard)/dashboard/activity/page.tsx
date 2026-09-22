@@ -6,6 +6,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import ActivityLogView from "@/components/activity/ActivityLogView";
 import type { ActivityEntry } from "@/components/activity/types";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 const PAGE_SIZE = 30;
 
@@ -32,10 +33,7 @@ export default function ActivityPage() {
     <div className="max-w-3xl mx-auto">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Activity log</h1>
-        <p className="text-muted-foreground mt-1">
-          Every change to your facilities, schedules and sessions, and who made it.
-        </p>
+        <PageHeader title="Activity log" info="Every change to your facilities, schedules and sessions, and who made it." />
       </div>
 
       <Suspense fallback={<ActivityLogSkeleton />}>

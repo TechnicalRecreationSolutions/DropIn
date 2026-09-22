@@ -156,6 +156,17 @@ export type ExpandedSession = {
   modificationNote?: string | null;
 
   /**
+   * True when this occurrence's times were resolved from the owning
+   * department's operating hours rather than stored on the session
+   * (migration 058). Presentation and interaction only — it tells the grid
+   * that dragging this block to a new *time* has nothing to write, and lets
+   * the editor explain why. Never treat it as "this block is all day": a
+   * department that closes midday produces two of these per date, neither of
+   * which spans the day.
+   */
+  followsOperatingHours?: boolean;
+
+  /**
    * Set when this occurrence is what an exclusive claim left of a larger
    * residual block — see lib/schedule/residual.ts.
    *

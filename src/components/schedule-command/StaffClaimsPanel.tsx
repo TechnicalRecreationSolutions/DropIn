@@ -19,6 +19,7 @@ import {
   type OccupancyKind,
 } from "@/lib/sessions/occupancy";
 import type { ExpandedSession } from "@/types/schedule.types";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface StaffClaimsPanelProps {
   /** The facility the open week belongs to. Deliberately NOT the schedule group — see below. */
@@ -131,11 +132,13 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
 
       {open && (
         <div className="px-4 pb-3 space-y-3">
-          <p className="text-xs text-muted-foreground">
-            Every program, rental and closure at this building this week, including schedules other
-            than the one you have open. Drop-in blocks are not listed — they take whatever these
-            leave.
-          </p>
+          <div className="flex items-center gap-1.5 text-xs text-muted-foreground">
+            All bookings at this building this week
+            <InfoTip>
+              Every program, rental and closure, including other schedules. Drop-in blocks aren&rsquo;t
+              listed; they get whatever space is left.
+            </InfoTip>
+          </div>
 
           {/* Only the kinds this week actually has. A "Rental or club" chip on a
               week with no rentals is a control that can only ever empty the list. */}

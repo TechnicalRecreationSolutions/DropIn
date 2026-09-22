@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import ImageUpload from "@/components/media/ImageUpload";
+import { InfoTip } from "@/components/ui/info-tip";
 
 const CANADIAN_PROVINCES = [
   ["AB", "Alberta"], ["BC", "British Columbia"], ["MB", "Manitoba"],
@@ -98,11 +99,9 @@ export default function OrgSettingsForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-8">
       <section className="space-y-5 bg-card rounded-xl border border-border p-6">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h2 className="text-base font-semibold text-foreground">Public profile</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            Shown on your public schedule pages and your widget.
-          </p>
+          <InfoTip>Shown on your public schedule pages and widget.</InfoTip>
         </div>
 
         <div>
@@ -142,11 +141,9 @@ export default function OrgSettingsForm({
       </section>
 
       <section className="space-y-5 bg-card rounded-xl border border-border p-6">
-        <div>
+        <div className="flex items-center gap-1.5">
           <h2 className="text-base font-semibold text-foreground">Contact</h2>
-          <p className="text-sm text-muted-foreground mt-0.5">
-            How the public can reach your organization.
-          </p>
+          <InfoTip>How the public can reach your organization.</InfoTip>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

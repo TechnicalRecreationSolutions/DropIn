@@ -28,6 +28,13 @@ export default function SidebarProfile({ userEmail, role, onNavigate, collapsed 
     onNavigate?.();
     const supabase = createClient();
     await supabase.auth.signOut();
+
+    // `router.push` is a client-side navigation, so the dashboard shell is
+    // hidden rather than unmounted and this sidebar is the same instance if
+    // someone signs back in. Leaving the flag set would show "Signing out…"
+    // over a live session. See components/space/SpaceForm.tsx for the note.
+    setSigningOut(false);
+
     router.push("/");
     router.refresh();
   }

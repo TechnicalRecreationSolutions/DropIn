@@ -282,8 +282,26 @@ interface ScheduleTableProps {
 
 function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete }: ScheduleTableProps) {
   return (
-    <Card className="overflow-hidden py-0">
-      <div className="overflow-x-auto">
+    <>
+      {/* Phone: cards, not a narrowed table.
+          The table below drops four columns at this width and still leaves the
+          actions past the right edge of a 390px screen — reachable only by
+          scrolling sideways *inside* the card, which almost nobody discovers.
+          A row whose Edit and Delete cannot be reached is a read-only row, so
+          the phone got its own layout rather than a squeezed copy of this one.
+          Sorting stays desktop-only on purpose: the rows arrive already sorted
+          by the same comparator, and a sort control per column is four more
+          taps competing with the four that do something. */}
+      <div className="sm:hidden">
+        <ScheduleCards rows={rows} onDuplicate={onDuplicate} onDelete={onDelete} />
+      </div>
+
+      {/* The wrapper carries the breakpoint, not the Card: Card's own base
+          classes include `flex`, and `hidden sm:flex` on the same element
+          leaves two display utilities fighting in one cascade layer. */}
+      <div className="hidden sm:block">
+      <Card className="overflow-hidden py-0">
+        <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
             <tr className="border-b border-border text-left text-xs text-muted-foreground/70">
@@ -371,8 +389,94 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
             })}
           </tbody>
         </table>
+        </div>
+      </Card>
       </div>
-    </Card>
+    </>
+  );
+}
+
+/**
+ * The phone layout for the same rows.
+ *
+ * Each card carries what the table's dropped columns carried — department,
+ * dates, session count — as a wrapped line of facts, and then the four actions
+ * as labelled, full-height targets rather than 14px icons. The actions are the
+ * reason this exists: on the table they sat past the right edge of the screen.
+ */
+function ScheduleCards({
+  rows,
+  onDuplicate,
+  onDelete,
+}: {
+  rows: ScheduleListRow[];
+  onDuplicate: (row: ScheduleListRow) => void;
+  onDelete: (row: ScheduleListRow) => void;
+}) {
+  return (
+    <div className="space-y-2">
+      {rows.map((row) => {
+        const meta = SCHEDULE_STATUS_META[row.scheduleStatus];
+        return (
+          <Card key={row.id} className="gap-2 px-4 py-3">
+            <div className="flex items-start justify-between gap-2">
+              <Link href={row.editHref} className="min-w-0 flex-1">
+                <span className="flex items-center gap-1.5">
+                  <span className="text-base" aria-hidden>
+                    {row.typeIcon}
+                  </span>
+                  <span className="truncate font-medium text-foreground">{row.name}</span>
+                </span>
+              </Link>
+              <Badge variant="outline" className={cn("shrink-0", meta.className)}>
+                {meta.label}
+              </Badge>
+            </div>
+
+            <p className="text-xs text-muted-foreground">
+              {row.departmentName ? `${row.departmentName} · ` : ""}
+              {formatDate(row.startsOn)} – {formatDate(row.endsOn)} ·{" "}
+              {row.sessionsCount} {row.sessionsCount === 1 ? "session" : "sessions"}
+            </p>
+
+            <div className="-mx-1 flex items-center gap-1 pt-1">
+              <Link
+                href={row.editHref}
+                className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-muted text-sm font-medium text-foreground"
+              >
+                <Pencil className="size-4" aria-hidden />
+                Edit
+              </Link>
+              <a
+                href={row.previewHref}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Preview ${row.name}`}
+                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+              >
+                <Eye className="size-4" aria-hidden />
+              </a>
+              <button
+                type="button"
+                onClick={() => onDuplicate(row)}
+                aria-label={`Duplicate ${row.name}`}
+                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+              >
+                <Copy className="size-4" aria-hidden />
+              </button>
+              <button
+                type="button"
+                onClick={() => onDelete(row)}
+                aria-label={`Delete ${row.name}`}
+                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+              >
+                <Trash2 className="size-4" aria-hidden />
+              </button>
+            </div>
+          </Card>
+        );
+      })}
+    </div>
   );
 }
 

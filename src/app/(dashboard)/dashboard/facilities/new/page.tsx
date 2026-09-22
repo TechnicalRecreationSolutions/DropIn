@@ -1,6 +1,7 @@
 import { notFound } from "next/navigation";
 import FacilityForm from "@/components/facility/FacilityForm";
 import { getOrgContext } from "@/lib/auth/session";
+import { PageHeader } from "@/components/ui/info-tip";
 
 export const metadata = { title: "Add Facility" };
 
@@ -13,10 +14,7 @@ export default async function NewFacilityPage() {
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Add a facility</h1>
-        <p className="text-muted-foreground mt-1">
-          A facility is a physical location where your schedules take place.
-        </p>
+        <PageHeader title="Add a facility" info="A physical location where your schedules run." />
       </div>
       <FacilityForm orgId={orgContext.org.id} orgVerified={!!orgContext.org.approved_at} locationStatus="pending" />
     </div>

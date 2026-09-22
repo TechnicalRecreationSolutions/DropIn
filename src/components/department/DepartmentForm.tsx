@@ -2,8 +2,11 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { RotateCcw } from "lucide-react";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { useQueryClient } from "@tanstack/react-query";
+import { InfoTip } from "@/components/ui/info-tip";
+import { useSectionDirty } from "@/components/department/section-dirty";
 
 interface FacilityOption {
   id: string;
@@ -21,8 +24,19 @@ interface DepartmentFormProps {
     description?: string;
     is_published?: boolean;
   };
-  /** Where to send staff after a successful save. Defaults to the Departments page for the created department's facility. */
-  redirectTo?: string;
+  /**
+   * Where to send staff after a successful save. Defaults to the Departments
+   * page for the created department's facility.
+   *
+   * `null` means stay put — what the edit page passes, because navigating away
+   * from a save here would also take the unsaved hours or holidays sitting on
+   * the next tab with it.
+   */
+  redirectTo?: string | null;
+  /** Section heading, shown on surfaces where this form is one panel among
+   *  several. Omitted on the standalone "add a department" pages, whose page
+   *  title already says what the form is. */
+  heading?: string;
 }
 
 export default function DepartmentForm({
@@ -31,23 +45,45 @@ export default function DepartmentForm({
   departmentId,
   defaultValues,
   redirectTo,
+  heading,
 }: DepartmentFormProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
   const isEditing = !!departmentId;
 
-  const [form, setForm] = useState({
-    facility_id: fixedFacilityId ?? "",
-    name: defaultValues?.name ?? "",
-    description: defaultValues?.description ?? "",
-    is_published: defaultValues?.is_published ?? false,
-  });
+  const [form, setForm] = useState(() => initialForm(fixedFacilityId, defaultValues));
 
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  /** Only used when staying put after a save — otherwise the redirect is the
+   *  confirmation. */
+  const [saved, setSaved] = useState(false);
+
+  // Re-seed when the server hands down different defaults — see the note in
+  // components/space/SpaceForm.tsx. Compared by value, because the props are
+  // rebuilt on every server render.
+  const defaultsKey = JSON.stringify(initialForm(fixedFacilityId, defaultValues));
+  const [seededFrom, setSeededFrom] = useState(defaultsKey);
+  /** The values currently stored. Usually the server's, but a save that stays
+   *  on the page moves it ahead of the props, which only catch up on the next
+   *  server render. */
+  const [savedKey, setSavedKey] = useState(defaultsKey);
+  if (seededFrom !== defaultsKey && !loading) {
+    setSeededFrom(defaultsKey);
+    setSavedKey(defaultsKey);
+    setForm(initialForm(fixedFacilityId, defaultValues));
+    setError(null);
+  }
+
+  // What "unsaved" means here: different from what is stored. The edit page
+  // shows it as a dot on the Details tab, so a change typed and left behind is
+  // visible from the other sections.
+  const dirty = JSON.stringify(form) !== savedKey;
+  useSectionDirty("details", isEditing && dirty);
 
   function handleChange(e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement>) {
     const { name, value, type } = e.target;
+    setSaved(false);
     setForm((prev) => ({
       ...prev,
       [name]: type === "checkbox" ? (e.target as HTMLInputElement).checked : value,
@@ -87,7 +123,26 @@ export default function DepartmentForm({
       return;
     }
 
+    // `cacheComponents` hides this route segment on navigation instead of
+    // unmounting it, and reuses the same instance next time — so without this
+    // the next "Add department" opens holding the one just saved, disabled on
+    // "Saving…" forever. See components/space/SpaceForm.tsx for the full note.
+    setLoading(false);
+    setError(null);
+    if (!isEditing) setForm(initialForm(fixedFacilityId, defaultValues));
+
     queryClient.invalidateQueries({ queryKey: ["nav-tree"] });
+
+    // `redirectTo: null` is "stay here" — the edit page passes it because the
+    // other two sections save separately and a navigation would take their
+    // unsaved edits with it.
+    if (redirectTo === null) {
+      setSavedKey(JSON.stringify({ ...form, facility_id: facilityId }));
+      setSaved(true);
+      router.refresh();
+      return;
+    }
+
     router.push(redirectTo ?? departmentsHref(facilityId));
     router.refresh();
   }
@@ -96,7 +151,23 @@ export default function DepartmentForm({
   const labelClass = "block text-sm font-medium text-foreground mb-1";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-4 sm:p-6">
+      {heading && (
+        <div className="flex items-center gap-1.5">
+          <h2 className="text-base font-semibold text-foreground">{heading}</h2>
+          <InfoTip label="About this department">
+            The department&apos;s name and description, and whether patrons can see it. Renaming
+            it here renames it everywhere — the schedule, the widget and the public pages all
+            read this one row.
+          </InfoTip>
+          {dirty && (
+            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+              Unsaved
+            </span>
+          )}
+        </div>
+      )}
+
       {!fixedFacilityId && (
         <div>
           <label htmlFor="facility_id" className={labelClass}>Facility *</label>
@@ -163,25 +234,72 @@ export default function DepartmentForm({
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">{error}</p>
+      )}
+      {saved && !dirty && (
+        <p role="status" className="text-sm text-green-700 dark:text-green-400">Saved.</p>
       )}
 
-      <div className="flex gap-3 pt-2">
-        <button
-          type="button"
-          onClick={() => router.back()}
-          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-        >
-          Cancel
-        </button>
-        <button
-          type="submit"
-          disabled={loading}
-          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
-        >
-          {loading ? "Saving…" : isEditing ? "Save changes" : "Add department"}
-        </button>
-      </div>
+      {redirectTo === null ? (
+        // Staying-put mode: no Cancel, because there is nothing to cancel out
+        // of — the page is where the work is. Discard puts the fields back.
+        <div className="flex flex-wrap items-center gap-3 pt-2">
+          <button
+            type="submit"
+            disabled={loading || !dirty}
+            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors sm:w-auto sm:px-5"
+          >
+            {loading ? "Saving…" : dirty ? "Save changes" : "Saved"}
+          </button>
+          {dirty && !loading && (
+            <button
+              type="button"
+              onClick={() => {
+                setForm(JSON.parse(savedKey));
+                setError(null);
+              }}
+              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
+            >
+              <RotateCcw className="size-3.5" />
+              Discard changes
+            </button>
+          )}
+        </div>
+      ) : (
+        <div className="flex gap-3 pt-2">
+          <button
+            type="button"
+            onClick={() => router.back()}
+            className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
+          >
+            Cancel
+          </button>
+          <button
+            type="submit"
+            disabled={loading}
+            className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          >
+            {loading ? "Saving…" : isEditing ? "Save changes" : "Add department"}
+          </button>
+        </div>
+      )}
     </form>
   );
+}
+
+/**
+ * The state this form opens in — shared by the initial `useState`, the
+ * re-seed, and the reset after a successful create, so the three can never
+ * drift apart.
+ */
+function initialForm(
+  fixedFacilityId: string | undefined,
+  defaultValues: DepartmentFormProps["defaultValues"]
+) {
+  return {
+    facility_id: fixedFacilityId ?? "",
+    name: defaultValues?.name ?? "",
+    description: defaultValues?.description ?? "",
+    is_published: defaultValues?.is_published ?? false,
+  };
 }

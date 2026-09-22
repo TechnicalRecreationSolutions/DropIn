@@ -4,6 +4,7 @@ import { Building2, Layers } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import type { DepartmentOption, FacilityOption } from "./types";
 import type { InvitableRole } from "@/types/app.types";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface ScopePickerProps {
   role: InvitableRole;
@@ -68,12 +69,11 @@ export default function ScopePicker({
 
   return (
     <div className="space-y-3">
-      <div>
+      <div className="flex items-center gap-1.5">
         <p className="text-sm font-medium text-foreground">Which departments do they run?</p>
-        <p className="text-xs text-muted-foreground mt-0.5">
-          They will have full control of the schedules in these departments, and no access to
-          any others.
-        </p>
+        <InfoTip>
+          Full control of the schedules in these departments, and no access to any others.
+        </InfoTip>
       </div>
 
       {byFacility.length === 0 ? (
@@ -124,9 +124,9 @@ function Options({
 }) {
   return (
     <div className="space-y-3">
-      <div>
+      <div className="flex items-center gap-1.5">
         <p className="text-sm font-medium text-foreground">{label}</p>
-        <p className="text-xs text-muted-foreground mt-0.5">{hint}</p>
+        <InfoTip>{hint}</InfoTip>
       </div>
       {items.length === 0 ? (
         <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">

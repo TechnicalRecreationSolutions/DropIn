@@ -8,6 +8,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import SpacesPanel from "@/components/space/SpacesPanel";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface SpacesPageProps {
   searchParams: Promise<{ facility?: string }>;
@@ -36,10 +37,7 @@ export default function SpacesPage({ searchParams }: SpacesPageProps) {
     <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Spaces</h1>
-        <p className="text-muted-foreground mt-1">
-          Bookable locations — lanes, courts, studios — that sessions attach to.
-        </p>
+        <PageHeader title="Spaces" info="Bookable locations, such as lanes, courts and studios, that sessions attach to." />
       </div>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this

@@ -4,6 +4,12 @@ import type {
   RangeExpandParams,
 } from "@/types/schedule.types";
 import type { Database } from "@/types/database.types";
+import {
+  hasAnyWindow,
+  resolveOperatingWindows,
+  type OperatingHoursByDepartment,
+  type DepartmentOperatingHours,
+} from "@/lib/schedule/operating-hours";
 
 type SessionRow = Database["public"]["Tables"]["sessions"]["Row"];
 type SessionExceptionRow =
@@ -67,6 +73,16 @@ export interface OccurrenceTime {
   end: Date;
   isModified: boolean;
   modificationNote: string | null;
+  /** Which operating-hours window of that day this occurrence came from
+   *  (migration 058). Always 0 for a fixed-time session, and for the first
+   *  window of a following one; a department that opens 06:00-12:00 and
+   *  16:00-21:00 produces a second occurrence with windowIndex 1.
+   *
+   *  It exists because `occurrenceDate` alone stopped being unique per
+   *  session the moment one date could hold two windows, and that pair is
+   *  what ExpandedSession.key is built from. Exception lookups still key on
+   *  the date alone — see the cancel/modify note in expandOccurrenceTimes. */
+  windowIndex: number;
 }
 
 /**
@@ -86,11 +102,31 @@ export interface OccurrenceTime {
  * via runtime-local ones.
  */
 export function expandOccurrenceTimes(
-  session: Pick<SessionRow, "id" | "rrule" | "dtstart" | "dtend_time" | "valid_from" | "valid_until">,
+  session: Pick<SessionRow, "id" | "rrule" | "dtstart" | "dtend_time" | "valid_from" | "valid_until"> &
+    Partial<Pick<SessionRow, "follows_operating_hours">>,
   exceptions: SessionExceptionRow[],
-  range: RangeExpandParams
+  range: RangeExpandParams,
+  /** The owning department's week (migration 058). Only consulted when
+   *  `session.follows_operating_hours` is true. Callers that do not have
+   *  hours in hand may omit it — a following session then degrades to its
+   *  stored snapshot times rather than disappearing (see `following` below). */
+  operatingHours?: DepartmentOperatingHours
 ): OccurrenceTime[] {
   const { rangeStart, rangeEnd } = range;
+
+  // A session only *follows* hours if it asked to AND there are hours to
+  // follow. The distinction below is the whole contract:
+  //
+  //   * No hours at all (no department, never configured, or every window
+  //     deleted) -> NOT following. Falls through to the fixed-time path and
+  //     uses the dtstart/dtend_time snapshot. A session that silently
+  //     produced zero occurrences forever would be indistinguishable from
+  //     one that had been deleted, and staff would have no way to see what
+  //     went wrong. Stale beats vanished.
+  //   * Hours exist, but this particular weekday has none -> following, and
+  //     that day yields NO occurrence. That is a real closed day, and it is
+  //     the behaviour the feature is for.
+  const following = session.follows_operating_hours === true && hasAnyWindow(operatingHours);
 
   const exceptionMap = new Map<string, SessionExceptionRow>();
   for (const ex of exceptions) {
@@ -99,7 +135,22 @@ export function expandOccurrenceTimes(
 
   let rule: RRule;
   try {
-    rule = RRule.fromString(`DTSTART:${dtstartLine(session.dtstart)}\n${session.rrule}`);
+    // A following session's DTSTART time is anchored to midnight, because its
+    // stored time component is only a snapshot and must not influence which
+    // DAYS come out. It otherwise could: rule.between() clamps on instants,
+    // so a snapshot of 21:00 would drop a day whose real hours are squarely
+    // inside the range. Midnight can never be clipped that way. Which
+    // weekdays the rule generates is unaffected — rrule advances DTSTART by
+    // whole calendar increments and BYDAY matches the date, not the clock
+    // (see README.md).
+    //
+    // Day selection for these sessions is therefore date-based, and the
+    // *windows* are filtered against the real range afterwards (see
+    // `overlapsRange` below) — which is the correct test anyway: a day
+    // belongs in the result when one of its open windows overlaps what was
+    // asked for, not when an unrelated stored timestamp happens to.
+    const anchor = following ? atMidnight(session.dtstart) : session.dtstart;
+    rule = RRule.fromString(`DTSTART:${dtstartLine(anchor)}\n${session.rrule}`);
   } catch {
     // Malformed RRULE — skip silently, log in production
     console.warn(`Skipping session ${session.id}: invalid RRULE "${session.rrule}"`);
@@ -116,33 +167,85 @@ export function expandOccurrenceTimes(
 
   if (expandFrom > expandTo) return [];
 
-  const occurrences = rule.between(expandFrom, expandTo, true);
+  // For a following session the generated occurrences sit at midnight, so the
+  // lower bound has to be floored to the start of its day or the first day is
+  // lost whenever the caller passes a mid-day rangeStart — which
+  // /api/sessions/expand explicitly allows ("an explicit rangeStart is taken
+  // literally"). The windows resolved on that day are then filtered against
+  // the unfloored bounds, so nothing outside the requested range escapes.
+  const generateFrom = following ? startOfUtcDay(expandFrom) : expandFrom;
+
+  const occurrences = rule.between(generateFrom, expandTo, true);
   const results: OccurrenceTime[] = [];
 
   for (const start of occurrences) {
     const dateKey = toDateString(start);
     const exception = exceptionMap.get(dateKey);
 
-    // Skip cancelled occurrences entirely
+    // Skip cancelled occurrences entirely. For a following session this
+    // cancels the whole DATE, every window of it — `session_exceptions` keys
+    // on a date and gains no second column here. "Closed Christmas Day" is
+    // what staff mean, and cancelling only the morning half of a split day
+    // has never been askable.
     if (exception?.exception_type === "cancelled") continue;
 
-    // Determine start/end times — use modified times if exception exists
-    let occStart = start;
-    let end: Date;
-
+    // A modified exception wins outright, and for a following session it also
+    // COLLAPSES the date to a single occurrence at the modified times. The
+    // alternative — applying the override to each window — would duplicate
+    // one stated correction across two blocks, so "on the 14th this runs
+    // 09:00-11:00" would produce two identical 09:00-11:00 occurrences on a
+    // split day. An explicit time replaces the derived ones entirely; that is
+    // what overriding means.
     if (exception?.exception_type === "modified" && exception.modified_start && exception.modified_end) {
-      occStart = new Date(exception.modified_start);
-      end = new Date(exception.modified_end);
-    } else {
-      end = buildEndTime(occStart, session.dtend_time);
+      results.push({
+        occurrenceDate: dateKey,
+        start: new Date(exception.modified_start),
+        end: new Date(exception.modified_end),
+        isModified: true,
+        modificationNote: exception.note ?? null,
+        windowIndex: 0,
+      });
+      continue;
+    }
+
+    if (following) {
+      // Read the weekday with getUTCDay(), never getDay() — an occurrence is
+      // wall-clock digits wearing a meaningless "Z", so the runtime-local
+      // getter returns a different weekday off-UTC and would apply the wrong
+      // day's hours (src/lib/schedule/operating-hours.ts says more).
+      // `dateKey` is the occurrence date a holiday override would be keyed
+      // on (059); the weekday is the fallback when no override exists.
+      const windows = resolveOperatingWindows(operatingHours, dateKey, start.getUTCDay());
+
+      // Closed that day. No occurrence — not a zero-length one: a patron
+      // should not be able to tell "we are shut" from "we are open and
+      // nothing is booked".
+      for (let i = 0; i < windows.length; i++) {
+        const windowStart = atMinutes(start, windows[i].opens);
+        const windowEnd = atMinutes(start, windows[i].closes);
+        // windowIndex stays the index within the DAY, not within the kept
+        // set, so a block's key does not change depending on which range it
+        // was fetched in.
+        if (windowEnd <= expandFrom || windowStart > expandTo) continue;
+        results.push({
+          occurrenceDate: dateKey,
+          start: windowStart,
+          end: windowEnd,
+          isModified: false,
+          modificationNote: exception?.note ?? null,
+          windowIndex: i,
+        });
+      }
+      continue;
     }
 
     results.push({
       occurrenceDate: dateKey,
-      start: occStart,
-      end,
-      isModified: exception?.exception_type === "modified",
+      start,
+      end: buildEndTime(start, session.dtend_time),
+      isModified: false,
       modificationNote: exception?.note ?? null,
+      windowIndex: 0,
     });
   }
 
@@ -163,7 +266,13 @@ export function expandOccurrenceTimes(
 export function expandSessions(
   sessions: SessionWithRelations[],
   exceptions: SessionExceptionRow[],
-  params: RangeExpandParams
+  params: RangeExpandParams,
+  /** Operating hours for every department these sessions belong to, keyed by
+   *  department id (migration 058). Omitting it does not break anything: a
+   *  session that follows hours falls back to its stored snapshot times. The
+   *  caller is expected to supply it — /api/sessions/expand does — but a
+   *  narrower one-off caller need not learn about hours to stay correct. */
+  operatingHours?: OperatingHoursByDepartment
 ): ExpandedSession[] {
   const results: ExpandedSession[] = [];
 
@@ -204,11 +313,25 @@ export function expandSessions(
       .sort((a, b) => a.display_order - b.display_order)
       .map((link) => ({ id: link.id, label: link.label, url: link.url }));
 
-    const occurrences = expandOccurrenceTimes(session, exceptions, params);
+    const occurrences = expandOccurrenceTimes(
+      session,
+      exceptions,
+      params,
+      department ? operatingHours?.get(department.id) : undefined
+    );
 
     for (const occ of occurrences) {
       results.push({
-        key: `${session.id}_${occ.occurrenceDate}`,
+        // The window index is appended only from the SECOND window of a date
+        // onward, so every key that existed before migration 058 keeps its
+        // exact spelling — this value is a React key, a DOM id
+        // (WeeklyScheduleMap) and an analytics dedup token, and silently
+        // renaming all of them to buy uniformity would be churn. Uniqueness
+        // is what matters, and `_w1` onward provides it.
+        key:
+          occ.windowIndex === 0
+            ? `${session.id}_${occ.occurrenceDate}`
+            : `${session.id}_${occ.occurrenceDate}_w${occ.windowIndex}`,
         sessionId: session.id,
         orgId: session.org_id,
         start: occ.start,
@@ -246,6 +369,11 @@ export function expandSessions(
         locationDetail: session.location_detail,
         isModified: occ.isModified,
         modificationNote: occ.modificationNote,
+        // The session's own flag, not "did this occurrence get derived times"
+        // — a following session whose hours have gone falls back to its
+        // snapshot, and the editor still needs to know it is a following
+        // session so it can say why dragging it does nothing.
+        followsOperatingHours: session.follows_operating_hours === true,
       });
     }
   }
@@ -273,6 +401,38 @@ function dtstartLine(dtstart: string): string {
 /** Zero-pad a number to two digits. */
 function pad2(n: number): string {
   return String(n).padStart(2, "0");
+}
+
+/**
+ * The same wall-clock DATE as `dtstart`, at 00:00 — the RRULE anchor for a
+ * session that follows operating hours (see the note at the call site).
+ * Stays in the stored convention: UTC getters in, Date.UTC out, no conversion.
+ */
+function atMidnight(dtstart: string): string {
+  return startOfUtcDay(new Date(dtstart)).toISOString();
+}
+
+/** Midnight at the start of `date`'s own wall-clock day, in the stored
+ *  convention (UTC getters in, Date.UTC out — never a conversion). */
+function startOfUtcDay(date: Date): Date {
+  return new Date(Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate()));
+}
+
+/**
+ * An occurrence date at a given minute-of-day, in the same wall-clock
+ * convention as everything else here (`Date.UTC` building digits, not an
+ * instant). Used to place a following session inside one operating window.
+ */
+function atMinutes(occurrenceStart: Date, minutesFromMidnight: number): Date {
+  return new Date(
+    Date.UTC(
+      occurrenceStart.getUTCFullYear(),
+      occurrenceStart.getUTCMonth(),
+      occurrenceStart.getUTCDate(),
+      Math.floor(minutesFromMidnight / 60),
+      minutesFromMidnight % 60
+    )
+  );
 }
 
 /**

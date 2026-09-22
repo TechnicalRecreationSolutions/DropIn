@@ -11,6 +11,7 @@ import { isReadOnly } from "@/lib/auth/roles";
 import type { CommandFacility } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * The schedule command centre — where staff spend most of their time. Every
@@ -49,10 +50,7 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-2xl font-bold text-foreground">Manage</h1>
-          <p className="text-muted-foreground mt-1">
-            Pick a building, then a schedule, to place and edit sessions.
-          </p>
+          <PageHeader title="Manage" info="Pick a building, then a schedule, to place and edit sessions." />
         </div>
         <Link
           href="/dashboard/schedule/sessions/new"

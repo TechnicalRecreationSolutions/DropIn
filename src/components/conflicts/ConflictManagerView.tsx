@@ -53,7 +53,7 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
         <CheckCircle2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
         <h2 className="font-medium text-foreground mb-1">No conflicts</h2>
         <p className="text-sm text-muted-foreground">
-          No two active sessions currently claim the same space at an overlapping time.
+          No sessions overlap in the same space.
         </p>
       </div>
     );

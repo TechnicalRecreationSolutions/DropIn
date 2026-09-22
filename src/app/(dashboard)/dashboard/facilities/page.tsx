@@ -6,6 +6,7 @@ import { Plus, MapPin } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityGridCard from "@/components/facilities/FacilityGridCard";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -38,10 +39,7 @@ export default function FacilitiesPage() {
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-foreground">Facilities</h1>
-          <p className="text-muted-foreground mt-1">Physical locations where your schedules run.</p>
-        </div>
+        <PageHeader title="Facilities" info="Physical locations where your schedules run." />
         <Link
           href="/dashboard/facilities/new"
           className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"

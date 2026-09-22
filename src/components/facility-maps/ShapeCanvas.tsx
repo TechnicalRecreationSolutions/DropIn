@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Trash2, RotateCw, Copy } from "lucide-react";
+import { InfoTip } from "@/components/ui/info-tip";
 import FacilityMapSvg from "./renderer/FacilityMapSvg";
 import type { RenderShape, RenderContextElement } from "./renderer/types";
 import { armedLabel, armedSizeMeters, placementRect, type ArmedPlacement } from "./placement";
@@ -607,18 +608,21 @@ export default function ShapeCanvas({
             <div className="text-center px-6">
               <p className="text-sm font-semibold text-muted-foreground">Build your facility</p>
               <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
-                Pick a pool, court, or room under “Add shape”, then tap here to place it. Add zones
-                like &ldquo;Lobby&rdquo; and an entrance marker so visitors can orient themselves.
+                Pick a shape under “Add shape”, then tap here to place it.
               </p>
             </div>
           </div>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground/70 mt-2">
-        Click a shape to select it — drag to move, use the handles to rotate and resize, arrow keys
-        to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges.
-      </p>
+      <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground/70">
+        <InfoTip label="Editing tips" side="top">
+          Click a shape to select it. Drag to move, use the handles to rotate and resize, and arrow
+          keys to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges. Add zones
+          like &ldquo;Lobby&rdquo; and an entrance so visitors can find their way.
+        </InfoTip>
+        Editing tips
+      </div>
     </div>
   );
 }

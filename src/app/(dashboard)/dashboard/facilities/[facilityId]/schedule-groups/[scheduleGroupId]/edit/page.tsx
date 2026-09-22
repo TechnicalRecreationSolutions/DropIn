@@ -4,6 +4,7 @@ import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import ScheduleGroupForm from "@/components/schedule-group/ScheduleGroupForm";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface EditFacilityScheduleGroupPageProps {
   params: Promise<{ facilityId: string; scheduleGroupId: string }>;
@@ -45,8 +46,7 @@ export default async function EditFacilityScheduleGroupPage({ params }: EditFaci
         ]}
       />
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Edit schedule</h1>
-        <p className="text-muted-foreground mt-1">Update this schedule&apos;s details.</p>
+        <PageHeader title="Edit schedule" />
       </div>
       <ScheduleGroupForm
         facilityId={facilityId}

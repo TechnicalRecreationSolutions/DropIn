@@ -8,6 +8,7 @@ import type { User } from "@supabase/supabase-js";
 import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import { subtractExclusiveClaims } from "@/lib/schedule/residual";
+import { fetchOperatingHours } from "@/lib/schedule/operating-hours-query";
 
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
@@ -241,15 +242,34 @@ export async function GET(request: Request) {
     return NextResponse.json({ error: "Failed to fetch exceptions" }, { status: 500 });
   }
 
+  // Operating hours for every department represented in this result set
+  // (migration 058), so that sessions marked `follows_operating_hours`
+  // resolve their real per-occurrence times here rather than serving the
+  // stale dtstart/dtend_time snapshot. One query, after the session fetch,
+  // because only now is the department set known.
+  //
+  // Read through the caller's own RLS, like everything else on this route: an
+  // anonymous visitor sees hours only for published departments, which is the
+  // same boundary their sessions already sit behind.
+  const operatingHours = await fetchOperatingHours(
+    supabase,
+    sessions.map((s) => s.schedule_groups?.departments?.id)
+  );
+
   // Expand recurring rules into concrete occurrences
-  const expanded = expandSessions(sessions, exceptions ?? [], {
-    rangeStart,
-    rangeEnd,
-    orgId,
-    facilityId,
-    departmentId,
-    scheduleGroupId,
-  });
+  const expanded = expandSessions(
+    sessions,
+    exceptions ?? [],
+    {
+      rangeStart,
+      rangeEnd,
+      orgId,
+      facilityId,
+      departmentId,
+      scheduleGroupId,
+    },
+    operatingHours
+  );
 
   // Resolved once and shared by both passes below — each needs to know which
   // orgs the caller is inside, and asking twice would mean two membership
@@ -314,10 +334,23 @@ export async function GET(request: Request) {
             .lte("exception_date", rangeEnd.toISOString().split("T")[0])
         : { data: [] };
 
-      const rivalExpanded = expandSessions(rivalSessions, rivalExceptions ?? [], {
-        rangeStart,
-        rangeEnd,
-      });
+      // Rivals are exclusive claims that get subtracted out of the visible
+      // drop-in blocks, so their times have to be as true as the main set's —
+      // a rival following operating hours (058) that resolved to its stale
+      // snapshot would carve the wrong hole. Fetched separately because the
+      // rival query reaches across the whole facility and can surface
+      // departments the main set never touched.
+      const rivalHours = await fetchOperatingHours(
+        supabase,
+        rivalSessions.map((s) => s.schedule_groups?.departments?.id)
+      );
+
+      const rivalExpanded = expandSessions(
+        rivalSessions,
+        rivalExceptions ?? [],
+        { rangeStart, rangeEnd },
+        rivalHours
+      );
       // Rivals go through the same two passes as the main set, so an unapproved
       // week's program cannot cut a block for a patron who cannot see it, and a
       // reserved rental cuts under the name "Reserved" rather than its own.

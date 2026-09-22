@@ -1,34 +1,39 @@
 import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { getClaims } from "@/lib/auth/claims";
+import { can, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { formatDistanceToNow } from "date-fns";
 import {
   Building2,
-  Calendar,
   ArrowRight,
   Plus,
-  CheckCircle2,
-  AlertTriangle,
+  CalendarPlus,
   ClipboardList,
+  BarChart3,
 } from "lucide-react";
-import { Card } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { DashboardPageSkeleton as DashboardOverviewSkeleton } from "@/components/layout/DashboardChromeSkeletons";
 import { NO_DEPARTMENT, commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
-import { localDateString, daysAgoIso, formatDurationShort } from "@/lib/utils/dates";
+import { localDateString, daysAgoIso, formatDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import ScheduleListSection, {
   type ScheduleListRow,
 } from "@/components/schedule-list/ScheduleListSection";
-import { StatCard } from "@/components/dashboard/StatCard";
-import { AnalyticsTicker, type TickerStat } from "@/components/dashboard/analytics/AnalyticsTicker";
+import { StatTile } from "@/components/dashboard/StatCard";
+import { Sparkline } from "@/components/dashboard/Sparkline";
+import OverviewAlerts from "@/components/dashboard/OverviewAlerts";
+import RecentActivityPanel, { type RecentActivityEntry } from "@/components/dashboard/RecentActivityPanel";
+import TodayStrip from "@/components/dashboard/today/TodayStrip";
+import WeekTile from "@/components/dashboard/today/WeekTile";
+
 import { findOrgConflicts } from "@/lib/sessions/conflicts";
+import { fetchActivityScopeRows } from "@/lib/activity/queries";
 import { getAnalyticsSummary } from "@/lib/analytics/queries";
+import { rangeFromPreset } from "@/lib/analytics/range";
 import Streamed from "@/components/ui/streamed";
+import { PageHeader } from "@/components/ui/info-tip";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -41,6 +46,13 @@ import Streamed from "@/components/ui/streamed";
  * the org by name — so the whole body streams behind one boundary rather than
  * being split further. The boundary has to live inside this page: see the note
  * in dashboard/facilities/page.tsx.
+ *
+ * What this page is for, and why it is shaped this way, is written down in
+ * docs/prompts/overview-ux.md. The short version: a coordinator opens it for
+ * under a minute to answer "what is running, is anything broken, let me fix one
+ * thing". So the order on screen is today's schedule (a picture), then anything
+ * wrong (named, not counted), then the schedules themselves, and only then the
+ * numbers. Counts that could not be acted on were removed rather than restyled.
  */
 export const instant = true;
 
@@ -57,26 +69,6 @@ export default function DashboardPage({ searchParams }: DashboardPageProps) {
     </Suspense>
   );
 }
-
-type RecentFacility = {
-  id: string;
-  name: string;
-  is_published: boolean;
-  updated_at: string;
-  kind: "facility";
-};
-
-type RecentScheduleGroup = {
-  id: string;
-  name: string;
-  is_published: boolean;
-  updated_at: string;
-  facility_id: string;
-  department_id: string | null;
-  kind: "schedule_group";
-};
-
-type RecentItem = RecentFacility | RecentScheduleGroup;
 
 function scheduleGroupHref(sg: { facility_id: string; department_id: string | null; id: string }) {
   return commandCentreHref(scheduleGroupScope(sg));
@@ -114,10 +106,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
   //
   // `start()` is not decoration. A PostgREST builder is lazy — it holds the
   // query and only issues the request when something calls `.then()` on it, so
-  // assigning one to a const starts nothing. Without this, the four org-scoped
-  // reads below would not begin until the `Promise.allSettled` further down,
-  // which is *after* the facility list has been awaited: the code would read as
-  // parallel and run as a third sequential wave.
+  // assigning one to a const starts nothing. Without this, the org-scoped reads
+  // below would not begin until the `Promise.allSettled` further down, which is
+  // *after* the facility list has been awaited: the code would read as parallel
+  // and run as a third sequential wave.
   const start = <T,>(builder: PromiseLike<T>): Promise<T> => Promise.resolve(builder);
 
   const facilityListPromise = start(
@@ -130,42 +122,34 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       .order("name")
   );
 
-  const recentFacilitiesPromise = start(
-    supabase
-      .from("facilities")
-      .select("id, name, is_published, updated_at")
-      .eq("org_id", orgId)
-      .order("updated_at", { ascending: false })
-      .limit(6)
-  );
-
-  const recentScheduleGroupsPromise = start(
-    supabase
-      .from("schedule_groups")
-      .select("id, name, status, updated_at, facility_id, department_id")
-      .eq("org_id", orgId)
-      .order("updated_at", { ascending: false })
-      .limit(6)
-  );
-
-  // Raw rows, not a head count — the "Activity (30d)" stat card is scoped
-  // to the current facility/department/schedule filter in JS below.
-  // activity_log spans six tables (038_activity_log.sql) with no
-  // facility_id column of its own, so each row is matched against the id
-  // sets the facility/department/schedule-scoped queries below produce.
-  const activityLogPromise = start(
+  // Two separate activity reads, on purpose.
+  //
+  // The count is scoped to the current facility/department/schedule filter, and
+  // activity_log spans six tables (038_activity_log.sql) with no facility_id
+  // column of its own — so every row in the window has to be matched in JS
+  // against the id sets the scoped queries below produce. That read is paged
+  // (see lib/activity/queries.ts): a bare `.limit()` is silently capped at 1000
+  // by PostgREST, which is how the tile used to report a ceiling as a total.
+  //
+  // The panel, by contrast, needs six whole rows with their labels and actors.
+  // Asking the paged read for those columns would mean dragging `before`/`after`
+  // JSON across twenty thousand rows to render six lines.
+  const activityCountPromise = fetchActivityScopeRows(supabase, { orgId, sinceIso: thirtyDaysAgo });
+  const recentActivityPromise = start(
     supabase
       .from("activity_log")
-      .select("table_name, row_id")
+      .select("id, table_name, action, entity_label, actor_email, created_at")
       .eq("org_id", orgId)
-      .gte("created_at", thirtyDaysAgo)
-      .limit(5000)
+      .order("created_at", { ascending: false })
+      .limit(6)
   );
 
-  // Conflicts stat card (039_session_conflict_dismissals.sql) — computed
-  // on demand, not from a persisted count; see findOrgConflicts(). Also
-  // scoped to the current filter in JS below.
+  // Conflicts (039_session_conflict_dismissals.sql) — computed on demand, not
+  // from a persisted count; see findOrgConflicts(). Also scoped to the current
+  // filter in JS below.
   const conflictsPromise = findOrgConflicts(supabase, orgId);
+
+  const claimsPromise = getClaims();
 
   const { data: facilityRows } = await facilityListPromise;
 
@@ -174,28 +158,23 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
   const selectedFacility =
     facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null;
 
-  const [
-    scheduleGroupsRes,
-    recentFacilitiesRes,
-    recentScheduleGroupsRes,
-    activityLogRes,
-    conflictsRes,
-  ] = await Promise.allSettled([
-    selectedFacility
-      ? supabase
-          .from("schedule_groups")
-          .select(
-            "id, name, sport_category, status, starts_on, ends_on, updated_at, published_at, department_id, departments ( name )"
-          )
-          .eq("org_id", orgId)
-          .eq("facility_id", selectedFacility.id)
-          .order("display_order", { ascending: true })
-      : Promise.resolve({ data: null, error: null }),
-    recentFacilitiesPromise,
-    recentScheduleGroupsPromise,
-    activityLogPromise,
-    conflictsPromise,
-  ]);
+  const [scheduleGroupsRes, activityCountRes, recentActivityRes, conflictsRes, claimsRes] =
+    await Promise.allSettled([
+      selectedFacility
+        ? supabase
+            .from("schedule_groups")
+            .select(
+              "id, name, sport_category, status, starts_on, ends_on, updated_at, published_at, department_id, departments ( name )"
+            )
+            .eq("org_id", orgId)
+            .eq("facility_id", selectedFacility.id)
+            .order("display_order", { ascending: true })
+        : Promise.resolve({ data: null, error: null }),
+      activityCountPromise,
+      recentActivityPromise,
+      conflictsPromise,
+      claimsPromise,
+    ]);
 
   type ScheduleGroupRow = {
     id: string;
@@ -262,9 +241,10 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             .eq("facility_id", selectedFacility.id)
         : Promise.resolve({ data: [] as { id: string; department_id: string | null }[] }),
       // Org-wide, not scoped to the facility/department/schedule filter above
-      // — the ticker is a rotating org-level pulse, same spirit as the old
-      // "Widget views" card, and links through to the full breakdown.
-      getAnalyticsSummary(supabase, orgId, 30),
+      // — the views tile is an org-level pulse and links through to the full
+      // breakdown. `compare: false` skips the previous-period queries; the
+      // sparkline is drawn from `byDay`, which this call already computes.
+      getAnalyticsSummary(supabase, { orgId, range: rangeFromPreset("30d"), compare: false }),
     ]);
 
   const sessionCounts = new Map<string, number>();
@@ -272,9 +252,9 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     sessionCounts.set(s.schedule_group_id, (sessionCounts.get(s.schedule_group_id) ?? 0) + 1);
   }
 
-  // Id sets the "Activity (30d)" and "Conflicts" cards below match
-  // activity_log/findOrgConflicts rows against, so both follow the exact
-  // same facility/department/schedule scope as the rest of the page.
+  // Id sets the "Activity (30d)" tile and the conflict notice match their rows
+  // against, so both follow the exact same facility/department/schedule scope
+  // as the rest of the page.
   const visibleScheduleIdSet = new Set(scheduleIds);
   const visibleSessionIdSet = new Set((sessionRows ?? []).map((s) => s.id));
   const visibleSpaceIdSet = new Set(
@@ -319,29 +299,50 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     }
   }
 
-  const publishedCount = visibleScheduleGroupRows.filter((g) => g.status === "published").length;
-  const totalScheduleCount = visibleScheduleGroupRows.length;
-  const tickerStats: TickerStat[] = [
-    { label: "Widget views (30d)", value: String(analyticsSummary.views) },
-    { label: "Clicks (30d)", value: String(analyticsSummary.clicks) },
-    {
-      label: "Avg. time on schedule",
-      value: analyticsSummary.avgDurationMs !== null ? formatDurationShort(analyticsSummary.avgDurationMs) : "—",
-    },
-  ];
-  const activityCount =
-    activityLogRes.status === "fulfilled"
-      ? (activityLogRes.value.data ?? []).filter(matchesCurrentScope).length
-      : 0;
-  const conflictCount =
+  const permissions = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const canViewAnalytics = can(permissions, "analytics:view");
+  const canViewActivity = can(permissions, "activity:view");
+  // Asked as "is this role read-only" rather than can(…, "session:write"),
+  // for the same reason the command centre and the bottom nav ask it that way:
+  // both write permissions are department-scoped, and `can()` without a
+  // department answers **false** for a coordinator — which would hide the
+  // create buttons from the one role whose whole job is filling in schedules.
+  // The per-schedule answer belongs to the routes, which enforce it.
+  const canWriteSessions = !isReadOnly(orgContext.membership.role);
+  const canWriteSchedules = canWriteSessions;
+
+  const draftCount = visibleScheduleGroupRows.filter((g) => g.status === "draft").length;
+
+  const activityRows = activityCountRes.status === "fulfilled" ? activityCountRes.value : null;
+  const activityCount = activityRows ? activityRows.rows.filter(matchesCurrentScope).length : 0;
+  // A truncated read can only undercount, so the number is a floor and says so
+  // rather than passing itself off as a total.
+  const activityValue = `${activityCount}${activityRows?.truncated ? "+" : ""}`;
+
+  const scopedConflicts =
     conflictsRes.status === "fulfilled"
       ? conflictsRes.value.filter(
           (c) =>
             !c.dismissed &&
             (visibleScheduleIdSet.has(c.sessionA.scheduleGroupId) ||
               visibleScheduleIdSet.has(c.sessionB.scheduleGroupId))
-        ).length
-      : 0;
+        )
+      : [];
+  const firstConflict = scopedConflicts[0] ?? null;
+  // Named, not counted — see OverviewAlerts. The space is what makes it
+  // findable; the two schedule names are what make it recognisable.
+  const conflictSummary = firstConflict
+    ? `${firstConflict.sessionA.scheduleGroupName} × ${firstConflict.sessionB.scheduleGroupName}` +
+      (firstConflict.spaceNames.length > 0 ? ` in ${firstConflict.spaceNames[0]}` : "") +
+      ` · ${firstConflict.occurrenceTime}`
+    : null;
+
+  const recentActivity: RecentActivityEntry[] =
+    recentActivityRes.status === "fulfilled" && recentActivityRes.value.data
+      ? (recentActivityRes.value.data as unknown as RecentActivityEntry[])
+      : [];
+  const viewerEmail =
+    claimsRes.status === "fulfilled" ? (claimsRes.value?.email ?? null) : null;
 
   const today = localDateString();
   const scheduleListRows: ScheduleListRow[] = selectedFacility
@@ -376,75 +377,73 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       })
     : [];
 
-  const recentFacilities: RecentFacility[] =
-    recentFacilitiesRes.status === "fulfilled" && recentFacilitiesRes.value.data
-      ? recentFacilitiesRes.value.data.map((f) => ({
-          id: f.id,
-          name: f.name,
-          is_published: f.is_published,
-          updated_at: f.updated_at,
-          kind: "facility" as const,
-        }))
-      : [];
-  const recentScheduleGroups: RecentScheduleGroup[] =
-    recentScheduleGroupsRes.status === "fulfilled" && recentScheduleGroupsRes.value.data
-      ? recentScheduleGroupsRes.value.data.map((sg) => ({
-          id: sg.id,
-          name: sg.name,
-          is_published: sg.status === "published",
-          updated_at: sg.updated_at,
-          facility_id: sg.facility_id,
-          department_id: sg.department_id,
-          kind: "schedule_group" as const,
-        }))
-      : [];
-
-  const recentActivity: RecentItem[] = [...recentFacilities, ...recentScheduleGroups]
-    .sort((a, b) => new Date(b.updated_at).getTime() - new Date(a.updated_at).getTime())
-    .slice(0, 5);
-
-  function itemHref(item: RecentItem) {
-    return item.kind === "facility" ? commandCentreHref({ facilityId: item.id }) : scheduleGroupHref(item);
-  }
+  const newScheduleHref = selectedFacility
+    ? `/dashboard/facilities/${selectedFacility.id}/schedule-groups/new`
+    : "/dashboard/facilities";
+  const newSessionHref = "/dashboard/schedule/sessions/new";
 
   return (
-    <div className="max-w-5xl mx-auto space-y-8">
-      {/* Header */}
-      <div>
-        <h1 className="text-2xl font-bold text-foreground">
-          {isNew ? `Welcome back` : selectedFacility ? selectedFacility.name : orgContext.org.name}
-        </h1>
-        <p className="text-muted-foreground mt-1">
-          {isNew
-            ? "Get started by adding your first facility."
-            : selectedFacility
-              ? "Every schedule at this building, current and stored."
-              : "Here's what's happening across your organization."}
-        </p>
-      </div>
+    <div className="max-w-5xl mx-auto space-y-6">
+      {/* The date is not decoration: everything below it — the ribbon, "on
+          now", what counts as a draft — is relative to today, and a page that
+          never says which day it means is one left open overnight. */}
+      <PageHeader
+        title={isNew ? "Welcome" : selectedFacility ? selectedFacility.name : orgContext.org.name}
+        subtitle={<span className="text-sm">{formatDayFull(new Date())}</span>}
+        actions={
+          !isNew && (
+            <div className="flex items-center gap-2">
+              {canWriteSessions && (
+                <Link
+                  href={newSessionHref}
+                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
+                >
+                  <CalendarPlus className="size-4" aria-hidden />
+                  New session
+                </Link>
+              )}
+              {/* Hidden on a phone, where the title and one button already fill
+                  the row — and not lost there: ScheduleListSection carries its
+                  own "+ New schedule" above the table on every viewport. */}
+              {canWriteSchedules && selectedFacility && (
+                <Link
+                  href={newScheduleHref}
+                  className="hidden items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
+                >
+                  <Plus className="size-4" aria-hidden />
+                  New schedule
+                </Link>
+              )}
+            </div>
+          )
+        }
+      />
 
-      {/* Stat row — all four are real, and scoped to the current
-          facility/department/schedule filter, same as the list below. */}
-      {!isNew && (
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard
-            icon={CheckCircle2}
-            label="Published"
-            value={`${publishedCount}/${totalScheduleCount}`}
-          />
-          <AnalyticsTicker stats={tickerStats} />
-          <Link href="/dashboard/conflicts" className="block rounded-xl transition-opacity hover:opacity-80">
-            <StatCard icon={AlertTriangle} label="Conflicts" value={String(conflictCount)} />
-          </Link>
-          <Link href="/dashboard/activity" className="block rounded-xl transition-opacity hover:opacity-80">
-            <StatCard icon={ClipboardList} label="Activity (30d)" value={String(activityCount)} />
-          </Link>
-        </div>
+      {/* Anything wrong, named, before anything else. */}
+      {!isNew && selectedFacility && (
+        <OverviewAlerts
+          conflictCount={scopedConflicts.length}
+          conflictSummary={conflictSummary}
+          draftCount={draftCount}
+        />
+      )}
+
+      {/* The picture of today — the one thing on this page that shows the
+          product rather than an inventory of it. */}
+      {!isNew && selectedFacility && (
+        <TodayStrip
+          orgId={orgId}
+          facilityId={selectedFacility.id}
+          facilityName={selectedFacility.name}
+          departmentId={departmentRowId ?? undefined}
+          scheduleGroupId={scheduleParam}
+          newSessionHref={canWriteSessions ? newSessionHref : undefined}
+        />
       )}
 
       {/* Quick actions for new orgs */}
       {isNew && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6">
+        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 dark:bg-blue-500/10 dark:border-blue-500/20">
           <h2 className="font-semibold text-foreground mb-4">Get started in 3 steps</h2>
           <div className="space-y-3">
             {[
@@ -455,7 +454,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
               <Link
                 key={item.step}
                 href={item.href}
-                className="flex items-center gap-4 p-3 bg-card rounded-lg border border-blue-100 hover:border-blue-300 transition-colors group"
+                className="flex items-center gap-4 p-3 bg-card rounded-lg border border-blue-100 hover:border-blue-300 transition-colors group dark:border-blue-500/20"
               >
                 <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
                   {item.step}
@@ -471,13 +470,13 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
         </div>
       )}
 
-      {/* The schedule list — the primary reason to be on this page day to day */}
+      {/* The schedule list — what to open when today is not the question */}
       {!isNew && selectedFacility && (
         <ScheduleListSection
           orgId={orgId}
           facilityName={selectedFacility.name}
           rows={scheduleListRows}
-          newScheduleHref={`/dashboard/facilities/${selectedFacility.id}/schedule-groups/new`}
+          newScheduleHref={newScheduleHref}
           emptyMessage={
             departmentParam || scheduleParam
               ? "Nothing matches the selected filters."
@@ -486,38 +485,60 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
         />
       )}
 
-      {/* Recent activity — a compact secondary panel. Facility-level changes
-          (e.g. a new building added) show up here even though the schedule
-          list above only ever covers one building at a time. */}
-      {!isNew && recentActivity.length > 0 && (
-        <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">Recent activity</h2>
-          {/* gap-0: Card is a flex column with gap-(--card-spacing); py-0 clears
-              the padding but not the gap, which would leave uneven whitespace
-              stacked above each divider. */}
-          <Card className="divide-y divide-border py-0 gap-0">
-            {recentActivity.map((item) => {
-              const Icon = item.kind === "facility" ? Building2 : Calendar;
-              return (
-                <Link
-                  key={`${item.kind}_${item.id}`}
-                  href={itemHref(item)}
-                  className="flex items-center gap-3 px-5 py-3 hover:bg-muted transition-colors"
-                >
-                  <Icon className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-                  <span className="min-w-0 text-sm font-medium text-foreground truncate">{item.name}</span>
-                  <Badge variant={item.is_published ? "default" : "secondary"} className="shrink-0">
-                    {item.is_published ? "Published" : "Draft"}
-                  </Badge>
-                  <span className="text-xs text-muted-foreground/70 shrink-0 hidden sm:inline">
-                    {formatDistanceToNow(new Date(item.updated_at), { addSuffix: true })}
-                  </span>
-                  <ArrowRight className="w-4 h-4 text-muted-foreground/70 ml-auto shrink-0" />
-                </Link>
-              );
-            })}
-          </Card>
+      {/* Numbers last, and only the ones that lead somewhere that can explain
+          them. The "Published 4/6" tile that used to sit at the top of the page
+          is gone: it restated the Status column below it, and what it was
+          really reporting — drafts patrons cannot see — is now a sentence in
+          the alert row, where it names the count instead of a ratio. */}
+      {/* The columns follow the tiles, not the other way round: the views tile
+          is twice the width of the other two because it carries a 30-day
+          sparkline, and when a role cannot see it the remaining pair should
+          fill the row rather than sit in two thirds of it. */}
+      {!isNew && selectedFacility && (
+        <div className={`grid grid-cols-2 gap-3 ${canViewAnalytics ? "sm:grid-cols-4" : "sm:grid-cols-2"}`}>
+          {canViewAnalytics && (
+            <StatTile
+              className="col-span-2"
+              icon={BarChart3}
+              label="Schedule views (30d)"
+              value={String(analyticsSummary.views)}
+              hint={`${analyticsSummary.visitors} visitors · ${analyticsSummary.clicks} session clicks`}
+              href="/dashboard/analytics"
+              visual={
+                analyticsSummary.byDay.length >= 2 ? (
+                  <Sparkline
+                    values={analyticsSummary.byDay.map((d) => d.views)}
+                    label="Schedule views"
+                    className="h-7 w-full"
+                  />
+                ) : undefined
+              }
+            />
+          )}
+          {/* The one tile that looks forward rather than back, and the only one
+              whose link lands on exactly what it describes — the command centre
+              opens on this week. Ungated: anyone who can open this page can
+              open the schedule. */}
+          <WeekTile
+            orgId={orgId}
+            facilityId={selectedFacility.id}
+            departmentId={departmentRowId ?? undefined}
+            scheduleGroupId={scheduleParam}
+          />
+          {canViewActivity && (
+            <StatTile
+              icon={ClipboardList}
+              label="Changes (30d)"
+              value={activityValue}
+              href="/dashboard/activity"
+            />
+          )}
         </div>
+      )}
+
+      {/* What changed, as changes — not a second copy of the list above. */}
+      {!isNew && canViewActivity && (
+        <RecentActivityPanel entries={recentActivity} viewerEmail={viewerEmail} />
       )}
 
       {!isNew && !selectedFacility && (

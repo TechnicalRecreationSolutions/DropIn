@@ -1,9 +1,11 @@
 import type { createClient } from "@/lib/supabase/server";
 import { expandOccurrenceTimes } from "@/lib/rrule/expand";
 import { claimsCanCollide, type OccupancyKind } from "@/lib/sessions/occupancy";
+import { fetchOperatingHours } from "@/lib/schedule/operating-hours-query";
+import type { OperatingHoursByDepartment } from "@/lib/schedule/operating-hours";
 import type { SessionException } from "@/types/schedule.types";
 
-type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
+export type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 
 /** One side of an org-wide conflict — enough to show it and to resubmit the
  *  session through POST /api/sessions if the manager reassigns its space. */
@@ -78,6 +80,32 @@ export interface SessionConflictCandidate {
   /** Defaults to 'drop_in' (the column default, migration 046) when a caller
    *  predating occupancy kinds doesn't supply one. */
   occupancyKind?: OccupancyKind;
+  /** Migration 058. When true, the candidate's real occurrence times come
+   *  from `departmentId`'s operating hours, not from dtstart/dtend_time —
+   *  and this check must use the real ones, or a following session would be
+   *  compared against a snapshot and either miss a genuine double-booking or
+   *  invent one that does not exist. */
+  followsOperatingHours?: boolean;
+  /** The candidate's schedule group's department. Only needed to resolve the
+   *  hours above; null is fine and simply means it cannot follow any. */
+  departmentId?: string | null;
+}
+
+/** Shape of findSessionConflict()'s one nested select. `schedule_groups` is
+ *  nullable for the usual PostgREST reason (see expand.ts) as well as a real
+ *  one — a schedule group need not belong to a department at all, and such a
+ *  session can never follow operating hours. */
+interface OtherSessionRow {
+  id: string;
+  schedule_group_id: string;
+  rrule: string;
+  dtstart: string;
+  dtend_time: string;
+  valid_from: string;
+  valid_until: string | null;
+  occupancy_kind: OccupancyKind;
+  follows_operating_hours: boolean;
+  schedule_groups: { department_id: string | null } | null;
 }
 
 /**
@@ -118,12 +146,21 @@ export async function findSessionConflict(
 
   const candidateKind: OccupancyKind = candidate.occupancyKind ?? "drop_in";
 
-  const { data: allOtherSessions } = await supabase
+  const { data: otherRows } = await supabase
     .from("sessions")
-    .select("id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind")
+    .select(
+      `id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until,
+       occupancy_kind, follows_operating_hours,
+       schedule_groups ( department_id )`
+    )
     .in("id", otherSessionIds)
     .eq("is_active", true);
-  if (!allOtherSessions || allOtherSessions.length === 0) return null;
+
+  // Cast once, same pattern as OrgSessionRow below: the generated Database
+  // types don't model PostgREST embeds, so the nested shape is described
+  // explicitly rather than inferred.
+  const allOtherSessions = (otherRows ?? []) as unknown as OtherSessionRow[];
+  if (allOtherSessions.length === 0) return null;
 
   // Drop the pairings that cannot collide before doing any RRULE expansion —
   // cheaper than expanding both sides and discarding the result, and it keeps
@@ -144,6 +181,19 @@ export async function findSessionConflict(
     .from("session_exceptions")
     .select("*")
     .in("session_id", allSessionIds);
+
+  // One query for every department on either side of any pairing (058).
+  // Fetched even when nothing follows hours — the map is then empty and each
+  // expansion takes the fixed-time path, which costs one round trip against
+  // a `.in()` over a handful of ids and keeps this free of a special case.
+  const operatingHours = await fetchOperatingHours(supabase, [
+    candidate.departmentId,
+    ...otherSessions.map((s) => s.schedule_groups?.department_id),
+  ]);
+
+  const candidateHours = candidate.departmentId
+    ? operatingHours.get(candidate.departmentId)
+    : undefined;
 
   const horizon = new Date();
   horizon.setFullYear(horizon.getFullYear() + MAX_LOOKAHEAD_YEARS);
@@ -171,13 +221,22 @@ export async function findSessionConflict(
         dtend_time: candidate.dtend_time,
         valid_from: candidate.valid_from,
         valid_until: candidate.valid_until,
+        follows_operating_hours: candidate.followsOperatingHours === true,
       },
       exceptions ?? [],
-      { rangeStart, rangeEnd }
+      { rangeStart, rangeEnd },
+      candidateHours
     );
     if (candidateOccurrences.length === 0) continue;
 
-    const otherOccurrences = expandOccurrenceTimes(other, exceptions ?? [], { rangeStart, rangeEnd });
+    const otherOccurrences = expandOccurrenceTimes(
+      other,
+      exceptions ?? [],
+      { rangeStart, rangeEnd },
+      other.schedule_groups?.department_id
+        ? operatingHours.get(other.schedule_groups.department_id)
+        : undefined
+    );
     if (otherOccurrences.length === 0) continue;
 
     for (const c of candidateOccurrences) {
@@ -221,6 +280,9 @@ interface OrgSessionRow {
   dtend_time: string;
   valid_from: string;
   valid_until: string | null;
+  /** Migration 058 — see firstOverlapStart, which cannot compare these
+   *  sessions honestly without it. */
+  follows_operating_hours: boolean;
   schedule_groups: {
     id: string;
     name: string;
@@ -275,7 +337,11 @@ function firstOverlapStart(
   b: OrgSessionRow,
   exceptions: SessionException[],
   today: Date,
-  horizon: Date
+  horizon: Date,
+  /** Migration 058. Each side resolves through its OWN department's hours —
+   *  two sessions sharing a space can sit in different departments, and
+   *  handing both the same week would fabricate overlaps. */
+  operatingHours: OperatingHoursByDepartment
 ): Date | null {
   const aFrom = new Date(a.valid_from + "T00:00:00Z");
   const aTo = a.valid_until ? new Date(a.valid_until + "T23:59:59Z") : horizon;
@@ -286,9 +352,14 @@ function firstOverlapStart(
   const rangeEnd = aTo < bTo ? aTo : bTo;
   if (rangeStart > rangeEnd) return null;
 
-  const aOcc = expandOccurrenceTimes(a, exceptions, { rangeStart, rangeEnd });
+  const hoursFor = (s: OrgSessionRow) =>
+    s.schedule_groups?.department_id
+      ? operatingHours.get(s.schedule_groups.department_id)
+      : undefined;
+
+  const aOcc = expandOccurrenceTimes(a, exceptions, { rangeStart, rangeEnd }, hoursFor(a));
   if (aOcc.length === 0) return null;
-  const bOcc = expandOccurrenceTimes(b, exceptions, { rangeStart, rangeEnd });
+  const bOcc = expandOccurrenceTimes(b, exceptions, { rangeStart, rangeEnd }, hoursFor(b));
   if (bOcc.length === 0) return null;
 
   for (const oa of aOcc) {
@@ -339,6 +410,7 @@ export async function findOrgConflicts(
     .from("sessions")
     .select(
       `id, rrule, dtstart, dtend_time, valid_from, valid_until, occupancy_kind, disclosure,
+       follows_operating_hours,
        schedule_groups!inner ( id, name, status, facility_id, department_id ),
        session_spaces ( space_id, spaces ( id, name ) )`
     )
@@ -355,6 +427,14 @@ export async function findOrgConflicts(
     .select("*")
     .in("session_id", sessions.map((s) => s.id));
   const exceptions = exceptionRows ?? [];
+
+  // One query for the whole scan (058), not one per pair — this function
+  // already compares every pair of sessions sharing a space, and a fetch
+  // inside that loop would be quadratic.
+  const operatingHours = await fetchOperatingHours(
+    supabase,
+    sessions.map((s) => s.schedule_groups?.department_id)
+  );
 
   // Bucket sessions by shared space — only sessions that could possibly
   // collide (same space) are ever compared against each other.
@@ -401,7 +481,7 @@ export async function findOrgConflicts(
           continue;
         }
 
-        const overlapStart = firstOverlapStart(a, b, exceptions, today, horizon);
+        const overlapStart = firstOverlapStart(a, b, exceptions, today, horizon, operatingHours);
         if (!overlapStart) continue;
 
         conflictsByPair.set(pairKey, {

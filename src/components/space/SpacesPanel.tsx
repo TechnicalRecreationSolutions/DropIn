@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { MapPin, Plus } from "lucide-react";
+import { InfoTip } from "@/components/ui/info-tip";
 import type { CommandSpace } from "@/components/schedule-command/types";
 import SpaceSections from "./SpaceSections";
 
@@ -27,11 +28,14 @@ interface SpacesPanelProps {
 export default function SpacesPanel({ facility, departments }: SpacesPanelProps) {
   return (
     <div className="space-y-4">
-      <div className="flex items-start justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
-          Bookable locations in {facility.name} that sessions can be placed into. Their order here
-          is the order they appear in when building a session.
-        </p>
+      <div className="flex items-center justify-between gap-3">
+        <div className="flex items-center gap-1.5 min-w-0">
+          <h2 className="text-sm font-medium text-foreground truncate">{facility.name}</h2>
+          <InfoTip>
+            Drag a space by its handle, or use the arrows, to reorder it within its zone. The order
+            here is the order spaces appear in when building a session.
+          </InfoTip>
+        </div>
         <Link
           href={`/dashboard/facilities/${facility.id}/spaces/new`}
           className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
@@ -60,8 +64,7 @@ function EmptyState({ facilityId }: { facilityId: string }) {
       <MapPin className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
       <h3 className="font-medium text-foreground mb-1">No spaces yet</h3>
       <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-        Add a space (e.g. &quot;Lane 3&quot;, &quot;Court A&quot;) to give sessions a specific
-        location — the Map view and floorplan both build on these.
+        Add spaces such as &quot;Lane 3&quot; or &quot;Court A&quot; to give sessions a location.
       </p>
       <Link
         href={`/dashboard/facilities/${facilityId}/spaces/new`}

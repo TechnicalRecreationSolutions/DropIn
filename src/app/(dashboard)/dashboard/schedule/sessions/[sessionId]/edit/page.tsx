@@ -3,6 +3,8 @@ import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import SessionForm from "@/components/schedule-editor/SessionForm";
+import { fetchOperatingHoursRecord } from "@/lib/schedule/operating-hours-query";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface EditSessionPageProps {
   params: Promise<{ sessionId: string }>;
@@ -18,7 +20,7 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
   const { data: session } = await supabase
     .from("sessions")
     .select(
-      "id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail, occupancy_kind, disclosure"
+      "id, schedule_group_id, rrule, dtstart, dtend_time, valid_from, valid_until, location_detail, occupancy_kind, disclosure, follows_operating_hours"
     )
     .eq("id", sessionId)
     .eq("org_id", orgContext.org.id)
@@ -81,13 +83,19 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
   const startTime = `${String(dtstart.getUTCHours()).padStart(2, "0")}:${String(dtstart.getUTCMinutes()).padStart(2, "0")}`;
   const endTime = session.dtend_time.slice(0, 5);
 
+  // Only this session's own department: unlike the create page, the schedule
+  // picker is fixed when editing, so there is nowhere else to switch to.
+  const operatingHours = await fetchOperatingHoursRecord(supabase, [
+    scheduleGroup.department_id,
+  ]);
+
   return (
     <div className="max-w-2xl mx-auto space-y-6">
       <div>
-        <h1 className="text-2xl font-bold text-foreground">Edit session</h1>
-        <p className="text-muted-foreground mt-1">
-          {scheduleGroup.name} at {scheduleGroup.facilities?.name ?? "Unknown facility"}
-        </p>
+        <PageHeader
+          title="Edit session"
+          subtitle={`${scheduleGroup.name} · ${scheduleGroup.facilities?.name ?? "Unknown facility"}`}
+        />
       </div>
       <SessionForm
         orgId={orgContext.org.id}
@@ -112,11 +120,13 @@ export default async function EditSessionPage({ params }: EditSessionPageProps) 
         }]}
         defaultScheduleGroupId={scheduleGroup.id}
         spaces={spaces ?? []}
+        operatingHours={operatingHours}
         sessionId={session.id}
         initialValues={{
           rrule: session.rrule,
           startTime,
           endTime,
+          followsOperatingHours: session.follows_operating_hours,
           validFrom: session.valid_from,
           validUntil: session.valid_until ?? "",
           spaceIds,

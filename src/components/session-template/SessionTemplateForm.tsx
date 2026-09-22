@@ -4,6 +4,7 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import StepCard from "@/components/ui/step-card";
+import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
 import SessionTags from "@/components/schedule/SessionTags";
 import {
   OCCUPANCY_KINDS,
@@ -161,6 +162,32 @@ export default function SessionTemplateForm({
   // render — an inline arrow here would refetch the vocabulary in a loop.
   const handleVocabulary = useCallback((tags: TagOption[]) => setVocabulary(tags), []);
 
+  /**
+   * Put every field back to what this form opened with.
+   *
+   * `cacheComponents` hides a route segment on navigation instead of
+   * unmounting it, and reuses the same instance next time, so nothing here
+   * resets on its own — see the full note in components/space/SpaceForm.tsx.
+   * Spelled out field by field rather than derived, because the state is a
+   * dozen separate `useState` calls and a partial reset is the failure mode
+   * worth guarding against.
+   */
+  function resetToDefaults() {
+    setName(defaultValues?.name ?? "");
+    setColor(defaultValues?.color ?? PRESET_COLORS[0]);
+    setDurationMinutes(
+      defaultValues?.default_duration_minutes != null
+        ? String(defaultValues.default_duration_minutes)
+        : "60"
+    );
+    setDefaultSpaceIds(defaultValues?.default_space_ids ?? []);
+    setOccupancyKind(defaultValues?.occupancy_kind ?? "drop_in");
+    setDisclosure(defaultValues?.disclosure ?? "public");
+    setDescription(defaultValues?.description ?? "");
+    setTagIds(defaultValues?.tag_ids ?? []);
+    setLinks(defaultValues?.links ?? []);
+  }
+
   const duration = Number(durationMinutes);
   const durationValid = Number.isInteger(duration) && duration > 0;
 
@@ -251,6 +278,13 @@ export default function SessionTemplateForm({
       return;
     }
 
+    // This component outlives the page it was opened from — without the
+    // reset the next "New template" opens holding the one just saved and
+    // stuck on "Saving…". See resetToDefaults above.
+    setLoading(false);
+    setError(null);
+    if (!isEditing) resetToDefaults();
+
     router.push(redirectTo);
     router.refresh();
   }
@@ -269,8 +303,8 @@ export default function SessionTemplateForm({
     <form onSubmit={handleSubmit} className="space-y-4 pb-24">
       <StepCard
         step={1}
-        title="What it is"
-        description="The name staff scan for on the grid, and the colour it carries."
+        title="Name and colour"
+        description="How this activity appears on the grid."
         meta={name.trim() ? <StepSummary>{name.trim()}</StepSummary> : undefined}
       >
         <div>
@@ -323,8 +357,8 @@ export default function SessionTemplateForm({
 
       <StepCard
         step={2}
-        title="What gets pre-filled"
-        description="Starting values when you drag this onto a schedule. The session owns them from then on — changing them here never touches a session that already exists."
+        title="Defaults"
+        description="Starting values when you place this on a schedule. Changing them later doesn't affect sessions already placed."
         meta={
           <StepSummary>
             {formatDuration(duration)} · {spacesSummary} · {occupancyLabel}
@@ -369,7 +403,10 @@ export default function SessionTemplateForm({
 
         <div>
           <div className="flex items-center justify-between gap-2 mb-1">
-            <p className={cn(labelClass, "mb-0")}>Usual spaces</p>
+            <div className="flex items-center gap-1.5">
+              <p className={cn(labelClass, "mb-0")}>Usual spaces</p>
+              <InfoTip>Every space this activity usually uses at once, e.g. all four lanes for Lap Swim.</InfoTip>
+            </div>
             {/* Lap swim occupies every lane. Selecting eight of them one at a
                 time was the single slowest interaction on this form. */}
             {spaces.length > 1 && (
@@ -406,10 +443,6 @@ export default function SessionTemplateForm({
                   );
                 })}
               </div>
-              <p className="text-xs text-muted-foreground mt-1">
-                Every space this activity usually occupies at once — e.g. all four lanes for Lap
-                Swim.
-              </p>
             </>
           )}
         </div>
@@ -457,7 +490,7 @@ export default function SessionTemplateForm({
 
       <StepCard
         step={3}
-        title="What patrons see"
+        title="Public details"
         description="Optional. Shown on the public schedule and when a visitor taps this session."
         meta={
           <StepSummary>{publicBits.length ? publicBits.join(" · ") : "Nothing added"}</StepSummary>
@@ -485,14 +518,13 @@ export default function SessionTemplateForm({
           </div>
           {selectedTags.length > 2 && (
             <p className="text-xs text-muted-foreground mt-1">
-              The other {selectedTags.length - 2} tag
-              {selectedTags.length - 2 === 1 ? "" : "s"} appear when a visitor taps the session.
+              +{selectedTags.length - 2} more tag{selectedTags.length - 2 === 1 ? "" : "s"} in the session details.
             </p>
           )}
         </div>
 
         <div>
-          <label htmlFor="description" className={labelClass}>Description</label>
+          <LabelWithInfo htmlFor="description" className={labelClass} info="Plain text. Line breaks are kept, formatting is not.">Description</LabelWithInfo>
           <textarea
             id="description"
             value={description}
@@ -502,9 +534,6 @@ export default function SessionTemplateForm({
             className={fieldClass}
             placeholder="Lanes are set for continuous swimming. Please self-select a lane by speed."
           />
-          <p className="text-xs text-muted-foreground mt-1">
-            Plain text — line breaks are kept, formatting is not.
-          </p>
         </div>
 
         <TagPicker

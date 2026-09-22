@@ -3,6 +3,7 @@ import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import SessionTemplateForm from "@/components/session-template/SessionTemplateForm";
+import { PageHeader } from "@/components/ui/info-tip";
 
 interface EditSessionTemplatePageProps {
   params: Promise<{ templateId: string }>;
@@ -72,11 +73,7 @@ export default async function EditSessionTemplatePage({ params }: EditSessionTem
   return (
     <div className="max-w-2xl mx-auto">
       <div className="mb-6">
-        <h1 className="text-2xl font-bold text-foreground">Edit session template</h1>
-        <p className="text-muted-foreground mt-1">
-          Changes apply going forward — sessions already placed from this template keep their own
-          settings.
-        </p>
+        <PageHeader title="Edit session template" info="Changes apply going forward. Sessions already placed from this template keep their own settings." />
       </div>
 
       <SessionTemplateForm

@@ -2,6 +2,7 @@
 
 import { Printer } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { InfoTip } from "@/components/ui/info-tip";
 
 interface PrintToggleProps {
   value: boolean;
@@ -27,13 +28,17 @@ export default function PrintToggle({ value, onChange, disabled, unavailable }: 
         <Printer className="w-4 h-4" />
       </span>
       <div className="min-w-0 flex-1">
-        <span id="widget-allow-print-label" className="block text-sm font-medium text-foreground">
-          Print button
-        </span>
+        <div className="flex items-center gap-1.5">
+          <span id="widget-allow-print-label" className="text-sm font-medium text-foreground">
+            Print button
+          </span>
+          <InfoTip>
+            Every printout says the schedule is subject to change, shows when it was printed, and
+            notes when filters have left sessions out.
+          </InfoTip>
+        </div>
         <p className="text-xs text-muted-foreground leading-snug">
-          Visitors can print the week they&rsquo;re looking at, with their filters applied. Every
-          printout says the schedule is subject to change, shows when it was printed, and
-          notes when filters have left sessions out.
+          Visitors can print the week they&rsquo;re viewing.
         </p>
         {unavailable && (
           <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
