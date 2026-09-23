@@ -23,15 +23,17 @@ historical records of finished work, not live handoffs — see
 
 ## Where the branch is
 
-**Right now (2026-09-23): the branch is `feat/facility-status-attendance`, and
-nothing on it is committed.** Migrations 060 and 061 are applied to the live
-database, so `main` — which is deployed — is running against a schema that has
-two tables and three columns its code does not know about. That is harmless
-(every default reproduces the old behaviour) but it is the state to be aware of
-before deploying anything else.
+**Right now: `main` is `1007d60` and pushed.** The facility status, head count
+and Analytics section work is one commit on it, fast-forwarded from
+`feat/facility-status-attendance`. Migrations 060 and 061 are applied, so the
+schema and the code agree. Vercel auto-deploys from `main`, so this is live.
 
-The rest of this section describes the 2026-09-21 push, which is what `main`
-still holds.
+**Nothing publishes itself.** Every new setting ships off:
+`aux_can_post_notices` false, `public_headcount` 'hidden', `public_conditions`
+false, and a notice must be explicitly published. A facility that never opens
+the new settings looks exactly as it did.
+
+The rest of this section describes the 2026-09-21 push that preceded it.
 
 Everything below that was uncommitted landed in **one commit, `de89572`**, on
 the branch `feat/pending-2026-09-21`, fast-forwarded into **`main`** and
@@ -49,11 +51,11 @@ boundaries that do not build. The commit message enumerates what is in it.
 
 ---
 
-## Facility status, head counts and the Analytics section — 2026-09-23
+## Facility status, head counts and the Analytics section — 2026-09-23, DEPLOYED
 
-**Migrations 060 and 061 are APPLIED.** Everything below is on the branch
-`feat/facility-status-attendance` and is **not committed**. `tsc`,
-`eslint src` and `NEXT_DIST_DIR=.next-verify next build` are clean.
+**Migrations 060 and 061 are APPLIED**, and the work is **committed, merged
+into `main` and pushed** (`1007d60`). `tsc`, `eslint src` and
+`NEXT_DIST_DIR=.next-verify next build` are clean.
 
 ```
 verify-az   45/45   facility status notices (060)
