@@ -27,10 +27,20 @@ historical records of finished work, not live handoffs — see
 
 ## Where the branch is
 
-**Right now: `main` is `1007d60` and pushed.** The facility status, head count
-and Analytics section work is one commit on it, fast-forwarded from
-`feat/facility-status-attendance`. Migrations 060 and 061 are applied, so the
-schema and the code agree. Vercel auto-deploys from `main`, so this is live.
+**Right now: `main` is `97de0b2` and pushed.** The Settings section is one
+commit on it, fast-forwarded from `feat/settings-section`. Vercel auto-deploys
+from `main`, so this is live — **and `main` is one migration ahead of the
+database.** 062 is in the repo and not in Postgres, so the schema and the code
+do NOT agree until you apply it; the box below says exactly what that costs.
+
+Four files in the working tree belong to a concurrent session and were left
+out of that commit on purpose: `DashboardBottomNav.tsx`,
+`DashboardChromeSkeletons.tsx`, `SessionTemplateForm.tsx` and
+`WidgetStudio.tsx`. They are still uncommitted.
+
+Before it: `1007d60`, the facility status, head count and Analytics section
+work, fast-forwarded from `feat/facility-status-attendance`. Migrations 060
+and 061 are applied.
 
 **Nothing publishes itself.** Every new setting ships off:
 `aux_can_post_notices` false, `public_headcount` 'hidden', `public_conditions`
@@ -55,7 +65,7 @@ boundaries that do not build. The commit message enumerates what is in it.
 
 ---
 
-## The Settings section — 2026-09-22, MIGRATION 062 NOT YET APPLIED
+## The Settings section — 2026-09-22, DEPLOYED, MIGRATION 062 NOT YET APPLIED
 
 **`/dashboard/settings` is a section now, not a page.** Nine routes under one
 heading, one rail, and one list (`src/lib/settings/nav.ts`) that both the rail
@@ -81,10 +91,12 @@ by reading, not by running.** Nothing in this repo can apply it — there is no
 `supabase/config.toml` link and no database password in `.env.local` — so it
 needs pasting into the Supabase SQL editor, as with every migration before it.
 
-Until it is applied, **the Delete-organization button on
-`/dashboard/settings/danger` returns an error** ("Could not find the
-function"). Nothing else in the section depends on it; the other eight pages
-are complete.
+Until it is applied — **and this is true in production right now, because the
+code is deployed and the function is not** — the Delete-organization button on
+`/dashboard/settings/danger` returns an error ("Could not find the function").
+It is Owner-only, behind a two-step reveal and a typed organization name, so
+the blast radius is one person seeing one error. Nothing else in the section
+depends on it; the other eight pages are complete and live.
 
 After applying it, re-run and expect the two skips to become ~18 more passes:
 
