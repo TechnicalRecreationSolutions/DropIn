@@ -7,6 +7,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import FacilityGridCard from "@/components/facilities/FacilityGridCard";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
+import { SEVERITY_RANK } from "@/lib/status/notices";
+import type { NoticeSeverity } from "@/types/app.types";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -64,13 +66,37 @@ async function FacilitiesGrid() {
 
   const supabase = await createClient();
   // Relational select — cast needed until Supabase CLI generates types with FK relations
-  const { data: facilities } = await supabase
-    .from("facilities")
-    .select(
-      "id, slug, name, city, province, is_published, photo_urls, departments(id), schedule_groups(id)"
-    )
-    .eq("org_id", orgContext.org.id)
-    .order("created_at", { ascending: false }) as unknown as { data: FacilityRow[] | null };
+  const now = new Date().toISOString();
+  const [{ data: facilities }, { data: notices }] = await Promise.all([
+    supabase
+      .from("facilities")
+      .select(
+        "id, slug, name, city, province, is_published, photo_urls, departments(id), schedule_groups(id)"
+      )
+      .eq("org_id", orgContext.org.id)
+      .order("created_at", { ascending: false }) as unknown as Promise<{ data: FacilityRow[] | null }>,
+    // ONE query for the whole org's live notices rather than a count per card
+    // — the same shape the department counts use, and for the same reason: a
+    // per-card query is N round trips to render a row that is usually empty.
+    supabase
+      .from("facility_notices")
+      .select("facility_id, severity")
+      .eq("org_id", orgContext.org.id)
+      .eq("is_published", true)
+      .lte("starts_at", now)
+      .or(`ends_at.is.null,ends_at.gt.${now}`),
+  ]);
+
+  const liveByFacility = new Map<string, { count: number; worst: NoticeSeverity }>();
+  for (const n of (notices ?? []) as { facility_id: string; severity: NoticeSeverity }[]) {
+    const current = liveByFacility.get(n.facility_id);
+    if (!current) {
+      liveByFacility.set(n.facility_id, { count: 1, worst: n.severity });
+    } else {
+      current.count += 1;
+      if (SEVERITY_RANK[n.severity] < SEVERITY_RANK[current.worst]) current.worst = n.severity;
+    }
+  }
 
   const gridFacilities = (facilities ?? []).map((f) => ({
     id: f.id,
@@ -81,6 +107,8 @@ async function FacilitiesGrid() {
     photo_urls: f.photo_urls,
     department_count: f.departments.length,
     schedule_count: f.schedule_groups.length,
+    live_notice_count: liveByFacility.get(f.id)?.count ?? 0,
+    worst_notice_severity: liveByFacility.get(f.id)?.worst ?? null,
   }));
 
   if (gridFacilities.length === 0) {

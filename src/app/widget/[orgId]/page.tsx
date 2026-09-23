@@ -3,6 +3,9 @@ import { createClient } from "@/lib/supabase/server";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import OrgImage from "@/components/media/OrgImage";
 import { DEFAULT_ENABLED_FILTERS, parseEnabledFilters } from "@/lib/schedule/sessionFilters";
+import NoticeBanner from "@/components/status/NoticeBanner";
+import { getPublicNotices } from "@/lib/status/public-notices";
+import FacilityConditions from "@/components/conditions/FacilityConditions";
 import WidgetScheduleClient from "./WidgetScheduleClient";
 
 /**
@@ -273,6 +276,21 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // text on the dark widget.
   const isDark = theme === "dark";
 
+  // Facility status, above the schedule (migration 060).
+  //
+  // Only when the embed resolves to ONE building — named by the snippet, or
+  // inferred for a one-building org. `dataFacility` is already exactly that
+  // question, asked for the floorplan. An embed spanning several buildings has
+  // no single facility to speak for, and stacking every building's notices
+  // above a schedule the visitor has not yet narrowed would bury the one that
+  // applies to them.
+  //
+  // The visitor can then narrow further with the scope switcher, which is
+  // client-side and does not re-run this. That is a known limit rather than an
+  // oversight: the notices shown are the building's, and a per-space notice
+  // names its space in its own metadata line.
+  const notices = dataFacility ? await getPublicNotices(dataFacility.id) : [];
+
   return (
     <div className={`min-h-screen p-3 sm:p-4 print:min-h-0 print:p-0 print:bg-white ${isDark ? "bg-gray-900 text-white" : "bg-white text-gray-900"}`}>
       <OrgThemeProvider primaryColor={primaryColor}>
@@ -304,6 +322,23 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
             dropin.app ↗
           </a>
         </div>
+
+        {/* Not print:hidden — a widget printed from a host page is a schedule
+            someone is about to act on. Compact, because an embed is routinely
+            320px wide. `variant` is explicit: the iframe has no .dark class,
+            so dark: utilities never fire here (see NoticeBanner's header). */}
+        <NoticeBanner notices={notices} variant={isDark ? "dark" : "light"} compact />
+
+        {/* Same one-building rule as the notices above: an embed spanning
+            several has no single facility whose water temperature this is. */}
+        {dataFacility && (
+          <div className="print:hidden">
+            <FacilityConditions
+              facilityId={dataFacility.id}
+              variant={isDark ? "dark" : "light"}
+            />
+          </div>
+        )}
 
         <WidgetScheduleClient
           orgId={org.id}

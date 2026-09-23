@@ -36,19 +36,34 @@ function formatHour(hour: number): string {
 }
 
 interface ActivityHeatmapProps {
-  /** 7 rows of 24 view counts, Sunday first. */
+  /** 7 rows of 24 values, Sunday first. */
   heatmap: number[][];
   busiest: { weekday: number; hour: number; views: number } | null;
+  /**
+   * What a cell counts, singular and plural.
+   *
+   * Two pages draw this grid from two different tables — Engagement counts
+   * views of the schedule, Attendance counts people in the building — and a
+   * heatmap that says "50 views" above a pool's head counts is not a cosmetic
+   * slip: it is the wrong noun on the number someone is about to quote. The
+   * default keeps Engagement's wording, which is the caller that predates
+   * the prop.
+   */
+  unit?: { one: string; many: string };
 }
 
-export function ActivityHeatmap({ heatmap, busiest }: ActivityHeatmapProps) {
+export function ActivityHeatmap({
+  heatmap,
+  busiest,
+  unit = { one: "view", many: "views" },
+}: ActivityHeatmapProps) {
   const [selected, setSelected] = useState<{ weekday: number; hour: number } | null>(null);
 
   const peak = Math.max(...heatmap.flat(), 0);
   if (peak === 0) {
     return (
       <p className="text-sm text-muted-foreground/70 py-8 text-center">
-        No views recorded yet, so there is nothing to place on a clock.
+        No {unit.many} recorded yet, so there is nothing to place on a clock.
       </p>
     );
   }
@@ -105,7 +120,7 @@ export function ActivityHeatmap({ heatmap, busiest }: ActivityHeatmapProps) {
                       onClick={() => setSelected({ weekday, hour })}
                       onMouseEnter={() => setSelected({ weekday, hour })}
                       onFocus={() => setSelected({ weekday, hour })}
-                      aria-label={`${WEEKDAYS[weekday]} ${formatHour(hour)}: ${count} view${count === 1 ? "" : "s"}`}
+                      aria-label={`${WEEKDAYS[weekday]} ${formatHour(hour)}: ${count} ${count === 1 ? unit.one : unit.many}`}
                       className="h-4 rounded-[2px] outline-none ring-offset-1 ring-offset-card transition-[box-shadow] focus-visible:ring-2 focus-visible:ring-ring aria-pressed:ring-2 aria-pressed:ring-foreground/40"
                       aria-pressed={isSelected}
                       style={{ backgroundColor: step(count) }}
@@ -125,7 +140,7 @@ export function ActivityHeatmap({ heatmap, busiest }: ActivityHeatmapProps) {
               <span className="font-medium text-foreground">
                 {WEEKDAYS[shown.weekday]} {formatHour(shown.hour)}
               </span>{" "}
-              — {shownCount} view{shownCount === 1 ? "" : "s"}
+              — {shownCount} {shownCount === 1 ? unit.one : unit.many}
               {!selected && " (busiest hour)"}
             </>
           ) : (

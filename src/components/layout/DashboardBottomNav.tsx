@@ -7,6 +7,7 @@ import {
   Calendar,
   Compass,
   Database,
+  Users,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
@@ -21,15 +22,24 @@ import type { OrgRole } from "@/types/app.types";
  * the topbar hamburger — two entry points into one hierarchy browser,
  * since the desktop TreeNav sidebar has no room to exist on mobile.
  *
- * Aux staff get a two-item bar — Home and Schedule. "Data" imports a
+ * Aux staff get Home, Schedule, Counts and Browse. "Data" imports a
  * spreadsheet over the schedule, which is the last thing a lifeguard's thumb
  * should be able to reach on a phone, so it is removed rather than disabled
  * (same reasoning as SidebarMenu).
+ *
+ * **Counts is on the bar for everyone, and it is the aux staffer's one write.**
+ * It is the only thing on this bar that gets used standing up, twice an hour,
+ * and burying it behind Browse would mean burying it behind the one role whose
+ * whole shift it belongs to. Gated on `reading:write` rather than
+ * `isReadOnly(role)` — the latter is TRUE for aux and would hide it from
+ * exactly them.
  */
 const navLinks = [
   { href: "/dashboard", label: "Home", icon: LayoutDashboard, exact: true },
   { href: "/dashboard/schedule", label: "Manage", icon: Calendar },
 ];
+
+const countsLink = { href: "/dashboard/counts", label: "Counts", icon: Users };
 
 const trailingNavLinks = [
   { href: "/dashboard/data-sources", label: "Data", icon: Database },
@@ -44,6 +54,7 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
   // request AND a flash of the wrong navigation while it resolved.
   const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
   const canImport = can(actor, "import:use");
+  const canCount = can(actor, "reading:write");
 
   function renderLink(item: (typeof navLinks)[number]) {
     const isActive = item.exact ? pathname === item.href : pathname.startsWith(item.href);
@@ -75,6 +86,7 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
               : item
           )
           .map(renderLink)}
+        {canCount && renderLink(countsLink)}
         <button
           type="button"
           onClick={openTreeSheet}

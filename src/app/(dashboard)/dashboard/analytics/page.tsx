@@ -32,7 +32,14 @@ import { commandCentreHref, scheduleGroupScope, widgetHref } from "@/lib/schedul
 import { formatDurationShort } from "@/lib/utils/dates";
 
 /**
- * /dashboard/analytics — what visitors do with the published schedule.
+ * /dashboard/analytics — Engagement: what visitors do with the published
+ * schedule.
+ *
+ * One of three sibling pages under `layout.tsx`, which explains why they are
+ * siblings and why this one's gate is narrower than the other two's. It keeps
+ * the bare `/dashboard/analytics` path rather than moving to
+ * `/analytics/engagement`, so nothing already linked or bookmarked breaks and
+ * no redirect is needed.
  *
  * Reach (views, visitors, where they came from), engagement (what they opened,
  * how long they stayed, whether they went on to register) and timing (which
@@ -73,11 +80,13 @@ interface AnalyticsPageProps {
 
 export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   return (
-    <div className="max-w-6xl mx-auto space-y-6">
+    // The layout owns the width and the tab strip; this is the page's own
+    // stack inside it.
+    <div className="space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <div>
         <PageHeader
-          title="Analytics"
+          title="Engagement"
           info={
             <>
               How visitors use your embedded widget and public facility pages: how many look, what

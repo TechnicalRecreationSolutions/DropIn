@@ -24,6 +24,8 @@ import ScheduleListSection, {
 import { StatTile } from "@/components/dashboard/StatCard";
 import { Sparkline } from "@/components/dashboard/Sparkline";
 import OverviewAlerts from "@/components/dashboard/OverviewAlerts";
+import { SEVERITY_RANK } from "@/lib/status/notices";
+import type { NoticeSeverity } from "@/types/app.types";
 import RecentActivityPanel, { type RecentActivityEntry } from "@/components/dashboard/RecentActivityPanel";
 import TodayStrip from "@/components/dashboard/today/TodayStrip";
 import WeekTile from "@/components/dashboard/today/WeekTile";
@@ -158,8 +160,14 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
   const selectedFacility =
     facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null;
 
-  const [scheduleGroupsRes, activityCountRes, recentActivityRes, conflictsRes, claimsRes] =
-    await Promise.allSettled([
+  const [
+    scheduleGroupsRes,
+    activityCountRes,
+    recentActivityRes,
+    conflictsRes,
+    claimsRes,
+    noticesRes,
+  ] = await Promise.allSettled([
       selectedFacility
         ? supabase
             .from("schedule_groups")
@@ -174,6 +182,19 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       recentActivityPromise,
       conflictsPromise,
       claimsPromise,
+      // Live facility notices (migration 060). Filtered in SQL rather than in
+      // `isNoticeLive` so the Overview never pays for a facility's whole
+      // history to show a row that is usually absent. The predicate is the
+      // same one 060's public policy applies — see src/lib/status/notices.ts.
+      selectedFacility
+        ? supabase
+            .from("facility_notices")
+            .select("id, headline, severity, space_id, spaces(name)")
+            .eq("facility_id", selectedFacility.id)
+            .eq("is_published", true)
+            .lte("starts_at", new Date().toISOString())
+            .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
+        : Promise.resolve({ data: null, error: null }),
     ]);
 
   type ScheduleGroupRow = {
@@ -313,6 +334,27 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
 
   const draftCount = visibleScheduleGroupRows.filter((g) => g.status === "draft").length;
 
+  // A notice names itself, the same rule as a conflict: "1 notice" is an
+  // errand, "Pool closed — contamination · Lane pool" is already a thought.
+  type NoticeRow = {
+    id: string;
+    headline: string;
+    severity: NoticeSeverity;
+    space_id: string | null;
+    spaces: { name: string } | null;
+  };
+  const liveNotices = (
+    noticesRes.status === "fulfilled"
+      ? ((noticesRes.value.data ?? []) as unknown as NoticeRow[])
+      : []
+  )
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+    .map((n) => ({
+      id: n.id,
+      severity: n.severity,
+      summary: n.spaces?.name ? `${n.headline} · ${n.spaces.name}` : n.headline,
+    }));
+
   const activityRows = activityCountRes.status === "fulfilled" ? activityCountRes.value : null;
   const activityCount = activityRows ? activityRows.rows.filter(matchesCurrentScope).length : 0;
   // A truncated read can only undercount, so the number is a floor and says so
@@ -425,6 +467,8 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           conflictCount={scopedConflicts.length}
           conflictSummary={conflictSummary}
           draftCount={draftCount}
+          notices={liveNotices}
+          statusHref={`/dashboard/facilities/${selectedFacility.id}/status`}
         />
       )}
 

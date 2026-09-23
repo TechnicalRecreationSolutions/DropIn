@@ -47,6 +47,7 @@ export type Permission =
   | "map:edit"
   | "widget:edit"
   | "analytics:view"
+  | "operations:view"
   | "import:use"
   | "activity:revert"
   | "staff:manage"
@@ -62,6 +63,10 @@ export type Permission =
   | "conflict:dismiss"
   | "tag:create"
   | "staff:invite-aux"
+
+  // ── Operational, and the only things an aux staffer may WRITE ─────────────
+  | "reading:write"
+  | "notice:write"
 
   // ── Readable by every role, aux included ──────────────────────────────────
   | "schedule:view-internal"
@@ -95,6 +100,12 @@ const ALLOWED: Record<Permission, readonly OrgRole[]> = {
   // coordinator editing it would rebrand every facility in the organization.
   "widget:edit": ["owner", "manager"],
   "analytics:view": ["owner", "manager"],
+  // Engagement is a marketing number; utilization and attendance are the
+  // operating picture, and a coordinator filling a schedule is exactly who
+  // needs them. Splitting them is why this permission exists separately —
+  // widening "analytics:view" would have handed coordinators the visitor
+  // analytics too.
+  "operations:view": ["owner", "manager", "coordinator"],
   "import:use": ["owner", "manager"],
   // Viewing history is scoped; undoing someone else's change is not.
   "activity:revert": ["owner", "manager"],
@@ -112,6 +123,19 @@ const ALLOWED: Record<Permission, readonly OrgRole[]> = {
   "conflict:dismiss": ["owner", "manager", "coordinator"],
   "tag:create": ["owner", "manager", "coordinator"],
   "staff:invite-aux": ["owner", "manager", "coordinator"],
+
+  // Recording a head count or a water temperature is an OBSERVATION, not
+  // schedule content — the guard on deck is the only person who can make it,
+  // and every role above them can too. This is the first write an aux staffer
+  // has ever had, and it is deliberately the narrowest possible one: an
+  // append-only row in facility_readings, which nothing else reads from.
+  "reading:write": ["owner", "manager", "coordinator", "aux"],
+  // NOT the whole answer for an aux staffer — see canWriteNotice() below,
+  // which is what every call site must actually use. Listing aux here would
+  // be a lie in the common case (the org flag defaults off); omitting aux
+  // would make the flag unreachable. So this entry answers the role question
+  // only, and the helper answers the real one.
+  "notice:write": ["owner", "manager", "coordinator", "aux"],
 
   "schedule:view-internal": ["owner", "manager", "coordinator", "aux"],
   "activity:view": ["owner", "manager", "coordinator"],
@@ -158,7 +182,20 @@ export function isScoped(role: OrgRole): boolean {
   return role === "coordinator" || role === "aux";
 }
 
-/** True when this role may not write anything, anywhere. */
+/**
+ * True when this role may not write any SCHEDULE CONTENT, anywhere.
+ *
+ * The right page-level gate for every editing surface — the command centre,
+ * the canvas, the session and template forms — and the reason it exists rather
+ * than `can(…, "session:write")` is that the latter is department-scoped and
+ * answers false for a coordinator asked without one.
+ *
+ * **It is not "this role cannot write at all".** Since migration 060/061 an aux
+ * staffer may record head counts and temperatures (`reading:write`) and, when
+ * their organization has opted in, post facility notices (`canWriteNotice`).
+ * Gating either of those on this function would hide them from the one role
+ * they were built for, so ask the permission directly there.
+ */
 export function isReadOnly(role: OrgRole): boolean {
   return role === "aux";
 }
@@ -203,6 +240,40 @@ export function can(
  */
 export function canReadFacility(actor: Actor, facilityId: string): boolean {
   if (!isScoped(actor.role)) return true;
+  return actor.scopes.facilityIds.includes(facilityId);
+}
+
+/**
+ * May this actor post or clear a public notice on this facility?
+ *
+ * **Use this, never `can(actor, "notice:write")` on its own.** A notice is the
+ * one thing whose answer depends on a setting rather than only on a role:
+ * `organizations.aux_can_post_notices` (migration 060) decides whether the
+ * lifeguard who found the contamination may close the pool to the public, or
+ * has to phone a supervisor. Both are defensible, so each organization answers
+ * for itself, and the default is no.
+ *
+ * Mirrors `public.can_write_notice()` in 060, which is the control — this is
+ * the layer that turns a refusal into a sentence and hides a button nobody can
+ * press.
+ *
+ * Scoping note: a notice is a FACILITY-level object, so a coordinator is
+ * checked against `scopes.facilityIds` — the union the server derives in
+ * `user_scope_facility_ids()` — and not against their department list. A
+ * contaminated pool is not an Aquatics-only fact.
+ */
+export function canWriteNotice(
+  actor: Actor,
+  org: { auxCanPostNotices: boolean },
+  facilityId?: string | null
+): boolean {
+  if (actor.role === "owner" || actor.role === "manager") return true;
+  if (actor.role === "aux" && !org.auxCanPostNotices) return false;
+  if (actor.role !== "coordinator" && actor.role !== "aux") return false;
+
+  // Scoped from here down, so an unnamed facility is an unanswerable question
+  // and answers no — the same fail-closed rule `can()` applies to departments.
+  if (!facilityId) return false;
   return actor.scopes.facilityIds.includes(facilityId);
 }
 
@@ -255,5 +326,5 @@ export const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   owner: "Full control, including billing. One per organization.",
   manager: "Manages everything except billing.",
   coordinator: "Runs the schedules in the departments you choose.",
-  aux: "Views schedules only. For lifeguards, instructors and front desk.",
+  aux: "Views schedules, and records head counts and temperatures. For lifeguards, instructors and front desk.",
 };

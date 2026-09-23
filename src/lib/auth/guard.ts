@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { can, isReadOnly, ROLE_LABELS, requiresScope } from "@/lib/auth/roles";
+import { can, canWriteNotice, isReadOnly, ROLE_LABELS, requiresScope } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
 import type { RouteMembership } from "@/lib/auth/membership";
 
@@ -75,4 +75,52 @@ function explain(
   }
 
   return `${label} accounts cannot do this.`;
+}
+
+/**
+ * The 403 half of a notice write, which no other permission needs.
+ *
+ * `requirePermission(membership, "notice:write")` is **not enough** and must
+ * not be used on its own: a notice's answer depends on
+ * `organizations.aux_can_post_notices` and on a FACILITY scope, neither of
+ * which `can()` takes. This is the route-handler counterpart of
+ * `canWriteNotice()`, mirroring `public.can_write_notice()` in migration 060 —
+ * which, as always, is the actual control.
+ *
+ * The caller passes the org flag because only it knows whether it has already
+ * loaded the organization row; making this function fetch it would put a query
+ * behind an authorization check that usually runs next to one.
+ */
+export function requireNoticeWrite(
+  membership: RouteMembership,
+  org: { auxCanPostNotices: boolean },
+  facilityId: string
+): NextResponse | null {
+  const actor = { role: membership.role, scopes: membership.scopes };
+  if (canWriteNotice(actor, org, facilityId)) return null;
+
+  // Three distinct reasons, because "Forbidden" on a pool closure at 6am is
+  // the kind of answer that gets a product replaced by a whiteboard.
+  if (membership.role === "aux" && !org.auxCanPostNotices) {
+    return NextResponse.json(
+      {
+        error:
+          "Your organization has not enabled status notices for staff accounts. " +
+          "A Manager can turn that on in Organization settings.",
+      },
+      { status: 403 }
+    );
+  }
+
+  if (membership.role === "coordinator" || membership.role === "aux") {
+    return NextResponse.json(
+      { error: "That facility is not one of yours." },
+      { status: 403 }
+    );
+  }
+
+  return NextResponse.json(
+    { error: `${ROLE_LABELS[membership.role]} accounts cannot post notices.` },
+    { status: 403 }
+  );
 }

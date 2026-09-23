@@ -14,11 +14,13 @@ import {
   Settings,
   CreditCard,
   Users,
+  ClipboardList,
   type LucideIcon,
 } from "lucide-react";
+import { useState } from "react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, countsHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
 import { can } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
@@ -57,6 +59,20 @@ interface MenuItem {
    * department-level question belongs to the page, which knows which one.
    */
   permission?: Permission;
+  /**
+   * Sub-items, rendered as an expandable group.
+   *
+   * The menu was flat until Analytics became three pages. A parent with
+   * children is NOT itself a destination — clicking its row expands it — and
+   * it appears only when at least one child survives the permission filter,
+   * so a coordinator who can see Utilization and Attendance gets the group
+   * without the Engagement row they cannot open.
+   *
+   * `permission` is therefore left off a parent: whether the group exists is
+   * a question about its children, and answering it twice would eventually
+   * disagree.
+   */
+  children?: MenuItem[];
 }
 
 /**
@@ -150,10 +166,39 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     // which is no way to find a whole section. Not facility-gated: the page
     // is org-wide and its own facility filter narrows it.
     {
+      // The one item every role sees, aux included — it is their only write
+      // (migration 061). Asked as `reading:write` and not `isReadOnly(role)`,
+      // which is true for aux and would remove it from the role it is for.
+      href: countsHref(selection.facilityId),
+      label: "Head counts",
+      icon: ClipboardList,
+      permission: "reading:write",
+    },
+    {
       href: "/dashboard/analytics",
       label: "Analytics",
       icon: BarChart3,
-      permission: "analytics:view",
+      children: [
+        {
+          href: "/dashboard/analytics",
+          label: "Engagement",
+          icon: BarChart3,
+          exact: true,
+          permission: "analytics:view",
+        },
+        {
+          href: "/dashboard/analytics/utilization",
+          label: "Utilization",
+          icon: CalendarDays,
+          permission: "operations:view",
+        },
+        {
+          href: "/dashboard/analytics/attendance",
+          label: "Attendance",
+          icon: ClipboardList,
+          permission: "operations:view",
+        },
+      ],
     },
   ];
 
@@ -181,9 +226,13 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     { href: "/dashboard/billing", label: "Billing", icon: CreditCard, permission: "billing:manage" },
   ];
 
-  // Removed, not disabled — see the note on MenuItem.permission.
-  const visible = (items: MenuItem[]) =>
-    items.filter((item) => !item.permission || can(actor, item.permission));
+  // Removed, not disabled — see the note on MenuItem.permission. A parent is
+  // kept only when something inside it survives.
+  const visible = (items: MenuItem[]): MenuItem[] =>
+    items
+      .filter((item) => !item.permission || can(actor, item.permission))
+      .map((item) => (item.children ? { ...item, children: visible(item.children) } : item))
+      .filter((item) => !item.children || item.children.length > 0);
 
   function isActive(item: MenuItem) {
     const path = item.href.split("?")[0];
@@ -204,19 +253,32 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
           </p>
         )}
         <div className="space-y-0.5">
-          {visible(menuItems).map((item) => (
-            <TreeNavNode
-              key={item.label}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              depth={0}
-              isActive={isActive(item)}
-              disabled={item.disabled}
-              disabledReason={item.disabledReason}
-              collapsed={collapsed}
-            />
-          ))}
+          {visible(menuItems).map((item) =>
+            item.children ? (
+              <MenuGroup
+                key={item.label}
+                item={item}
+                collapsed={collapsed}
+                isActive={isActive}
+                // Open when you are already inside it — a group that collapsed
+                // out from under the page you are on is a group you have to
+                // re-open on every navigation.
+                startOpen={item.children.some((child) => isActive(child))}
+              />
+            ) : (
+              <TreeNavNode
+                key={item.label}
+                href={item.href}
+                label={item.label}
+                icon={item.icon}
+                depth={0}
+                isActive={isActive(item)}
+                disabled={item.disabled}
+                disabledReason={item.disabledReason}
+                collapsed={collapsed}
+              />
+            )
+          )}
         </div>
       </div>
 
@@ -243,5 +305,75 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
       </div>
       )}
     </nav>
+  );
+}
+
+/**
+ * An expandable parent and its children.
+ *
+ * Its own state, so expanding one group does not re-render the whole menu, and
+ * so the open/closed choice survives a navigation inside the group. `startOpen`
+ * seeds it from the current route rather than forcing it, which leaves someone
+ * free to collapse the group they are standing in.
+ *
+ * Collapsed (icon-only) sidebar: the parent becomes an ordinary link to its
+ * first child. There is nowhere to put an indented list 56px wide, and a
+ * chevron that opens nothing visible is worse than a link that goes somewhere.
+ */
+function MenuGroup({
+  item,
+  collapsed,
+  isActive,
+  startOpen,
+}: {
+  item: MenuItem;
+  collapsed?: boolean;
+  isActive: (item: MenuItem) => boolean;
+  startOpen: boolean;
+}) {
+  const [open, setOpen] = useState(startOpen);
+  const children = item.children ?? [];
+
+  if (collapsed) {
+    return (
+      <TreeNavNode
+        href={children[0]?.href ?? item.href}
+        label={item.label}
+        icon={item.icon}
+        depth={0}
+        isActive={children.some(isActive)}
+        collapsed
+      />
+    );
+  }
+
+  return (
+    <>
+      <TreeNavNode
+        href={children[0]?.href ?? item.href}
+        label={item.label}
+        icon={item.icon}
+        depth={0}
+        // The parent row highlights when any child is open, so the group reads
+        // as the thing you are inside.
+        isActive={!open && children.some(isActive)}
+        expandable
+        expanded={open}
+        onToggleExpand={() => setOpen((v) => !v)}
+        collapsed={false}
+      />
+      {open &&
+        children.map((child) => (
+          <TreeNavNode
+            key={child.href}
+            href={child.href}
+            label={child.label}
+            icon={child.icon}
+            depth={1}
+            isActive={isActive(child)}
+            collapsed={false}
+          />
+        ))}
+    </>
   );
 }

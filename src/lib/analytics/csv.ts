@@ -43,13 +43,28 @@ export function toCsv(rows: (string | number | null)[][]): string {
   return "﻿" + rows.map((row) => row.map(escapeCell).join(",")).join("\r\n") + "\r\n";
 }
 
-export type ExportDataset = "summary" | "daily" | "breakdowns" | "events";
+export type ExportDataset =
+  | "summary"
+  | "daily"
+  | "breakdowns"
+  | "events"
+  | "utilization"
+  | "attendance";
 
 export const EXPORT_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
   { id: "summary", label: "Summary", description: "Every headline number, one row each" },
   { id: "daily", label: "Daily breakdown", description: "Views, visitors and clicks per day" },
   { id: "breakdowns", label: "Breakdowns", description: "Templates, devices, sources, schedules" },
   { id: "events", label: "Raw events", description: "One row per tracked event" },
+];
+
+/** The datasets belonging to the other two pages, offered by their own toolbars. */
+export const UTILIZATION_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
+  { id: "utilization", label: "Utilization", description: "Hours by kind, and day by day" },
+];
+
+export const ATTENDANCE_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
+  { id: "attendance", label: "Readings", description: "Every head count and temperature" },
 ];
 
 function pct(value: number | null): string {
@@ -213,4 +228,114 @@ export function eventsCsv(
       ];
     }),
   ]);
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Utilization and Attendance
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// The two datasets belonging to the other pages in the Analytics section. They
+// live here rather than beside their own libraries so that `escapeCell` — the
+// thing that stops a facility named `=cmd|…` executing when the file is opened
+// in Excel — has exactly one implementation. A second CSV writer somewhere
+// else is a second chance to forget it.
+
+/** Programmed hours per kind, and the day-by-day series behind them. */
+export function utilizationCsv(
+  data: UtilizationExport,
+  range: AnalyticsRange,
+  orgName: string,
+  facilityName: string | null
+): string {
+  const hours = (minutes: number) => (minutes / 60).toFixed(1);
+
+  const rows: (string | number | null)[][] = [
+    ...preamble(orgName, range, facilityName),
+    ["Note", "Clock hours count parallel sessions ONCE. Space-hours are duration x spaces held."],
+    ["Note", "Drop-in figures are what remains after exclusive claims are subtracted."],
+    [],
+    ["Measure", "Hours"],
+    ["Open", data.hasOpenHours ? hours(data.openMinutes) : ""],
+    ["Programmed", hours(data.programmedMinutes)],
+    ["Unprogrammed", data.hasOpenHours ? hours(data.unprogrammedMinutes) : ""],
+    ["Running outside open hours", hours(data.outsideOpenMinutes)],
+    ["Space-hours", hours(data.totalSpaceMinutes)],
+    [],
+    ["Kind", "Clock hours", "Space-hours", "Occurrences", "Recurring sessions"],
+    ...data.byKind.map((k) => [
+      k.label,
+      hours(k.clockMinutes),
+      hours(k.spaceMinutes),
+      k.occurrences,
+      k.sessions,
+    ]),
+    [],
+    ["Date", "Open hours", "Programmed hours", "Space-hours"],
+    ...data.byDate.map((d) => [
+      d.date,
+      d.openMinutes > 0 ? hours(d.openMinutes) : "",
+      hours(d.programmedMinutes),
+      hours(d.spaceMinutes),
+    ]),
+  ];
+
+  return toCsv(rows);
+}
+
+export interface UtilizationExport {
+  hasOpenHours: boolean;
+  openMinutes: number;
+  programmedMinutes: number;
+  unprogrammedMinutes: number;
+  outsideOpenMinutes: number;
+  totalSpaceMinutes: number;
+  byKind: { label: string; clockMinutes: number; spaceMinutes: number; occurrences: number; sessions: number }[];
+  byDate: { date: string; openMinutes: number; programmedMinutes: number; spaceMinutes: number }[];
+}
+
+/**
+ * Every head count and temperature in the period, one row each.
+ *
+ * Raw rows rather than the page's aggregates, deliberately. The aggregates are
+ * on screen and each carries its caveat in an (i); a spreadsheet with
+ * "Average: 37" in a cell has lost that caveat the moment it is pasted into a
+ * report. The observations themselves cannot mislead in the same way, and
+ * anyone who wants an average of them can see what they averaged.
+ */
+export function attendanceCsv(
+  rows: {
+    recorded_at: string;
+    metric: string;
+    value: number;
+    facility_id: string;
+    space_id: string | null;
+    recorded_by: string | null;
+  }[],
+  range: AnalyticsRange,
+  orgName: string,
+  facilityName: string | null,
+  names: { facilityNames: Map<string, string>; spaceNames?: Map<string, string> }
+): string {
+  const metricLabel: Record<string, string> = {
+    headcount: "People",
+    water_temp_c: "Water temperature (C)",
+    air_temp_c: "Air temperature (C)",
+  };
+
+  const out: (string | number | null)[][] = [
+    ...preamble(orgName, range, facilityName),
+    ["Note", "Head counts are observations made by staff, not turnstile counts."],
+    ["Note", "Do not sum the People column: someone present for two counts appears twice."],
+    [],
+    ["Recorded at", "Facility", "Space", "Measure", "Value"],
+    ...rows.map((r) => [
+      r.recorded_at,
+      names.facilityNames.get(r.facility_id) ?? "",
+      r.space_id ? (names.spaceNames?.get(r.space_id) ?? "") : "Whole building",
+      metricLabel[r.metric] ?? r.metric,
+      r.value,
+    ]),
+  ];
+
+  return toCsv(out);
 }

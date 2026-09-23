@@ -23,6 +23,8 @@ export interface OrgSettingsValues {
   city: string;
   province: string;
   postal_code: string;
+  /** Migration 060. A policy switch, not a profile field — see the section. */
+  aux_can_post_notices: boolean;
 }
 
 interface OrgSettingsFormProps {
@@ -63,6 +65,12 @@ export default function OrgSettingsForm({
   ) {
     const { name, value } = e.target;
     setForm((prev) => ({ ...prev, [name]: value }));
+    setSaved(false);
+  }
+
+  function handleToggle(e: React.ChangeEvent<HTMLInputElement>) {
+    const { name, checked } = e.target;
+    setForm((prev) => ({ ...prev, [name]: checked }));
     setSaved(false);
   }
 
@@ -213,6 +221,42 @@ export default function OrgSettingsForm({
             />
           </div>
         </div>
+      </section>
+
+      {/* ── Staff permissions ─────────────────────────────────────────────
+          One switch, and it is here rather than on the Staff page because it
+          is a statement about the organization, not about any one person: it
+          applies to every aux account that exists now or is invited later. */}
+      <section className="space-y-4">
+        <h2 className="text-sm font-semibold text-foreground">
+          Staff permissions
+          <InfoTip label="About facility status">
+            A facility status is the &ldquo;what is true right now&rdquo; banner above your public
+            schedule &mdash; a closure, a contamination, a staffing shortage. Staff accounts are
+            read-only everywhere else.
+          </InfoTip>
+        </h2>
+
+        <label className="flex items-start gap-2.5 text-sm">
+          <input
+            type="checkbox"
+            name="aux_can_post_notices"
+            disabled={!canEdit}
+            checked={form.aux_can_post_notices}
+            onChange={handleToggle}
+            className="mt-0.5 size-4"
+          />
+          <span>
+            <span className="font-medium text-foreground">
+              Staff accounts can post a facility status
+            </span>
+            <span className="block text-muted-foreground">
+              A lifeguard who finds a problem can close the pool to the public themselves, for
+              the facilities assigned to them. Leave this off if posting to patrons should go
+              through a supervisor &mdash; managers and coordinators can always post.
+            </span>
+          </span>
+        </label>
       </section>
 
       {error && (

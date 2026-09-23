@@ -24,3 +24,23 @@ export const DIRECTORY_CACHE_TAG = "directory";
 export function facilitySlugCacheTag(slug: string): string {
   return `facility-slug:${slug}`;
 }
+
+/**
+ * A facility's live public notices (migration 060).
+ *
+ * Separate from `facilitySlugCacheTag` on purpose, and keyed by **id** rather
+ * than slug, because the two entries have opposite lifetimes: the page's body
+ * is `cacheLife("hours")` and a notice's is `cacheLife("minutes")`. A notice
+ * has to reach patrons within a minute of being posted, and the rest of the
+ * page does not change often enough to justify re-querying it that often.
+ *
+ * Expired by every write in `/api/facilities/[facilityId]/notices`.
+ *
+ * **It cannot be the only freshness mechanism.** The public read policy in 060
+ * depends on `NOW()`, so a notice that expires on its own — one with an
+ * `ends_at` in the future — is not a write and produces no expiry. The short
+ * cache lifetime is what bounds that, which is why it is minutes and not hours.
+ */
+export function facilityNoticesCacheTag(facilityId: string): string {
+  return `facility-notices:${facilityId}`;
+}

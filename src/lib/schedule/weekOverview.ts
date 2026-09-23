@@ -221,3 +221,124 @@ export function formatHours(minutes: number): string {
   if (m === 0) return `${h}h`;
   return `${h}h ${m}m`;
 }
+
+// ─────────────────────────────────────────────────────────────────────────────
+// The same arithmetic over an arbitrary date range
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// `buildWeekOverview` above is week-shaped: every span is minutes from the
+// start of a seven-day grid, and `byDay` is indexed by weekday. That is right
+// for the week panel and wrong for `/dashboard/analytics/utilization`, which
+// asks the same questions of a quarter.
+//
+// ⚠️ `buildWeekOverview`'s SIGNATURE AND BEHAVIOUR ARE UNCHANGED, deliberately.
+// `WeekPanel` depends on it and `verify-aw` asserts it, so the range version is
+// a second entry point over the same helpers rather than a generalisation that
+// forces the caller to adapt.
+//
+// The arithmetic composes because **a session cannot cross midnight** (a CHECK
+// from migration 001), so two different weeks' spans are disjoint in time and
+// their unions add. That is the only reason this is a sum rather than a
+// re-implementation, and it stops being true the day overnight sessions are
+// allowed.
+
+export interface RangeOverview extends Omit<WeekOverview, "byDay"> {
+  /** One entry per local calendar day in the range, in order. */
+  byDate: { date: string; openMinutes: number; programmedMinutes: number; spaceMinutes: number }[];
+  /** How many of the weeks in the range had any operating hours at all. */
+  weeksCounted: number;
+}
+
+/**
+ * Totals a range by summing one `buildWeekOverview` per week in it.
+ *
+ * `weeks` is the caller's list of {sessions, openByDay, weekStart} — built by
+ * the caller because only it knows how to resolve holidays for each week
+ * (migration 059 overrides 058 per DATE, so the seven open windows differ from
+ * week to week and a single pattern would overstate capacity in exactly the
+ * week someone is most likely to check).
+ */
+export function summariseRange(
+  weeks: readonly {
+    weekStart: Date;
+    sessions: readonly ExpandedSession[];
+    openByDay: readonly (readonly OpenWindow[])[];
+  }[],
+  /** Clip `byDate` to the requested range; whole weeks are summarised. */
+  bounds: { from: string; to: string }
+): RangeOverview {
+  const perWeek = weeks.map((w) => ({
+    weekStart: w.weekStart,
+    overview: buildWeekOverview(w.sessions, w.openByDay),
+  }));
+
+  const sessionIds = new Set<string>();
+  for (const w of weeks) for (const s of w.sessions) sessionIds.add(s.sessionId);
+
+  const kindTotals = new Map<OccupancyKind, KindTotal>();
+  for (const { overview } of perWeek) {
+    for (const k of overview.byKind) {
+      const existing = kindTotals.get(k.kind);
+      if (!existing) {
+        kindTotals.set(k.kind, { ...k });
+      } else {
+        existing.clockMinutes += k.clockMinutes;
+        existing.spaceMinutes += k.spaceMinutes;
+        existing.occurrences += k.occurrences;
+        // NOT summed: the same weekly series appears in every week. Counting
+        // it once per week would report "52 rentals" for one Tuesday booking.
+        existing.sessions = Math.max(existing.sessions, k.sessions);
+      }
+    }
+  }
+
+  const byDate: RangeOverview["byDate"] = [];
+  for (const { weekStart, overview } of perWeek) {
+    for (const day of overview.byDay) {
+      const date = new Date(weekStart);
+      date.setDate(weekStart.getDate() + day.dayIndex);
+      const iso = localDay(date);
+      if (iso < bounds.from || iso > bounds.to) continue;
+      byDate.push({
+        date: iso,
+        openMinutes: day.openMinutes,
+        programmedMinutes: day.programmedMinutes,
+        spaceMinutes: day.spaceMinutes,
+      });
+    }
+  }
+  byDate.sort((a, b) => a.date.localeCompare(b.date));
+
+  const sum = (pick: (o: WeekOverview) => number) =>
+    perWeek.reduce((total, { overview }) => total + pick(overview), 0);
+
+  const openMinutes = sum((o) => o.openMinutes);
+  const programmedMinutes = sum((o) => o.programmedMinutes);
+  const busyMinutes = sum((o) => o.busyMinutes);
+
+  return {
+    hasOpenHours: openMinutes > 0,
+    openMinutes,
+    programmedMinutes,
+    unprogrammedMinutes: Math.max(openMinutes - programmedMinutes, 0),
+    busyMinutes,
+    outsideOpenMinutes: Math.max(busyMinutes - programmedMinutes, 0),
+    byKind: KIND_ORDER.filter((k) => kindTotals.has(k)).map((k) => kindTotals.get(k)!),
+    byDate,
+    totalSpaceMinutes: sum((o) => o.totalSpaceMinutes),
+    totalOccurrences: sum((o) => o.totalOccurrences),
+    // The one figure that is a set union rather than a sum.
+    totalSessions: sessionIds.size,
+    weeksCounted: perWeek.filter(({ overview }) => overview.hasOpenHours).length,
+  };
+}
+
+/** "YYYY-MM-DD" for a Date's LOCAL day. Mirrors analytics/range.ts's `toLocalDay`;
+ *  duplicated rather than imported so this file stays free of that dependency
+ *  and keeps working in the client bundle the week panel ships in. */
+function localDay(date: Date): string {
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, "0");
+  const d = String(date.getDate()).padStart(2, "0");
+  return `${y}-${m}-${d}`;
+}

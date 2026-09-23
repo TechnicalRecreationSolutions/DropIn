@@ -24,6 +24,15 @@ const UpdateOrgSchema = z.object({
   city: emptyToNull(z.string().max(100)),
   province: emptyToNull(z.string().length(2)),
   postal_code: emptyToNull(z.string().max(20)),
+  /**
+   * May aux staff post public facility notices? (migration 060)
+   *
+   * A policy switch rather than a profile field, and the only thing in this
+   * schema that changes what someone else is allowed to do. Gated by the same
+   * `org:edit-settings` permission as the rest — the people who can rename the
+   * organization are the people who decide how far it trusts its guards.
+   */
+  aux_can_post_notices: z.boolean().optional(),
 });
 
 function emptyToNull<T extends z.ZodType>(schema: T) {

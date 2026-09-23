@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { revalidateTag } from "next/cache";
 import { DIRECTORY_CACHE_TAG, facilitySlugCacheTag } from "@/lib/cache/tags";
 import { createClient } from "@/lib/supabase/server";
+import { z } from "zod";
 import { getAuthedMembership } from "@/lib/auth/membership";
 import { requirePermission } from "@/lib/auth/guard";
 
@@ -60,4 +61,77 @@ export async function DELETE(
   revalidateTag(facilitySlugCacheTag(data.slug), { expire: 0 });
 
   return NextResponse.json({ ok: true });
+}
+
+/**
+ * PATCH /api/facilities/[facilityId] — what this facility publishes about
+ * itself right now (migration 061).
+ *
+ * Three columns and nothing else: `public_conditions`, `public_headcount` and
+ * `occupancy_capacity`. Deliberately NOT part of `POST /api/facilities`, which
+ * is the full facility form — that route requires a complete payload and
+ * geocodes the address, so routing a toggle through it would mean either
+ * sending the whole building to flip a checkbox or teaching it a second shape.
+ * These are also edited from a different page, by someone doing a different
+ * job: the status page, not the facility form.
+ *
+ * No cache tag is expired. The conditions block is a client component polling
+ * a 30-second public endpoint, so a setting change reaches patrons on their
+ * next poll without anything being invalidated. (Notices are the opposite —
+ * server-rendered and tag-expired. `src/lib/status/README.md` §2 has why.)
+ */
+const PublishingSchema = z.object({
+  public_conditions: z.boolean().optional(),
+  public_headcount: z.enum(["hidden", "count", "level"]).optional(),
+  occupancy_capacity: z.number().int().positive().max(100_000).nullable().optional(),
+});
+
+export async function PATCH(
+  request: Request,
+  { params }: { params: Promise<{ facilityId: string }> }
+) {
+  const { facilityId } = await params;
+  const supabase = await createClient();
+  const membership = await getAuthedMembership(supabase);
+  if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+
+  // Choosing what the public is told about a building is a facility-level
+  // decision, same authority as publishing the building at all.
+  const denied = requirePermission(membership, "facility:edit");
+  if (denied) return denied;
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "Invalid JSON" }, { status: 400 });
+  }
+
+  const parsed = PublishingSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json(
+      { error: "Invalid input", details: parsed.error.flatten() },
+      { status: 400 }
+    );
+  }
+  if (Object.keys(parsed.data).length === 0) {
+    return NextResponse.json({ error: "Nothing to change" }, { status: 400 });
+  }
+
+  const { data, error } = await supabase
+    .from("facilities")
+    .update(parsed.data)
+    .eq("id", facilityId)
+    .eq("org_id", membership.org_id)
+    .select("id, public_conditions, public_headcount, occupancy_capacity")
+    .maybeSingle();
+
+  if (error) {
+    return NextResponse.json({ error: "Could not save those settings." }, { status: 500 });
+  }
+  if (!data) {
+    return NextResponse.json({ error: "Facility not found" }, { status: 404 });
+  }
+
+  return NextResponse.json({ facility: data });
 }

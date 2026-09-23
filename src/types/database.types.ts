@@ -25,6 +25,53 @@ export type OrgRole = "owner" | "manager" | "coordinator" | "aux";
 /** Every role except `owner`: ownership moves by transfer, never by invitation. */
 export type InvitableRole = Exclude<OrgRole, "owner">;
 
+/**
+ * What a facility notice is ABOUT (060_facility_status.sql).
+ *
+ * Orthogonal to `NoticeSeverity`: a staffing problem can be an `info`
+ * ("reduced hours") or a `closure` ("no guard available"), and water quality
+ * can be either too. Collapsing the two axes into one "type" column forces
+ * three of those four real cases to lie — the same mistake migration 046
+ * documents for occupancy_kind vs disclosure.
+ */
+export type NoticeCategory =
+  | "water_quality"
+  | "mechanical"
+  | "staffing"
+  | "weather"
+  | "maintenance"
+  | "capacity"
+  | "power"
+  | "other";
+
+/**
+ * How bad a notice is FOR THE PATRON. Drives colour and whether the schedule
+ * beneath it is struck through; never derived from the category.
+ */
+export type NoticeSeverity = "info" | "caution" | "closure";
+
+/**
+ * What a `facility_readings` row measures (061_facility_readings.sql).
+ *
+ * Head counts and temperatures share one table because they are one object: a
+ * number, about a place, at a moment, written down by a person. The migration
+ * header has the full argument.
+ *
+ * Units are fixed and unstored — people, and degrees CELSIUS.
+ */
+export type ReadingMetric = "headcount" | "water_temp_c" | "air_temp_c";
+
+/**
+ * How much of a head count patrons get (`facilities.public_headcount`).
+ *
+ * `level` is the privacy-preserving one: the exact number never leaves
+ * `facility_public_conditions()`, which returns a band instead.
+ */
+export type PublicHeadcountMode = "hidden" | "count" | "level";
+
+/** The bands `level` mode produces. Thresholds live in `public.occupancy_level`. */
+export type OccupancyLevel = "quiet" | "moderate" | "busy" | "full";
+
 export type Json =
   | string
   | number
@@ -56,6 +103,15 @@ export type Database = {
           approved_by: string | null;
           // Added in 007_org_stripe_customer.sql
           stripe_customer_id: string | null;
+          /**
+           * May aux staff post public facility notices? (migration 060)
+           *
+           * The one place the read-only aux role can be widened, and an
+           * organization's own decision: a lifeguard who finds a contamination
+           * either can close the pool to the public or has to phone a
+           * supervisor, and both are defensible. Defaults false.
+           */
+          aux_can_post_notices: boolean;
           created_at: string;
           updated_at: string;
         };
@@ -80,6 +136,7 @@ export type Database = {
           | "approved_at"
           | "approved_by"
           | "stripe_customer_id"
+          | "aux_can_post_notices"
         > & {
           description?: string | null;
           logo_url?: string | null;
@@ -95,6 +152,7 @@ export type Database = {
           approved_at?: string | null;
           approved_by?: string | null;
           stripe_customer_id?: string | null;
+          aux_can_post_notices?: boolean;
         };
         Update: Partial<
           Database["public"]["Tables"]["organizations"]["Insert"]
@@ -160,6 +218,12 @@ export type Database = {
           listed_in_directory: boolean;
           /** When lat/lng were last resolved from the address (052). */
           geocoded_at: string | null;
+          /** Publish water/air temperatures on the public page (061). */
+          public_conditions: boolean;
+          /** How much of the head count patrons get (061). */
+          public_headcount: PublicHeadcountMode;
+          /** The denominator for `public_headcount = "level"` (061). */
+          occupancy_capacity: number | null;
           created_at: string;
           updated_at: string;
         };
@@ -181,6 +245,9 @@ export type Database = {
           | "is_published"
           | "listed_in_directory"
           | "geocoded_at"
+          | "public_conditions"
+          | "public_headcount"
+          | "occupancy_capacity"
         > & {
           description?: string | null;
           country?: string;
@@ -324,6 +391,91 @@ export type Database = {
           is_published?: boolean;
         };
         Update: Partial<Database["public"]["Tables"]["spaces"]["Insert"]>;
+        Relationships: [];
+      };
+      /**
+       * What is true at a facility RIGHT NOW (migration 060).
+       *
+       * Sits ABOVE the schedule: nothing in the expansion pipeline reads it.
+       * A notice is live when now() is inside [starts_at, ends_at), and
+       * `ends_at` is the only lifecycle column — clearing one sets it to now().
+       */
+      facility_notices: {
+        Row: {
+          id: string;
+          facility_id: string;
+          org_id: string;
+          /** NULL = the whole facility; a space id narrows the notice to it. */
+          space_id: string | null;
+          /** WHAT happened. Orthogonal to severity — see the migration header. */
+          category: NoticeCategory;
+          /** HOW BAD it is for the patron. Orthogonal to category. */
+          severity: NoticeSeverity;
+          headline: string;
+          body: string | null;
+          starts_at: string;
+          /** NULL = until cleared. Clearing sets this to now(). */
+          ends_at: string | null;
+          is_published: boolean;
+          created_by: string | null;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["facility_notices"]["Row"],
+          | "id"
+          | "created_at"
+          | "updated_at"
+          | "space_id"
+          | "body"
+          | "starts_at"
+          | "ends_at"
+          | "is_published"
+          | "created_by"
+        > & {
+          space_id?: string | null;
+          body?: string | null;
+          starts_at?: string;
+          ends_at?: string | null;
+          is_published?: boolean;
+          created_by?: string | null;
+          // There is no updated_at trigger on this table (see 060) — every
+          // route stamps it, the way schedule_groups and tags already do.
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["facility_notices"]["Insert"]>;
+        Relationships: [];
+      };
+      /**
+       * Head counts and temperatures (migration 061).
+       *
+       * **Append-only.** There is no UPDATE policy in the database, so the
+       * `Update` type below is deliberately `never`: a wrong count is
+       * corrected by recording another, and a mistake is deleted.
+       */
+      facility_readings: {
+        Row: {
+          id: string;
+          facility_id: string;
+          org_id: string;
+          /** NULL = the whole building. */
+          space_id: string | null;
+          metric: ReadingMetric;
+          /** People, or degrees Celsius. No unit column — see the migration. */
+          value: number;
+          recorded_at: string;
+          recorded_by: string | null;
+          created_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["facility_readings"]["Row"],
+          "id" | "created_at" | "space_id" | "recorded_at"
+        > & {
+          space_id?: string | null;
+          recorded_at?: string;
+        };
+        /** No UPDATE policy exists. Nothing may edit a recorded observation. */
+        Update: never;
         Relationships: [];
       };
       facility_maps: {
@@ -1253,6 +1405,26 @@ export type Database = {
       sweep_rate_limits: {
         Args: Record<string, never>;
         Returns: number;
+      };
+      // The public view of a facility's current conditions (061). SECURITY
+      // DEFINER: `facility_readings` has no public read policy at all, and in
+      // `level` mode the exact head count never leaves this function. Pass the
+      // caller's UTC offset (`-new Date().getTimezoneOffset()`) so "usually at
+      // this time" buckets on the local weekday and hour.
+      facility_public_conditions: {
+        Args: { p_facility_id: string; p_utc_offset_minutes?: number };
+        Returns: {
+          space_id: string | null;
+          space_name: string | null;
+          metric: ReadingMetric;
+          /** NULL in `level` mode — that is the point of the mode. */
+          value: number | null;
+          /** NULL unless this is a head count in `level` mode. */
+          level: OccupancyLevel | null;
+          recorded_at: string;
+          /** Head counts only, and only with three or more samples. */
+          typical_value: number | null;
+        }[];
       };
       // Undoes a single activity_log entry (038_activity_log.sql). Raises
       // (→ a PostgREST error) if the caller isn't an owner/admin of that

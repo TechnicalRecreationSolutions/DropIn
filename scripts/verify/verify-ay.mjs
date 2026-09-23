@@ -632,10 +632,24 @@ async function main() {
 
     check("A4: an empty day is a stated result, not a blank box", /Nothing runs at .* today/.test(quietBody), quietBody.slice(0, 160));
     check("A4: ...and offers the action that fills it", await page.getByRole("link", { name: "Add a session" }).isVisible());
+    // The all-clear covers THREE things since migration 060 added public
+    // facility notices to this row, so the sentence no longer opens with
+    // "No conflicts" — it opens with "Nothing posted". Each clause is asserted
+    // separately rather than matching the whole string: the wording will move
+    // again, and what must not move is that all three are accounted for.
     check(
       "C4: with nothing wrong, the all-clear is stated rather than implied",
-      /No conflicts/.test(quietBody),
+      /no conflicts/i.test(quietBody),
       "silence is indistinguishable from not having checked"
+    );
+    check(
+      "C4: ...and the all-clear covers live notices too",
+      /nothing posted/i.test(quietBody),
+      "a facility with a live closure must not read as all-clear"
+    );
+    check(
+      "C4: ...and drafts",
+      /every schedule here is published/i.test(quietBody)
     );
     check(
       "C4: the quiet building reports no conflicts of its own",

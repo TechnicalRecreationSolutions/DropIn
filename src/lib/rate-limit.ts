@@ -50,6 +50,13 @@ export const RATE_LIMITS = {
    *  this limit is about scraping and floods, not database cost; a person
    *  typing into a search box stays well under it. */
   directory: { limit: 120, windowSeconds: 60 },
+  /** A facility's live conditions (/api/public/v1/facility/[id]/conditions).
+   *  No auth, and the one public endpoint a page POLLS — the conditions block
+   *  refetches every 60 s while a tab is open, so a visitor who leaves the
+   *  schedule up all afternoon is a legitimate repeat caller. One SECURITY
+   *  DEFINER function per call and a 30 s CDN cache in front of it, so this
+   *  bounds scraping rather than database cost. */
+  facilityConditions: { limit: 120, windowSeconds: 60 },
   /** Creates Stripe customers and checkout sessions — a paid API. */
   checkout: { limit: 10, windowSeconds: 300 },
   /** Parses a 10 MB spreadsheet in memory. CPU-bound. */

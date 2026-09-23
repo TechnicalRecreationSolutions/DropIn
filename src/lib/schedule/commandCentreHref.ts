@@ -78,3 +78,14 @@ export function scheduleGroupScope(sg: {
     scheduleGroupId: sg.id,
   };
 }
+
+/**
+ * Link to the head-count tool, optionally scoped to a facility.
+ *
+ * Same `?facility=` convention as Spaces and Map — the sidebar's selection
+ * decides which building the page opens on, so switching buildings there
+ * carries through here rather than dropping back to the first one.
+ */
+export function countsHref(facilityId?: string | null): string {
+  return facilityId ? `/dashboard/counts?facility=${facilityId}` : "/dashboard/counts";
+}

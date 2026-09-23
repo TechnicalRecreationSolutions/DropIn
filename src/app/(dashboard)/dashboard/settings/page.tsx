@@ -96,6 +96,7 @@ async function OrgSettingsBody() {
           city: org.city ?? "",
           province: org.province ?? "",
           postal_code: org.postal_code ?? "",
+          aux_can_post_notices: org.aux_can_post_notices,
         }}
       />
 

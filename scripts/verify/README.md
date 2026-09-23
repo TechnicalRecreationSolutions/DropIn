@@ -54,6 +54,12 @@ node --experimental-strip-types scripts/verify/verify-ax.mjs  # the rebuilt anal
 node --experimental-strip-types scripts/verify/verify-ax.mjs --logic-only  # ...just range.ts + csv.ts + the classifiers: no database, no server, no browser (41 assertions)
 node --experimental-strip-types scripts/verify/verify-ay.mjs  # the rebuilt Overview: today ribbon, named conflicts, phone actions, the paged activity count (72 assertions)
 node --experimental-strip-types scripts/verify/verify-ay.mjs --logic-only  # ...just the ribbon geometry: no database, no server, no browser (25 assertions)
+node --experimental-strip-types scripts/verify/verify-az.mjs  # facility status notices (migration 060) — NEEDS 060 APPLIED; section 7 wants a PRODUCTION build (see --app)
+node --experimental-strip-types scripts/verify/verify-az.mjs --logic-only  # ...just the live-window predicate + the preset catalogue: no database, no server (16 assertions)
+node --experimental-strip-types scripts/verify/verify-ba.mjs  # head counts, temperatures + the public projection (migration 061) — NEEDS 061 APPLIED
+node --experimental-strip-types scripts/verify/verify-ba.mjs --logic-only  # ...just freshness, formatting and the UTC-offset sign: no database, no server (14 assertions)
+node --experimental-strip-types scripts/verify/verify-bb.mjs  # the Analytics section: three pages, two gates, six exports (64 assertions) — NEEDS 061
+node --experimental-strip-types scripts/verify/verify-bb.mjs --logic-only  # ...just summariseRange vs buildWeekOverview + summariseAttendance (28 assertions)
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```

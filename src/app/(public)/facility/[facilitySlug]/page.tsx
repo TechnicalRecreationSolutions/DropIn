@@ -9,6 +9,9 @@ import { notFoundMetadata } from "@/lib/seo/notFoundMetadata";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import { DEFAULT_ENABLED_FILTERS, parseEnabledFilters } from "@/lib/schedule/sessionFilters";
 import OrgImage from "@/components/media/OrgImage";
+import NoticeBanner from "@/components/status/NoticeBanner";
+import { getPublicNotices } from "@/lib/status/public-notices";
+import FacilityConditions from "@/components/conditions/FacilityConditions";
 import FacilityScheduleClient from "./FacilityScheduleClient";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -123,6 +126,16 @@ export default async function FacilityDetailPage({ params }: PageProps) {
   if (!data) notFound();
   const { facility, scheduleGroups, widgetConfig, org } = data;
 
+  // A SECOND cache entry, deliberately — `cacheLife("minutes")` against the
+  // page body's `cacheLife("hours")`. An address does not change; a
+  // contamination does, and the whole value of publishing one is that it
+  // reaches somebody before they drive over. See src/lib/status/public-notices.ts.
+  //
+  // Sequential rather than folded into the Promise.all above because it must
+  // NOT join that cached function: doing so would give notices an hour-long
+  // lifetime, which is the one mistake this split exists to prevent.
+  const notices = await getPublicNotices(facility.id);
+
   const allowedTemplates = widgetConfig?.allowed_templates ?? (["grid", "list", "map"] as ScheduleTemplate[]);
   const primaryColor = widgetConfig?.primary_color ?? "#0066CC";
   // The same setting as the embed: an org configures its visitor filters once,
@@ -175,6 +188,22 @@ export default async function FacilityDetailPage({ params }: PageProps) {
           {facility.description && (
             <p className="text-muted-foreground text-sm mb-6 max-w-2xl print:hidden">{facility.description}</p>
           )}
+
+          {/* Above the schedule, and NOT print:hidden — a printed schedule
+              taped to a noticeboard is exactly where "the pool is closed
+              today" needs to survive. */}
+          <NoticeBanner notices={notices} />
+
+          {/* Live numbers — water temperature, how busy it is. A CLIENT
+              component, unlike the banner above it: a head count rendered into
+              a cached page is a stale number wearing a fresh timestamp, and
+              the timestamp is the part people act on. It renders nothing at
+              all unless this facility publishes something and has recorded it
+              recently, so most pages are unchanged. print:hidden, because a
+              printed schedule outlives the count on it. */}
+          <div className="print:hidden">
+            <FacilityConditions facilityId={facility.id} />
+          </div>
 
           {/* Weekly schedule — client component for interactivity */}
           <OrgThemeProvider primaryColor={primaryColor} className="block rounded-xl border border-border overflow-hidden print:border-0">

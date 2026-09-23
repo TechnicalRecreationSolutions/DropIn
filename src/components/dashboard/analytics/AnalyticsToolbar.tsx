@@ -12,7 +12,7 @@ import {
   DropdownMenuLabel,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { EXPORT_DATASETS } from "@/lib/analytics/csv";
+import { EXPORT_DATASETS, type ExportDataset } from "@/lib/analytics/csv";
 import {
   MAX_RANGE_DAYS,
   RANGE_PRESETS,
@@ -40,9 +40,21 @@ import { cn } from "@/lib/utils/cn";
 
 export interface AnalyticsToolbarProps {
   facilities: { id: string; name: string }[];
+  /**
+   * Which CSVs this page offers. Defaults to Engagement's four.
+   *
+   * Passed in rather than derived from the pathname: the three pages already
+   * differ in what they can export AND in who may, and a toolbar that guessed
+   * from the URL would be a third place the section's two permissions are
+   * encoded. The export route enforces the real answer either way.
+   */
+  datasets?: { id: ExportDataset; label: string; description: string }[];
 }
 
-export function AnalyticsToolbar({ facilities }: AnalyticsToolbarProps) {
+export function AnalyticsToolbar({
+  facilities,
+  datasets = EXPORT_DATASETS,
+}: AnalyticsToolbarProps) {
   const router = useRouter();
   const pathname = usePathname();
   const searchParams = useSearchParams();
@@ -146,7 +158,7 @@ export function AnalyticsToolbar({ facilities }: AnalyticsToolbarProps) {
             <DropdownMenuLabel className="font-normal text-muted-foreground">
               CSV for {formatRangeLabel(range).toLowerCase()}
             </DropdownMenuLabel>
-            {EXPORT_DATASETS.map((dataset) => (
+            {datasets.map((dataset) => (
               <DropdownMenuItem key={dataset.id} asChild>
                 {/* A plain link, not a fetch-and-blob: the browser's own
                     download handling is what makes this work on iOS Safari,

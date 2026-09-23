@@ -2,9 +2,11 @@
 
 Open this first; it points at everything else.
 
-**Last updated 2026-09-21**, at the end of the session that rebuilt the Overview
-around today (first box below) and then **committed, merged and deployed eight
-tracks' worth of work that had been sitting uncommitted** — see
+**Last updated 2026-09-23**, at the end of the session that added facility
+status, head counts and the Analytics section (first box below).
+
+Before it, on 2026-09-21: the Overview rebuild, and **eight tracks' worth of
+work committed, merged and deployed in one go** — see
 [State right now](#state-right-now) for what that means for production, and
 [Where the branch is](#where-the-branch-is) for why it is one commit.
 
@@ -21,6 +23,16 @@ historical records of finished work, not live handoffs — see
 
 ## Where the branch is
 
+**Right now (2026-09-23): the branch is `feat/facility-status-attendance`, and
+nothing on it is committed.** Migrations 060 and 061 are applied to the live
+database, so `main` — which is deployed — is running against a schema that has
+two tables and three columns its code does not know about. That is harmless
+(every default reproduces the old behaviour) but it is the state to be aware of
+before deploying anything else.
+
+The rest of this section describes the 2026-09-21 push, which is what `main`
+still holds.
+
 Everything below that was uncommitted landed in **one commit, `de89572`**, on
 the branch `feat/pending-2026-09-21`, fast-forwarded into **`main`** and
 **pushed** (`main` is now `2637d2f`). Vercel auto-deploys from `main`, so this
@@ -34,6 +46,97 @@ It is one commit rather than eight because the eight tracks share files —
 `dates.ts`, `schedule.types.ts`, `expand.ts`, and the ~25 page components the
 copy pass touched — so splitting them after the fact would have meant inventing
 boundaries that do not build. The commit message enumerates what is in it.
+
+---
+
+## Facility status, head counts and the Analytics section — 2026-09-23
+
+**Migrations 060 and 061 are APPLIED.** Everything below is on the branch
+`feat/facility-status-attendance` and is **not committed**. `tsc`,
+`eslint src` and `NEXT_DIST_DIR=.next-verify next build` are clean.
+
+```
+verify-az   45/45   facility status notices (060)
+verify-ba   70/70   head counts, temperatures, the public projection (061)
+verify-bb   64/64   the Analytics section: three pages, two gates, six exports
+```
+
+Regression-checked against the harnesses this touches: `aw` 165, `ax` 78,
+`ay` 74, `au` 52, `av` 49, `as` 78, `at` 59 — all green. (`verify-m` reports
+0/0 and asserts nothing; that is the known false green, not a regression.)
+
+Eight assertions were deliberately falsified and each went red: the aux write
+permission, the cross-facility space check, the public notice banner, the fresh
+head-count wording, the `summariseRange` accumulators, the paged read, the
+coordinator half of the operations gate, and the severity sort.
+
+### What was built
+
+**Facility status (060)** — `facility_notices`, facility- or space-scoped,
+`category` × `severity` as two orthogonal axes. Staff post from
+`/dashboard/facilities/[id]/status` with a preset picker; patrons see it above
+the schedule on the public page and in the embed. Live notices head the
+Overview alert row and each Facilities card gets a status footer.
+`src/lib/status/README.md`.
+
+**Head counts and temperatures (061)** — one append-only table,
+`facility_readings`, with **no UPDATE policy at all**. Lifeguards record on
+`/dashboard/counts`, which is mobile-first because it is used on a pool deck.
+Patrons get a projection through `facility_public_conditions()`.
+`src/lib/conditions/README.md`.
+
+**The Analytics section** — `/dashboard/analytics` became three sibling pages:
+Engagement (unchanged, retitled), Utilization (the week panel's arithmetic over
+a date range) and Attendance (the head counts). `src/lib/analytics/README.md`.
+
+### Decisions worth not relitigating
+
+- **`aux` is no longer strictly read-only.** Recording a head count is
+  unconditional — it is the observation the guard is already making, and a tool
+  only a manager can use is a tool nobody uses at 6am. Posting a public notice
+  is gated on `organizations.aux_can_post_notices`, an org-wide switch the
+  customer asked for because some places trust their guards with it and some do
+  not. Default off. `isReadOnly(role)` still gates every schedule-editing
+  surface and its docstring now says exactly what it does and does not mean.
+- **Notices are server-rendered; conditions are client-fetched.** A closure has
+  to be in the HTML — it goes in its own `cacheLife("minutes")` entry, tag-
+  expired on every write. A live head count in a server cache is a stale number
+  wearing a fresh timestamp, so it polls a 30-second public endpoint instead.
+  Do not make either match the other.
+- **In `level` mode the exact head count never leaves the database**, and with
+  no capacity to divide by the reading is DROPPED rather than falling back to
+  the number. The fallback would publish exactly what the mode withholds.
+- **A stale reading changes its claim, it does not get a caveat.** Fresh:
+  "About 40 here · 2:15 PM". Stale with history: "Usually about 35 at this
+  time". Stale with nothing behind it: nothing at all.
+- **Attendance reports no total, ever.** Summing head counts produces a number
+  that looks like "visits" and is not. The peak is the defensible figure.
+- **Two permissions, not one.** `analytics:view` keeps Engagement (owner +
+  manager); `operations:view` (+ coordinator) gates Utilization and
+  Attendance. Widening the first would have handed coordinators the visitor
+  analytics too.
+- **`summariseRange` sits ALONGSIDE `buildWeekOverview`**, which is unchanged
+  — `WeekPanel` depends on it and `verify-aw` asserts it. `verify-bb` §0
+  asserts the two agree field for field.
+- **Utilization subtracts exclusive claims itself.** `expandSessions` does not;
+  the residual pass is a separate step in `/api/sessions/expand`. Without it
+  every hour of public water a rental had taken would count as available.
+
+### Known gaps, all deliberate
+
+- **The week panel and Utilization report drop-in hours differently.** The
+  panel reads the API as a staffer, so `preserveFullyClaimed` keeps a
+  completely-eaten drop-in block at full length in its total; Utilization drops
+  it, because a block consumed end to end by a swim club contributed zero hours
+  of public water. The difference is real and Utilization is the one whose
+  number can go in a report. Worth reconciling when someone next touches the
+  panel.
+- **One UTC offset across the whole eight-week window** in
+  `facility_public_conditions`, so the older half is an hour out across a DST
+  boundary. Fine for "how busy is it usually"; not fine for anything billed.
+- **No alerting.** Nothing emails, texts or pushes when a notice is posted.
+- **No status badge on `/find`**, no sensor integration, no per-facility aux
+  authority.
 
 ---
 

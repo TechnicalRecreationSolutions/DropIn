@@ -16,6 +16,9 @@ export type ScheduleGroup =
 export type WidgetConfig =
   Database["public"]["Tables"]["widget_configs"]["Row"];
 export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
+/** A public "what is true right now" notice on a facility (migration 060). */
+export type FacilityNotice =
+  Database["public"]["Tables"]["facility_notices"]["Row"];
 
 // `PlanTier` deliberately does NOT live here. It used to, as
 // "free" | "pro" | "enterprise", with zero importers — every PlanTier in the app
@@ -31,6 +34,23 @@ export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
  * because this is where the rest of the app looks for it.
  */
 export type { OrgRole, InvitableRole } from "./database.types";
+
+/**
+ * A notice's two axes. Both mirror CHECK constraints in 060, so both are
+ * declared alongside OrgRole in database.types.ts and re-exported here.
+ */
+export type { NoticeCategory, NoticeSeverity } from "./database.types";
+
+/** A recorded head count or temperature (migration 061). */
+export type FacilityReading =
+  Database["public"]["Tables"]["facility_readings"]["Row"];
+
+/** The reading vocabulary and the public head-count modes — CHECK constraints in 061. */
+export type {
+  ReadingMetric,
+  PublicHeadcountMode,
+  OccupancyLevel,
+} from "./database.types";
 
 /**
  * The department and facility ids the current user is scoped to.
