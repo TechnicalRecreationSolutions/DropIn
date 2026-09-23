@@ -29,9 +29,8 @@ historical records of finished work, not live handoffs — see
 
 **Right now: `main` is `97de0b2` and pushed.** The Settings section is one
 commit on it, fast-forwarded from `feat/settings-section`. Vercel auto-deploys
-from `main`, so this is live — **and `main` is one migration ahead of the
-database.** 062 is in the repo and not in Postgres, so the schema and the code
-do NOT agree until you apply it; the box below says exactly what that costs.
+from `main`, so this is live. **Migration 062 is applied**, so the schema and
+the code agree again.
 
 Four files in the working tree belong to a concurrent session and were left
 out of that commit on purpose: `DashboardBottomNav.tsx`,
@@ -65,7 +64,7 @@ boundaries that do not build. The commit message enumerates what is in it.
 
 ---
 
-## The Settings section — 2026-09-22, DEPLOYED, MIGRATION 062 NOT YET APPLIED
+## The Settings section — 2026-09-22, DEPLOYED, MIGRATION 062 APPLIED
 
 **`/dashboard/settings` is a section now, not a page.** Nine routes under one
 heading, one rail, and one list (`src/lib/settings/nav.ts`) that both the rail
@@ -73,36 +72,27 @@ and the sidebar read. **Read `src/lib/settings/README.md`** — it holds the
 whole design; this box is the state.
 
 ```
-verify-bc   96/96   green, with sections 3 and 4 SKIPPED (see below)
+verify-bc  111/111  0 skipped — sections 3 and 4 ran against the applied 062
 verify-t    57/57   regression + two stale assertions repaired
 verify-ap    9/9    regression (billing UI)
 verify-al   41/41   regression (staff roles)
 verify-am   21/21   regression (org verification)
+verify-ay   74/74   regression (Overview + chrome)
 ```
 
 `tsc`, `eslint src` and `NEXT_DIST_DIR=.next-verify next build` are clean, and
 all nine settings routes build as Partial Prerender (`◐`) — the static shells
 survived the shared layout.
 
-### ⚠️ The one thing left: apply migration 062
+### Migration 062 is applied
 
-`supabase/migrations/062_organization_deletion.sql` is **written and verified
-by reading, not by running.** Nothing in this repo can apply it — there is no
-`supabase/config.toml` link and no database password in `.env.local` — so it
-needs pasting into the Supabase SQL editor, as with every migration before it.
-
-Until it is applied — **and this is true in production right now, because the
-code is deployed and the function is not** — the Delete-organization button on
-`/dashboard/settings/danger` returns an error ("Could not find the function").
-It is Owner-only, behind a two-step reveal and a typed organization name, so
-the blast radius is one person seeing one error. Nothing else in the section
-depends on it; the other eight pages are complete and live.
-
-After applying it, re-run and expect the two skips to become ~18 more passes:
-
-```
-node --experimental-strip-types scripts/verify/verify-bc.mjs
-```
+`delete_organization()` exists, and `verify-bc` sections 3 and 4 exercise it
+end to end rather than skipping. The five refusals each match their **own**
+message — `/only the owner/`, `/does not match/`, `/cancel the subscription/`
+— so no single blanket error could satisfy them; and the positive control
+actually deletes, with the cascade proved by counting rows in five tables
+before and after. A function that refused everything would fail that control,
+and one that accepted everything would fail all five refusals.
 
 ### What moved
 
