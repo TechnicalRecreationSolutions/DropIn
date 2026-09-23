@@ -782,8 +782,27 @@ that describe a "next phase" are *not* authorization to build it — ask.
 
 ## Re-verifying security work
 
-**The security audit is fully closed: 20 findings, 0 open** (L5 was found and
-closed on 2026-09-16). Detail for each,
+**There is now a loop for this, and it is the place to start:**
+
+```bash
+node scripts/security/sweep.mjs --live --app=http://localhost:3000
+node scripts/security/sweep.mjs --falsify     # every check must go red on poisoned evidence
+```
+
+[`docs/prompts/frontend-database-security.md`](prompts/frontend-database-security.md)
+is the audit itself — the seven paths from a browser to a row, sixteen weakness
+classes, and what counts as proof for each. It is written to be worked from zero
+by someone who has not read the register, which is the point: closed findings are
+last year's exam. `scripts/security/sweep.mjs` is the repeatable part (30 static
+checks, 16 anonymous PostgREST probes, 3 header probes) and prints a MANUAL line
+for everything that needs a fixture, naming the `verify-*` harness that has one.
+Re-run it whenever the trust boundary moves — a new table, a new policy, a new
+route, a new price id. §6 of the prompt records what tier gating will have to
+satisfy **when** it is built; it is deliberately not built yet.
+
+**The security audit is fully closed: 21 findings, 0 open** (L6 was found and
+closed on 2026-09-22 by the sweep above — `/api/facility-maps/public` had no
+rate limit). Detail for each,
 including how it was verified, is in [`docs/SECURITY.md`](SECURITY.md). Don't
 reconstruct it from memory; read it. That number means *code* findings only —
 the two launch blockers above are not code, and the dependency regression this
@@ -817,6 +836,7 @@ undone.
 | [`PERFORMANCE.md`](PERFORMANCE.md) | Cache Components / PPR work |
 | [`../README.md`](../README.md) | What the app is, how it's built, how to run it |
 | `scripts/verify/README.md` | Verification harness conventions |
+| [`prompts/frontend-database-security.md`](prompts/frontend-database-security.md) | **The front-end/database audit + its loop** (`scripts/security/sweep.mjs`) |
 | `src/components/schedule-command/README.md` | Command centre architecture + traps |
 | `src/components/widget/README.md` | Widget studio + the two publish traps |
 

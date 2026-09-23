@@ -38,6 +38,13 @@ export const RATE_LIMITS = {
    *  join plus RRULE expansion, and unlike the routes above this one has no
    *  auth requirement at all. */
   sessionsExpand: { limit: 180, windowSeconds: 60 },
+  /** The published floorplan (/api/facility-maps/public). No auth, three
+   *  queries per call — the map, its hotspots joined to spaces, and its
+   *  context elements — and it is reached from the public facility page and
+   *  the embedded widget, so a visitor can legitimately fire it a few times
+   *  while switching schedules. Everything it returns is already published,
+   *  so this bounds the bill rather than an exposure. */
+  facilityMapPublic: { limit: 60, windowSeconds: 60 },
   /** The public directory (/api/public/v1/directory). No auth, and a future
    *  native app will call it too. Each call is served from a shared cache, so
    *  this limit is about scraping and floods, not database cost; a person

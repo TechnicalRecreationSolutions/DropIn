@@ -43,7 +43,30 @@ open item from the audit is now closed; `npm audit` reports **0 vulnerabilities*
 | Critical | 0 | 2 |
 | High | 0 | 4 |
 | Medium | 0 | 8 |
-| Low | 0 | 5 |
+| Low | 0 | 6 |
+
+**2026-09-22 — the front-end/database boundary, re-derived from zero.** Every
+path from a browser to a row was mapped again as though nothing had been
+audited before, rather than re-reading this file's closed findings. The method
+is [`docs/prompts/frontend-database-security.md`](prompts/frontend-database-security.md);
+the re-runnable part of it is `scripts/security/sweep.mjs`, which is now the
+loop this register's rule 3 asks for:
+
+```bash
+node scripts/security/sweep.mjs --live --app=http://localhost:3000
+node scripts/security/sweep.mjs --falsify     # every check must go red on poisoned evidence
+```
+
+First pass: **30 static checks, 16 anonymous PostgREST probes, 3 header probes —
+0 failures, 4 inconclusive, 12 manual.** All 30 static checks were falsified.
+One finding came out of it (**L6**, below); the eleven other reds in the first
+run were defects in the checks themselves, each triaged against the source and
+either narrowed or recorded as a reviewed exception with its reason inside the
+sweep. Two of those exceptions are worth knowing about because they read like
+bugs and are not: `organizations::orgs_admin_update` has no `WITH CHECK`
+(Postgres then applies the `USING` clause to the new row, and 057's trigger
+guards the platform columns), and three routes return `error.message` from a
+`SECURITY DEFINER` function that raises human-written text.
 
 Two caveats on "0 open", because the number is easy to over-read:
 
@@ -76,6 +99,35 @@ under [Status at a glance](#status-at-a-glance) for what "none" does *not* mean.
 ---
 
 ## Closed findings
+
+### L6 — `/api/facility-maps/public` had no rate limit
+**Low · closed 2026-09-22 · no migration**
+
+The published-floorplan endpoint is reachable with no session and does three
+queries per call — the map, its hotspots joined to `spaces`, and its context
+elements — and it had no `checkRateLimit()`. Every other unauthenticated route
+has one: `sessionsExpand`, `directory`, `analytics`, `signup`, `invitationLookup`.
+This one was written alongside the map editor and inherited the pattern of the
+*authenticated* routes around it, which is how it slipped past invariant 5.
+
+Nothing is exposed by it — RLS still confines the response to published maps —
+so this is a bill, not a breach: the cost of an anonymous caller looping three
+queries as fast as their connection allows.
+
+**Fixed by** adding a `facilityMapPublic` bucket (60/min, the widget and the
+public facility page both call this on load) and keying it on the client IP,
+like `directory`. Not "user id if present": establishing the user would mean a
+~100 ms auth round trip on a route that otherwise needs none.
+
+**Verified** against the running app — 60 requests answered 200 and the 61st
+answered 429, so the limit is reachable rather than merely present, and the
+first 60 are the positive control that it does not refuse everyone. The stored
+bucket is `facilityMapPublic:a0cd4ec1…` — a digest, per L5, not an address.
+
+**Found by** `scripts/security/sweep.mjs` check W10.1, which asks a different
+question than "is there a rate limit": it lists every route that establishes no
+user identity, and requires each to be *declared* as public and throttled. That
+framing is what surfaced this one, because the route was neither.
 
 ### L5 — The rate limiter stored raw IP addresses
 **Low · closed 2026-09-16 · no migration**
@@ -631,7 +683,10 @@ violates one as a security regression.
 4. **`analytics_events` has no anonymous INSERT policy.** The service-role route
    is the only write path. *(H2)*
 5. **New public or paid endpoints call `checkRateLimit()`.** The Proxy matcher
-   excludes `/api`, so nothing guards a route by default. *(H1)*
+   excludes `/api`, so nothing guards a route by default. A route that
+   establishes no user identity must also be *declared* in
+   `UNAUTHENTICATED_ROUTES` in `scripts/security/sweep.mjs`, which is what turns
+   this sentence into a check that runs. *(H1, L6)*
 6. **The service-role key stays in `src/lib/supabase/admin.ts` and route handlers
    only.** Never a client component, never a `NEXT_PUBLIC_` variable.
 7. **`subscriptions` has no client-side INSERT/UPDATE/DELETE policy.** Entitlements
@@ -748,6 +803,13 @@ violates one as a security regression.
     and centres starred on `/find`. `/privacy` names both; anything else stored
     there needs the policy updated, and anything identifying needs a consent
     decision first.
+35. **A red in `scripts/security/sweep.mjs` is closed by fixing the code or by
+    recording a reviewed exception with its reason — never by loosening the
+    pattern.** A pattern widened until the flagged site stops matching also
+    stops the *next* site matching, and the next one may be the real thing.
+    Each check's `reviewed` map is a list of claims someone checked on a date;
+    re-read the entry when its file changes. `--falsify` must stay all-BITES:
+    a check that cannot go red is not evidence of anything. *(L6)*
 
 ---
 
@@ -896,3 +958,4 @@ results* the first time:
 | 2026-08-07 | H4 closed — **`npm audit` now reports 0 vulnerabilities** (from 12). `xlsx` removed and imports restricted to CSV; `shadcn` moved out of `dependencies`, taking 4 advisories with it; `next` 16.2.10 → 16.3.0 cleared `postcss` and `sharp`. PPR confirmed intact after the bump. **0 open.** |
 | 2026-09-16 | **Trust boundary moved** (maintenance rule 3): migration `050` gives `session_templates` its first public-read policy, and adds two more public-readable tables (`tags`, `session_template_links`) plus a join table. No finding — this is a deliberate widening, not a fix. Before it, `session_templates` was unreadable by anon, which is why the public schedule had been showing the schedule *group* name on every card rather than the template name; the comment in `047` asserting a public-read policy already existed was simply wrong. Every one of the four policies is tied to an owning row (invariant 18) **and** to `s.disclosure = 'public'`, which is what keeps 047's withheld-renter protection intact against a direct PostgREST read — see invariants 27 and 28. `scripts/verify/verify-ab.mjs` asserts both halves, including the correlation path an outsider would actually take. **Pending live verification until `050` is applied.** |
 | 2026-09-16 | **Trust boundary moved: the resident directory.** Migration `052` (opt-in `listed_in_directory`; `location` synced from lat/lng by trigger), `GET /api/public/v1/directory` (public, rate-limited, publicly cacheable), `/find` (browser geolocation, sorted on the device), server-side Nominatim geocoding on facility save, and `sitemap.xml`/`robots.txt`. No new RLS policy; the directory is a filter over rows that were already public. Invariants 29–34 added. **L5 found and closed**: `rate_limits` had stored raw client IPs, which `/privacy` says we don't; identifiers are now HMAC-hashed. `/privacy` corrected in three places: local storage is used (theme, starred centres), location use is described, and Nominatim is listed as a provider. Verified with `verify-ae`/`af`/`ag`/`ah`/`ai`; the CSP was checked in a browser against a local production build, including the widget framed on another origin. |
+| 2026-09-22 | **The front-end/database boundary re-audited from zero**, on the premise that no prior audit existed. Seven paths from a browser to a row were mapped (PostgREST direct, route handler, service role, RSC, cached anonymous read, Stripe webhook, Storage) and worked through sixteen weakness classes; the method is [`docs/prompts/frontend-database-security.md`](prompts/frontend-database-security.md) and `scripts/security/sweep.mjs` is the loop — 30 static checks, 16 anonymous PostgREST probes, 3 header probes, every static check falsified against poisoned evidence. **L6 found and closed** (`/api/facility-maps/public` was unthrottled; 60 requests pass, the 61st 429s, verified against the running app). The other eleven first-run reds were defects in the checks themselves, each triaged against the source and then narrowed or recorded as a reviewed exception with its reason. Invariant 5 extended, invariant 35 added. Tier gating was deliberately **not** built — §6 of the prompt records the properties it will have to satisfy when it is. |

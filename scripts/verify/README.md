@@ -86,6 +86,16 @@ above were measured in that run, not carried forward; four harnesses had drifted
 and are described below. Re-measure before quoting this — see
 `docs/SECURITY.md`'s note about recorded numbers going stale on their own.
 
+## The security sweep is next door
+
+`scripts/security/sweep.mjs` is the repeatable half of the security audit
+(`docs/prompts/frontend-database-security.md`). It overlaps these harnesses
+deliberately and stops where they start: it asks questions answerable from the
+source or from an anonymous PostgREST call, and hands anything needing a
+fixture — two orgs, a signed-in coordinator, a published week — back to a
+`verify-*` script by name. When it reports INCONCLUSIVE because a table is
+empty, the line says which harness settles it.
+
 ## What these are, and are not
 
 **Not a test suite.** There is no runner, no CI wiring, no mocking. They are the

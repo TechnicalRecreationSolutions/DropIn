@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { checkRateLimit, getClientIp, rateLimitResponse } from "@/lib/rate-limit";
 import type { Database } from "@/types/database.types";
 
 type HotspotWithSpaceRow = Database["public"]["Tables"]["space_hotspots"]["Row"] & {
@@ -14,11 +15,21 @@ type HotspotWithSpaceRow = Database["public"]["Tables"]["space_hotspots"]["Row"]
  * space_hotspots_public_read_published) rather than a membership check.
  * Returns the facility's single published map plus its hotspots, each
  * joined with the linked space's name/capacity for display.
+ *
+ * Rate limited on the caller's IP, like the other two public endpoints. RLS
+ * decides what comes back; the limit is about what three queries per call cost
+ * when nobody has to sign in to make them. Keyed on IP alone rather than
+ * "user id if present" — establishing the user would mean a ~100ms auth round
+ * trip on a route that otherwise needs none.
  */
 export async function GET(request: Request) {
   const { searchParams } = new URL(request.url);
   const facilityId = searchParams.get("facilityId");
   if (!facilityId) return NextResponse.json({ error: "Missing facilityId" }, { status: 400 });
+
+  if (!(await checkRateLimit("facilityMapPublic", await getClientIp()))) {
+    return rateLimitResponse("facilityMapPublic");
+  }
 
   const supabase = await createClient();
 
