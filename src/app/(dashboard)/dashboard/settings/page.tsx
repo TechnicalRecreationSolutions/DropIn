@@ -1,20 +1,24 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
+import { BadgeCheck, Clock } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
+import { STORED_TIER_TO_PLAN, PLANS, type StoredPlanTier } from "@/lib/stripe/plans";
 import { Skeleton } from "@/components/ui/skeleton";
-import OrgSettingsForm from "@/components/org/OrgSettingsForm";
-import TransferOwnership, { type TransferCandidate } from "@/components/org/TransferOwnership";
-import { createClient } from "@/lib/supabase/server";
 import Streamed from "@/components/ui/streamed";
-import { PageHeader } from "@/components/ui/info-tip";
+import OrgProfileForm from "@/components/org/OrgProfileForm";
+import {
+  SettingsHeading,
+  SettingsCard,
+  SettingsFacts,
+  SettingsFact,
+  ReadOnlyNotice,
+} from "@/components/settings/SettingsSection";
 
-export const metadata = { title: "Organization settings" };
+export const metadata = { title: "General · Settings" };
 
 /**
- * The org profile editor — the first UI in this app that writes
- * `organizations`. Until now the row was created by onboarding and never
- * touched again, which is why `logo_url` had a storage folder, a policy and
- * two render sites but no way to ever be set.
+ * Who the organization is, to everyone outside it.
  *
  * Opted in to instant-navigation validation: Next.js re-renders this route in
  * dev as both a page load and a sibling client navigation, and reports in the
@@ -28,79 +32,131 @@ export const metadata = { title: "Organization settings" };
  */
 export const instant = true;
 
-export default function OrgSettingsPage() {
+export default function SettingsGeneralPage() {
   return (
-    <div className="max-w-2xl mx-auto space-y-6">
+    <>
       {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div>
-        <PageHeader title="Organization" />
-      </div>
+      <SettingsHeading
+        title="General"
+        info="Your organization's name, logo and description. All three are published: they appear on every public schedule page, in the embeddable widget, and on your directory listing."
+      />
 
       <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
-        <Streamed className="space-y-6">
-          <OrgSettingsBody />
+        <Streamed className="space-y-8">
+          <GeneralBody />
         </Streamed>
       </Suspense>
-    </div>
+    </>
   );
 }
 
-async function OrgSettingsBody() {
+async function GeneralBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
-  const { org, membership, scopes } = orgContext;
+  const { org, membership, scopes, subscription } = orgContext;
   const actor = { role: membership.role, scopes };
   const canEdit = can(actor, "org:edit-settings");
-  const canTransfer = can(actor, "org:transfer-ownership");
 
-  // Ownership can only go to someone already inside the org — transferring to a
-  // stranger would mean minting a membership and handing over the organization
-  // in one unreviewable step, which transfer_ownership() refuses outright.
-  let candidates: TransferCandidate[] = [];
-  if (canTransfer) {
-    const supabase = await createClient();
-    const { data } = await supabase
-      .from("org_memberships")
-      .select("id, email, role")
-      .eq("org_id", org.id)
-      .neq("user_id", membership.user_id)
-      .order("joined_at", { ascending: true });
+  // Previously this page had no route guard: the sidebar simply did not offer
+  // it below Manager, and a coordinator who typed the URL got the whole form
+  // rendered disabled. That was a deliberate choice once — "knowing what your
+  // organization has published is reasonable" — but it makes the rail and the
+  // routes disagree, and the rail is now the section's contract. Refused
+  // roles go to the one settings page every role has.
+  //
+  // `canEdit` below is NOT redundant with this. It is the second layer, the
+  // same shape as every page guard in this app having an API guard behind it:
+  // if `org:edit-settings` is ever widened to a role that may look but not
+  // touch, the fields are already disabled and the notice already explains why.
+  if (!canEdit) redirect("/dashboard/settings/account");
 
-    candidates = (data ?? []).map((m) => ({
-      membershipId: m.id,
-      email: m.email,
-      role: m.role,
-    }));
-  }
+  // `approved_at` IS the verification mark — migration 057 repurposed a column
+  // unused since 001 rather than adding a boolean, and `organizations_public`
+  // exposes it as `is_verified`. It is trigger-locked against the organization
+  // itself, so this is always a fact about the platform's decision and never
+  // about anything set here.
+  const verified = org.approved_at !== null;
+
+  const stored = (subscription?.plan_tier ?? "free") as StoredPlanTier;
+  const planTier = STORED_TIER_TO_PLAN[stored] ?? null;
+  const planName = planTier ? PLANS[planTier].name : "No paid plan";
 
   return (
     <>
       {!canEdit && (
-        <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">
-          Only the owner and managers can change these settings.
-        </p>
+        <ReadOnlyNotice>
+          Only the Owner and Managers can change these settings. You can see what your
+          organization has published.
+        </ReadOnlyNotice>
       )}
 
-      <OrgSettingsForm
+      <OrgProfileForm
         orgId={org.id}
         logoUrl={org.logo_url}
         canEdit={canEdit}
         defaultValues={{
           name: org.name,
           description: org.description ?? "",
-          website_url: org.website_url ?? "",
-          phone: org.phone ?? "",
-          email: org.email ?? "",
-          address_line1: org.address_line1 ?? "",
-          city: org.city ?? "",
-          province: org.province ?? "",
-          postal_code: org.postal_code ?? "",
-          aux_can_post_notices: org.aux_can_post_notices,
         }}
       />
 
-      {canTransfer && <TransferOwnership orgName={org.name} candidates={candidates} />}
+      {/* ── Facts, not fields ──────────────────────────────────────────────
+          Four things people ask about and none of them are editable here: two
+          are the platform's to set (verification, and the slug that is baked
+          into URLs already handed out), one belongs to Billing, and one is a
+          timestamp. Putting them under the form rather than on a page of their
+          own is what stops somebody opening a support ticket to ask where the
+          verified badge comes from. */}
+      <SettingsCard title="Organization record" info="Set by Dropin, or by another page. Shown here so you can quote it.">
+        <SettingsFacts>
+          <SettingsFact
+            label="Verification"
+            info="A verified organization is listed in the public resident directory and its facility pages are indexed by search engines. Unverified pages still work — your own site can link to them — but they carry noindex. Verification is granted by Dropin and cannot be set from inside the dashboard."
+          >
+            {verified ? (
+              <span className="inline-flex items-center gap-1.5 text-green-700 dark:text-green-400">
+                <BadgeCheck className="size-4" aria-hidden />
+                Verified
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+                <Clock className="size-4" aria-hidden />
+                Pending review
+              </span>
+            )}
+          </SettingsFact>
+
+          <SettingsFact
+            label="Plan"
+            info="Changed on the Billing page, which only the Owner can open."
+          >
+            {planName}
+          </SettingsFact>
+
+          <SettingsFact
+            label="Identifier"
+            info="Your organization's permanent slug. It is not editable: it is referenced by everything already created under this organization, and changing it would need a redirect story that does not exist yet."
+          >
+            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{org.slug}</code>
+          </SettingsFact>
+
+          <SettingsFact
+            label="Created"
+            info="When this organization was first set up in Dropin."
+          >
+            {/* Explicit zone: this renders on the server, which is UTC in
+                production, and a bare toLocaleDateString() there reports the
+                wrong day for anything created after 5pm Pacific. */}
+            {new Date(org.created_at).toLocaleDateString("en-CA", {
+              year: "numeric",
+              month: "long",
+              day: "numeric",
+              timeZone: "America/Edmonton",
+            })}
+          </SettingsFact>
+        </SettingsFacts>
+      </SettingsCard>
     </>
   );
 }

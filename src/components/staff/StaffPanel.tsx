@@ -27,7 +27,6 @@ import type { OrgRole } from "@/types/app.types";
 interface StaffPanelProps {
   orgName: string;
   currentUserId: string;
-  currentMembershipId: string;
   currentRole: OrgRole;
   members: MemberRow[];
   invitations: InvitationRow[];
@@ -48,7 +47,6 @@ interface StaffPanelProps {
 export default function StaffPanel({
   orgName,
   currentUserId,
-  currentMembershipId,
   currentRole,
   members,
   invitations,
@@ -273,46 +271,10 @@ export default function StaffPanel({
         </div>
       )}
 
-      {currentMembershipId && currentRole !== "owner" && (
-        <LeaveOrganization orgName={orgName} />
-      )}
-    </div>
-  );
-}
-
-/**
- * Resigning.
- *
- * Migration 055 §7 blocks self-modification on `org_memberships` outright —
- * that is what stops self-promotion — so this goes through
- * `leave_organization()`, the sanctioned exception. The owner never sees it:
- * an org with no owner has nobody who can pay for it or delete it.
- */
-function LeaveOrganization({ orgName }: { orgName: string }) {
-  const router = useRouter();
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <div className="border border-border rounded-xl p-4">
-      <p className="text-sm font-medium text-foreground">Leave {orgName}</p>
-      <p className="text-xs text-muted-foreground mt-0.5">
-        You will lose access immediately. Someone with a Manager account would have to invite
-        you back.
-      </p>
-      <Button
-        variant="outline"
-        className="mt-3"
-        disabled={busy}
-        onClick={async () => {
-          if (!confirm(`Leave ${orgName}? You will lose access immediately.`)) return;
-          setBusy(true);
-          const res = await fetch("/api/staff/members/leave", { method: "POST" });
-          setBusy(false);
-          if (res.ok) router.push("/dashboard");
-        }}
-      >
-        Leave organization
-      </Button>
+      {/* "Leave this organization" used to sit here. It moved to
+          /dashboard/settings/account, because this page is gated on
+          `staff:view` — which excludes aux — so an aux staffer had no way to
+          leave at all. See components/account/LeaveOrganization.tsx. */}
     </div>
   );
 }

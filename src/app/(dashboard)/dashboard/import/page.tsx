@@ -1,5 +1,7 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import ImportWizard from "@/components/import/ImportWizard";
@@ -36,9 +38,19 @@ export default function ImportPage() {
   );
 }
 
+/**
+ * The wizard itself. Guarded on `import:use`, which it was not before: the
+ * only thing keeping a Coordinator or a lifeguard out was that no navigation
+ * offered the page. Its two API routes now refuse them too, so this is the
+ * layer that gives an answer rather than a broken wizard.
+ */
 async function ImportWizardBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+
+  if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "import:use")) {
+    redirect("/dashboard/settings/account");
+  }
 
   const supabase = await createClient();
   const { data: facilities } = await supabase

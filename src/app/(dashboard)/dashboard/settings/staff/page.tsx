@@ -8,9 +8,9 @@ import Streamed from "@/components/ui/streamed";
 import StaffPanel from "@/components/staff/StaffPanel";
 import type { OrgRole } from "@/types/app.types";
 import type { InvitationRow, MemberRow, ScopeRow } from "@/components/staff/types";
-import { PageHeader } from "@/components/ui/info-tip";
+import { SettingsHeading } from "@/components/settings/SettingsSection";
 
-export const metadata = { title: "Staff" };
+export const metadata = { title: "Staff · Settings" };
 
 /**
  * Who can get into this organization, and what they can reach once they are in.
@@ -25,18 +25,19 @@ export const instant = true;
 
 export default function StaffPage() {
   return (
-    <div className="space-y-6">
+    <>
       {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div>
-        <PageHeader title="Staff" info="Everyone who can sign in to your organization, and what each person can change." />
-      </div>
+      <SettingsHeading
+        title="Staff"
+        info="Everyone who can sign in to your organization, and what each person can change. A Coordinator sees only the people inside their own facilities."
+      />
 
       <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
         <Streamed className="space-y-6">
           <StaffBody />
         </Streamed>
       </Suspense>
-    </div>
+    </>
   );
 }
 
@@ -49,7 +50,7 @@ async function StaffBody() {
 
   // Aux staff have no business here at all, and the sidebar does not offer it —
   // but a typed URL must land somewhere sensible rather than on an empty page.
-  if (!can(actor, "staff:view")) redirect("/dashboard/schedule");
+  if (!can(actor, "staff:view")) redirect("/dashboard/settings/account");
 
   const supabase = await createClient();
 
@@ -130,7 +131,6 @@ async function StaffBody() {
     <StaffPanel
       orgName={org.name}
       currentUserId={membership.user_id}
-      currentMembershipId={membership.id}
       currentRole={membership.role as OrgRole}
       members={members}
       invitations={invitations}

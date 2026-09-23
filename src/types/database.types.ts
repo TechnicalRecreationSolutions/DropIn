@@ -1426,6 +1426,17 @@ export type Database = {
           typical_value: number | null;
         }[];
       };
+      // Deletes an organization and, by cascade, everything that carries its
+      // org_id (062_organization_deletion.sql). SECURITY DEFINER because there
+      // is no DELETE policy on `organizations` at all — RLS cannot express
+      // "and you typed the name" or "and you are not still being billed".
+      // Raises (→ a PostgREST error, message already written for a person)
+      // when the caller is not the owner, the name does not match, or a live
+      // subscription exists.
+      delete_organization: {
+        Args: { p_org_id: string; p_confirm_name: string };
+        Returns: undefined;
+      };
       // Undoes a single activity_log entry (038_activity_log.sql). Raises
       // (→ a PostgREST error) if the caller isn't an owner/admin of that
       // entry's org, or if it was already reverted.

@@ -369,9 +369,15 @@ try {
   });
   if (userErr) throw new Error(`createUser: ${userErr.message}`);
   ids.users.push(userData.user.id);
-  await admin
+  // "owner", not "admin". Migration 055 removed the `admin` role, so this
+  // insert was failing its CHECK constraint silently — no membership, and
+  // every request below answering "No organization found" rather than the
+  // thing being tested. Billing is owner-only, so owner is also the role this
+  // section actually means.
+  const { error: membershipErr } = await admin
     .from("org_memberships")
-    .insert({ org_id: org.id, user_id: userData.user.id, role: "admin" });
+    .insert({ org_id: org.id, user_id: userData.user.id, role: "owner", email });
+  if (membershipErr) throw new Error(`membership: ${membershipErr.message}`);
 
   const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({
     email,
@@ -381,7 +387,7 @@ try {
   const cookie = sessionCookieHeader(signIn.session);
 
   const billingOf = async () => {
-    const res = await fetch(`${APP}/dashboard/billing`, {
+    const res = await fetch(`${APP}/dashboard/settings/billing`, {
       headers: { Cookie: cookie, Accept: "text/html" },
     });
     return { status: res.status, text: textOf(await res.text()) };
@@ -391,7 +397,7 @@ try {
   console.log("\n5. No subscription row renders as no plan, not as the cheapest one");
   // ---------------------------------------------------------------
   let billing = await billingOf();
-  check("GET /dashboard/billing is 200", billing.status === 200, `status ${billing.status}`);
+  check("GET /dashboard/settings/billing is 200", billing.status === 200, `status ${billing.status}`);
   check(
     "an org with no subscription says 'No active plan'",
     billing.text.includes("No active plan")
@@ -459,13 +465,26 @@ try {
     new RegExp(`Current plan ${standard.name}`).test(billing.text),
     "the legacy bridge must not leave a paying org showing no plan"
   );
+  // Two assertions here were stale, and both were invisible until the fixture
+  // above started producing a real membership (it was inserting the removed
+  // role "admin", so the page under test never rendered at all).
+  //
+  //   - The current-plan block DELIBERATELY states no price any more. Annual
+  //     checkout exists and `subscriptions` has no interval column, so the app
+  //     cannot know whether this org pays monthly or yearly — see the comment
+  //     in BillingClient.tsx. Asserting the old "$249/month" copy would be
+  //     asserting a bug back into existence, so what is checked instead is
+  //     that the LIST price is still on the tier's card below, where it is
+  //     unambiguous.
+  //   - The allowance is rendered "Up to 4 facilities". The old check compared
+  //     lowercase against text that is not lowercased.
   check(
-    "…shows that tier's price",
-    billing.text.includes(`$${dollars(standard.priceMonthly)}/month`)
+    "…shows that tier's list price on its card",
+    billing.text.includes(`$${dollars(standard.priceMonthly)}`)
   );
   check(
     `…shows that tier's facility allowance (${standard.facilities})`,
-    billing.text.includes(`up to ${standard.facilities} facilities`)
+    billing.text.includes(`Up to ${standard.facilities} facilities`)
   );
   check(
     "…and now offers the Stripe portal",

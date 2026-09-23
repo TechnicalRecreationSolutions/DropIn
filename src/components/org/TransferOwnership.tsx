@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
-import { InfoTip } from "@/components/ui/info-tip";
+import { SettingsCard } from "@/components/settings/SettingsSection";
 
 export interface TransferCandidate {
   membershipId: string;
@@ -144,7 +144,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
                 // The caller's own role just changed, so every piece of chrome
                 // that reads it is stale — refresh before navigating.
                 router.refresh();
-                router.push("/dashboard/staff");
+                router.push("/dashboard/settings/staff");
               }}
             >
               {busy ? "Transferring…" : "Transfer ownership"}
@@ -156,18 +156,23 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
   );
 }
 
+/**
+ * Renders as a settings card so this sits level with the delete panel beside
+ * it on the Danger zone page. It used to carry its own `<h2>Ownership</h2>`,
+ * which put a second top-level heading inside a page that already had one.
+ */
 function Section({ children }: { children: React.ReactNode }) {
   return (
-    <div className="border border-border rounded-xl p-4 space-y-3">
-      <div className="flex items-center gap-2">
-        <Crown className="w-4 h-4 text-muted-foreground" />
-        <h2 className="text-sm font-semibold text-foreground">Ownership</h2>
-        <InfoTip>
-          Only the owner can manage billing, delete the organization, or transfer ownership. There is
-          always exactly one owner.
-        </InfoTip>
+    <SettingsCard
+      title="Ownership"
+      info="Only the owner can manage billing, delete the organization, or transfer ownership. There is always exactly one owner."
+      description="Handing this over makes you a Manager. Only the new owner can give it back."
+    >
+      <div className="flex items-center gap-2 pb-3 text-xs text-muted-foreground">
+        <Crown className="size-3.5" aria-hidden />
+        You are the owner of this organization.
       </div>
       {children}
-    </div>
+    </SettingsCard>
   );
 }

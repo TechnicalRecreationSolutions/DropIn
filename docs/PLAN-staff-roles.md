@@ -446,7 +446,7 @@ Three things ship with this:
 
 | Route | Who | What |
 |---|---|---|
-| `/dashboard/staff` | Owner, Manager (Coordinator sees own scope) | Members + pending invites, role badges, scope chips, invite dialog, change role, remove, resend, revoke |
+| `/dashboard/settings/staff` | Owner, Manager (Coordinator sees own scope) | Members + pending invites, role badges, scope chips, invite dialog, change role, remove, resend, revoke |
 | `/invite/[token]` | public | Accept screen. Signed out → sign up/in and return here. Signed in with the right address → one button |
 | `/dashboard/settings` | Owner | New danger zone: transfer ownership (confirm by typing the org name) |
 | `/dashboard/schedule` | Aux | Read-only mode — no drag, no add, no settings, no week-approve |
@@ -547,7 +547,7 @@ per house rule.
 | ✅ | **All ~30 inline `["owner","admin"].includes()` checks converted.** None remain |
 | ✅ | `sessions`, `sessions/[sessionId]`, and its `exceptions` route gated — they had **no role check at all** before |
 | ✅ | `getOrgContext()` / `getRouteMembership()` carry scopes, on the same round trip |
-| ✅ | `/dashboard/staff`, the invite dialog, the edit-access dialog, `/invite/[token]` |
+| ✅ | `/dashboard/settings/staff`, the invite dialog, the edit-access dialog, `/invite/[token]` |
 | ✅ | 9 API routes under `/api/staff` and `/api/invitations` |
 | ✅ | Sidebar, mobile bottom nav, aux landing redirect, read-only command centre |
 | ✅ | `scripts/verify/verify-al.mjs` |

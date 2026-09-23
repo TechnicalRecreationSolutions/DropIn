@@ -60,6 +60,8 @@ node --experimental-strip-types scripts/verify/verify-ba.mjs  # head counts, tem
 node --experimental-strip-types scripts/verify/verify-ba.mjs --logic-only  # ...just freshness, formatting and the UTC-offset sign: no database, no server (14 assertions)
 node --experimental-strip-types scripts/verify/verify-bb.mjs  # the Analytics section: three pages, two gates, six exports (64 assertions) — NEEDS 061
 node --experimental-strip-types scripts/verify/verify-bb.mjs --logic-only  # ...just summariseRange vs buildWeekOverview + summariseAttendance (28 assertions)
+node --experimental-strip-types scripts/verify/verify-bc.mjs  # the Settings section: nine pages walked as four roles, the moved URLs, the import gate, the delete (96 assertions + 18 behind migration 062)
+node --experimental-strip-types scripts/verify/verify-bc.mjs --logic-only  # ...just SETTINGS_NAV vs can() and the role matrix vs ALLOWED: no database, no server (22 assertions)
 
 node scripts/verify/perf-nav.mjs   # navigation timings — prints a table, asserts nothing
 ```

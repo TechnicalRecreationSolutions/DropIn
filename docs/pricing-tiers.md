@@ -126,7 +126,7 @@ none plan-gated.
 |---|---|---|---|
 | Four-role model (owner/manager/coordinator/aux) | migrations 055, 056, `lib/auth/roles.ts`, `lib/auth/guard.ts` | Complete | Role + RLS |
 | Department/facility scopes | `components/staff/ScopePicker.tsx` | Complete | Role |
-| Staff panel | `/dashboard/staff`, `StaffPanel.tsx` | Complete | Role (`staff:view`) |
+| Staff panel | `/dashboard/settings/staff`, `StaffPanel.tsx` | Complete | Role (`staff:view`) |
 | Invitations | `/api/staff/invitations`, `InviteDialog.tsx`, migration 056 | **Partial** | **No email delivery** — `RESEND_API_KEY` absent, falls back to copy-a-link |
 | Transfer ownership | `/api/staff/transfer-ownership`, `TransferOwnership.tsx` | Complete | Role (owner only) |
 | Leave organization | `/api/staff/members/leave` | Complete | Role |
@@ -134,7 +134,7 @@ none plan-gated.
 | Revert a change | `/api/activity/[id]/revert` | Complete | Role (`activity:revert` — owner/manager) |
 | Org settings | `/dashboard/settings`, `OrgSettingsForm.tsx` | Complete | Role |
 | Facility delete | `/api/facilities/[facilityId]` DELETE, `DeleteFacilityDialog.tsx` | Complete | Role |
-| Billing | `/dashboard/billing`, `/api/stripe/*` | **Partial** | Role (owner only). 2 of 7 Stripe prices exist, both test mode |
+| Billing | `/dashboard/settings/billing`, `/api/stripe/*` | **Partial** | Role (owner only). 2 of 7 Stripe prices exist, both test mode |
 
 ### 1.7 Import / export
 
@@ -179,8 +179,8 @@ object with `limits.facilities`, `limits.extraFacilityMonthly`,
 | Reader | What it does with it |
 |---|---|
 | `src/app/(public)/page.tsx` | Renders the marketing pricing grid |
-| `src/app/(dashboard)/dashboard/billing/BillingClient.tsx` | Renders the plan cards |
-| `src/app/(dashboard)/dashboard/billing/page.tsx` | Maps stored tier → catalogue entry for the "Current plan" badge |
+| `src/app/(dashboard)/dashboard/settings/billing/BillingClient.tsx` | Renders the plan cards |
+| `src/app/(dashboard)/dashboard/settings/billing/page.tsx` | Maps stored tier → catalogue entry for the "Current plan" badge |
 
 That is the complete list. `limits.facilities` is rendered as copy.
 `limits.analyticsHistoryDays` is rendered nowhere at all — it is dead data.
@@ -193,7 +193,7 @@ That is the complete list. `limits.facilities` is rendered as copy.
 |---|---|
 | `/api/stripe/webhook` | **Write** — sets `plan_tier` from the price ID, or `'free'` on cancel |
 | `/api/stripe/create-checkout` | Reads `subscriptions` to decide trial eligibility only |
-| `/dashboard/billing/page.tsx` | **Read** — for display |
+| `/dashboard/settings/billing/page.tsx` | **Read** — for display |
 
 No Route Handler, no server component, no client component and **no RLS policy**
 reads `plan_tier` to decide whether an action is allowed. `POST /api/facilities`

@@ -1,10 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { Menu, ClipboardList, Settings, Sun, Moon } from "lucide-react";
+import { ClipboardList, Settings, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
-import { Button } from "@/components/ui/button";
-import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 
 const THEME_KEY = "dropin-theme";
 
@@ -38,21 +36,14 @@ function useThemeToggle() {
 }
 
 export default function DashboardTopbar() {
-  const { open: openTreeSheet } = useMobileTreeSheet();
   const { isDark, toggle } = useThemeToggle();
 
   return (
     <header className="sticky top-0 z-40 bg-card border-b border-border px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
-      {/* Left: tree browser trigger on mobile — the sidebar is desktop-only */}
-      <div className="lg:hidden flex items-center gap-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          aria-label="Browse facilities"
-          onClick={openTreeSheet}
-        >
-          <Menu className="size-5 text-foreground" />
-        </Button>
+      {/* Left: wordmark on mobile. The facility tree sheet opens from the
+          bottom bar's Menu tab; a hamburger here used to open the same sheet,
+          and two doors into one room read as two different rooms. */}
+      <div className="lg:hidden flex items-center">
         <Link href="/dashboard" className="text-blue-600 dark:text-blue-400 font-bold text-sm">Dropin</Link>
       </div>
 
@@ -64,13 +55,14 @@ export default function DashboardTopbar() {
           than a planned one. Restore it here when there is something to notify
           about. Clipboard (activity log) is wired up — see 038_activity_log.sql. */}
       <div className="flex items-center gap-1 sm:gap-3">
-        <Link href="/dashboard/activity">
+        {/* Desktop only: on mobile, Activity is a bottom-bar tab. */}
+        <Link href="/dashboard/activity" className="hidden lg:inline-flex">
           <IconButton as="span" title="Activity log">
             <ClipboardList className="size-[18px]" />
           </IconButton>
         </Link>
         <Link href="/dashboard/settings">
-          <IconButton as="span" title="Organization settings">
+          <IconButton as="span" title="Settings">
             <Settings className="size-[18px]" />
           </IconButton>
         </Link>

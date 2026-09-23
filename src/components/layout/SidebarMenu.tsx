@@ -15,6 +15,11 @@ import {
   CreditCard,
   Users,
   ClipboardList,
+  Mail,
+  Globe,
+  ShieldCheck,
+  UserCircle,
+  TriangleAlert,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -25,6 +30,28 @@ import type { SidebarSelection } from "./SidebarNav";
 import { can } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
+import { SETTINGS_ROOT, visibleSettingsItems } from "@/lib/settings/nav";
+
+/**
+ * An icon per settings destination, keyed by href.
+ *
+ * Kept here rather than in `lib/settings/nav.ts` so that module stays free of
+ * component imports — it is read by server components, and a lucide icon on
+ * every row would drag the icon set into their bundles for nothing. A missing
+ * entry falls back to the section's own gear, so adding a settings page
+ * without touching this file produces a plain row rather than a crash.
+ */
+const SETTINGS_ICONS: Record<string, LucideIcon> = {
+  "/dashboard/settings": Building2,
+  "/dashboard/settings/contact": Mail,
+  "/dashboard/settings/public": Globe,
+  "/dashboard/settings/staff": Users,
+  "/dashboard/settings/permissions": ShieldCheck,
+  "/dashboard/settings/data-sources": Database,
+  "/dashboard/settings/account": UserCircle,
+  "/dashboard/settings/billing": CreditCard,
+  "/dashboard/settings/danger": TriangleAlert,
+};
 
 interface SidebarMenuProps {
   selection: SidebarSelection;
@@ -202,28 +229,33 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     },
   ];
 
+  /**
+   * One row, expanding to the settings section.
+   *
+   * This used to be four unrelated rows — Data sources, Staff, Organization,
+   * Billing — under a heading called Settings, which is a heading doing the
+   * work a section should. They are now real siblings under
+   * `/dashboard/settings`, and the children here are read from the SAME list
+   * the settings rail renders (`lib/settings/nav.ts`) rather than restated, so
+   * a page cannot exist in one and be missing from the other.
+   *
+   * The icons are assigned here and not in that module: it is imported by the
+   * settings pages, which are server components, and shipping a lucide icon
+   * per row through them would put the icon set in a bundle that has no use
+   * for it.
+   */
   const settingsItems: MenuItem[] = [
     {
-      href: "/dashboard/data-sources",
-      label: "Data sources",
-      icon: Database,
-      permission: "import:use",
-    },
-    // Coordinators reach this too — they can add aux staff to their own
-    // facilities, which is what stops seasonal hiring funnelling through the
-    // owner. The page itself narrows what they see.
-    { href: "/dashboard/staff", label: "Staff", icon: Users, permission: "staff:view" },
-    // Above Billing because it's what a new centre needs on day one — the
-    // org name and logo it edits here are what the public pages render.
-    {
-      href: "/dashboard/settings",
-      label: "Organization",
+      href: SETTINGS_ROOT,
+      label: "Settings",
       icon: Settings,
-      permission: "org:edit-settings",
+      children: visibleSettingsItems(actor).map((item) => ({
+        href: item.href,
+        label: item.label,
+        icon: SETTINGS_ICONS[item.href] ?? Settings,
+        exact: item.exact,
+      })),
     },
-    // Owner only. A manager who cannot cancel the subscription should not be
-    // shown the page that cancels it.
-    { href: "/dashboard/billing", label: "Billing", icon: CreditCard, permission: "billing:manage" },
   ];
 
   // Removed, not disabled — see the note on MenuItem.permission. A parent is
@@ -282,27 +314,35 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
         </div>
       </div>
 
+      {/* No "SETTINGS" caption any more: the block is one row, and a heading
+          above a row of the same name is the heading repeating itself. The gap
+          and the separator carry the grouping instead. */}
       {visible(settingsItems).length > 0 && (
-      <div>
-        {!collapsed && (
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
-            Settings
-          </p>
-        )}
-        <div className="space-y-0.5">
-          {visible(settingsItems).map((item) => (
-            <TreeNavNode
-              key={item.label}
-              href={item.href}
-              label={item.label}
-              icon={item.icon}
-              depth={0}
-              isActive={isActive(item)}
-              collapsed={collapsed}
-            />
-          ))}
+        <div className="border-t border-sidebar-border pt-3">
+          <div className="space-y-0.5">
+            {visible(settingsItems).map((item) =>
+              item.children ? (
+                <MenuGroup
+                  key={item.label}
+                  item={item}
+                  collapsed={collapsed}
+                  isActive={isActive}
+                  startOpen={item.children.some((child) => isActive(child))}
+                />
+              ) : (
+                <TreeNavNode
+                  key={item.label}
+                  href={item.href}
+                  label={item.label}
+                  icon={item.icon}
+                  depth={0}
+                  isActive={isActive(item)}
+                  collapsed={collapsed}
+                />
+              )
+            )}
+          </div>
         </div>
-      </div>
       )}
     </nav>
   );

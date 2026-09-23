@@ -328,3 +328,22 @@ export const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   coordinator: "Runs the schedules in the departments you choose.",
   aux: "Views schedules, and records head counts and temperatures. For lifeguards, instructors and front desk.",
 };
+
+/**
+ * Which roles satisfy this permission, before scope.
+ *
+ * Exported so the Permissions settings page can RENDER the model rather than
+ * restate it. A hand-written "what each role can do" table is a second source
+ * of truth that drifts the first time a permission moves between groups, and
+ * it drifts silently — nothing fails, the table just starts lying to the
+ * manager deciding who to invite. Reading `ALLOWED` means the table is wrong
+ * only if the product is wrong.
+ *
+ * The answer ignores scope, which is correct for a reference table: a
+ * coordinator's "yes" to `session:write` is real, and the departments it
+ * applies to are a property of that person's account rather than of the role.
+ * The table says so in words.
+ */
+export function rolesWith(permission: Permission): readonly OrgRole[] {
+  return ALLOWED[permission];
+}

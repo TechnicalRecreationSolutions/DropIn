@@ -128,8 +128,8 @@ export async function POST(request: Request) {
     customer: customerId,
     mode: "subscription",
     line_items: [{ price: stripePriceId, quantity: 1 }],
-    success_url: `${APP_URL}/dashboard/billing?success=1`,
-    cancel_url: `${APP_URL}/dashboard/billing?cancelled=1`,
+    success_url: `${APP_URL}/dashboard/settings/billing?success=1`,
+    cancel_url: `${APP_URL}/dashboard/settings/billing?cancelled=1`,
     // `interval` is recorded for support and for reading the Stripe dashboard;
     // nothing derives entitlement from it. The tier still comes from the price
     // ID on the subscription (webhook → getPlanTierFromPriceId), because

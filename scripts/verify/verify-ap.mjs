@@ -149,7 +149,7 @@ try {
   // 1. The billing page renders, and offers the interval choice only when
   //    the server can actually price it.
   // ---------------------------------------------------------------------
-  await page.goto(`${APP}/dashboard/billing`, { waitUntil: "networkidle" });
+  await page.goto(`${APP}/dashboard/settings/billing`, { waitUntil: "networkidle" });
   await page.waitForSelector("text=Current plan", { timeout: 15000 });
 
   const yearlyToggle = page.getByRole("radio", { name: "Yearly" });

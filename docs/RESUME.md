@@ -2,8 +2,12 @@
 
 Open this first; it points at everything else.
 
-**Last updated 2026-09-23**, at the end of the session that added facility
-status, head counts and the Analytics section (first box below).
+**Most recent session: the Settings section** (first box below). It has one
+thing outstanding — **migration 062 has not been applied** — and that box says
+exactly what does not work until it is.
+
+Before it, the session that added facility status, head counts and the
+Analytics section (second box).
 
 Before it, on 2026-09-21: the Overview rebuild, and **eight tracks' worth of
 work committed, merged and deployed in one go** — see
@@ -48,6 +52,124 @@ It is one commit rather than eight because the eight tracks share files —
 `dates.ts`, `schedule.types.ts`, `expand.ts`, and the ~25 page components the
 copy pass touched — so splitting them after the fact would have meant inventing
 boundaries that do not build. The commit message enumerates what is in it.
+
+---
+
+## The Settings section — 2026-09-22, MIGRATION 062 NOT YET APPLIED
+
+**`/dashboard/settings` is a section now, not a page.** Nine routes under one
+heading, one rail, and one list (`src/lib/settings/nav.ts`) that both the rail
+and the sidebar read. **Read `src/lib/settings/README.md`** — it holds the
+whole design; this box is the state.
+
+```
+verify-bc   96/96   green, with sections 3 and 4 SKIPPED (see below)
+verify-t    57/57   regression + two stale assertions repaired
+verify-ap    9/9    regression (billing UI)
+verify-al   41/41   regression (staff roles)
+verify-am   21/21   regression (org verification)
+```
+
+`tsc`, `eslint src` and `NEXT_DIST_DIR=.next-verify next build` are clean, and
+all nine settings routes build as Partial Prerender (`◐`) — the static shells
+survived the shared layout.
+
+### ⚠️ The one thing left: apply migration 062
+
+`supabase/migrations/062_organization_deletion.sql` is **written and verified
+by reading, not by running.** Nothing in this repo can apply it — there is no
+`supabase/config.toml` link and no database password in `.env.local` — so it
+needs pasting into the Supabase SQL editor, as with every migration before it.
+
+Until it is applied, **the Delete-organization button on
+`/dashboard/settings/danger` returns an error** ("Could not find the
+function"). Nothing else in the section depends on it; the other eight pages
+are complete.
+
+After applying it, re-run and expect the two skips to become ~18 more passes:
+
+```
+node --experimental-strip-types scripts/verify/verify-bc.mjs
+```
+
+### What moved
+
+| Was | Is |
+| --- | --- |
+| `/dashboard/settings` — one 300-line form | `…/settings` (General), `…/contact`, `…/permissions` |
+| `/dashboard/staff` | `…/settings/staff` |
+| `/dashboard/billing` | `…/settings/billing` |
+| `/dashboard/data-sources` | `…/settings/data-sources` |
+
+The three old paths 308-redirect in `next.config.ts`. They are in sent
+invitation emails and were in Stripe's stored checkout return URLs (now
+updated in `api/stripe/create-checkout` and `create-portal`).
+
+### What is new
+
+- **`…/settings/account`** — the first place in this product where anyone can
+  change their own password. It has **no permission on it**, which is also why
+  the Settings section is offered to every role including aux. Email change
+  (with confirmation), theme incl. a real "System" option, and "sign out other
+  devices" are here too.
+- **"Leave this organization" moved here from the Staff page**, which is gated
+  on `staff:view` — so an aux staffer previously had no way to leave at all.
+- **`…/settings/public`** — what patrons can see right now, across every
+  facility, in one list. Reports; does not edit.
+- **`…/settings/permissions`** — the aux-notice switch, plus a role matrix
+  **rendered from `ALLOWED` via the new `rolesWith()`**, so the table cannot
+  drift from what the app enforces.
+- **`…/settings/danger`** — ownership transfer (moved off the bottom of the
+  old form) and the delete, with a live inventory of what would go.
+
+### Four gaps the harness found, which had been there all along
+
+The first three were pages the sidebar hid but the route did not guard —
+typing the URL reached them:
+
+- `/dashboard/settings` and `…/contact` rendered the org profile to a
+  coordinator or a lifeguard (disabled, but readable).
+- `/dashboard/data-sources` showed the org-wide import history to any role.
+- `/dashboard/billing` showed the plan cards and a checkout button to a
+  Manager; the Stripe routes refused them, so nothing could be bought.
+
+Each now redirects to `…/settings/account`, the page every role has.
+
+The fourth is the real one, and locking Data sources is what made it obvious:
+**`/api/import` and `/api/import/commit` checked only "has a membership"**, so
+an aux staffer could POST rows that create schedule groups and sessions — the
+exact write `isReadOnly()` gates everywhere else. RLS refused it (055 §5), so
+nothing was ever written and this was never a data breach; what they got was an
+opaque policy failure instead of an answer. Both routes and
+`/dashboard/import` are now gated on `import:use`, asserted in both directions
+with a positive control (verify-bc §6).
+
+### Decisions worth not relitigating
+
+- **There is no DELETE policy on `organizations`, and there should not be.**
+  RLS can say "you own this row" but not "and you typed its name" or "and you
+  are not still being billed". `delete_organization()` requires all three.
+- **A live subscription blocks the delete.** Dropping the row takes
+  `subscriptions` with it while Stripe keeps charging the card, and the webhook
+  that would have corrected it arrives to find no org.
+- **Storage is swept after the row, never before.** An orphaned image is a
+  wasted byte; images deleted while the row survives is a live public site with
+  every logo 404ing. `DELETE /api/organizations` does it with the service-role
+  client — **the sixth file in the app to hold one**, and `api/account`'s
+  snapshot sync is the seventh. Both reasons are narrow and written down.
+- **Changing a password requires the current one**, checked server-side on a
+  throwaway client. Supabase's own "secure password change" setting is a
+  project setting nothing in this repo controls, so the check cannot depend
+  on it.
+- **`org_memberships.email` is a snapshot** (055 §2), so a confirmed email
+  change would leave the Staff page showing the old address forever. The
+  Account page posts `sync-email` on mount; it finds nothing on almost every
+  visit, and repairs the drift on the one visit after a change.
+- **The layout awaits `getOrgContext()` directly**, mirroring
+  `dashboard/analytics/layout.tsx`. The rail must know the role to filter
+  itself, and a Suspense boundary there would paint an empty rail and then fill
+  it — a layout shift on the one screen where people navigate between siblings
+  repeatedly. The build confirms the pages' static shells are unaffected.
 
 ---
 
@@ -944,6 +1066,7 @@ undone.
 | [`prompts/frontend-database-security.md`](prompts/frontend-database-security.md) | **The front-end/database audit + its loop** (`scripts/security/sweep.mjs`) |
 | `src/components/schedule-command/README.md` | Command centre architecture + traps |
 | `src/components/widget/README.md` | Widget studio + the two publish traps |
+| `src/lib/settings/README.md` | **The Settings section**: the one nav list, the rules, and how deletion works |
 
 ### Finished tracks — historical record, not handoffs
 

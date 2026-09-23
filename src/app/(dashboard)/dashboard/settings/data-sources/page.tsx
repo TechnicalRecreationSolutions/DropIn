@@ -1,11 +1,15 @@
 import { Suspense } from "react";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Upload, ArrowRight } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
-import { PageHeader } from "@/components/ui/info-tip";
+import { SettingsHeading } from "@/components/settings/SettingsSection";
+
+export const metadata = { title: "Data sources · Settings" };
 
 // Unrelated to session-time removal (dropin/docs/RESUME-timezone-removal.md):
 // created_at is a real instant, not a session occurrence, and this page
@@ -34,11 +38,12 @@ export const instant = true;
 
 export default function DataSourcesPage() {
   return (
-    <div className="max-w-4xl mx-auto space-y-8">
+    <>
       {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div>
-        <PageHeader title="Data sources" info="Everything imported into Dropin. To add data, open the facility, department or schedule it belongs to and use “Add data”." />
-      </div>
+      <SettingsHeading
+        title="Data sources"
+        info="Everything imported into Dropin. To add data, open the facility, department or schedule it belongs to and use “Add data”."
+      />
 
       <Link
         href="/dashboard/import"
@@ -59,13 +64,21 @@ export default function DataSourcesPage() {
           <RecentImports />
         </Streamed>
       </Suspense>
-    </div>
+    </>
   );
 }
 
 async function RecentImports() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+
+  // This page had no route guard at all — the sidebar row was gated on
+  // `import:use` and that was the only thing stopping a coordinator or a
+  // lifeguard reaching the org-wide import history by typing the URL. The rail
+  // is the section's contract now, so the route enforces the same answer.
+  if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "import:use")) {
+    redirect("/dashboard/settings/account");
+  }
 
   const supabase = await createClient();
 

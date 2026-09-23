@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { slugify } from "@/lib/utils/slugify";
 import { MAX_ROWS, validateRow, type ImportRow } from "@/lib/import/rows";
 
@@ -33,6 +34,17 @@ export async function POST(request: Request) {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
+
+  // "Has a membership" was the whole check here until now — so a Coordinator or
+  // a lifeguard could POST rows that create schedule groups and sessions, which
+  // is the exact write `isReadOnly()` gates everywhere else in the product. RLS
+  // refused them (055 §5), so nothing was ever written; what they got was an
+  // opaque policy failure instead of an answer. `import:use` is org-wide, not
+  // department-scoped, so it takes no departmentId — an import picks its own
+  // facility, and a coordinator choosing one outside their scope is precisely
+  // what this refuses.
+  const denied = requirePermission(membership, "import:use");
+  if (denied) return denied;
 
   const body = await request.json().catch(() => null);
   const parsed = CommitSchema.safeParse(body);

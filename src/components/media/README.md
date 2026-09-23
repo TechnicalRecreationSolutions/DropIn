@@ -76,7 +76,7 @@ bucket against the three remaining columns (`facilities.photo_urls`,
 
 This section used to record a gap: the folder and policy existed, and nothing
 anywhere set the logo. `/dashboard/settings` now does
-(`components/org/OrgSettingsForm.tsx`).
+(`components/org/OrgProfileForm.tsx`, under Settings → General).
 
 One wrinkle worth knowing if you reuse `ImageUpload` on a role-gated form: it has
 no `disabled` prop. `{orgId}/org/` is owner/admin-only, so a member operating the

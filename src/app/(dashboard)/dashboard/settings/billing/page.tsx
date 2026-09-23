@@ -1,11 +1,15 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
+import { can } from "@/lib/auth/roles";
 import { STORED_TIER_TO_PLAN, type StoredPlanTier } from "@/lib/stripe/plans";
 import { hasInterval } from "@/lib/stripe/prices";
 import { Skeleton } from "@/components/ui/skeleton";
 import BillingClient from "./BillingClient";
 import Streamed from "@/components/ui/streamed";
-import { PageHeader } from "@/components/ui/info-tip";
+import { SettingsHeading } from "@/components/settings/SettingsSection";
+
+export const metadata = { title: "Billing · Settings" };
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -22,24 +26,34 @@ export const instant = true;
 
 export default function BillingPage() {
   return (
-    <div className="max-w-3xl mx-auto space-y-6">
+    <>
       {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div>
-        <PageHeader title="Billing" />
-      </div>
+      <SettingsHeading
+        title="Billing"
+        info="Your plan and payment. Dropin bills per facility: departments, schedules, spaces, staff accounts and embeds are unlimited on every tier."
+      />
 
       <Suspense fallback={<Skeleton className="h-64 rounded-xl" aria-busy="true" />}>
         <Streamed className="space-y-6">
           <BillingBody />
         </Streamed>
       </Suspense>
-    </div>
+    </>
   );
 }
 
 async function BillingBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+
+  // Owner only, and it was previously enforced by the sidebar alone — a manager
+  // who typed the URL got the plan cards and a checkout button. The Stripe
+  // routes refuse them, so nothing could be bought, but being shown a page that
+  // exists only to refuse you is its own bug. The rail does not offer this,
+  // and now neither does the route.
+  if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "billing:manage")) {
+    redirect("/dashboard/settings/account");
+  }
 
   // The database still stores the legacy two-tier vocabulary (migration 004's
   // CHECK constraint), so translate before rendering. `free` maps to null — it

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { checkRateLimit, rateLimitResponse } from "@/lib/rate-limit";
 import { MAX_FILE_SIZE, MAX_ROWS, validateRow, type ImportRow } from "@/lib/import/rows";
 
@@ -38,6 +39,13 @@ export async function POST(request: Request) {
   const membership = await getRouteMembership(supabase, user.id);
 
   if (!membership) return NextResponse.json({ error: "No organization" }, { status: 403 });
+
+  // Same gate as /api/import/commit. This endpoint only parses and previews —
+  // it writes nothing — but it accepts an uploaded file and does real work on
+  // it, and a role that may not commit an import has no reason to be able to
+  // spend the server's time parsing one.
+  const denied = requirePermission(membership, "import:use");
+  if (denied) return denied;
 
   const formData = await request.formData();
   const file = formData.get("file") as File | null;

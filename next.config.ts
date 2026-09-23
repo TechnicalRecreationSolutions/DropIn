@@ -123,6 +123,38 @@ const nextConfig: NextConfig = {
     ],
   },
 
+  /**
+   * The settings consolidation (2026-09-22).
+   *
+   * Staff, Billing and Data sources became siblings under `/dashboard/settings`
+   * rather than three top-level rows beneath a heading of the same name. These
+   * three paths are not dead: they are in browser histories, in bookmarks, in
+   * the invitation emails already sent, and — until this shipped — in Stripe's
+   * stored checkout return URLs.
+   *
+   * `permanent: true` is a 308, which preserves the method. That matters for
+   * Billing specifically: Stripe returns from checkout with a GET, but a 307/308
+   * distinction is the difference between a redirect that keeps a POST body and
+   * one that silently drops it, and the general rule for a route that MOVED is
+   * the permanent one.
+   *
+   * Handled here rather than by a `page.tsx` calling `redirect()` at each old
+   * path: those would be nine real route segments rendering a shell in order to
+   * throw it away, and each would keep its folder alive in the app directory
+   * long after anyone remembered why.
+   */
+  async redirects() {
+    return [
+      { source: "/dashboard/staff", destination: "/dashboard/settings/staff", permanent: true },
+      { source: "/dashboard/billing", destination: "/dashboard/settings/billing", permanent: true },
+      {
+        source: "/dashboard/data-sources",
+        destination: "/dashboard/settings/data-sources",
+        permanent: true,
+      },
+    ];
+  },
+
   async headers() {
     return [
       // ---------------------------------------------------------------
