@@ -316,10 +316,15 @@ async function main() {
     const second = await api(noticesPath(pool.id), guard.cookie, {
       method: "POST", body: JSON.stringify(fouling({ headline: `ZZ second ${stamp}` })),
     });
+    // Sent from a phone whose clock is 5 s SLOW. starts_at came from the
+    // server's clock a moment ago, so a route that trusted this ends_at would
+    // trip 060's window CHECK (ends_at > starts_at) and answer 400 — exactly
+    // what production did, where the harness and Vercel are two clocks.
+    // FALSIFY: drop the clamp in the [noticeId] PATCH route and this goes red.
     const dismissed = await api(`${noticesPath(pool.id)}/${second.body.notice?.id}`, coord.cookie, {
-      method: "PATCH", body: JSON.stringify({ ends_at: new Date().toISOString() }),
+      method: "PATCH", body: JSON.stringify({ ends_at: new Date(Date.now() - 5_000).toISOString() }),
     });
-    check("an in-scope coordinator dismisses a report", dismissed.status === 200, `${dismissed.status} ${JSON.stringify(dismissed.body)}`);
+    check("an in-scope coordinator dismisses a report, from a phone 5 s slow", dismissed.status === 200, `${dismissed.status} ${JSON.stringify(dismissed.body)}`);
     check("...which clears the flag", dismissed.body.notice?.needs_review === false);
   }
 

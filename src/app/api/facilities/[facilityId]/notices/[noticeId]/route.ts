@@ -125,18 +125,32 @@ export async function PATCH(
     }
   }
 
+  // "Clear it now" is stamped with THIS clock, not the caller's. starts_at
+  // came from the server when the notice was posted, and 060's window CHECK
+  // (ends_at > starts_at) compares the two — so a phone running even half a
+  // second behind could not clear a notice posted a moment ago, and one a
+  // minute behind could not clear anything from the last minute. Found by
+  // verify-be against production, where the harness and Vercel are two
+  // clocks; on `next dev` they are one and it never shows. An end time in
+  // the FUTURE is a real schedule and is left as sent.
+  const now = new Date();
+  const update = { ...parsed.data };
+  if (update.ends_at && new Date(update.ends_at) <= now) {
+    update.ends_at = now.toISOString();
+  }
+
   const { data, error } = await supabase
     .from("facility_notices")
     .update({
-      ...parsed.data,
+      ...update,
       // Publishing a report, or clearing one, is the review (migration 063).
       // Set here rather than accepted from the body so no client can leave a
       // published notice flagged — which the CHECK would refuse anyway.
       ...(context.awaitingReview &&
-      (parsed.data.is_published === true || parsed.data.ends_at != null)
+      (update.is_published === true || update.ends_at != null)
         ? { needs_review: false }
         : {}),
-      updated_at: new Date().toISOString(),
+      updated_at: now.toISOString(),
     })
     .eq("id", noticeId)
     .eq("facility_id", facilityId)
