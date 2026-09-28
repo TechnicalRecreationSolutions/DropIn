@@ -90,15 +90,17 @@ export function DashboardPageSkeleton() {
 export function BottomNavSkeleton() {
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border flex"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border/60 pb-[env(safe-area-inset-bottom)]"
       aria-hidden
     >
-      {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex-1 flex flex-col items-center gap-1 py-3">
-          <Skeleton className="size-5 rounded" />
-          <Skeleton className="h-2.5 w-10" />
-        </div>
-      ))}
+      <div className="mx-auto flex max-w-lg">
+        {Array.from({ length: 5 }).map((_, i) => (
+          <div key={i} className="flex flex-1 flex-col items-center justify-center gap-1 pt-2 pb-1.5 min-h-14">
+            <Skeleton className="h-8 w-14 rounded-full" />
+            <Skeleton className="h-2.5 w-10" />
+          </div>
+        ))}
+      </div>
     </nav>
   );
 }

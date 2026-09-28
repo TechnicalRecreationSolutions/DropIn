@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import Link from "next/link";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import DepartmentForm from "@/components/department/DepartmentForm";
@@ -9,6 +11,9 @@ import { PageHeader } from "@/components/ui/info-tip";
 export default async function NewDepartmentPage() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const supabase = await createClient();
   const { data: facilities } = await supabase

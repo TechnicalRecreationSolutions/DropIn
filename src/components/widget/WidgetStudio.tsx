@@ -599,11 +599,11 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
       {/* Publish bar — the single home for everything the database keeps.
           Sticky as the last flow child so it rides the bottom of the
-          viewport instead of hiding at the end of a long page. bottom-20 on
-          mobile clears the fixed dashboard tab bar, which sits at z-50 and
-          would otherwise cover this. */}
+          viewport instead of hiding at the end of a long page. On mobile it
+          sits on --tabbar-clearance (published by DashboardBottomNav): the tab
+          bar is z-50 and would otherwise cover this. */}
       {(dirty || saveError) && (
-        <div className="sticky bottom-20 lg:bottom-3 z-20">
+        <div className="sticky bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] lg:bottom-3 z-20 transition-[bottom] duration-300 ease-out motion-reduce:transition-none">
           <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 backdrop-blur px-4 py-3 shadow-lg flex items-center justify-between gap-3 flex-wrap">
             <div className="min-w-0">
               <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
@@ -654,7 +654,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
         <button
           type="button"
           onClick={() => setPreviewOpen(true)}
-          className="fixed bottom-20 right-4 lg:bottom-6 lg:right-6 z-30 inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-foreground text-background text-sm font-semibold shadow-lg hover:opacity-90 transition-opacity"
+          className="fixed bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] right-4 lg:bottom-6 lg:right-6 z-30 transition-[bottom] duration-300 ease-out motion-reduce:transition-none inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-foreground text-background text-sm font-semibold shadow-lg hover:opacity-90 transition-opacity"
         >
           <Eye className="w-4 h-4" />
           Preview

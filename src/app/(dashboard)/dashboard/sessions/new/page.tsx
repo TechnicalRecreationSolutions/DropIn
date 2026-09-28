@@ -1,6 +1,7 @@
 import { notFound, redirect } from "next/navigation";
 import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import SessionTemplateForm from "@/components/session-template/SessionTemplateForm";
 import { PageHeader } from "@/components/ui/info-tip";
@@ -13,6 +14,9 @@ export default async function NewSessionTemplatePage({ searchParams }: NewSessio
   const { facility: facilityId, department: departmentParam } = await searchParams;
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   // A template always belongs to a facility (and, optionally, one of its
   // departments) — without a facility there's nothing to attach it to, so

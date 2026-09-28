@@ -20,6 +20,7 @@ import {
   ShieldCheck,
   UserCircle,
   TriangleAlert,
+  Megaphone,
   type LucideIcon,
 } from "lucide-react";
 import { useState } from "react";
@@ -27,7 +28,7 @@ import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
 import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, countsHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
-import { can } from "@/lib/auth/roles";
+import { can, isReadOnly } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
 import { SETTINGS_ROOT, visibleSettingsItems } from "@/lib/settings/nav";
@@ -87,6 +88,12 @@ interface MenuItem {
    */
   permission?: Permission;
   /**
+   * Overrides the prefix match in `isActive`. Needed where a destination lives
+   * under another item's path — facility status is under /dashboard/facilities,
+   * and without this both rows light up.
+   */
+  activeWhen?: (pathname: string) => boolean;
+  /**
    * Sub-items, rendered as an expandable group.
    *
    * The menu was flat until Analytics became three pages. A parent with
@@ -117,17 +124,24 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
   const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
 
   const menuItems: MenuItem[] = [
-    {
-      href: selection.facilityId ? `/dashboard?facility=${selection.facilityId}` : "/dashboard",
-      label: "Overview",
-      icon: LayoutDashboard,
-      exact: true,
-    },
+    // Not for read-only staff: /dashboard redirects them to the schedule, so
+    // the row was a second "Schedules" that highlighted the wrong item.
+    ...(isReadOnly(role)
+      ? []
+      : [
+          {
+            href: selection.facilityId ? `/dashboard?facility=${selection.facilityId}` : "/dashboard",
+            label: "Overview",
+            icon: LayoutDashboard,
+            exact: true,
+          },
+        ]),
     {
       href: "/dashboard/facilities",
       label: "Facilities",
       icon: Building2,
       permission: "facility:create",
+      activeWhen: (path) => path.startsWith("/dashboard/facilities") && !path.endsWith("/status"),
     },
     {
       href: departmentsHref(selection.facilityId),
@@ -192,6 +206,18 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     // Reachable only through the overview's rotating stat tile until now,
     // which is no way to find a whole section. Not facility-gated: the page
     // is org-wide and its own facility filter narrows it.
+    // Every role, no permission: reading status is universal, and what each
+    // person may do there (post, report, or only read) is the page's call.
+    // Before this row existed the status page was linked only from the
+    // Overview and the Facilities grid — neither of which aux staff can reach.
+    {
+      href: selection.facilityId
+        ? `/dashboard/facilities/${selection.facilityId}/status`
+        : "/dashboard/status",
+      label: "Facility status",
+      icon: Megaphone,
+      activeWhen: (path) => path === "/dashboard/status" || path.endsWith("/status"),
+    },
     {
       // The one item every role sees, aux included — it is their only write
       // (migration 061). Asked as `reading:write` and not `isReadOnly(role)`,
@@ -267,6 +293,7 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
       .filter((item) => !item.children || item.children.length > 0);
 
   function isActive(item: MenuItem) {
+    if (item.activeWhen) return item.activeWhen(pathname);
     const path = item.href.split("?")[0];
     return item.exact ? pathname === path : pathname.startsWith(path);
   }

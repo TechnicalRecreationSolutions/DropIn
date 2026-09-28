@@ -1,6 +1,7 @@
+import { redirect } from "next/navigation";
 import { createClient } from "@/lib/supabase/server";
 import { getOrgContext } from "@/lib/auth/session";
-import { can } from "@/lib/auth/roles";
+import { can, isReadOnly } from "@/lib/auth/roles";
 import SessionForm from "@/components/schedule-editor/SessionForm";
 import { fetchOperatingHoursRecord } from "@/lib/schedule/operating-hours-query";
 import { PageHeader } from "@/components/ui/info-tip";
@@ -13,6 +14,9 @@ export default async function NewSessionPage({ searchParams }: NewSessionPagePro
   const { scheduleGroupId } = await searchParams;
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const supabase = await createClient();
 

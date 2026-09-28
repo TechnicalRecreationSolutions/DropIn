@@ -4,6 +4,7 @@ import { DIRECTORY_CACHE_TAG, facilitySlugCacheTag } from "@/lib/cache/tags";
 import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getRouteMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 import { slugify } from "@/lib/utils/slugify";
 import { addressChanged, geocodeAddress } from "@/lib/geo/geocode";
 
@@ -66,6 +67,13 @@ export async function POST(request: Request) {
   if (!membership) {
     return NextResponse.json({ error: "No organization found" }, { status: 403 });
   }
+
+  // App-layer check, ahead of the geocode: RLS would refuse the write anyway,
+  // but only AFTER this route had spent a Nominatim lookup on a caller who was
+  // never allowed to save — a free way to burn our share of their usage policy.
+  // This one route both creates and edits, so ask the matching permission.
+  const denied = requirePermission(membership, isEditing ? "facility:edit" : "facility:create");
+  if (denied) return denied;
 
   // Look the address up only when it could have moved: always on create; on
   // edit, when an address field changed or the row was never looked up by this

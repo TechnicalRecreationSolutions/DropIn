@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { ROLE_LABELS } from "@/lib/auth/roles";
+import type { OrgRole } from "@/types/app.types";
 
 interface SidebarProfileProps {
   userEmail: string | null;
@@ -72,7 +74,8 @@ export default function SidebarProfile({ userEmail, role, onNavigate, collapsed 
       <p className="text-sm font-medium text-sidebar-foreground truncate" title={userEmail ?? undefined}>
         {userEmail ?? "Unknown user"}
       </p>
-      <p className="text-xs text-sidebar-foreground/50 capitalize mb-3">{role}</p>
+      {/* ROLE_LABELS, not the raw value: `aux` is "Staff" everywhere else. */}
+      <p className="text-xs text-sidebar-foreground/50 mb-3">{ROLE_LABELS[role as OrgRole] ?? role}</p>
       <button
         type="button"
         onClick={handleSignOut}

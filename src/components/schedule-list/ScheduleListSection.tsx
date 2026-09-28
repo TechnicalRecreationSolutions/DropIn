@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
-import { Pencil, Eye, Copy, Trash2, ChevronDown, ChevronUp, ChevronRight, CalendarX2 } from "lucide-react";
+import { Pencil, Eye, Copy, Trash2, ArrowRight, ChevronDown, ChevronUp, ChevronRight, CalendarX2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
 import { cn } from "@/lib/utils/cn";
@@ -36,6 +36,10 @@ interface ScheduleListSectionProps {
    *  arrives already narrowed by a department/schedule filter, so an empty
    *  list means "none match the filter", not "this facility is empty". */
   emptyMessage?: string;
+  /** False for read-only staff (aux): hides create/duplicate/delete and turns
+   *  "Edit" into "Open" — they can view a schedule but not change it, and the
+   *  routes behind those buttons would 403. Defaults to true. */
+  canEdit?: boolean;
 }
 
 type FilterValue = "all" | "active" | "draft";
@@ -75,6 +79,7 @@ export default function ScheduleListSection({
   rows,
   newScheduleHref,
   emptyMessage,
+  canEdit = true,
 }: ScheduleListSectionProps) {
   const router = useRouter();
   const queryClient = useQueryClient();
@@ -181,12 +186,14 @@ export default function ScheduleListSection({
             </button>
           ))}
         </div>
-        <Link
-          href={newScheduleHref}
-          className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-        >
-          + New schedule
-        </Link>
+        {canEdit && (
+          <Link
+            href={newScheduleHref}
+            className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          >
+            + New schedule
+          </Link>
+        )}
       </div>
 
       {mutateError && (
@@ -203,7 +210,7 @@ export default function ScheduleListSection({
               ? (emptyMessage ?? `${facilityName} has no schedules yet.`)
               : "Nothing matches this filter."}
           </p>
-          {rows.length === 0 && !emptyMessage && (
+          {rows.length === 0 && !emptyMessage && canEdit && (
             <Link
               href={newScheduleHref}
               className="inline-block mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
@@ -218,6 +225,7 @@ export default function ScheduleListSection({
           sortKey={sortKey}
           sortDesc={sortDesc}
           onSort={toggleSort}
+          canEdit={canEdit}
           onDuplicate={setDuplicating}
           onDelete={setDeleting}
         />
@@ -240,6 +248,7 @@ export default function ScheduleListSection({
                 sortKey={sortKey}
                 sortDesc={sortDesc}
                 onSort={toggleSort}
+                canEdit={canEdit}
                 onDuplicate={setDuplicating}
                 onDelete={setDeleting}
               />
@@ -276,11 +285,14 @@ interface ScheduleTableProps {
   sortKey: SortKey;
   sortDesc: boolean;
   onSort: (key: SortKey) => void;
+  canEdit: boolean;
   onDuplicate: (row: ScheduleListRow) => void;
   onDelete: (row: ScheduleListRow) => void;
 }
 
-function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete }: ScheduleTableProps) {
+function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, onDelete }: ScheduleTableProps) {
+  const OpenIcon = canEdit ? Pencil : ArrowRight;
+  const openLabel = canEdit ? "Edit" : "Open";
   return (
     <>
       {/* Phone: cards, not a narrowed table.
@@ -293,7 +305,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
           by the same comparator, and a sort control per column is four more
           taps competing with the four that do something. */}
       <div className="sm:hidden">
-        <ScheduleCards rows={rows} onDuplicate={onDuplicate} onDelete={onDelete} />
+        <ScheduleCards rows={rows} canEdit={canEdit} onDuplicate={onDuplicate} onDelete={onDelete} />
       </div>
 
       {/* The wrapper carries the breakpoint, not the Card: Card's own base
@@ -348,11 +360,11 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                     <div className="flex items-center justify-end gap-1">
                       <Link
                         href={row.editHref}
-                        aria-label={`Edit ${row.name}`}
-                        title="Edit"
+                        aria-label={`${openLabel} ${row.name}`}
+                        title={openLabel}
                         className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
                       >
-                        <Pencil className="size-3.5" />
+                        <OpenIcon className="size-3.5" />
                       </Link>
                       <a
                         href={row.previewHref}
@@ -364,24 +376,28 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
                       >
                         <Eye className="size-3.5" />
                       </a>
-                      <button
-                        type="button"
-                        onClick={() => onDuplicate(row)}
-                        aria-label={`Duplicate ${row.name}`}
-                        title="Duplicate"
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
-                      >
-                        <Copy className="size-3.5" />
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => onDelete(row)}
-                        aria-label={`Delete ${row.name}`}
-                        title="Delete"
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-600"
-                      >
-                        <Trash2 className="size-3.5" />
-                      </button>
+                      {canEdit && (
+                        <>
+                          <button
+                            type="button"
+                            onClick={() => onDuplicate(row)}
+                            aria-label={`Duplicate ${row.name}`}
+                            title="Duplicate"
+                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
+                          >
+                            <Copy className="size-3.5" />
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => onDelete(row)}
+                            aria-label={`Delete ${row.name}`}
+                            title="Delete"
+                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-600"
+                          >
+                            <Trash2 className="size-3.5" />
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
@@ -406,10 +422,12 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, onDuplicate, onDelete 
  */
 function ScheduleCards({
   rows,
+  canEdit,
   onDuplicate,
   onDelete,
 }: {
   rows: ScheduleListRow[];
+  canEdit: boolean;
   onDuplicate: (row: ScheduleListRow) => void;
   onDelete: (row: ScheduleListRow) => void;
 }) {
@@ -444,8 +462,8 @@ function ScheduleCards({
                 href={row.editHref}
                 className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-muted text-sm font-medium text-foreground"
               >
-                <Pencil className="size-4" aria-hidden />
-                Edit
+                {canEdit ? <Pencil className="size-4" aria-hidden /> : <ArrowRight className="size-4" aria-hidden />}
+                {canEdit ? "Edit" : "Open"}
               </Link>
               <a
                 href={row.previewHref}
@@ -456,22 +474,26 @@ function ScheduleCards({
               >
                 <Eye className="size-4" aria-hidden />
               </a>
-              <button
-                type="button"
-                onClick={() => onDuplicate(row)}
-                aria-label={`Duplicate ${row.name}`}
-                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
-              >
-                <Copy className="size-4" aria-hidden />
-              </button>
-              <button
-                type="button"
-                onClick={() => onDelete(row)}
-                aria-label={`Delete ${row.name}`}
-                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
-              >
-                <Trash2 className="size-4" aria-hidden />
-              </button>
+              {canEdit && (
+                <>
+                  <button
+                    type="button"
+                    onClick={() => onDuplicate(row)}
+                    aria-label={`Duplicate ${row.name}`}
+                    className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+                  >
+                    <Copy className="size-4" aria-hidden />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => onDelete(row)}
+                    aria-label={`Delete ${row.name}`}
+                    className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+                  >
+                    <Trash2 className="size-4" aria-hidden />
+                  </button>
+                </>
+              )}
             </div>
           </Card>
         );

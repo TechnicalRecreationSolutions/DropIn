@@ -402,13 +402,25 @@ async function main() {
     });
 
   await admin.from("organizations").update({ aux_can_post_notices: false }).eq("id", org.id);
+  // Since migration 063 the flag no longer decides WHETHER a staffer can say
+  // something — only whether it reaches the public. With it off, the same
+  // POST becomes a report: unpublished and waiting for review, whatever the
+  // body asked for. Before 063 is applied the route answers 503. Either way,
+  // what must never happen is a published notice. verify-be covers the rest.
   const refused = await auxPost();
-  check("with the flag OFF, an aux staffer is refused", refused.status === 403, `${refused.status}`);
-  check(
-    "...and the refusal says how to fix it",
-    /Organization settings/i.test(refused.body.error ?? ""),
-    refused.body.error
-  );
+  if (refused.status === 201) {
+    check(
+      "with the flag OFF, an aux post becomes an unpublished report, not a notice",
+      refused.body.notice?.is_published === false && refused.body.notice?.needs_review === true,
+      JSON.stringify(refused.body.notice)
+    );
+  } else {
+    check(
+      "with the flag OFF and 063 not applied, the route says reporting is not on yet",
+      refused.status === 503 && /migration 063/.test(refused.body.error ?? ""),
+      `${refused.status} ${refused.body.error}`
+    );
+  }
 
   await admin.from("organizations").update({ aux_can_post_notices: true }).eq("id", org.id);
   const allowed = await auxPost();

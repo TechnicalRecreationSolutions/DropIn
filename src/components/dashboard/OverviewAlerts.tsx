@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { AlertOctagon, AlertTriangle, ArrowRight, CheckCircle2, FileEdit } from "lucide-react";
+import { AlertOctagon, AlertTriangle, ArrowRight, CheckCircle2, Clock, FileEdit } from "lucide-react";
 import type { NoticeSeverity } from "@/types/app.types";
 
 /** One live facility notice, already phrased — see `summary`. */
@@ -8,6 +8,11 @@ export interface OverviewNotice {
   severity: NoticeSeverity;
   /** "Pool closed — contamination · Lane pool". Built by the page. */
   summary: string;
+}
+
+/** A staff report waiting for approval (migration 063). Org-wide, so it carries its own link. */
+export interface OverviewReport extends OverviewNotice {
+  href: string;
 }
 
 export interface OverviewAlertsProps {
@@ -31,6 +36,12 @@ export interface OverviewAlertsProps {
    * before they read anything else.
    */
   notices?: readonly OverviewNotice[];
+  /**
+   * Staff reports this viewer may publish. Above even the live notices: a live
+   * notice is already doing its job, a report is a closure nobody has told
+   * patrons about yet.
+   */
+  reports?: readonly OverviewReport[];
   /** Where a notice row links. Absent only when there is no facility in scope. */
   statusHref?: string;
 }
@@ -53,9 +64,10 @@ export default function OverviewAlerts({
   conflictSummary,
   draftCount,
   notices = [],
+  reports = [],
   statusHref,
 }: OverviewAlertsProps) {
-  if (conflictCount === 0 && draftCount === 0 && notices.length === 0) {
+  if (conflictCount === 0 && draftCount === 0 && notices.length === 0 && reports.length === 0) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
         <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
@@ -66,6 +78,23 @@ export default function OverviewAlerts({
 
   return (
     <div className="space-y-2">
+      {reports.map((report) => (
+        <Link
+          key={report.id}
+          href={report.href}
+          className="flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm transition-colors hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/15"
+        >
+          <Clock className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+          <span className="min-w-0 flex-1">
+            <span className="font-medium text-foreground">{report.summary}</span>
+            <span className="block text-muted-foreground">
+              Reported by staff. Patrons can&apos;t see it until you publish it.
+            </span>
+          </span>
+          <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+        </Link>
+      ))}
+
       {notices.map((notice) => (
         <Link
           key={notice.id}

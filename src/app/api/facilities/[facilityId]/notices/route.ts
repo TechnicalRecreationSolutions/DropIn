@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
 import { requireNoticeWrite } from "@/lib/auth/guard";
+import { canReportNotice, canWriteNotice } from "@/lib/auth/roles";
 import { facilityNoticesCacheTag } from "@/lib/cache/tags";
 import { NOTICE_CATEGORIES, NOTICE_SEVERITIES } from "@/lib/status/notices";
 
@@ -13,7 +14,9 @@ import { NOTICE_CATEGORIES, NOTICE_SEVERITIES } from "@/lib/status/notices";
  * GET  — every notice on the facility, newest first. Staff only, and
  *        deliberately unfiltered: drafts, scheduled notices and finished ones
  *        are all here, because the history is the point of the staff view.
- * POST — create one.
+ * POST — create one. An aux staffer whose organization has not enabled
+ *        posting files a REPORT instead: unpublished, `needs_review`, waiting
+ *        for a Manager (migration 063).
  *
  * **Authorization is `requireNoticeWrite`, not `requirePermission`.** A notice
  * is the only object in the app whose write authority depends on an
@@ -99,8 +102,17 @@ export async function POST(
   const facility = await loadFacility(supabase, facilityId, membership.org_id);
   if (!facility) return NextResponse.json({ error: "Facility not found" }, { status: 404 });
 
-  const denied = requireNoticeWrite(membership, facility, facilityId);
-  if (denied) return denied;
+  // Two ways in. A writer posts whatever the body says; a staffer the switch
+  // refuses may still file a REPORT (migration 063), and on that path the
+  // route decides the lifecycle columns itself rather than trusting the body —
+  // RLS would refuse anything else, but a clean 201 beats an opaque 400.
+  const actor = { role: membership.role, scopes: membership.scopes };
+  const asReport =
+    !canWriteNotice(actor, facility, facilityId) && canReportNotice(actor, facilityId);
+  if (!asReport) {
+    const denied = requireNoticeWrite(membership, facility, facilityId);
+    if (denied) return denied;
+  }
 
   let raw: unknown;
   try {
@@ -146,15 +158,32 @@ export async function POST(
       severity: input.severity,
       headline: input.headline,
       body: input.body?.trim() ? input.body : null,
-      starts_at: input.starts_at ?? new Date().toISOString(),
-      ends_at: input.ends_at ?? null,
-      is_published: input.is_published ?? false,
+      ...(asReport
+        ? {
+            starts_at: new Date().toISOString(),
+            ends_at: null,
+            is_published: false,
+            needs_review: true,
+          }
+        : {
+            starts_at: input.starts_at ?? new Date().toISOString(),
+            ends_at: input.ends_at ?? null,
+            is_published: input.is_published ?? false,
+          }),
       created_by: user?.id ?? null,
     })
     .select("*")
     .single();
 
   if (error) {
+    // 42703 / PGRST204: the needs_review column does not exist, so migration
+    // 063 has not been applied. Say so, instead of blaming the input.
+    if (asReport && (error.code === "42703" || error.code === "PGRST204")) {
+      return NextResponse.json(
+        { error: "Reporting is not switched on yet (migration 063). Tell a Manager directly." },
+        { status: 503 }
+      );
+    }
     // The window CHECK and the headline length CHECK both land here. The
     // client validates the same rules, so this is the API-direct path.
     return NextResponse.json({ error: "Could not create the notice" }, { status: 400 });

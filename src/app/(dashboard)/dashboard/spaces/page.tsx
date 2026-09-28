@@ -1,7 +1,9 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
 import { DoorOpen, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { spacesHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -54,6 +56,9 @@ export default function SpacesPage({ searchParams }: SpacesPageProps) {
 async function SpacesBody({ searchParams }: SpacesPageProps) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();

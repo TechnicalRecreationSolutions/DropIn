@@ -1,7 +1,7 @@
 import { notFound } from "next/navigation";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
-import { can, canWriteNotice, ROLE_LABELS } from "@/lib/auth/roles";
+import { can, canReportNotice, canWriteNotice, isReadOnly, ROLE_LABELS } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import FacilityStatusManager from "@/components/status/FacilityStatusManager";
@@ -34,8 +34,13 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
 
   const supabase = await createClient();
 
-  const [{ data: facility }, { data: spaces }, { data: notices }, { count: readingCount }] =
-    await Promise.all([
+  const [
+    { data: facility },
+    { data: spaces },
+    { data: notices },
+    { count: readingCount },
+    { data: members },
+  ] = await Promise.all([
     supabase
       .from("facilities")
       // `*` rather than a column list, for the reason widget/[orgId] gives: this
@@ -65,6 +70,12 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
       .from("facility_readings")
       .select("id", { count: "exact", head: true })
       .eq("facility_id", facilityId),
+    // "Reported by …" on a waiting report. auth.users is unreadable under RLS,
+    // so this is the email snapshot org_memberships keeps for exactly this.
+    supabase
+      .from("org_memberships")
+      .select("user_id, email")
+      .eq("org_id", orgContext.org.id),
   ]);
 
   if (!facility) notFound();
@@ -75,12 +86,20 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
     { auxCanPostNotices: orgContext.org.aux_can_post_notices },
     facilityId
   );
+  const canReport = !canWrite && canReportNotice(actor, facilityId);
+  const canEditFacility = can(actor, "facility:edit");
+  const reporters = Object.fromEntries(
+    (members ?? []).filter((m) => m.email).map((m) => [m.user_id, m.email as string])
+  );
 
   return (
     <div className="mx-auto max-w-3xl">
       <Breadcrumb
         items={[
-          { label: "Facilities", href: "/dashboard/facilities" },
+          // Read-only staff have no Facilities page — it is a management grid.
+          ...(isReadOnly(orgContext.membership.role)
+            ? []
+            : [{ label: "Facilities", href: "/dashboard/facilities" }]),
           { label: facility.name, href: commandCentreHref({ facilityId }) },
           { label: "Status" },
         ]}
@@ -115,13 +134,18 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
         spaces={spaces ?? []}
         notices={notices ?? []}
         canWrite={canWrite}
-        readOnlyReason={canWrite ? undefined : explainReadOnly(orgContext, facilityId)}
+        canReport={canReport}
+        reporters={reporters}
+        readOnlyReason={canWrite || canReport ? undefined : explainReadOnly(orgContext, facilityId)}
       />
 
       {/* Below the notices, and separated, because they are different jobs on
           different clocks: a notice is written in the moment and cleared the
           same day, these are set once and left. Reached directly as #public
-          from the head count tool. */}
+          from the head count tool. Configuration rather than an operational
+          tool, so shown only to people who can change it — staff used to get
+          it as a greyed-out form. */}
+      {canEditFacility && (
       <div className="mt-10 border-t border-border pt-8">
         <PublicConditionsSettings
           facilityId={facilityId}
@@ -132,10 +156,11 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
             publicHeadcount: facility.public_headcount ?? "hidden",
             occupancyCapacity: facility.occupancy_capacity ?? null,
           }}
-          canEdit={can(actor, "facility:edit")}
+          canEdit={canEditFacility}
           hasReadings={(readingCount ?? 0) > 0}
         />
       </div>
+      )}
     </div>
   );
 }
@@ -156,7 +181,7 @@ function explainReadOnly(
   if (role === "aux" && !orgContext.org.aux_can_post_notices) {
     return (
       "Your organization has not enabled status notices for staff accounts. " +
-      "A Manager can turn that on under Organization settings."
+      "A Manager can turn that on under Settings › Permissions."
     );
   }
 

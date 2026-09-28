@@ -1,4 +1,5 @@
 import { Suspense } from "react";
+import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -48,6 +49,11 @@ export default function ActivityPage() {
 async function ActivityLogBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // `activity:view` excludes aux staff (roles.ts). Their nav never links
+  // here; this is the guard for the typed URL.
+  if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "activity:view")) {
+    redirect("/dashboard/schedule");
+  }
 
   const supabase = await createClient();
   const [{ data }, { data: actorRows }] = await Promise.all([

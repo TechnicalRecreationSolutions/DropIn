@@ -35,7 +35,7 @@ function useThemeToggle() {
   return { isDark, toggle };
 }
 
-export default function DashboardTopbar() {
+export default function DashboardTopbar({ canViewActivity }: { canViewActivity: boolean }) {
   const { isDark, toggle } = useThemeToggle();
 
   return (
@@ -55,12 +55,16 @@ export default function DashboardTopbar() {
           than a planned one. Restore it here when there is something to notify
           about. Clipboard (activity log) is wired up — see 038_activity_log.sql. */}
       <div className="flex items-center gap-1 sm:gap-3">
-        {/* Desktop only: on mobile, Activity is a bottom-bar tab. */}
-        <Link href="/dashboard/activity" className="hidden lg:inline-flex">
-          <IconButton as="span" title="Activity log">
-            <ClipboardList className="size-[18px]" />
-          </IconButton>
-        </Link>
+        {/* Desktop only: on mobile, Activity is a bottom-bar tab. Gated like
+            that tab — aux staff lack `activity:view`, and the icon used to
+            hand them the whole organization's edit history anyway. */}
+        {canViewActivity && (
+          <Link href="/dashboard/activity" className="hidden lg:inline-flex">
+            <IconButton as="span" title="Activity log">
+              <ClipboardList className="size-[18px]" />
+            </IconButton>
+          </Link>
+        )}
         <Link href="/dashboard/settings">
           <IconButton as="span" title="Settings">
             <Settings className="size-[18px]" />

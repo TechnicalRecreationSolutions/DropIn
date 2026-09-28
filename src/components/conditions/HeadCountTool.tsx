@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
 import { Check, Minus, Plus, Thermometer, Trash2, Users } from "lucide-react";
 import {
@@ -54,6 +54,13 @@ export interface HeadCountToolProps {
   /** The viewer's own id, so "you" reads as "you". */
   viewerId: string;
   canWrite: boolean;
+  /**
+   * May delete OTHER people's entries — owner/manager (org_can_manage in the
+   * facility_readings delete policy). Everyone else may delete only their own
+   * row (recorded_by = auth.uid()), so the trash icon shows only on those.
+   * Defaults to false: the narrow answer, until the caller says otherwise.
+   */
+  canManage?: boolean;
 }
 
 /** "" = the whole building, which is also the default. */
@@ -66,6 +73,7 @@ export default function HeadCountTool({
   recorderNames,
   viewerId,
   canWrite,
+  canManage = false,
 }: HeadCountToolProps) {
   const router = useRouter();
   const [space, setSpace] = useState<SpaceChoice>("");
@@ -74,6 +82,13 @@ export default function HeadCountTool({
   const [justSaved, setJustSaved] = useState<ReadingMetric | null>(null);
 
   const now = new Date();
+  // Times render in the BROWSER only. `formatRecordedAt` reads the runtime's
+  // locale and zone, so the server's render ("10:21 PM", or UTC on Vercel)
+  // disagreed with the phone's ("10:21 p.m.", local) and React threw a
+  // hydration error as soon as one reading existed. Same subscribe-don't-seed
+  // idiom as DepartmentEditorShell's hash.
+  const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
+  const recordedAt = (iso: string) => (hydrated ? formatRecordedAt(iso, now) : "…");
 
   const latestFor = (metric: ReadingMetric, spaceId: SpaceChoice) =>
     readings.find(
@@ -260,8 +275,8 @@ export default function HeadCountTool({
 
         {lastCount && (
           <p className="mt-2 text-center text-xs text-muted-foreground">
-            Last count {Math.round(lastCount.value)} at {formatRecordedAt(lastCount.recorded_at, now)}
-            {!isFresh("headcount", lastCount.recorded_at, now) && " — out of date"}
+            Last count {Math.round(lastCount.value)} at {recordedAt(lastCount.recorded_at)}
+            {hydrated && !isFresh("headcount", lastCount.recorded_at, now) && " — out of date"}
           </p>
         )}
       </div>
@@ -275,7 +290,7 @@ export default function HeadCountTool({
           water_temp_c: latestFor("water_temp_c", space),
           air_temp_c: latestFor("air_temp_c", space),
         }}
-        now={now}
+        recordedAt={recordedAt}
         onRecord={record}
       />
 
@@ -298,9 +313,9 @@ export default function HeadCountTool({
                     {formatReading(r.metric, r.value)}
                   </span>
                   <span className="min-w-0 flex-1 truncate text-muted-foreground">
-                    {METRICS[r.metric].label} · {where} · {formatRecordedAt(r.recorded_at, now)} · {who}
+                    {METRICS[r.metric].label} · {where} · {recordedAt(r.recorded_at)} · {who}
                   </span>
-                  {canWrite && (
+                  {canWrite && (mine || canManage) && (
                     <button
                       type="button"
                       onClick={() => remove(r)}
@@ -334,14 +349,14 @@ function TemperatureCard({
   busy,
   justSaved,
   latest,
-  now,
+  recordedAt,
   onRecord,
 }: {
   disabled: boolean;
   busy: string | null;
   justSaved: ReadingMetric | null;
   latest: Record<"water_temp_c" | "air_temp_c", FacilityReading | null>;
-  now: Date;
+  recordedAt: (iso: string) => string;
   onRecord: (metric: ReadingMetric, value: number) => void;
 }) {
   const [values, setValues] = useState<Record<string, string>>({});
@@ -362,7 +377,9 @@ function TemperatureCard({
           const last = latest[metric];
 
           return (
-            <div key={metric}>
+            // min-w-0: a grid item defaults to min-width:auto, so the input's
+            // intrinsic ~20ch pushed Save past the card edge on a 390px phone.
+            <div key={metric} className="min-w-0">
               <label htmlFor={metric} className="mb-1 block text-xs text-muted-foreground">
                 {spec.label} (°C)
               </label>
@@ -393,7 +410,7 @@ function TemperatureCard({
               </div>
               {last && (
                 <p className="mt-1 text-xs text-muted-foreground">
-                  {formatReading(metric, last.value)} at {formatRecordedAt(last.recorded_at, now)}
+                  {formatReading(metric, last.value)} at {recordedAt(last.recorded_at)}
                 </p>
               )}
             </div>
@@ -402,4 +419,9 @@ function TemperatureCard({
       </div>
     </div>
   );
+}
+
+/** For `useSyncExternalStore`: a store that never changes, read only to tell server from client. */
+function subscribeNever() {
+  return () => {};
 }

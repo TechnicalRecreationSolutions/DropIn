@@ -2,11 +2,12 @@
 
 Open this first; it points at everything else.
 
-**Most recent session: the Settings section** (first box below). It has one
-thing outstanding — **migration 062 has not been applied** — and that box says
-exactly what does not work until it is.
+**Most recent session: the Staff (aux) audit** (first box below) — 2026-09-27,
+**UNCOMMITTED, migration 063 APPLIED.**
 
-Before it, the session that added facility status, head counts and the
+Before it: the invite onboarding change, and the Settings section (second box).
+
+Before those, the session that added facility status, head counts and the
 Analytics section (second box).
 
 Before it, on 2026-09-21: the Overview rebuild, and **eight tracks' worth of
@@ -22,6 +23,58 @@ multi-account staff roles, and a resident directory (`/find`).
 This file is the single entry point. The per-track `RESUME-*.md` files are
 historical records of finished work, not live handoffs — see
 [Related docs](#related-docs).
+
+---
+
+## Staff (aux) audit — 2026-09-27, UNCOMMITTED, MIGRATION 063 APPLIED
+
+An audit of everything the Staff role could reach, as code and in a
+browser. The findings and what was done:
+
+- **Staff could not find facility status at all.** It was linked only from
+  the Overview (which redirects Staff away) and the Facilities grid (not in
+  their nav). It now has a sidebar item, a mobile **Status** tab, a
+  `/dashboard/status` resolver, and a strip on Head counts and the schedule.
+- **With `aux_can_post_notices` off, Staff had no way to report anything.**
+  Migration **063** adds reports: an unpublished, `needs_review` notice that
+  heads managers' Overview with Publish / Dismiss. The user chose this over
+  "show who to call". See `src/lib/status/README.md`.
+- **About twenty write buttons were showing that 403'd:** Add session, New
+  schedule, Duplicate/Delete, week review, template rail, schedule settings,
+  widget "Turn on", and delete on colleagues' head counts. They are now hidden
+  for read-only roles, and 21 editor pages redirect Staff to the schedule.
+- **Staff could read the org-wide Activity log** (topbar icon, page and API
+  were ungated, contrary to `activity:view`). It is now gated in the app. RLS on
+  `activity_log` still lets any member read rows directly; the user chose the
+  app-only fix.
+- Also fixed: Staff landed on the org's first building rather than their own.
+  `POST /api/facilities` had no app-layer permission check. The profile said
+  "Aux", and the notices error pointed at "Organization settings" when the
+  switch lives under Settings › Permissions.
+- Found by the live browser walk: **Head counts threw a hydration error**
+  once any reading existed, because `formatRecordedAt` used the runtime
+  locale on both server and phone. Times now render client-side only. The
+  temperature Save buttons overflowed the card at 390px (a grid item needed
+  `min-w-0`). A staffer's facility edit used to return **200 {ok:true} as a
+  silent no-op**; it is now a 403.
+- **Not fixed, noted:** `/dashboard/activity` has the same hydration bug
+  (`toLocaleString()` in a title), and it is out of Staff's reach now. The
+  analytics attendance/utilization pages log one for coordinators. A
+  "`uncached data outside <Suspense>`" dev warning shows on the status page
+  and the `/new`·`/edit` forms; the build is clean.
+
+```
+verify-be   68/68  0 skipped, against the applied 063 — falsified: 3 reds on 3 breaks
+verify-az   44/44  (one assertion rewritten: flag-off is now a report, not a 403;
+                    it now exercises the report branch)
+verify-ba 70/70 · verify-al 41/41 · verify-bc 111/111 · verify-ay 74/74
+tsc, eslint src, NEXT_DIST_DIR=.next-verify next build — clean
+```
+
+**Migration 063 is applied** (2026-09-27). With it in place, `verify-be`
+sections 2–4 and the tap-through all ran green: the policy's positive control
+plus 7 refusals, publish and dismiss, the org-wide Overview alert, and a
+report filed by tapping on a 390px phone. What is left is commit + push.
 
 ---
 

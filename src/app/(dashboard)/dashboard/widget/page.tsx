@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import WidgetStudio from "@/components/widget/WidgetStudio";
@@ -39,6 +41,9 @@ export default function WidgetPage() {
 async function WidgetBody() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const supabase = await createClient();
   // slug + is_published carry the "link to it instead of embedding it" option

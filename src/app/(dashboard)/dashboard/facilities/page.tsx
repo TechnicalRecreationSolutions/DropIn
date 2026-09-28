@@ -1,5 +1,7 @@
+import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus, MapPin } from "lucide-react";
@@ -63,6 +65,9 @@ export default function FacilitiesPage() {
 async function FacilitiesGrid() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const supabase = await createClient();
   // Relational select — cast needed until Supabase CLI generates types with FK relations

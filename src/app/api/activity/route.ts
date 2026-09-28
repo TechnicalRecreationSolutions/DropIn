@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { getAuthedMembership } from "@/lib/auth/membership";
+import { requirePermission } from "@/lib/auth/guard";
 
 const PAGE_SIZE = 30;
 
@@ -16,9 +17,10 @@ const LOGGED_TABLES = [
 /**
  * GET /api/activity — paginated activity log for the caller's org.
  *
- * Any org member can read this (see the RLS policy in 038_activity_log.sql) —
- * it's the transparency the feature exists for, not an admin-only view.
- * Reverting is gated separately, in the revert route.
+ * Owners, managers and coordinators (`activity:view`). Aux staff are
+ * refused here even though 038's RLS policy still lets any member read the
+ * rows — the role matrix excludes them, and this route and the page are what
+ * the product offers. Reverting is gated separately, in the revert route.
  *
  * Cursor pagination on created_at rather than offset: the log is
  * insert-mostly and grows continuously, so an offset page would skip or
@@ -28,6 +30,8 @@ export async function GET(request: Request) {
   const supabase = await createClient();
   const membership = await getAuthedMembership(supabase);
   if (!membership) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const denied = requirePermission(membership, "activity:view");
+  if (denied) return denied;
 
   const url = new URL(request.url);
   const before = url.searchParams.get("before");

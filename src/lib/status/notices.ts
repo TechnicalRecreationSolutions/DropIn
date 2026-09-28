@@ -152,3 +152,37 @@ export function describeNoticeWindow(
     ? `Since ${time(notice.starts_at)}`
     : `Since ${day(notice.starts_at)}, ${time(notice.starts_at)}`;
 }
+
+/** One live notice as the status strip (components/status/StatusShortcut) shows it. */
+export interface StatusShortcutNotice {
+  id: string;
+  headline: string;
+  severity: NoticeSeverity;
+}
+
+/**
+ * What the status strip needs from a facility's open notices: the live ones,
+ * worst first, and how many staff reports are waiting for review (migration
+ * 063). `needs_review` is optional because the column only exists once 063 is
+ * applied — absent reads as "not a report".
+ */
+export function splitStatusRows(
+  rows: readonly {
+    id: string;
+    headline: string;
+    severity: NoticeSeverity;
+    is_published: boolean;
+    starts_at: string;
+    ends_at: string | null;
+    needs_review?: boolean;
+  }[],
+  now: Date = new Date()
+): { live: StatusShortcutNotice[]; pendingCount: number } {
+  return {
+    live: rows
+      .filter((r) => isNoticeLive(r, now))
+      .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+      .map(({ id, headline, severity }) => ({ id, headline, severity })),
+    pendingCount: rows.filter((r) => r.needs_review === true && !isNoticeFinished(r, now)).length,
+  };
+}

@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
-import { AlertOctagon, AlertTriangle, Check, Info, Plus, Trash2, X } from "lucide-react";
+import { AlertOctagon, AlertTriangle, Check, Clock, Info, Plus, Trash2, X } from "lucide-react";
 import {
   CATEGORY_LABEL,
   NOTICE_CATEGORIES,
@@ -59,6 +59,14 @@ export interface FacilityStatusManagerProps {
    * act on — and the fix (a Manager flips one setting) is worth naming.
    */
   readOnlyReason?: string;
+  /**
+   * True for a staffer who may not post but may REPORT (migration 063): the
+   * composer opens in report mode, forced unpublished and sent for review.
+   * Ignored when `canWrite` is true.
+   */
+  canReport?: boolean;
+  /** user id → email, for "Reported by" on a waiting report. */
+  reporters?: Record<string, string>;
 }
 
 type Draft = {
@@ -97,11 +105,17 @@ export default function FacilityStatusManager({
   notices,
   canWrite,
   readOnlyReason,
+  canReport = false,
+  reporters = {},
 }: FacilityStatusManagerProps) {
+  const reporting = !canWrite && canReport;
   const router = useRouter();
   const [draft, setDraft] = useState<Draft | null>(null);
   const [busyId, setBusyId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Shown after a report is sent, next to the composer the staffer is looking
+  // at — the report itself lands at the top of the page, out of view on a phone.
+  const [sent, setSent] = useState(false);
 
   // `now` is captured once per render rather than read inside each predicate,
   // so a notice cannot be counted live in one list and finished in the next
@@ -110,7 +124,12 @@ export default function FacilityStatusManager({
   const sorted = sortNotices(notices);
   const live = sorted.filter((n) => isNoticeLive(n, now));
   const scheduled = sorted.filter((n) => isNoticeScheduled(n, now) && !isNoticeFinished(n, now));
-  const drafts = sorted.filter((n) => !n.is_published && !isNoticeFinished(n, now));
+  // A report is an unpublished row too, but it is waiting on someone — so it
+  // gets its own block at the top rather than sitting among internal notes.
+  const reports = sorted.filter((n) => n.needs_review === true && !isNoticeFinished(n, now));
+  const drafts = sorted.filter(
+    (n) => !n.is_published && n.needs_review !== true && !isNoticeFinished(n, now)
+  );
   const past = sorted.filter((n) => isNoticeFinished(n, now));
 
   async function send(url: string, init: RequestInit, id: string) {
@@ -155,7 +174,10 @@ export default function FacilityStatusManager({
     // mounted across navigations, so a draft left in state comes back
     // pre-filled the next time someone opens the page — see the note in
     // components/facility/FacilityForm.tsx.
-    if (ok) setDraft(null);
+    if (ok) {
+      setDraft(null);
+      setSent(reporting);
+    }
   }
 
   const clear = (n: FacilityNotice) =>
@@ -184,6 +206,63 @@ export default function FacilityStatusManager({
         <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
           {error}
         </p>
+      )}
+
+      {/* ── 0. Reports waiting for someone who can publish (063) ─────────── */}
+      {reports.length > 0 && (
+        <section>
+          <h2 className="mb-3 text-sm font-semibold text-foreground">Waiting for approval</h2>
+          <ul className="space-y-2">
+            {reports.map((n) => (
+              <li
+                key={n.id}
+                className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-start dark:border-amber-500/40 dark:bg-amber-500/10"
+              >
+                <Clock className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-foreground">{n.headline}</p>
+                  {n.body && <p className="mt-0.5 text-sm text-muted-foreground">{n.body}</p>}
+                  <p className="mt-1 text-xs text-muted-foreground">
+                    {[
+                      SEVERITY_LABEL[n.severity],
+                      spaceName(n.space_id),
+                      (n.created_by && reporters[n.created_by]) ? `Reported by ${reporters[n.created_by]}` : "Reported by staff",
+                      describeNoticeWindow(n, now),
+                    ]
+                      .filter(Boolean)
+                      .join(" · ")}
+                  </p>
+                  {!canWrite && (
+                    <p className="mt-1 text-xs text-muted-foreground">
+                      Patrons can&apos;t see this until a Manager publishes it.
+                    </p>
+                  )}
+                </div>
+                {canWrite && (
+                  <div className="flex shrink-0 gap-2">
+                    <button
+                      type="button"
+                      onClick={() => publish(n, true)}
+                      disabled={busyId === n.id}
+                      className="rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
+                    >
+                      {busyId === n.id ? "Saving…" : "Publish"}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => clear(n)}
+                      disabled={busyId === n.id}
+                      title="Not needed, or already handled. Keeps the report in the record."
+                      className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                    >
+                      Dismiss
+                    </button>
+                  </div>
+                )}
+              </li>
+            ))}
+          </ul>
+        </section>
       )}
 
       {/* ── 1. Live now ─────────────────────────────────────────────────── */}
@@ -252,16 +331,27 @@ export default function FacilityStatusManager({
       </section>
 
       {/* ── 2. Post one ─────────────────────────────────────────────────── */}
-      {canWrite ? (
+      {canWrite || reporting ? (
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Post a status</h2>
+          <h2 className="mb-1 text-sm font-semibold text-foreground">
+            {reporting ? "Report a problem" : "Post a status"}
+          </h2>
+          {reporting && (
+            <p className="mb-3 text-sm text-muted-foreground">
+              Pick what happened. It goes to your Managers, who publish it to patrons.
+            </p>
+          )}
+          {!reporting && <div className="mb-2" />}
 
           <div className="flex flex-wrap gap-2">
             {NOTICE_PRESETS.map((preset) => (
               <button
                 key={preset.id}
                 type="button"
-                onClick={() => setDraft(draftFromPreset(preset))}
+                onClick={() => {
+                  setDraft(draftFromPreset(preset));
+                  setSent(false);
+                }}
                 className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
                   draft?.presetId === preset.id
                     ? "border-foreground bg-foreground text-background"
@@ -279,6 +369,13 @@ export default function FacilityStatusManager({
               </button>
             ))}
           </div>
+
+          {sent && !draft && (
+            <p className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
+              <Check className="size-4 shrink-0" aria-hidden />
+              Sent. It is at the top of this page until a Manager publishes or dismisses it.
+            </p>
+          )}
 
           {draft && (
             <form
@@ -304,7 +401,7 @@ export default function FacilityStatusManager({
 
               <div>
                 <label htmlFor="headline" className="mb-1 block text-sm font-medium">
-                  What patrons will read *
+                  {reporting ? "What patrons would read *" : "What patrons will read *"}
                 </label>
                 <input
                   id="headline"
@@ -394,6 +491,7 @@ export default function FacilityStatusManager({
                   </select>
                 </div>
 
+                {!reporting && (
                 <div>
                   <label htmlFor="endsAt" className="mb-1 block text-sm font-medium">
                     Take it down at
@@ -409,8 +507,10 @@ export default function FacilityStatusManager({
                     Leave empty to keep it up until you clear it.
                   </p>
                 </div>
+                )}
               </div>
 
+              {!reporting && (
               <label className="flex items-start gap-2.5 text-sm">
                 <input
                   type="checkbox"
@@ -426,13 +526,20 @@ export default function FacilityStatusManager({
                   </span>
                 </span>
               </label>
+              )}
 
               <button
                 type="submit"
                 disabled={busyId === "new" || !draft.headline.trim()}
                 className="w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background disabled:opacity-50 sm:w-auto"
               >
-                {busyId === "new" ? "Posting…" : draft.isPublished ? "Post it" : "Save as internal"}
+                {busyId === "new"
+                  ? reporting ? "Sending…" : "Posting…"
+                  : reporting
+                    ? "Send to a Manager"
+                    : draft.isPublished
+                      ? "Post it"
+                      : "Save as internal"}
               </button>
             </form>
           )}

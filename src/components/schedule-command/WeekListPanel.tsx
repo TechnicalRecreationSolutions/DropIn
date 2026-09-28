@@ -19,6 +19,8 @@ interface WeekListPanelProps {
   scheduleGroup: CommandScheduleGroup;
   facilityId: string;
   onSelectWeek: (weekStart: Date) => void;
+  /** False for read-only staff: the schedule settings page is not theirs to open. */
+  canEdit?: boolean;
 }
 
 /**
@@ -28,7 +30,12 @@ interface WeekListPanelProps {
  * the actual week editor (the same grid/list/map views as before, just
  * entered here instead of via prev/next).
  */
-export default function WeekListPanel({ scheduleGroup, facilityId, onSelectWeek }: WeekListPanelProps) {
+export default function WeekListPanel({
+  scheduleGroup,
+  facilityId,
+  onSelectWeek,
+  canEdit = true,
+}: WeekListPanelProps) {
   const [filter, setFilter] = useState<"upcoming" | "past">("upcoming");
 
   const today = new Date();
@@ -53,13 +60,15 @@ export default function WeekListPanel({ scheduleGroup, facilityId, onSelectWeek 
             {meta.label}
           </span>
         </div>
-        <Link
-          href={scheduleGroup.settingsHref}
-          className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:bg-muted transition-colors"
-        >
-          <Settings2 className="w-3.5 h-3.5" />
-          Settings
-        </Link>
+        {canEdit && (
+          <Link
+            href={scheduleGroup.settingsHref}
+            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:bg-muted transition-colors"
+          >
+            <Settings2 className="w-3.5 h-3.5" />
+            Settings
+          </Link>
+        )}
       </div>
 
       <div className="flex gap-1 px-4 pt-3">

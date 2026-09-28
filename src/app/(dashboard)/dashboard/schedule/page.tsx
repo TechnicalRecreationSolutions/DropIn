@@ -7,7 +7,9 @@ import { commandCentreHref, sessionsHref } from "@/lib/schedule/commandCentreHre
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
-import { isReadOnly } from "@/lib/auth/roles";
+import { canReadFacility, canReportNotice, canWriteNotice, isReadOnly, isScoped } from "@/lib/auth/roles";
+import StatusShortcut from "@/components/status/StatusShortcut";
+import { splitStatusRows } from "@/lib/status/notices";
 import type { CommandFacility } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import Streamed from "@/components/ui/streamed";
@@ -47,19 +49,13 @@ interface SchedulePageProps {
 export default function SchedulePage({ searchParams }: SchedulePageProps) {
   return (
     <div className="space-y-6">
-      {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <PageHeader title="Manage" info="Pick a building, then a schedule, to place and edit sessions." />
-        </div>
-        <Link
-          href="/dashboard/schedule/sessions/new"
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add session</span>
-        </Link>
-      </div>
+      {/* The header row is role-aware — aux staff get "Schedule" and no "Add
+          session" — so it streams in behind a fallback that is the static
+          header minus the button. The shell still prerenders and paints
+          immediately, and nobody is offered a button that 403s. */}
+      <Suspense fallback={<ScheduleHeader title="Manage" />}>
+        <RoleAwareScheduleHeader />
+      </Suspense>
 
       {/* searchParams is forwarded unread — awaiting it here would pull this
           static shell into the dynamic, Suspense-gated render. */}
@@ -70,6 +66,35 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
       </Suspense>
     </div>
   );
+}
+
+function ScheduleHeader({ title, canEdit = false }: { title: string; canEdit?: boolean }) {
+  return (
+    <div className="flex items-start justify-between gap-3">
+      <div>
+        <PageHeader title={title} info="Pick a building, then a schedule, to place and edit sessions." />
+      </div>
+      {canEdit && (
+        <Link
+          href="/dashboard/schedule/sessions/new"
+          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          <span className="hidden sm:inline">Add session</span>
+        </Link>
+      )}
+    </div>
+  );
+}
+
+/**
+ * The header once the role is known. getOrgContext() is React-cached, so this
+ * shares CommandCentreBody's round trip rather than adding one.
+ */
+async function RoleAwareScheduleHeader() {
+  const orgContext = await getOrgContext();
+  const readOnly = !orgContext || isReadOnly(orgContext.membership.role);
+  return <ScheduleHeader title={readOnly ? "Schedule" : "Manage"} canEdit={!readOnly} />;
 }
 
 async function CommandCentreBody({ searchParams }: SchedulePageProps) {
@@ -83,7 +108,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
   // The editor's whole shape for this org — small, bounded lists, so one
   // round of parallel queries beats a fetch per building switch.
   const [
-    { data: facilityRows },
+    { data: allFacilityRows },
     { data: departmentRows },
     { data: scheduleGroupRows },
     { data: spaceRows },
@@ -91,6 +116,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     { data: mapRows },
     { data: widgetConfig },
     { data: sessionRows },
+    { data: openNoticeRows },
   ] = await Promise.all([
     supabase
       .from("facilities")
@@ -159,9 +185,28 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
       .select("id, schedule_group_id")
       .eq("org_id", orgId)
       .eq("is_active", true),
+    // Open facility notices, org-wide and tiny, for the status strip above the
+    // editor. `*` so the 063 review flag arrives once the column exists.
+    supabase
+      .from("facility_notices")
+      .select("*")
+      .eq("org_id", orgId)
+      .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`),
   ]);
 
-  if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
+  const role = orgContext.membership.role;
+  const actor = { role, scopes: orgContext.scopes };
+  const canEdit = !isReadOnly(role);
+
+  // A coordinator or aux staffer holds only some buildings. Filter BEFORE the
+  // default is picked below, or the fallback lands them on the org's first
+  // building by name — one they may not be able to read at all. Owners and
+  // managers are unscoped and keep the whole list.
+  const facilityRows = isScoped(role)
+    ? (allFacilityRows ?? []).filter((f) => canReadFacility(actor, f.id))
+    : (allFacilityRows ?? []);
+
+  if (facilityRows.length === 0) return <NoFacilities canEdit={canEdit} />;
 
   const publishedMapFacilityIds = new Set((mapRows ?? []).map((m) => m.facility_id));
 
@@ -252,6 +297,24 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     };
   });
 
+  // What is wrong at this building right now. Read-only staff always get the
+  // strip — this page is where they land, and it is their way to report a
+  // problem. Everyone else gets it only when something is live or waiting;
+  // the Overview is their alert surface and an always-on row here is clutter.
+  const status = splitStatusRows(
+    (openNoticeRows ?? []).filter((n) => n.facility_id === activeFacilityId)
+  );
+  const showStatus = !canEdit || status.live.length > 0 || status.pendingCount > 0;
+  const statusMode = canWriteNotice(
+    actor,
+    { auxCanPostNotices: orgContext.org.aux_can_post_notices },
+    activeFacilityId
+  )
+    ? "post"
+    : canReportNotice(actor, activeFacilityId)
+      ? "report"
+      : "view";
+
   return (
     <div className="space-y-6">
       <FacilityCardPicker
@@ -259,6 +322,14 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         activeFacilityId={activeFacilityId}
         hrefFor={(facilityId) => commandCentreHref({ facilityId })}
       />
+      {showStatus && (
+        <StatusShortcut
+          facilityId={activeFacilityId}
+          live={status.live}
+          pendingCount={status.pendingCount}
+          mode={statusMode}
+        />
+      )}
       <ScheduleCommandCentre
         orgId={orgId}
         orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
@@ -269,13 +340,26 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         // permission is department-scoped and a coordinator's answer depends
         // on which schedule is open — a question this page cannot ask once for
         // the whole render. The per-schedule answer is enforced by the routes.
-        canEdit={!isReadOnly(orgContext.membership.role)}
+        canEdit={canEdit}
       />
     </div>
   );
 }
 
-function NoFacilities() {
+function NoFacilities({ canEdit }: { canEdit: boolean }) {
+  if (!canEdit) {
+    // Read-only staff cannot add a building, so offer the explanation instead
+    // of a button that 403s.
+    return (
+      <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
+        <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
+        <h3 className="font-medium text-foreground mb-1">No buildings to show</h3>
+        <p className="text-sm text-muted-foreground">
+          You haven&apos;t been given access to a building yet. Ask a manager to add you to one.
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
       <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />

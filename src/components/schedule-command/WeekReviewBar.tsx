@@ -9,6 +9,9 @@ import { cn } from "@/lib/utils/cn";
 interface WeekReviewBarProps {
   scheduleGroupId: string;
   weekStart: Date;
+  /** False for read-only staff: they see the week's review status, not the
+   *  Approve / Needs changes / Reset controls (week-review:write would 403). */
+  canEdit?: boolean;
 }
 
 /**
@@ -17,7 +20,7 @@ interface WeekReviewBarProps {
  * 037 — this is the thing that actually gates whether *this specific week*
  * shows on the public schedule/widget once the schedule is published.
  */
-export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReviewBarProps) {
+export default function WeekReviewBar({ scheduleGroupId, weekStart, canEdit = true }: WeekReviewBarProps) {
   const { byWeekStart, isLoading } = useWeekReviews(scheduleGroupId, weekStart, weekStart);
   const setReview = useSetWeekReview();
   const [note, setNote] = useState("");
@@ -60,40 +63,42 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart }: WeekReview
           )}
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => handleClick("approved")}
-            disabled={setReview.isPending || status === "approved"}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <Check className="w-3.5 h-3.5" />
-            Approve
-          </button>
-          <button
-            type="button"
-            onClick={() => handleClick("needs_changes")}
-            disabled={setReview.isPending || status === "needs_changes"}
-            className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
-          >
-            <MessageSquareWarning className="w-3.5 h-3.5" />
-            Needs changes
-          </button>
-          {status !== "pending" && (
+        {canEdit && (
+          <div className="flex items-center gap-1.5">
             <button
               type="button"
-              onClick={() => handleClick("pending")}
-              disabled={setReview.isPending}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground bg-card border border-border hover:bg-muted disabled:opacity-50"
+              onClick={() => handleClick("approved")}
+              disabled={setReview.isPending || status === "approved"}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <RotateCcw className="w-3.5 h-3.5" />
-              Reset to pending
+              <Check className="w-3.5 h-3.5" />
+              Approve
             </button>
-          )}
-        </div>
+            <button
+              type="button"
+              onClick={() => handleClick("needs_changes")}
+              disabled={setReview.isPending || status === "needs_changes"}
+              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              <MessageSquareWarning className="w-3.5 h-3.5" />
+              Needs changes
+            </button>
+            {status !== "pending" && (
+              <button
+                type="button"
+                onClick={() => handleClick("pending")}
+                disabled={setReview.isPending}
+                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground bg-card border border-border hover:bg-muted disabled:opacity-50"
+              >
+                <RotateCcw className="w-3.5 h-3.5" />
+                Reset to pending
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
-      {showNoteFor === "needs_changes" && (
+      {canEdit && showNoteFor === "needs_changes" && (
         <div className="mt-2 flex items-center gap-2">
           <input
             type="text"

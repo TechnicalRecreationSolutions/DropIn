@@ -550,15 +550,16 @@ export default function SessionTemplateForm({
           put Save at the bottom of all of it. The error sits in the same bar so
           a failed save cannot scroll itself out of view.
 
-          The 65px is the measured height of `DashboardBottomNav`, which is
-          `fixed bottom-0 z-50` below `lg`. At `bottom-0` this bar sits *behind*
-          it and the save button is completely invisible on a phone — measured,
-          not guessed: the nav occupied 779–844 on a 390×844 viewport and the
-          button 790–832. Raising this bar's z-index instead would bury the
-          app's primary navigation, so it clears the nav rather than covering
-          it. verify-ac §2 asserts the two never overlap, so a change to the
-          nav's height fails loudly instead of hiding Save again. */}
-      <div className="fixed bottom-[65px] lg:bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80">
+          `DashboardBottomNav` is `fixed bottom-0 z-50` below `lg`. At
+          `bottom-0` this bar sits *behind* it and the save button is completely
+          invisible on a phone — measured, not guessed: the nav occupied 779–844
+          on a 390×844 viewport and the button 790–832. Raising this bar's
+          z-index instead would bury the app's primary navigation, so it clears
+          the nav rather than covering it. The nav publishes what it covers
+          (raised Count button included, 0 while scrolled away) as
+          --tabbar-clearance, so this follows it down instead of floating over
+          nothing. verify-ac §2 asserts the two never overlap. */}
+      <div className="fixed bottom-[var(--tabbar-clearance,86px)] lg:bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 transition-[bottom] duration-300 ease-out motion-reduce:transition-none">
         <div className="max-w-2xl mx-auto px-4 py-3 space-y-2">
           {error && (
             <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">

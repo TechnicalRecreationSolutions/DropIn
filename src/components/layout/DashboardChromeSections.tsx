@@ -4,6 +4,7 @@ import TreeNav from "./TreeNav";
 import DashboardTopbar from "./DashboardTopbar";
 import MobileTreeSheetContents from "./MobileTreeSheetContents";
 import DashboardBottomNav from "./DashboardBottomNav";
+import { can } from "@/lib/auth/roles";
 
 /**
  * Server components that own the org lookup for each piece of dashboard chrome.
@@ -48,7 +49,8 @@ export async function TopbarSection() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
 
-  return <DashboardTopbar />;
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  return <DashboardTopbar canViewActivity={can(actor, "activity:view")} />;
 }
 
 export async function MobileSheetSection() {

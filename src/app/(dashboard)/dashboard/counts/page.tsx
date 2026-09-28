@@ -2,13 +2,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ClipboardList, Settings2 } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { can, canReadFacility, isScoped } from "@/lib/auth/roles";
+import { can, canReadFacility, canReportNotice, canWriteNotice, isScoped } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { countsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import HeadCountTool from "@/components/conditions/HeadCountTool";
+import StatusShortcut from "@/components/status/StatusShortcut";
+import { splitStatusRows } from "@/lib/status/notices";
 import { PageHeader } from "@/components/ui/info-tip";
 
 /**
@@ -102,7 +104,8 @@ async function CountsBody({ searchParams }: CountsPageProps) {
 
   const facility = visible.find((f) => f.id === facilityParam) ?? visible[0];
 
-  const [{ data: spaceRows }, { data: readingRows }, { data: staffRows }] = await Promise.all([
+  const [{ data: spaceRows }, { data: readingRows }, { data: staffRows }, { data: noticeRows }] =
+    await Promise.all([
     supabase
       .from("spaces")
       .select("id, name, capacity, display_order")
@@ -124,6 +127,13 @@ async function CountsBody({ searchParams }: CountsPageProps) {
       .from("org_memberships")
       .select("user_id, display_name, email")
       .eq("org_id", orgId),
+    // What is posted or reported right now, for the status strip. `*` so the
+    // 063 review flag comes back once it exists without naming it before then.
+    supabase
+      .from("facility_notices")
+      .select("*")
+      .eq("facility_id", facility.id)
+      .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`),
   ]);
 
   const recorderNames: Record<string, string> = {};
@@ -133,6 +143,16 @@ async function CountsBody({ searchParams }: CountsPageProps) {
 
   const canWrite = can(actor, "reading:write") && canReadFacility(actor, facility.id);
   const canConfigure = can(actor, "facility:edit");
+  const status = splitStatusRows(noticeRows ?? []);
+  const statusMode = canWriteNotice(
+    actor,
+    { auxCanPostNotices: orgContext.org.aux_can_post_notices },
+    facility.id
+  )
+    ? "post"
+    : canReportNotice(actor, facility.id)
+      ? "report"
+      : "view";
 
   return (
     <>
@@ -149,6 +169,15 @@ async function CountsBody({ searchParams }: CountsPageProps) {
         </p>
       )}
 
+      {/* Where a guard already is when the pool gets fouled. Above the counter,
+          because a closure outranks a head count. */}
+      <StatusShortcut
+        facilityId={facility.id}
+        live={status.live}
+        pendingCount={status.pendingCount}
+        mode={statusMode}
+      />
+
       <HeadCountTool
         facilityId={facility.id}
         spaces={spaceRows ?? []}
@@ -156,6 +185,9 @@ async function CountsBody({ searchParams }: CountsPageProps) {
         recorderNames={recorderNames}
         viewerId={orgContext.membership.user_id}
         canWrite={canWrite}
+        // Delete follows the 061 policy: your own entries, or anyone's for an
+        // owner or manager. Everyone else was shown a trash can that 404'd.
+        canManage={!isScoped(orgContext.membership.role)}
       />
 
       {canConfigure && (

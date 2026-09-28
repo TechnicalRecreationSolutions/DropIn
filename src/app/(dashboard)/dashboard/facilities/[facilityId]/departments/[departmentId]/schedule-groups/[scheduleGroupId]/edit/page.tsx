@@ -1,6 +1,7 @@
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { getOrgContext } from "@/lib/auth/session";
+import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
 import ScheduleGroupForm from "@/components/schedule-group/ScheduleGroupForm";
@@ -14,6 +15,9 @@ export default async function EditScheduleGroupPage({ params }: EditScheduleGrou
   const { facilityId, departmentId, scheduleGroupId } = await params;
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
+  // Read-only staff (aux) have nothing to do here, and the navigation not
+  // offering this page is not a guard. Coordinators are not read-only.
+  if (isReadOnly(orgContext.membership.role)) redirect("/dashboard/schedule");
 
   const supabase = await createClient();
 

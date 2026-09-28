@@ -18,6 +18,7 @@ import { DAYS, timeStringToMinutes, minutesToTimeString, sessionDayIndex } from 
 import { NO_DEPARTMENT, commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
 import { getSportCategory } from "@/lib/utils/sport-categories";
+import { cn } from "@/lib/utils/cn";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule-list/ScheduleListSection";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -669,16 +670,21 @@ export default function ScheduleCommandCentre({
             rows={scheduleListRows}
             newScheduleHref={newScheduleHref}
             emptyMessage={departmentParam ? "Nothing matches the selected filters." : undefined}
+            canEdit={canEdit}
           />
         ) : isContinuous ? (
           <div className="rounded-xl border border-border bg-card p-6 text-center">
             <p className="text-sm text-muted-foreground">
-              {scheduleGroup.name} is set up as always-open, so it has no placed sessions. Change
-              its hours from{" "}
-              <Link href={scheduleGroup.settingsHref} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
-                its settings
-              </Link>
-              .
+              {scheduleGroup.name} is set up as always-open, so it has no placed sessions.
+              {canEdit && (
+                <>
+                  {" "}Change its hours from{" "}
+                  <Link href={scheduleGroup.settingsHref} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                    its settings
+                  </Link>
+                  .
+                </>
+              )}
             </p>
           </div>
         ) : !weekParam ? (
@@ -686,6 +692,7 @@ export default function ScheduleCommandCentre({
             scheduleGroup={scheduleGroup}
             facilityId={facility!.id}
             onSelectWeek={handleSelectWeek}
+            canEdit={canEdit}
           />
         ) : (
           <ScheduleDndProvider
@@ -706,18 +713,32 @@ export default function ScheduleCommandCentre({
                 All weeks
               </button>
 
-              <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4 items-start">
-                <div className="order-2 lg:order-1 space-y-3">
-                  <TemplateRail
-                    templates={editing.templates}
-                    manageTemplatesHref={scheduleGroup.manageTemplatesHref}
-                    draggable={dragEnabled}
-                    onTemplateClick={canCreate && !dragEnabled ? handleTemplateClick : undefined}
-                  />
-                </div>
+              {/* Read-only staff get no template rail at all — the templates are
+                  inert for them and its links lead to pages they cannot use — so
+                  the grid collapses to the schedule alone. */}
+              <div
+                className={cn(
+                  "grid grid-cols-1 gap-4 items-start",
+                  canEdit && "lg:grid-cols-[240px_1fr]"
+                )}
+              >
+                {canEdit && (
+                  <div className="order-2 lg:order-1 space-y-3">
+                    <TemplateRail
+                      templates={editing.templates}
+                      manageTemplatesHref={scheduleGroup.manageTemplatesHref}
+                      draggable={dragEnabled}
+                      onTemplateClick={canCreate && !dragEnabled ? handleTemplateClick : undefined}
+                    />
+                  </div>
+                )}
 
                 <div className="order-1 lg:order-2 rounded-xl border border-border overflow-hidden bg-card">
-                  <WeekReviewBar scheduleGroupId={scheduleGroup.id} weekStart={editorWeekStart} />
+                  <WeekReviewBar
+                    scheduleGroupId={scheduleGroup.id}
+                    weekStart={editorWeekStart}
+                    canEdit={canEdit}
+                  />
 
                   {/* Shadow mode (stage 5). Scoped to the facility rather than this
                       schedule group on purpose — the rentals eating into a drop-in
@@ -789,7 +810,9 @@ export default function ScheduleCommandCentre({
                     allowedViews={availableViews}
                   />
 
-                  {viewIsOffInWidget && (
+                  {/* Widget settings are owner/manager territory, and read-only
+                      staff can do nothing about this — so it is not shown to them. */}
+                  {viewIsOffInWidget && canEdit && (
                     <p className="flex items-center gap-2 px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
                       <Info className="w-3.5 h-3.5 shrink-0" />
                       <span className="flex-1">

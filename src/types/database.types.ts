@@ -417,6 +417,12 @@ export type Database = {
           /** NULL = until cleared. Clearing sets this to now(). */
           ends_at: string | null;
           is_published: boolean;
+          /**
+           * A staff report waiting for someone who may publish it (migration
+           * 063). Never true on a published notice. Read it as `?? false`:
+           * before 063 is applied the column is absent.
+           */
+          needs_review?: boolean;
           created_by: string | null;
           created_at: string;
           updated_at: string;

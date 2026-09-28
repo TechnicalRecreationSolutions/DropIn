@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import { redirect } from "next/navigation";
 import { getOrgContext } from "@/lib/auth/session";
 import { getClaims } from "@/lib/auth/claims";
-import { can, isReadOnly } from "@/lib/auth/roles";
+import { can, canWriteNotice, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import {
@@ -153,6 +153,21 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
 
   const claimsPromise = getClaims();
 
+  // Staff reports waiting for someone who can publish them (migration 063).
+  // ORG-wide, not filtered to the selected facility like everything else on
+  // this page: a contamination reported at the other building is still the
+  // most urgent thing this person can act on. Before 063 is applied the
+  // column is missing, the read errors, and the row simply never appears.
+  const reportsPromise = start(
+    supabase
+      .from("facility_notices")
+      .select("id, facility_id, headline, severity, facilities(name), spaces(name)")
+      .eq("org_id", orgId)
+      .eq("needs_review", true)
+      .is("ends_at", null)
+      .order("created_at", { ascending: false })
+  );
+
   const { data: facilityRows } = await facilityListPromise;
 
   const facilities = facilityRows ?? [];
@@ -167,6 +182,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
     conflictsRes,
     claimsRes,
     noticesRes,
+    reportsRes,
   ] = await Promise.allSettled([
       selectedFacility
         ? supabase
@@ -195,6 +211,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
             .lte("starts_at", new Date().toISOString())
             .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`)
         : Promise.resolve({ data: null, error: null }),
+      reportsPromise,
     ]);
 
   type ScheduleGroupRow = {
@@ -355,6 +372,32 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       summary: n.spaces?.name ? `${n.headline} · ${n.spaces.name}` : n.headline,
     }));
 
+  // Only the reports this person could actually publish — a coordinator is
+  // not shown one they would open and find no button on.
+  type ReportRow = {
+    id: string;
+    facility_id: string;
+    headline: string;
+    severity: NoticeSeverity;
+    facilities: { name: string } | null;
+    spaces: { name: string } | null;
+  };
+  const pendingReports = (
+    reportsRes.status === "fulfilled"
+      ? ((reportsRes.value.data ?? []) as unknown as ReportRow[])
+      : []
+  )
+    .filter((r) =>
+      canWriteNotice(permissions, { auxCanPostNotices: orgContext.org.aux_can_post_notices }, r.facility_id)
+    )
+    .sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity])
+    .map((r) => ({
+      id: r.id,
+      severity: r.severity,
+      summary: [r.headline, r.spaces?.name, r.facilities?.name].filter(Boolean).join(" · "),
+      href: `/dashboard/facilities/${r.facility_id}/status`,
+    }));
+
   const activityRows = activityCountRes.status === "fulfilled" ? activityCountRes.value : null;
   const activityCount = activityRows ? activityRows.rows.filter(matchesCurrentScope).length : 0;
   // A truncated read can only undercount, so the number is a floor and says so
@@ -468,6 +511,7 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           conflictSummary={conflictSummary}
           draftCount={draftCount}
           notices={liveNotices}
+          reports={pendingReports}
           statusHref={`/dashboard/facilities/${selectedFacility.id}/status`}
         />
       )}

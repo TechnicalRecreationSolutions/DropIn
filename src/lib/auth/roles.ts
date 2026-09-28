@@ -278,6 +278,26 @@ export function canWriteNotice(
 }
 
 /**
+ * May this actor file a REPORT — an unpublished notice waiting for review?
+ *
+ * The fallback for the staffer `canWriteNotice()` refuses: the guard who found
+ * the contamination, in an organization that keeps publishing for
+ * supervisors. Before migration 063 that person could only be told to phone
+ * someone. Now they file the notice as a report, it heads the Overview for
+ * whoever can publish, and patrons see nothing until someone does.
+ *
+ * Aux only, and only in scope — everyone above aux already writes through
+ * `canWriteNotice()`. Mirrors `facility_notices_aux_report` in 063, which is
+ * the control; the route forces `is_published = false, needs_review = true`
+ * on this path rather than trusting the body.
+ */
+export function canReportNotice(actor: Actor, facilityId?: string | null): boolean {
+  if (actor.role !== "aux") return false;
+  if (!facilityId) return false;
+  return actor.scopes.facilityIds.includes(facilityId);
+}
+
+/**
  * Which roles this actor may hand out in an invitation.
  *
  * Owners and managers may invite peers; managers may invite other managers on
@@ -326,7 +346,7 @@ export const ROLE_DESCRIPTIONS: Record<OrgRole, string> = {
   owner: "Full control, including billing. One per organization.",
   manager: "Manages everything except billing.",
   coordinator: "Runs the schedules in the departments you choose.",
-  aux: "Views schedules, and records head counts and temperatures. For lifeguards, instructors and front desk.",
+  aux: "Views schedules, records head counts and temperatures, and reports facility problems. For lifeguards, instructors and front desk.",
 };
 
 /**

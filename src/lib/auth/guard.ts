@@ -105,8 +105,9 @@ export function requireNoticeWrite(
     return NextResponse.json(
       {
         error:
-          "Your organization has not enabled status notices for staff accounts. " +
-          "A Manager can turn that on in Organization settings.",
+          "Your organization has not enabled status notices for staff accounts, " +
+          "so send it as a report instead and a Manager will publish it. " +
+          "(A Manager can let staff post directly under Settings › Permissions.)",
       },
       { status: 403 }
     );

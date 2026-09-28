@@ -57,7 +57,9 @@ async function loadContext(
       .maybeSingle(),
     supabase
       .from("facility_notices")
-      .select("id")
+      // "*" rather than "id": the review flag decides whether this write also
+      // closes a report, and before migration 063 the column is simply absent.
+      .select("*")
       .eq("id", noticeId)
       .eq("facility_id", facilityId)
       .eq("org_id", orgId)
@@ -68,7 +70,10 @@ async function loadContext(
 
   const org = (facility as unknown as { organizations: { aux_can_post_notices: boolean } })
     .organizations;
-  return { auxCanPostNotices: org.aux_can_post_notices === true };
+  return {
+    auxCanPostNotices: org.aux_can_post_notices === true,
+    awaitingReview: (notice as { needs_review?: boolean }).needs_review === true,
+  };
 }
 
 export async function PATCH(
@@ -122,7 +127,17 @@ export async function PATCH(
 
   const { data, error } = await supabase
     .from("facility_notices")
-    .update({ ...parsed.data, updated_at: new Date().toISOString() })
+    .update({
+      ...parsed.data,
+      // Publishing a report, or clearing one, is the review (migration 063).
+      // Set here rather than accepted from the body so no client can leave a
+      // published notice flagged — which the CHECK would refuse anyway.
+      ...(context.awaitingReview &&
+      (parsed.data.is_published === true || parsed.data.ends_at != null)
+        ? { needs_review: false }
+        : {}),
+      updated_at: new Date().toISOString(),
+    })
     .eq("id", noticeId)
     .eq("facility_id", facilityId)
     .select("*")
