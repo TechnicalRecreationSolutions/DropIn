@@ -72,6 +72,11 @@ export const RATE_LIMITS = {
    *  this is belt-and-braces (migration 023 asked for it explicitly), but the
    *  accept page loads it once and a retry costs nothing. */
   invitationLookup: { limit: 20, windowSeconds: 600 },
+  /** Creating an account from an invitation (/api/invitations/[token]/signup).
+   *  Creates an auth user with the service role, so it is bounded like signup
+   *  — but it sends no mail, and each token can only ever produce one account,
+   *  so a mistyped-password retry or two is the only legitimate repeat. */
+  invitationSignup: { limit: 10, windowSeconds: 600 },
 } as const;
 
 export type RateLimitName = keyof typeof RATE_LIMITS;

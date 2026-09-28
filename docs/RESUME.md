@@ -667,10 +667,13 @@ Two things to know:
   separate.
 - **Invitations are created but not emailed.** `RESEND_API_KEY` and
   `RESEND_FROM_EMAIL` are still absent from `.env.local`, so the invite dialog
-  falls back to "copy this link", which works fine. Note this is *not* launch
-  blocker 1 below: that one is Supabase's own mailer, which the invitee still
-  needs in order to confirm a new account, and it caps staff onboarding at
-  roughly two people an hour until custom SMTP is configured.
+  falls back to "copy this link", which works fine. Since 2026-09-27 invitees
+  no longer touch Supabase's mailer at all: `/invite/[token]` asks for a
+  password only and `POST /api/invitations/[token]/signup` creates a confirmed
+  account, signs in and accepts (SECURITY.md invariant 15a, `verify-bd` 27/27).
+  Before that, the page sent them to `/signup`, which dropped the token and
+  put them on "Set up your organization". Launch blocker 1 now only affects
+  people creating a *new* organization.
 
 While applying `055` it also closed a real hole: migration 024 deliberately
 left `sessions`, `session_exceptions` and `session_spaces` writable by any org

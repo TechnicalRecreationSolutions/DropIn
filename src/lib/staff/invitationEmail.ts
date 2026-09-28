@@ -19,20 +19,16 @@ export type SendResult =
 /**
  * Sends a staff invitation.
  *
- * ## This is not the mail that will bite you
+ * ## The only email an invitee receives
  *
  * This message goes through **Resend**, our own sender, and is not meaningfully
- * rate limited. What the invitee has to do next is: create an account — and
- * *that* confirmation email goes through **Supabase's built-in mailer**, which
- * allows roughly **two sends per hour** and then fails silently.
- *
- * So onboarding a shift's worth of staff will stall on the third person until
- * custom SMTP is configured (Supabase dashboard → Project Settings → Auth →
- * SMTP). That is launch blocker 1 in docs/RESUME.md and no code here can fix
- * it. The one mitigation that helps is below: the link carries the token
- * *through* signup, so a new staff member costs exactly one Supabase email
- * rather than two round trips, and an invitee who already has an account costs
- * none at all.
+ * rate limited. Since 2026-09-27 it is also the ONLY mail in staff onboarding:
+ * the invitee chooses a password on /invite/[token] and
+ * /api/invitations/[token]/signup creates their account already confirmed, so
+ * Supabase's built-in mailer (~2 sends/hour, launch blocker 1) is never
+ * involved. Clicking this link is what proves they hold the address — which is
+ * why it matters that it arrives here and not via a manager's copy-paste once
+ * RESEND_* is configured.
  *
  * ## Never throws
  *

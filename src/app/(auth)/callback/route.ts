@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
+import { safeNext } from "@/lib/auth/safe-redirect";
 
 /**
  * Supabase Auth callback handler.
@@ -8,20 +9,6 @@ import { createClient } from "@/lib/supabase/server";
  *   - OAuth sign-in (if added in future)
  *   - Magic link sign-in (if added in future)
  */
-/**
- * Only same-origin relative paths may be redirected to.
- *
- * `next` is attacker-controllable — anyone can send someone a /callback link —
- * so it must not be able to bounce a freshly-authenticated user off-site. A
- * leading "//" or "/\" is rejected because browsers read those as
- * protocol-relative URLs pointing at another host.
- */
-function safeNext(raw: string | null): string {
-  if (!raw || !raw.startsWith("/")) return "/dashboard";
-  if (raw.startsWith("//") || raw.startsWith("/\\")) return "/dashboard";
-  return raw;
-}
-
 export async function GET(request: Request) {
   const { searchParams, origin } = new URL(request.url);
   const code = searchParams.get("code");

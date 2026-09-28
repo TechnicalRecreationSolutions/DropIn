@@ -65,6 +65,7 @@ const APP = ARGS.find((a) => a.startsWith("--app="))?.slice(6) ?? null;
 const SERVICE_ROLE_CALLERS = [
   "src/app/api/analytics/track/route.ts", // public write path; RLS denies anon INSERT by design
   "src/app/api/auth/onboard-org/route.ts", // creates the org + the caller's membership
+  "src/app/api/invitations/[token]/signup/route.ts", // invitee's confirmed account; SECURITY.md invariant 15a
   "src/app/api/stripe/webhook/route.ts", // entitlements; no user session exists
   "src/lib/rate-limit.ts", // writes buckets for callers who have no session
 ];
@@ -117,6 +118,7 @@ const UNAUTHENTICATED_ROUTES = {
   "src/app/api/auth/signup/route.ts": "creates the account",
   "src/app/api/invitations/[token]/route.ts": "the token is the credential",
   "src/app/api/invitations/[token]/accept/route.ts": "the token is the credential",
+  "src/app/api/invitations/[token]/signup/route.ts": "the token is the credential; rate limited (invitationSignup)",
 };
 
 /** Ways a route can establish who is calling. All of them end at a verified token. */
