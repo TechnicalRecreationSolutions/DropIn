@@ -1,9 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { CheckCircle2, Circle, DoorOpen, EyeOff, Layers, MapPin, Plus, Trash2 } from "lucide-react";
+import { CheckCircle2, Circle, DoorOpen, EyeOff, Layers, Plus, Trash2 } from "lucide-react";
 import { buildSpaceSections } from "@/lib/spaces/grouping";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { spacesHref } from "@/lib/schedule/commandCentreHref";
 import { unitKeyOf, type EditableShape, type EditableContextElement } from "./ShapeCanvas";
 
@@ -78,17 +81,16 @@ export default function MapSpacesPanel({
       />
 
       {spaces.length === 0 ? (
-        <div className="text-center py-8 px-3 rounded-xl border border-dashed border-border">
-          <MapPin className="w-6 h-6 text-muted-foreground/70 mx-auto mb-2" />
-          <p className="text-sm text-muted-foreground">
+        <div className="text-center py-8 px-4 rounded-card border border-dashed border-border">
+          <p className="text-caption text-muted-foreground">
             No spaces in this building yet. Placing a shape creates them, or add them on the Spaces
             page first.
           </p>
         </div>
       ) : (
         <>
-          <p className="text-xs text-muted-foreground">
-            <span className="font-semibold text-foreground">{placedCount}</span> of {spaces.length}{" "}
+          <p className="text-caption text-muted-foreground">
+            <span className="font-semibold text-foreground tabular-nums">{placedCount}</span> of {spaces.length}{" "}
             space{spaces.length !== 1 ? "s" : ""} on the map
           </p>
 
@@ -100,11 +102,11 @@ export default function MapSpacesPanel({
             return (
               <section key={section.departmentId ?? "none"}>
                 <div className="flex items-center gap-1.5 mb-1.5">
-                  <Layers className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-                  <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide truncate">
+                  <Layers className="size-3.5 text-muted-foreground shrink-0" />
+                  <h3 className="text-label text-muted-foreground truncate">
                     {section.label}
                   </h3>
-                  <span className="ml-auto text-[11px] text-muted-foreground/70 shrink-0 tabular-nums">
+                  <span className="ml-auto text-label font-normal text-muted-foreground shrink-0 tabular-nums">
                     {sectionPlaced}/{section.total}
                   </span>
                 </div>
@@ -113,7 +115,7 @@ export default function MapSpacesPanel({
                   {section.zones.map((zone) => (
                     <div key={zone.zoneName ?? "__none"}>
                       {zone.zoneName && (
-                        <p className="flex items-center gap-2 text-[11px] font-medium text-muted-foreground mb-1">
+                        <p className="flex items-center gap-2 text-label font-normal text-muted-foreground mb-1">
                           <span className="truncate">{zone.zoneName}</span>
                           <span className="h-px flex-1 bg-border" aria-hidden="true" />
                         </p>
@@ -147,8 +149,8 @@ export default function MapSpacesPanel({
       {contextElements.length > 0 && (
         <section>
           <div className="flex items-center gap-1.5 mb-1.5">
-            <DoorOpen className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
-            <h3 className="text-xs font-semibold text-foreground uppercase tracking-wide">
+            <DoorOpen className="size-3.5 text-muted-foreground shrink-0" />
+            <h3 className="text-label text-muted-foreground">
               Map labels
             </h3>
           </div>
@@ -159,13 +161,13 @@ export default function MapSpacesPanel({
                   type="button"
                   onClick={() => onSelect(ctx.key)}
                   className={cn(
-                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors",
+                    "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-control border text-left text-body transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     ctx.key === selectedKey
-                      ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40"
+                      ? "border-brand bg-brand-subtle"
                       : "border-transparent hover:bg-muted"
                   )}
                 >
-                  <span className="text-[10px] font-semibold uppercase tracking-wide text-muted-foreground/70 w-14 shrink-0">
+                  <span className="text-label text-muted-foreground w-14 shrink-0">
                     {ctx.kind === "entrance" ? "Entrance" : "Zone"}
                   </span>
                   <span className="truncate text-foreground">
@@ -180,9 +182,9 @@ export default function MapSpacesPanel({
 
       <Link
         href={spacesHref(facilityId)}
-        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+        className="inline-flex items-center gap-1.5 text-caption font-medium text-brand underline-offset-4 hover:underline"
       >
-        <Plus className="w-3.5 h-3.5" />
+        <Plus className="size-3.5" />
         Add, rename, or regroup spaces on the Spaces page
       </Link>
     </div>
@@ -206,10 +208,10 @@ function SpaceRow({
 }) {
   const draft = !space.isPublished && (
     <span
-      className="inline-flex items-center gap-0.5 text-[10px] text-muted-foreground/70 shrink-0"
+      className="inline-flex items-center gap-1 text-label font-normal text-muted-foreground shrink-0"
       title="Draft — visitors won't see live status here until the space is published"
     >
-      <EyeOff className="w-3 h-3" />
+      <EyeOff className="size-3" />
       Draft
     </span>
   );
@@ -221,13 +223,13 @@ function SpaceRow({
         onClick={onSelect}
         aria-pressed={selected}
         className={cn(
-          "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg border text-left text-sm transition-colors",
+          "w-full flex items-center gap-2 px-2.5 py-1.5 rounded-control border text-left text-body transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
           selected
-            ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40"
+            ? "border-brand bg-brand-subtle"
             : "border-transparent hover:bg-muted"
         )}
       >
-        <CheckCircle2 className="w-3.5 h-3.5 text-green-600 shrink-0" aria-hidden="true" />
+        <CheckCircle2 className="size-3.5 text-success shrink-0" aria-hidden="true" />
         <span className="truncate text-foreground">{space.name}</span>
         <span className="sr-only">— on the map</span>
         <span className="ml-auto flex items-center gap-2">{draft}</span>
@@ -238,22 +240,18 @@ function SpaceRow({
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-2.5 py-1.5 rounded-lg border border-dashed text-sm",
-        placing ? "border-blue-400 bg-blue-50 dark:bg-blue-950/40" : "border-border"
+        "flex items-center gap-2 px-2.5 py-1 rounded-control border border-dashed text-body",
+        placing ? "border-brand bg-brand-subtle" : "border-border"
       )}
     >
-      <Circle className="w-3.5 h-3.5 text-muted-foreground/50 shrink-0" aria-hidden="true" />
+      <Circle className="size-3.5 text-muted-foreground shrink-0" aria-hidden="true" />
       <span className="truncate text-muted-foreground">{space.name}</span>
       <span className="sr-only">— not on the map</span>
       <span className="ml-auto flex items-center gap-2">
         {draft}
-        <button
-          type="button"
-          onClick={onPlace}
-          className="px-2 py-0.5 rounded-md text-xs font-medium text-blue-700 dark:text-blue-300 hover:bg-blue-100 dark:hover:bg-blue-900/40"
-        >
+        <Button type="button" variant="ghost" size="xs" onClick={onPlace} className="text-brand">
           {placing ? "Pick a shape…" : "Place"}
-        </button>
+        </Button>
       </span>
     </div>
   );
@@ -295,7 +293,7 @@ function SelectionEditor({
           onCommit();
         }}
       >
-        <input
+        <Input
           type="text"
           value={context.label ?? ""}
           onChange={(e) =>
@@ -309,7 +307,6 @@ function SelectionEditor({
           onBlur={onCommit}
           placeholder={context.kind === "entrance" ? "Entrance" : "e.g. Lobby, Change Rooms"}
           aria-label="Label"
-          className="w-full px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500"
         />
       </Card>
     );
@@ -346,17 +343,16 @@ function SelectionEditor({
         {members.map((member, i) => (
           <div key={member.key} className="space-y-1.5">
             {isGroup && (
-              <p className="text-[11px] font-medium text-muted-foreground">Lane {i + 1}</p>
+              <p className="text-label text-muted-foreground">Lane {i + 1}</p>
             )}
             <label className="block">
               <span className="sr-only">Space</span>
-              <select
+              <NativeSelect
                 value={member.space_id}
                 onChange={(e) => {
                   updateShape(member.key, { space_id: e.target.value });
                   onCommit();
                 }}
-                className="w-full px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {sections.map((section) => (
                   <optgroup key={section.departmentId ?? "none"} label={section.label}>
@@ -373,16 +369,15 @@ function SelectionEditor({
                     )}
                   </optgroup>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
-            <input
+            <Input
               type="text"
               value={member.label ?? ""}
               onChange={(e) => updateShape(member.key, { label: e.target.value || null })}
               onBlur={onCommit}
               placeholder={`Map label (default: ${spaceName(member.space_id)})`}
               aria-label="Map label override"
-              className="w-full px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         ))}
@@ -401,20 +396,22 @@ function Card({
   children: React.ReactNode;
 }) {
   return (
-    <div className="rounded-xl border border-blue-300 dark:border-blue-800 bg-blue-50/50 dark:bg-blue-950/20 p-3">
+    <div className="rounded-card border border-brand bg-brand-subtle p-3">
       <div className="flex items-center gap-2 mb-2">
-        <p className="text-xs font-semibold text-foreground uppercase tracking-wide truncate">
+        <p className="text-label text-brand-strong truncate">
           Selected · {title}
         </p>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onRemove}
-          className="ml-auto p-1 rounded-lg text-muted-foreground/70 hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors"
+          className="ml-auto text-muted-foreground hover:bg-card hover:text-destructive"
           aria-label={`Remove ${title} from the map`}
           title="Remove from the map"
         >
-          <Trash2 className="w-4 h-4" />
-        </button>
+          <Trash2 />
+        </Button>
       </div>
       {children}
     </div>

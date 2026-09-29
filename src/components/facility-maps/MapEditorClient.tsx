@@ -10,6 +10,8 @@ import FacilityMapSvg from "./renderer/FacilityMapSvg";
 import { placementRect, type ArmedPlacement, type ContextItem } from "./placement";
 import type { ShapePreset } from "@/lib/facility-shapes/presets";
 import { cn } from "@/lib/utils/cn";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
 
 interface MapEditorClientProps {
   facilityId: string;
@@ -602,7 +604,7 @@ export default function MapEditorClient({
   // ---- Render --------------------------------------------------------------
 
   if (isLoading) {
-    return <div className="py-12 text-center text-sm text-muted-foreground/70">Loading…</div>;
+    return <div className="py-12 text-center text-body text-muted-foreground">Loading…</div>;
   }
 
   const canvasWidth = facilityMap?.canvas_width ?? 25;
@@ -611,8 +613,6 @@ export default function MapEditorClient({
   const allSpacesPlaced = spaces.length > 0 && spaces.every((s) => assignedSpaceIds.has(s.id));
   const assignedCount = spaces.filter((s) => assignedSpaceIds.has(s.id)).length;
   const placingSpace = placingSpaceId ? (spaces.find((s) => s.id === placingSpaceId) ?? null) : null;
-  const iconButton =
-    "p-2 rounded-lg border border-border text-muted-foreground hover:bg-muted disabled:opacity-40 transition-colors";
   const handleChange = (nextShapes: EditableShape[], nextContexts: EditableContextElement[]) =>
     applyLive({ shapes: nextShapes, contexts: nextContexts });
 
@@ -620,59 +620,61 @@ export default function MapEditorClient({
     <div className="space-y-4">
       {/* One control bar for the whole editor. Save lives here rather than
           under the canvas, so it stays in reach however long the sidebar gets. */}
-      <div className="flex items-center gap-2 flex-wrap bg-card rounded-xl border border-border shadow-sm px-3 py-2.5">
-        <button onClick={undo} disabled={!canUndo} className={iconButton} aria-label="Undo" title="Undo (Ctrl+Z)">
-          <Undo2 className="w-4 h-4" />
-        </button>
-        <button onClick={redo} disabled={!canRedo} className={iconButton} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
-          <Redo2 className="w-4 h-4" />
-        </button>
+      <div className="flex items-center gap-2 flex-wrap bg-card rounded-card border border-border shadow-card px-3 py-2.5">
+        <Button variant="outline" size="icon-sm" onClick={undo} disabled={!canUndo} aria-label="Undo" title="Undo (Ctrl+Z)">
+          <Undo2 />
+        </Button>
+        <Button variant="outline" size="icon-sm" onClick={redo} disabled={!canRedo} aria-label="Redo" title="Redo (Ctrl+Shift+Z)">
+          <Redo2 />
+        </Button>
 
-        <span className="text-xs text-muted-foreground ml-1 hidden sm:inline" aria-live="polite">
+        <span className="text-caption text-muted-foreground ml-1 hidden sm:inline" aria-live="polite">
           {saving ? "Saving…" : dirty ? "Unsaved changes" : facilityMap ? "All changes saved" : "Not started"}
         </span>
 
         <div className="ml-auto flex items-center gap-2">
-          <button
+          <Button
+            variant="ghost"
+            size="sm"
             onClick={() => setShowPreview(true)}
             disabled={shapes.length === 0}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted disabled:opacity-40 transition-colors"
           >
-            <Smartphone className="w-4 h-4" /> <span className="hidden sm:inline">Preview</span>
-          </button>
-          <button
+            <Smartphone /> <span className="hidden sm:inline">Preview</span>
+          </Button>
+          <Button
+            size="sm"
             onClick={handleSave}
             disabled={!dirty || saving || !facilityMap}
-            className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
-            <Save className="w-4 h-4" /> {saving ? "Saving…" : "Save"}
-          </button>
+            <Save /> {saving ? "Saving…" : "Save"}
+          </Button>
           {facilityMap && (
-            <button
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleTogglePublish}
-              className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium rounded-lg border border-border text-foreground hover:bg-muted transition-colors"
               title={facilityMap.is_published ? "Visitors can see this map" : "Only staff can see this map"}
             >
               {facilityMap.is_published ? (
                 <>
-                  <EyeOff className="w-4 h-4" /> Unpublish
+                  <EyeOff /> Unpublish
                 </>
               ) : (
                 <>
-                  <Eye className="w-4 h-4" /> Publish
+                  <Eye /> Publish
                 </>
               )}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
-      {saveError && <p className="text-sm text-red-600">{saveError}</p>}
+      {saveError && <Banner variant="error">{saveError}</Banner>}
 
       {/* Canvas beside a sticky sidebar on wide screens; stacked on phones,
           sidebar under the canvas. */}
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4 items-start">
-        <div className="bg-card rounded-2xl border border-border shadow-sm p-3 min-w-0">
+        <div className="bg-card rounded-card border border-border shadow-card p-3 min-w-0">
           <ShapeCanvas
             canvasWidth={canvasWidth}
             canvasHeight={canvasHeight}
@@ -701,7 +703,7 @@ export default function MapEditorClient({
 
         <aside
           aria-label="Map spaces"
-          className="bg-card rounded-2xl border border-border shadow-sm lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] flex flex-col min-h-0">
+          className="bg-card rounded-card border border-border shadow-card lg:sticky lg:top-4 lg:max-h-[calc(100vh-2rem)] flex flex-col min-h-0">
           <div role="tablist" aria-label="Map sidebar" className="flex border-b border-border shrink-0">
             {(
               [
@@ -716,9 +718,9 @@ export default function MapEditorClient({
                 aria-selected={tab === value}
                 onClick={() => setTab(value)}
                 className={cn(
-                  "flex-1 px-3 py-2.5 text-sm font-medium border-b-2 -mb-px transition-colors",
+                  "flex-1 px-3 py-3 text-sm font-medium border-b-2 -mb-px transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                   tab === value
-                    ? "border-blue-600 text-foreground"
+                    ? "border-brand font-semibold text-foreground"
                     : "border-transparent text-muted-foreground hover:text-foreground"
                 )}
               >
@@ -745,8 +747,8 @@ export default function MapEditorClient({
             ) : (
               <>
                 {placingSpace && (
-                  <div className="mb-3 flex items-start gap-2 rounded-lg border border-blue-300 bg-blue-50 dark:bg-blue-950/30 px-3 py-2 text-sm">
-                    <p className="flex-1 text-foreground">
+                  <div className="mb-3 flex items-start gap-2 rounded-banner bg-brand-subtle px-3 py-2 text-body text-brand-strong">
+                    <p className="flex-1">
                       Placing <span className="font-semibold">{placingSpace.name}</span> — pick a
                       shape, then tap the map.
                     </p>
@@ -757,7 +759,7 @@ export default function MapEditorClient({
                         setArmed(null);
                         setTab("spaces");
                       }}
-                      className="text-xs font-medium text-muted-foreground hover:text-foreground"
+                      className="text-caption font-medium text-brand-strong underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                     >
                       Cancel
                     </button>
@@ -765,7 +767,7 @@ export default function MapEditorClient({
                 )}
                 <ShapePalette disabled={creatingMap} armed={armed} onArm={setArmed} />
                 {allSpacesPlaced && !placingSpace && (
-                  <p className="text-xs text-muted-foreground/70 mt-2">
+                  <p className="text-caption text-muted-foreground mt-2">
                     All spaces are placed. New shapes create new spaces.
                   </p>
                 )}
@@ -785,21 +787,23 @@ export default function MapEditorClient({
           aria-label="Visitor preview"
         >
           <div
-            className="bg-card rounded-2xl shadow-xl p-4 w-[390px] max-w-full"
+            className="bg-card rounded-dialog shadow-lg p-4 sm:p-5 w-[390px] max-w-full"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="flex items-center justify-between mb-3">
-              <p className="text-sm font-semibold text-foreground">How visitors see it</p>
-              <button
+              <p className="text-heading text-foreground">How visitors see it</p>
+              <Button
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => setShowPreview(false)}
-                className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground/70"
+                className="text-muted-foreground"
                 aria-label="Close preview"
               >
-                <X className="w-4 h-4" />
-              </button>
+                <X />
+              </Button>
             </div>
             <FacilityMapSvg
-              className="rounded-xl overflow-hidden border border-border"
+              className="rounded-card overflow-hidden border border-border"
               canvasWidth={canvasWidth}
               canvasHeight={canvasHeight}
               shapes={shapes.map((s) => ({
@@ -826,7 +830,7 @@ export default function MapEditorClient({
                 label: c.label,
               }))}
             />
-            <p className="text-xs text-muted-foreground/70 mt-3">
+            <p className="text-caption text-muted-foreground mt-3">
               Shapes light up on the public schedule once sessions use their spaces.
             </p>
           </div>
@@ -841,34 +845,25 @@ export default function MapEditorClient({
           aria-modal="true"
           aria-label="Publish facility map"
         >
-          <div className="bg-card rounded-2xl shadow-xl p-5 max-w-sm w-full">
-            <p className="text-sm font-semibold text-foreground">
+          <div className="bg-card rounded-dialog shadow-lg p-6 max-w-sm w-full">
+            <p className="text-heading text-foreground">
               {publishPrompt.unpublished.length} space
               {publishPrompt.unpublished.length === 1 ? " isn't" : "s aren't"} published yet
             </p>
-            <p className="text-sm text-muted-foreground mt-2">
+            <p className="text-body text-muted-foreground mt-2">
               Unpublished spaces ({publishPrompt.unpublished.map((s) => s.name).join(", ")}) won&apos;t
               show live sessions to visitors, so their shapes on the map would never light up.
             </p>
-            <div className="flex flex-col gap-2 mt-4">
-              <button
-                onClick={() => confirmPublish(true)}
-                className="px-4 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-              >
+            <div className="flex flex-col gap-2 mt-5">
+              <Button onClick={() => confirmPublish(true)}>
                 Publish spaces and map
-              </button>
-              <button
-                onClick={() => confirmPublish(false)}
-                className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-              >
+              </Button>
+              <Button variant="outline" onClick={() => confirmPublish(false)}>
                 Publish map only
-              </button>
-              <button
-                onClick={() => setPublishPrompt(null)}
-                className="px-4 py-2 text-muted-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-              >
+              </Button>
+              <Button variant="ghost" onClick={() => setPublishPrompt(null)}>
                 Cancel
-              </button>
+              </Button>
             </div>
           </div>
         </div>

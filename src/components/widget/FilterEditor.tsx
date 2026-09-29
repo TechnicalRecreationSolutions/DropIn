@@ -6,12 +6,15 @@ import {
   AlertTriangle,
   ChevronDown,
   ChevronUp,
-  Layers,
   Pencil,
   Plus,
   Trash2,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import type { LocalScope, WidgetFacility } from "./types";
 
 interface FilterEditorProps {
@@ -181,38 +184,22 @@ export default function FilterEditor({
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-muted/20 px-5 py-7 text-center">
-        <span
-          className="inline-flex items-center justify-center size-10 rounded-xl"
-          style={{ backgroundColor: `${accent}1f`, color: accent }}
-        >
-          <Layers className="w-5 h-5" />
-        </span>
-        <h3 className="mt-3 text-base font-semibold text-foreground">
+      <div className="rounded-card border border-dashed border-border px-6 py-10 text-center">
+        <h3 className="text-body font-medium text-foreground">
           Showing everything you run
         </h3>
-        <p className="mt-1 text-sm text-muted-foreground max-w-md mx-auto">
+        <p className="mt-1 text-caption text-muted-foreground max-w-md mx-auto">
           Add a facility or department to narrow it, or several to give visitors a switcher.
         </p>
         <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
-          <button
-            type="button"
-            onClick={onAdd}
-            disabled={disabled}
-            className="inline-flex items-center gap-1.5 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors disabled:opacity-50"
-          >
-            <Plus className="w-4 h-4" />
+          <Button type="button" variant="outline" onClick={onAdd} disabled={disabled}>
+            <Plus />
             Add a schedule
-          </button>
+          </Button>
           {facilities.length > 1 && (
-            <button
-              type="button"
-              onClick={onAddPerFacility}
-              disabled={disabled}
-              className="inline-flex items-center gap-1.5 px-4 py-2 border border-border text-sm font-medium rounded-lg hover:bg-muted transition-colors disabled:opacity-50"
-            >
+            <Button type="button" variant="ghost" onClick={onAddPerFacility} disabled={disabled}>
               One per facility ({facilities.length})
-            </button>
+            </Button>
           )}
         </div>
       </div>
@@ -221,7 +208,7 @@ export default function FilterEditor({
 
   return (
     <div className="space-y-3">
-      <ul className="rounded-xl border border-border overflow-hidden divide-y divide-border">
+      <ul className="rounded-card border border-border overflow-hidden divide-y divide-border">
         {resolved.map(({ row, resolution }, index) => (
           <FilterRow
             key={row.key}
@@ -245,28 +232,18 @@ export default function FilterEditor({
       </ul>
 
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          type="button"
-          onClick={onAdd}
-          disabled={disabled}
-          className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-border text-sm font-medium text-foreground hover:bg-muted transition-colors disabled:opacity-50"
-        >
-          <Plus className="w-4 h-4" />
+        <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={disabled}>
+          <Plus />
           Add a schedule
-        </button>
+        </Button>
         {facilities.length > 1 && (
-          <button
-            type="button"
-            onClick={onAddPerFacility}
-            disabled={disabled}
-            className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg text-sm font-medium text-muted-foreground hover:bg-muted hover:text-foreground transition-colors disabled:opacity-50"
-          >
+          <Button type="button" variant="ghost" size="sm" onClick={onAddPerFacility} disabled={disabled}>
             One per facility ({facilities.length})
-          </button>
+          </Button>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         {filled.length === 0
           ? "Nothing filled in yet, so the widget shows everything you run."
           : filled.length === 1
@@ -314,8 +291,6 @@ function FilterRow({
   onRemove: () => void;
   onMove: (direction: -1 | 1) => void;
 }) {
-  const selectClass =
-    "w-full px-2.5 py-2 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50";
   const hidden = resolution.unpublished.length > 0;
   const incomplete = !row.facilityId;
 
@@ -323,7 +298,7 @@ function FilterRow({
     <li
       className={cn(
         "relative bg-card transition-colors",
-        open ? "bg-muted/30" : "hover:bg-muted/40"
+        open ? "bg-muted/50" : "hover:bg-muted"
       )}
     >
       {/* Brand-coloured edge: the one visual tie between a row and the pill it
@@ -343,7 +318,7 @@ function FilterRow({
             disabled={disabled || index === 0}
             title="Move up"
             aria-label={`Move ${label} up`}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 disabled:hover:bg-transparent"
+            className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent"
           >
             <ChevronUp className="w-3.5 h-3.5" />
           </button>
@@ -353,7 +328,7 @@ function FilterRow({
             disabled={disabled || index === total - 1}
             title="Move down"
             aria-label={`Move ${label} down`}
-            className="p-0.5 rounded text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-25 disabled:hover:bg-transparent"
+            className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent"
           >
             <ChevronDown className="w-3.5 h-3.5" />
           </button>
@@ -366,7 +341,7 @@ function FilterRow({
           aria-label={incomplete ? `Edit unfinished entry ${index + 1}` : `Edit ${label}`}
           // focus-visible, not focus: a mouse click on a row would otherwise
           // leave a ring around it that reads as a text field.
-          className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-left rounded-lg focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+          className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-left rounded-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="min-w-0 flex-1">
             <span className="flex items-center gap-1.5 flex-wrap">
@@ -379,34 +354,36 @@ function FilterRow({
                 {incomplete ? "Unfinished entry" : label}
               </span>
               {hidden && (
-                <span className="inline-flex items-center gap-1 px-1.5 py-px rounded-full bg-amber-100 dark:bg-amber-950/60 text-[10px] font-semibold uppercase tracking-wide text-amber-800 dark:text-amber-300">
-                  <AlertTriangle className="w-2.5 h-2.5" />
+                <Badge variant="warning">
+                  <AlertTriangle />
                   Hidden
-                </span>
+                </Badge>
               )}
             </span>
-            <span className="block text-[11px] text-muted-foreground truncate">
+            <span className="block text-label font-normal text-muted-foreground truncate">
               {incomplete ? "Pick a facility — this is dropped when you publish" : resolution.breadcrumb}
             </span>
           </span>
           <Pencil
             className={cn(
               "w-3.5 h-3.5 shrink-0 transition-colors",
-              open ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+              open ? "text-brand" : "text-muted-foreground"
             )}
           />
         </button>
 
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onRemove}
           disabled={disabled}
           title="Remove"
           aria-label={`Remove ${label}`}
-          className="shrink-0 p-1.5 rounded-lg text-muted-foreground hover:text-red-600 hover:bg-red-50 dark:hover:bg-red-950/40 transition-colors disabled:opacity-50"
+          className="text-muted-foreground hover:text-destructive"
         >
-          <Trash2 className="w-4 h-4" />
-        </button>
+          <Trash2 />
+        </Button>
       </div>
 
       {open && (
@@ -414,10 +391,10 @@ function FilterRow({
         // detail rather than as a panel the whole list dropped down.
         <div className="pl-4 sm:pl-10 pr-3 pb-3 space-y-2.5">
           <label className="block">
-            <span className="block text-[11px] font-medium text-muted-foreground mb-1">
+            <span className="block text-label text-muted-foreground mb-1">
               What visitors see on the button
             </span>
-            <input
+            <Input
               type="text"
               value={row.label}
               onChange={(e) => onChange({ label: e.target.value })}
@@ -425,22 +402,21 @@ function FilterRow({
               // "Lane Swim" rather than the facility's name.
               placeholder={resolution.suggestedLabel || "e.g. Pool"}
               aria-label={`Label for schedule ${index + 1}`}
-              className="w-full px-3 py-2 border border-border rounded-lg text-sm font-medium bg-card focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="font-medium"
             />
           </label>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
             <label className="block">
-              <span className="block text-[11px] font-medium text-muted-foreground mb-1">
+              <span className="block text-label text-muted-foreground mb-1">
                 Facility
               </span>
-              <select
+              <NativeSelect
                 value={row.facilityId}
                 onChange={(e) =>
                   onChange({ facilityId: e.target.value, departmentId: "", scheduleGroupId: "" })
                 }
                 disabled={disabled}
-                className={selectClass}
               >
                 <option value="">Choose a facility…</option>
                 {facilities.map((f) => (
@@ -449,17 +425,16 @@ function FilterRow({
                     {f.isPublished ? "" : " — draft"}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className="block">
-              <span className="block text-[11px] font-medium text-muted-foreground mb-1">
+              <span className="block text-label text-muted-foreground mb-1">
                 Department
               </span>
-              <select
+              <NativeSelect
                 value={row.departmentId}
                 onChange={(e) => onChange({ departmentId: e.target.value, scheduleGroupId: "" })}
                 disabled={disabled || !row.facilityId || departments.length === 0}
-                className={selectClass}
               >
                 <option value="">All departments</option>
                 {departments.map((d) => (
@@ -468,17 +443,16 @@ function FilterRow({
                     {d.is_published ? "" : " — draft"}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
             <label className="block">
-              <span className="block text-[11px] font-medium text-muted-foreground mb-1">
+              <span className="block text-label text-muted-foreground mb-1">
                 Schedule
               </span>
-              <select
+              <NativeSelect
                 value={row.scheduleGroupId}
                 onChange={(e) => onChange({ scheduleGroupId: e.target.value })}
                 disabled={disabled || !row.facilityId || schedules.length === 0}
-                className={selectClass}
               >
                 <option value="">All schedules</option>
                 {schedules.map((sg) => (
@@ -487,13 +461,13 @@ function FilterRow({
                     {sg.status === "published" ? "" : " — draft"}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
             </label>
           </div>
 
           {hidden && (
-            <p className="text-[11px] text-amber-700 dark:text-amber-500 flex items-start gap-1.5">
-              <AlertTriangle className="w-3 h-3 shrink-0 mt-px" />
+            <p className="text-label font-normal text-warning flex items-start gap-1.5">
+              <AlertTriangle className="size-3 shrink-0 mt-0.5" />
               Visitors won&apos;t see this until you publish {resolution.unpublished.join(" and ")}.
             </p>
           )}

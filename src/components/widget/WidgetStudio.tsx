@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Check, Copy, Eye, Loader2, Moon, Sun, Sparkles } from "lucide-react";
+import { Check, Copy, Eye, Loader2, Moon, Sun, TriangleAlert } from "lucide-react";
 import {
   DEFAULT_ENABLED_FILTERS,
   parseEnabledFilters,
@@ -18,6 +18,9 @@ import VisitorFilterToggles from "./VisitorFilterToggles";
 import PrintToggle from "./PrintToggle";
 import StepCard from "@/components/ui/step-card";
 import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   SCOPE_FACILITY_SELECT_ID,
   publishedSignature,
@@ -423,39 +426,29 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   return (
     <div className="space-y-5">
       {/* Headline CTA — what this embed is, whether it's live, and the code. */}
-      <div className="rounded-2xl bg-gradient-to-br from-blue-600 to-blue-700 text-white p-5 sm:p-6 shadow-sm">
+      <div className="rounded-panel bg-muted p-5 sm:p-6">
         <div className="flex flex-col lg:flex-row lg:items-center gap-4">
           <div className="min-w-0 flex-1">
             <div className="flex items-center gap-2 flex-wrap">
-              <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-semibold uppercase tracking-wide">
-                <Sparkles className="w-3 h-3" />
-                Your embed
-              </span>
+              <span className="text-label text-muted-foreground">Your embed</span>
               <StatusChip dirty={dirty} justPublished={justPublished} loading={loading} />
             </div>
-            <p className="mt-2 text-lg font-semibold leading-snug">{scopeSummary}</p>
-            <p className="text-sm text-blue-100 mt-0.5">
+            <p className="mt-2 text-heading text-foreground">{scopeSummary}</p>
+            <p className="text-caption text-muted-foreground mt-0.5">
               {viewSummary || "No views selected"}
               {snippetSummary ? ` · this code: ${snippetSummary}` : ""}
             </p>
           </div>
           <div className="flex gap-2 shrink-0">
-            <button
-              type="button"
-              onClick={copyFromHeader}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white text-blue-700 text-sm font-semibold hover:bg-blue-50 transition-colors"
-            >
-              {copiedHeader ? <Check className="w-4 h-4" /> : <Copy className="w-4 h-4" />}
+            {/* While the publish bar is up, its button is the ink one. */}
+            <Button type="button" variant={dirty || saveError ? "outline" : "default"} onClick={copyFromHeader}>
+              {copiedHeader ? <Check /> : <Copy />}
               {copiedHeader ? "Copied!" : embedMethod === "link" ? "Copy link" : "Copy embed code"}
-            </button>
-            <button
-              type="button"
-              onClick={() => setPreviewOpen(true)}
-              className="inline-flex items-center gap-2 px-4 py-2.5 rounded-lg bg-white/15 text-white text-sm font-semibold hover:bg-white/25 transition-colors"
-            >
-              <Eye className="w-4 h-4" />
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
+              <Eye />
               Preview
-            </button>
+            </Button>
           </div>
         </div>
       </div>
@@ -513,7 +506,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
             <LabelWithInfo htmlFor="widget-heading" className="block text-sm font-medium text-foreground" info="Shown in the coloured bar. Defaults to “Schedule”.">
               Heading
             </LabelWithInfo>
-            <input
+            <Input
               type="text"
               value={customTitle}
               onChange={(e) => setCustomTitle(e.target.value)}
@@ -521,7 +514,6 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
               id="widget-heading"
               placeholder="Schedule"
               aria-label="Widget heading"
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50"
             />
           </div>
 
@@ -530,7 +522,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
               <span className="text-sm font-medium text-foreground">Theme</span>
               <InfoTip>Part of the embed code. Re-copy it in step 4 after changing.</InfoTip>
             </div>
-            <div className="flex gap-2">
+            <div className="flex h-10 gap-1 rounded-full bg-muted p-1">
               {([
                 { value: "light" as const, label: "Light", Icon: Sun },
                 { value: "dark" as const, label: "Dark", Icon: Moon },
@@ -541,10 +533,10 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
                   onClick={() => setTheme(value)}
                   aria-pressed={theme === value}
                   className={cn(
-                    "flex-1 inline-flex items-center justify-center gap-1.5 py-2.5 text-sm font-medium rounded-lg border transition-colors",
+                    "flex-1 inline-flex items-center justify-center gap-1.5 text-sm font-medium rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     theme === value
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-border text-foreground hover:bg-muted"
+                      ? "bg-raised text-foreground shadow-card"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   <Icon className="w-4 h-4" />
@@ -604,45 +596,39 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
           bar is z-50 and would otherwise cover this. */}
       {(dirty || saveError) && (
         <div className="sticky bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] lg:bottom-3 z-20 transition-[bottom] duration-300 ease-out motion-reduce:transition-none">
-          <div className="rounded-xl border border-amber-300 dark:border-amber-800 bg-amber-50 dark:bg-amber-950/70 backdrop-blur px-4 py-3 shadow-lg flex items-center justify-between gap-3 flex-wrap">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-amber-900 dark:text-amber-200">
-                {saveError ?? "Not live yet"}
-              </p>
-              {!saveError && (
-                <p className="text-xs text-amber-800/80 dark:text-amber-300/80">
-                  Visitors see your changes once you publish.
+          <div
+            className={cn(
+              "rounded-banner px-4 py-3 shadow-lg flex items-center justify-between gap-3 flex-wrap",
+              saveError ? "bg-destructive-subtle" : "bg-warning-subtle"
+            )}
+          >
+            <div className={cn("min-w-0 flex items-start gap-2", saveError ? "text-destructive" : "text-warning")}>
+              <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
+              <div className="min-w-0">
+                <p className="text-body font-medium">
+                  {saveError ?? "Not live yet"}
                 </p>
-              )}
+                {!saveError && (
+                  <p className="text-caption">
+                    Visitors see your changes once you publish.
+                  </p>
+                )}
+              </div>
             </div>
             <div className="flex items-center gap-2 shrink-0 ml-auto">
               {/* The floating Preview pill hides while this bar is up, so
                   it moves in here rather than disappearing. */}
-              <button
-                type="button"
-                onClick={() => setPreviewOpen(true)}
-                className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors"
-              >
-                <Eye className="w-4 h-4" />
+              <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewOpen(true)}>
+                <Eye />
                 Preview
-              </button>
-              <button
-                type="button"
-                onClick={discardEdits}
-                disabled={saving}
-                className="px-3 py-2 text-sm font-medium text-amber-900 dark:text-amber-200 hover:bg-amber-100 dark:hover:bg-amber-900/50 rounded-lg transition-colors disabled:opacity-50"
-              >
+              </Button>
+              <Button type="button" variant="ghost" size="sm" onClick={discardEdits} disabled={saving}>
                 Discard
-              </button>
-              <button
-                type="button"
-                onClick={publish}
-                disabled={saving}
-                className="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-amber-600 hover:bg-amber-700 rounded-lg transition-colors disabled:opacity-50"
-              >
-                {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+              </Button>
+              <Button type="button" size="sm" onClick={publish} disabled={saving}>
+                {saving ? <Loader2 className="animate-spin" /> : null}
                 {saving ? "Publishing…" : "Publish changes"}
-              </button>
+              </Button>
             </div>
           </div>
         </div>
@@ -651,14 +637,15 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       {/* Reachable from anywhere on a long page, without stealing a column from
           the steps. Steps aside for the publish bar, which carries its own. */}
       {!dirty && !saveError && (
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => setPreviewOpen(true)}
-          className="fixed bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] right-4 lg:bottom-6 lg:right-6 z-30 transition-[bottom] duration-300 ease-out motion-reduce:transition-none inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-foreground text-background text-sm font-semibold shadow-lg hover:opacity-90 transition-opacity"
+          className="fixed bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] right-4 lg:bottom-6 lg:right-6 z-30 transition-[bottom,background-color] duration-300 ease-out motion-reduce:transition-none shadow-lg"
         >
-          <Eye className="w-4 h-4" />
+          <Eye />
           Preview
-        </button>
+        </Button>
       )}
 
       <PreviewWindow
@@ -690,38 +677,31 @@ function StatusChip({
 }) {
   if (loading) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-white/15 text-[11px] font-medium">
-        <Loader2 className="w-3 h-3 animate-spin" />
+      <Badge variant="outline">
+        <Loader2 className="animate-spin" />
         Loading
-      </span>
+      </Badge>
     );
   }
   if (justPublished) {
     return (
-      <span className="inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-green-400 text-green-950 text-[11px] font-semibold">
-        <Check className="w-3 h-3" />
+      <Badge variant="success">
+        <Check />
         Published
-      </span>
+      </Badge>
     );
   }
   return (
-    <span
-      className={cn(
-        "inline-flex items-center gap-1.5 px-2 py-0.5 rounded-full text-[11px] font-semibold",
-        dirty ? "bg-amber-300 text-amber-950" : "bg-white/15 text-white"
-      )}
-    >
-      <span className={cn("size-1.5 rounded-full", dirty ? "bg-amber-700" : "bg-green-400")} />
+    <Badge variant={dirty ? "warning" : "success"}>
+      <span className={cn("size-1.5 rounded-full", dirty ? "bg-warning" : "bg-success")} />
       {dirty ? "Unsaved changes" : "Live"}
-    </span>
+    </Badge>
   );
 }
 
 /** Marks the sections whose settings are stored, not baked into the snippet. */
 function SavedBadge() {
   return (
-    <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
-      Published with the widget
-    </span>
+    <Badge className="text-muted-foreground">Published with the widget</Badge>
   );
 }

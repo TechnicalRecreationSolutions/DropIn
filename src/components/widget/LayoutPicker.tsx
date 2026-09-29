@@ -97,8 +97,8 @@ export default function LayoutPicker({
           <div
             key={template}
             className={cn(
-              "relative flex flex-col rounded-xl border bg-card transition-all",
-              checked ? "border-blue-600 ring-2 ring-blue-600/25" : "border-border",
+              "relative flex flex-col rounded-card border transition-colors duration-150",
+              checked ? "border-brand bg-brand-subtle" : "border-border bg-card",
               isDisabled && "opacity-55"
             )}
           >
@@ -109,7 +109,7 @@ export default function LayoutPicker({
               onClick={() => toggle(template)}
               disabled={isDisabled}
               aria-pressed={checked}
-              className="absolute inset-0 z-0 rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2 disabled:cursor-not-allowed"
+              className="absolute inset-0 z-0 rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
             >
               <span className="sr-only">
                 {label}
@@ -120,17 +120,17 @@ export default function LayoutPicker({
             <div className="relative z-[1] flex-1 pointer-events-none p-2.5">
               <div
                 className={cn(
-                  "rounded-lg overflow-hidden border border-border/60 bg-muted/40 p-1.5",
-                  checked ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+                  "rounded-control overflow-hidden border border-border p-1.5",
+                  checked ? "bg-card text-brand" : "bg-muted text-muted-foreground"
                 )}
               >
                 <LayoutThumbnail template={template} />
               </div>
-              <p className="mt-2 text-sm font-medium text-foreground flex items-center gap-1.5">
+              <p className="mt-2 text-body font-medium text-foreground flex items-center gap-1.5">
                 {label}
-                {locked && <Lock className="w-3 h-3 text-muted-foreground" />}
+                {locked && <Lock className="size-3 text-muted-foreground" />}
               </p>
-              <p className="text-[11px] leading-snug text-muted-foreground mt-0.5">
+              <p className="text-label font-normal text-muted-foreground mt-0.5">
                 {isFloorplan ? floorplanSummary(floorplan) ?? blurb : blurb}
               </p>
               {isFloorplan && (
@@ -150,7 +150,7 @@ export default function LayoutPicker({
                   type="button"
                   onClick={() => makeDefault(template)}
                   aria-label={`Make ${label} load first`}
-                  className="w-full py-1 rounded-md bg-muted text-[11px] font-medium text-muted-foreground hover:bg-blue-600 hover:text-white transition-colors"
+                  className="w-full h-7 rounded-full border border-input bg-card text-label text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
                 >
                   Load first
                 </button>
@@ -158,14 +158,14 @@ export default function LayoutPicker({
             )}
 
             {checked && (
-              <span className="absolute top-2 right-2 z-[2] inline-flex items-center justify-center size-5 rounded-full bg-blue-600 text-white pointer-events-none">
-                <Check className="w-3 h-3" />
+              <span className="absolute top-2 right-2 z-[2] inline-flex items-center justify-center size-5 rounded-full bg-brand text-brand-foreground pointer-events-none">
+                <Check className="size-3" />
               </span>
             )}
 
             {isDefault && (
-              <span className="absolute -top-2 left-2.5 z-[2] inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-blue-600 text-white text-[10px] font-semibold pointer-events-none">
-                <Star className="w-2.5 h-2.5 fill-current" />
+              <span className="absolute -top-2.5 left-2.5 z-[2] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-brand bg-card text-label text-brand-strong pointer-events-none">
+                <Star className="size-2.5 fill-current" />
                 Loads first
               </span>
             )}
@@ -201,7 +201,7 @@ function floorplanSummary(state: FloorplanState): string | null {
 }
 
 const actionClass =
-  "pointer-events-auto inline-flex text-[11px] font-semibold text-blue-700 dark:text-blue-400 hover:underline";
+  "pointer-events-auto inline-flex text-label font-semibold text-brand underline-offset-4 hover:underline";
 
 /**
  * The fixes, as controls on the card. The card's text layer is
@@ -237,7 +237,7 @@ function FloorplanActions({
   return (
     <ul className="mt-1.5 space-y-1">
       {missing.map((b) => (
-        <li key={b.id} className="text-[11px] leading-snug text-muted-foreground">
+        <li key={b.id} className="text-label font-normal text-muted-foreground">
           {!single && (
             <span>
               {b.name}: {b.map === "none" ? "no map" : "draft"} ·{" "}

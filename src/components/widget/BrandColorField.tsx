@@ -3,6 +3,8 @@
 import { AlertTriangle, Check, Pipette } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { relativeLuminance } from "@/lib/utils/color";
+import { FieldError } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 interface BrandColorFieldProps {
   value: string;
@@ -58,7 +60,7 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
               aria-label={name}
               aria-pressed={active}
               className={cn(
-                "size-9 rounded-full border-2 transition-transform flex items-center justify-center disabled:opacity-50",
+                "size-9 rounded-full border-2 transition-transform flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50",
                 active ? "border-foreground scale-105" : "border-transparent hover:scale-105"
               )}
               style={{ backgroundColor: hex }}
@@ -70,7 +72,7 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="relative size-9 shrink-0 rounded-lg border border-border overflow-hidden cursor-pointer">
+        <label className="relative size-10 shrink-0 rounded-control border border-input overflow-hidden cursor-pointer">
           <input
             type="color"
             value={valid ? value : "#0066CC"}
@@ -81,7 +83,7 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
           />
           <Pipette className="absolute bottom-0.5 right-0.5 w-3 h-3 text-white mix-blend-difference pointer-events-none" />
         </label>
-        <input
+        <Input
           type="text"
           value={value}
           onChange={(e) => {
@@ -92,21 +94,18 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
           spellCheck={false}
           aria-label="Brand colour hex code"
           aria-invalid={!valid}
-          className={cn(
-            "w-32 px-3 py-2 border rounded-lg text-sm font-mono uppercase focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-50",
-            valid ? "border-border" : "border-red-400"
-          )}
+          className="w-32 font-mono uppercase"
         />
-        <span className="text-xs text-muted-foreground">Or paste your brand hex.</span>
+        <span className="text-caption text-muted-foreground">Or paste your brand hex.</span>
       </div>
 
       {!valid && (
-        <p className="text-xs text-red-600">Needs six hex digits, like #0066CC.</p>
+        <FieldError className="mt-0">Needs six hex digits, like #0066CC.</FieldError>
       )}
 
       {lowContrast && (
-        <p className="text-xs text-amber-700 dark:text-amber-500 flex items-start gap-1.5">
-          <AlertTriangle className="w-3.5 h-3.5 shrink-0 mt-px" />
+        <p className="text-caption text-warning flex items-start gap-1.5">
+          <AlertTriangle className="size-4 shrink-0 mt-px" />
           The header bar puts white text on this colour, and it will be hard to read. A darker
           shade of the same hue holds up better.
         </p>

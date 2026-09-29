@@ -71,9 +71,9 @@ async function WidgetBody() {
 function WidgetStudioSkeleton() {
   return (
     <div className="space-y-5" aria-busy="true">
-      <Skeleton className="h-32 rounded-2xl" />
-      <Skeleton className="h-56 rounded-xl" />
-      <Skeleton className="h-96 rounded-xl" />
+      <Skeleton className="h-32 rounded-panel" />
+      <Skeleton className="h-56 rounded-card" />
+      <Skeleton className="h-96 rounded-card" />
     </div>
   );
 }

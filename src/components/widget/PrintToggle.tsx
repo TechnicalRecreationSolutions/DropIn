@@ -23,13 +23,11 @@ interface PrintToggleProps {
  */
 export default function PrintToggle({ value, onChange, disabled, unavailable }: PrintToggleProps) {
   return (
-    <div className="flex items-start gap-3 rounded-xl border border-border bg-card p-3">
-      <span className="inline-flex items-center justify-center size-8 rounded-lg shrink-0 bg-muted text-muted-foreground">
-        <Printer className="w-4 h-4" />
-      </span>
+    <div className="flex items-start gap-3 rounded-card border border-border bg-card p-4">
+      <Printer aria-hidden className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
       <div className="min-w-0 flex-1">
         <div className="flex items-center gap-1.5">
-          <span id="widget-allow-print-label" className="text-sm font-medium text-foreground">
+          <span id="widget-allow-print-label" className="text-body font-medium text-foreground">
             Print button
           </span>
           <InfoTip>
@@ -37,11 +35,11 @@ export default function PrintToggle({ value, onChange, disabled, unavailable }: 
             notes when filters have left sessions out.
           </InfoTip>
         </div>
-        <p className="text-xs text-muted-foreground leading-snug">
+        <p className="text-caption text-muted-foreground">
           Visitors can print the week they&rsquo;re viewing.
         </p>
         {unavailable && (
-          <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+          <p className="mt-1 text-caption text-warning">
             Not available yet — database migration 051 hasn&rsquo;t been applied.
           </p>
         )}
@@ -54,13 +52,13 @@ export default function PrintToggle({ value, onChange, disabled, unavailable }: 
         onClick={() => onChange(!value)}
         disabled={disabled}
         className={cn(
-          "relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors disabled:opacity-50",
-          value ? "bg-blue-600" : "bg-muted-foreground/30"
+          "relative mt-1 inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50",
+          value ? "bg-primary" : "bg-input"
         )}
       >
         <span
           className={cn(
-            "inline-block size-5 rounded-full bg-white shadow transition-transform",
+            "inline-block size-5 rounded-full bg-background shadow-card transition-transform",
             value ? "translate-x-5" : "translate-x-0.5"
           )}
         />

@@ -1,12 +1,13 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Building2, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { mapHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Button } from "@/components/ui/button";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
 import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import Streamed from "@/components/ui/streamed";
@@ -130,19 +131,17 @@ async function MapBody({ searchParams }: MapPageProps) {
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-        <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
-        <p className="text-sm text-muted-foreground mb-4">
+      <div className="flex flex-col items-center rounded-card border border-dashed border-border px-6 py-10 text-center">
+        <h1 className="text-body font-medium text-foreground">No buildings yet</h1>
+        <p className="mt-1 max-w-md text-caption text-muted-foreground">
           Add a facility first — a floorplan belongs to a building.
         </p>
-        <Link
-          href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add a facility
-        </Link>
+        <Button asChild variant="outline" className="mt-4">
+          <Link href="/dashboard/facilities/new">
+            <Plus />
+            Add a facility
+          </Link>
+        </Button>
       </div>
     </div>
   );
@@ -151,10 +150,10 @@ function NoFacilities() {
 function MapBodySkeleton() {
   return (
     <div className="space-y-6" aria-busy="true">
-      <Skeleton className="h-12 rounded-xl" />
+      <Skeleton className="h-12 rounded-card" />
       <div className="grid grid-cols-1 lg:grid-cols-[minmax(0,1fr)_320px] gap-4">
-        <Skeleton className="h-[500px] rounded-2xl" />
-        <Skeleton className="h-[500px] rounded-2xl" />
+        <Skeleton className="h-[500px] rounded-card" />
+        <Skeleton className="h-[500px] rounded-card" />
       </div>
     </div>
   );

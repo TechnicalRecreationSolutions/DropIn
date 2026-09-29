@@ -3,6 +3,8 @@
 import { useState } from "react";
 import { Check, ExternalLink, Monitor, Moon, RefreshCw, Smartphone, Sun, Tablet } from "lucide-react";
 import { Dialog, DialogContent, DialogTitle } from "@/components/ui/dialog";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import { BRAND_PRESETS } from "./BrandColorField";
 import type { WidgetTheme } from "./types";
@@ -67,19 +69,17 @@ export default function PreviewWindow({
       <DialogContent className="flex flex-col gap-0 w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] p-0 overflow-hidden">
         <header className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border pr-12">
           <div className="min-w-0 flex-1">
-            <DialogTitle className="text-sm font-semibold flex items-center gap-2">
+            <DialogTitle className="text-card-title flex items-center gap-2">
               Live preview
               {dirty && (
-                <span className="inline-flex items-center px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 text-[10px] font-semibold">
-                  Unpublished changes
-                </span>
+                <Badge variant="warning">Unpublished changes</Badge>
               )}
             </DialogTitle>
-            <p className="text-xs text-muted-foreground truncate">{summary}</p>
+            <p className="text-caption text-muted-foreground truncate">{summary}</p>
           </div>
 
           <div className="flex items-center gap-1">
-            <div className="inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Preview size">
+            <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Preview size">
               {DEVICES.map(({ id, label, Icon }) => (
                 <button
                   key={id}
@@ -88,46 +88,44 @@ export default function PreviewWindow({
                   aria-pressed={device === id}
                   title={label}
                   className={cn(
-                    "flex items-center gap-1.5 px-2.5 py-1.5 rounded-md text-xs font-medium transition-colors",
+                    "flex items-center gap-1.5 h-8 px-3 rounded-full text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     device === id
-                      ? "bg-muted text-foreground"
+                      ? "bg-raised text-foreground shadow-card"
                       : "text-muted-foreground hover:text-foreground"
                   )}
                 >
-                  <Icon className="w-4 h-4" />
+                  <Icon className="size-4" />
                   <span className="hidden sm:inline">{label}</span>
                 </button>
               ))}
             </div>
-            <button
+            <Button
               type="button"
+              variant="ghost"
+              size="icon"
               onClick={onRefresh}
               title="Reload the preview"
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+              className="text-muted-foreground hover:text-foreground"
             >
-              <RefreshCw className="w-4 h-4" />
+              <RefreshCw />
               <span className="sr-only">Reload the preview</span>
-            </button>
-            <a
-              href={src}
-              target="_blank"
-              rel="noopener noreferrer"
-              title="Open the preview in a new tab"
-              className="p-2 rounded-lg text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-            >
-              <ExternalLink className="w-4 h-4" />
-              <span className="sr-only">Open the preview in a new tab</span>
-            </a>
+            </Button>
+            <Button asChild variant="ghost" size="icon" className="text-muted-foreground hover:text-foreground">
+              <a href={src} target="_blank" rel="noopener noreferrer" title="Open the preview in a new tab">
+                <ExternalLink />
+                <span className="sr-only">Open the preview in a new tab</span>
+              </a>
+            </Button>
           </div>
         </header>
 
-        <div className="flex-1 min-h-0 overflow-auto bg-muted/40 p-3 sm:p-5 flex justify-center">
+        <div className="flex-1 min-h-0 overflow-auto bg-muted p-3 sm:p-5 flex justify-center">
           <div
             className={cn(
               "h-full bg-card overflow-hidden",
               frameWidth
                 ? "rounded-[1.75rem] border-[8px] border-foreground/80 shadow-xl max-w-full"
-                : "w-full rounded-xl border border-border shadow-sm"
+                : "w-full rounded-card border border-border shadow-card"
             )}
             style={frameWidth ? { width: frameWidth } : undefined}
           >
@@ -143,7 +141,7 @@ export default function PreviewWindow({
         </div>
 
         <footer className="flex items-center gap-3 flex-wrap px-4 py-2.5 border-t border-border">
-          <span className="text-xs font-medium text-muted-foreground">Quick tweaks</span>
+          <span className="text-label text-muted-foreground">Quick tweaks</span>
 
           <div className="flex items-center gap-1.5" role="group" aria-label="Brand colour">
             {BRAND_PRESETS.map(({ hex, name }) => {
@@ -157,7 +155,7 @@ export default function PreviewWindow({
                   aria-label={name}
                   aria-pressed={active}
                   className={cn(
-                    "size-6 rounded-full border-2 flex items-center justify-center transition-transform",
+                    "size-6 rounded-full border-2 flex items-center justify-center transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     active ? "border-foreground scale-110" : "border-transparent hover:scale-110"
                   )}
                   style={{ backgroundColor: hex }}
@@ -168,7 +166,7 @@ export default function PreviewWindow({
             })}
           </div>
 
-          <div className="inline-flex rounded-lg border border-border p-0.5" role="group" aria-label="Theme">
+          <div className="inline-flex rounded-full bg-muted p-1" role="group" aria-label="Theme">
             {([
               { value: "light" as const, label: "Light", Icon: Sun },
               { value: "dark" as const, label: "Dark", Icon: Moon },
@@ -179,17 +177,17 @@ export default function PreviewWindow({
                 onClick={() => onThemeChange(value)}
                 aria-pressed={theme === value}
                 className={cn(
-                  "flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
-                  theme === value ? "bg-muted text-foreground" : "text-muted-foreground hover:text-foreground"
+                  "flex items-center gap-1.5 h-7 px-3 rounded-full text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  theme === value ? "bg-raised text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Icon className="w-3.5 h-3.5" />
+                <Icon className="size-3.5" />
                 {label}
               </button>
             ))}
           </div>
 
-          <p className="text-[11px] text-muted-foreground ml-auto hidden md:block">
+          <p className="text-label font-normal text-muted-foreground ml-auto hidden md:block">
             Real published sessions. Changes here are still unpublished until you publish them.
           </p>
         </footer>

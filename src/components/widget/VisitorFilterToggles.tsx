@@ -102,34 +102,30 @@ export default function VisitorFilterToggles({
               disabled={disabled}
               aria-pressed={active}
               className={cn(
-                "relative flex items-start gap-2.5 rounded-xl border p-3 text-left transition-all disabled:opacity-50",
+                "relative flex items-start gap-2.5 rounded-card border p-3 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50",
                 active
-                  ? "border-blue-600 ring-2 ring-blue-600/25 bg-blue-50/60 dark:bg-blue-950/30"
-                  : "border-border bg-card hover:border-blue-300 hover:bg-muted/50"
+                  ? "border-brand bg-brand-subtle"
+                  : "border-border bg-card hover:bg-muted"
               )}
             >
-              <span
-                className={cn(
-                  "inline-flex items-center justify-center size-8 rounded-lg shrink-0",
-                  active ? "bg-blue-600 text-white" : "bg-muted text-muted-foreground"
-                )}
-              >
-                <Icon className="w-4 h-4" />
-              </span>
+              <Icon
+                aria-hidden
+                className={cn("mt-0.5 size-4 shrink-0", active ? "text-brand-strong" : "text-muted-foreground")}
+              />
               <span className="min-w-0 pr-5">
-                <span className="block text-sm font-medium text-foreground">{label}</span>
-                <span className="block text-[11px] leading-snug text-muted-foreground">{blurb}</span>
+                <span className="block text-body font-medium text-foreground">{label}</span>
+                <span className="block text-label font-normal text-muted-foreground">{blurb}</span>
               </span>
               {active && (
-                <span className="absolute top-2 right-2 inline-flex items-center justify-center size-5 rounded-full bg-blue-600 text-white">
-                  <Check className="w-3 h-3" />
+                <span className="absolute top-2 right-2 inline-flex items-center justify-center size-5 rounded-full bg-brand text-brand-foreground">
+                  <Check className="size-3" />
                 </span>
               )}
             </button>
           );
         })}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         {value.length === 0
           ? "No filter bar — visitors just read the schedule."
           : "Each filter only appears when the week has two or more options to choose from."}

@@ -488,7 +488,7 @@ export default function ShapeCanvas({
             ? `Facility map canvas — tap to place ${armedLabel(armed)}, Escape to cancel`
             : "Facility map canvas — select a shape, then use arrow keys to nudge, Delete to remove"
         }
-        className={`relative w-full rounded-xl overflow-hidden select-none touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500 ${
+        className={`relative w-full rounded-control overflow-hidden select-none touch-none focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring ${
           armed ? "cursor-crosshair" : ""
         }`}
         style={{ aspectRatio: `${canvasWidth} / ${canvasHeight}` }}
@@ -504,7 +504,7 @@ export default function ShapeCanvas({
         {/* Live sizing preview while a palette card is armed. */}
         {ghostRect && armed && (
           <div
-            className="absolute rounded border-2 border-dashed border-blue-500 bg-blue-500/15 pointer-events-none flex items-start justify-center"
+            className="absolute rounded border-2 border-dashed border-brand bg-brand/15 pointer-events-none flex items-start justify-center"
             style={{
               left: `${ghostRect.x * 100}%`,
               top: `${ghostRect.y * 100}%`,
@@ -512,7 +512,7 @@ export default function ShapeCanvas({
               height: `${ghostRect.height * 100}%`,
             }}
           >
-            <span className="mt-1 px-1.5 py-0.5 text-[10px] font-medium bg-blue-600 text-white rounded whitespace-nowrap">
+            <span className="mt-1 px-1.5 py-0.5 text-[10px] font-medium bg-brand text-brand-foreground rounded whitespace-nowrap">
               {armedLabel(armed)}
             </span>
           </div>
@@ -521,13 +521,13 @@ export default function ShapeCanvas({
         {/* Alignment guides */}
         {guides.v !== null && (
           <div
-            className="absolute top-0 bottom-0 w-px bg-blue-500/70 pointer-events-none"
+            className="absolute top-0 bottom-0 w-px bg-brand/70 pointer-events-none"
             style={{ left: `${guides.v * 100}%` }}
           />
         )}
         {guides.h !== null && (
           <div
-            className="absolute left-0 right-0 h-px bg-blue-500/70 pointer-events-none"
+            className="absolute left-0 right-0 h-px bg-brand/70 pointer-events-none"
             style={{ top: `${guides.h * 100}%` }}
           />
         )}
@@ -553,7 +553,7 @@ export default function ShapeCanvas({
             >
               {isSelected && (
                 <>
-                  <div className="absolute -inset-0.5 border-2 border-blue-500 border-dashed rounded pointer-events-none" />
+                  <div className="absolute -inset-0.5 border-2 border-brand border-dashed rounded pointer-events-none" />
 
                   <div className="absolute -top-3 -right-3 flex gap-1">
                     {unit.shape && (
@@ -564,7 +564,7 @@ export default function ShapeCanvas({
                           onDuplicate(unit.shape!);
                         }}
                         onPointerDown={(e) => e.stopPropagation()}
-                        className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:border-blue-300 shadow-sm"
+                        className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-input text-muted-foreground hover:text-brand hover:border-brand focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shadow-card"
                         aria-label={`Duplicate ${unit.label}`}
                       >
                         <Copy className="w-3 h-3" />
@@ -577,7 +577,7 @@ export default function ShapeCanvas({
                         removeUnit(unit);
                       }}
                       onPointerDown={(e) => e.stopPropagation()}
-                      className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground hover:text-red-600 hover:border-red-300 shadow-sm"
+                      className="w-6 h-6 flex items-center justify-center rounded-full bg-card border border-input text-muted-foreground hover:text-destructive hover:border-destructive focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring shadow-card"
                       aria-label={`Remove ${unit.label}`}
                     >
                       <Trash2 className="w-3 h-3" />
@@ -586,7 +586,7 @@ export default function ShapeCanvas({
 
                   <div
                     onPointerDown={(e) => startRotate(e, unit)}
-                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-card border border-border text-muted-foreground cursor-grab shadow-sm"
+                    className="absolute -top-7 left-1/2 -translate-x-1/2 w-5 h-5 flex items-center justify-center rounded-full bg-card border border-input text-muted-foreground cursor-grab shadow-card"
                     aria-label={`Rotate ${unit.label}`}
                   >
                     <RotateCw className="w-3 h-3" />
@@ -594,7 +594,7 @@ export default function ShapeCanvas({
 
                   <div
                     onPointerDown={(e) => startResize(e, unit)}
-                    className="absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-blue-600 border-2 border-white cursor-nwse-resize shadow-sm"
+                    className="absolute -bottom-2 -right-2 w-4 h-4 rounded-full bg-brand border-2 border-card cursor-nwse-resize shadow-card"
                     aria-label={`Resize ${unit.label}`}
                   />
                 </>
@@ -606,8 +606,8 @@ export default function ShapeCanvas({
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center px-6">
-              <p className="text-sm font-semibold text-muted-foreground">Build your facility</p>
-              <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs">
+              <p className="text-body font-semibold text-muted-foreground">Build your facility</p>
+              <p className="text-caption text-muted-foreground mt-1 max-w-xs">
                 Pick a shape under “Add shape”, then tap here to place it.
               </p>
             </div>
@@ -615,7 +615,7 @@ export default function ShapeCanvas({
         )}
       </div>
 
-      <div className="flex items-center gap-1.5 mt-2 text-xs text-muted-foreground/70">
+      <div className="flex items-center gap-1.5 mt-2 text-caption text-muted-foreground">
         <InfoTip label="Editing tips" side="top">
           Click a shape to select it. Drag to move, use the handles to rotate and resize, and arrow
           keys to nudge. Shapes snap to a 0.5&nbsp;m grid and to each other&apos;s edges. Add zones

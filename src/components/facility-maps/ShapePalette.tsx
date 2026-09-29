@@ -3,6 +3,7 @@
 import { Waves, Square, Snowflake, Building2, MapPin, DoorOpen, type LucideIcon } from "lucide-react";
 import { SHAPE_PRESETS, SHAPE_PRESET_CATEGORIES, type ShapePreset } from "@/lib/facility-shapes/presets";
 import { CONTEXT_ITEMS, armedKey, type ArmedPlacement } from "./placement";
+import { cn } from "@/lib/utils/cn";
 
 interface ShapePaletteProps {
   disabled: boolean;
@@ -46,8 +47,8 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
         const Icon = CATEGORY_ICONS[category.value];
         return (
           <div key={category.value} className="mb-3">
-            <p className="flex items-center gap-1.5 text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">
-              <Icon className="w-3.5 h-3.5" />
+            <p className="flex items-center gap-1.5 text-label text-muted-foreground mb-1.5">
+              <Icon className="size-3.5" />
               {category.label}
             </p>
             <div className="flex flex-wrap gap-2">
@@ -70,7 +71,7 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
       {/* Context scenery is placeable even when every space is assigned —
           it never consumes a Space. */}
       <div className="mb-3">
-        <p className="text-xs font-semibold text-muted-foreground uppercase tracking-wide mb-1.5">Context</p>
+        <p className="text-label text-muted-foreground mb-1.5">Context</p>
         <div className="flex flex-wrap gap-2">
           {CONTEXT_ITEMS.map((item) => (
             <PresetCard
@@ -87,7 +88,7 @@ export default function ShapePalette({ disabled, armed, onArm }: ShapePalettePro
         </div>
       </div>
 
-      <p className="text-xs text-muted-foreground/70 mt-2">
+      <p className="text-caption text-muted-foreground mt-2">
         {disabled
           ? "Setting up this floor plan…"
           : armed
@@ -121,17 +122,18 @@ function PresetCard({
       onClick={onClick}
       disabled={disabled}
       aria-pressed={active}
-      className={`flex flex-col items-start gap-1 px-3 py-2 rounded-lg border text-left transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${
+      className={cn(
+        "flex flex-col items-start gap-1 px-3 py-2 rounded-control border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40 disabled:cursor-not-allowed",
         active
-          ? "bg-blue-600 border-blue-600 text-white"
+          ? "bg-brand-subtle border-brand text-brand-strong"
           : dashed
-            ? "bg-muted border-dashed border-border text-muted-foreground hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
-            : "bg-card border-border text-foreground hover:border-blue-400 hover:text-blue-600 dark:hover:text-blue-300"
-      }`}
+            ? "bg-muted border-dashed border-input text-muted-foreground hover:text-foreground"
+            : "bg-card border-border text-foreground hover:bg-muted"
+      )}
     >
-      <Icon className={`w-4 h-4 ${active ? "text-white" : "text-muted-foreground/70"}`} />
-      <span className="text-xs font-medium">{label}</span>
-      <span className={`text-[10px] ${active ? "text-blue-100" : "text-muted-foreground/70"}`}>{dims}</span>
+      <Icon className={cn("size-4", active ? "text-brand-strong" : "text-muted-foreground")} />
+      <span className="text-label">{label}</span>
+      <span className={cn("text-label font-normal", active ? "text-brand-strong" : "text-muted-foreground")}>{dims}</span>
     </button>
   );
 }

@@ -4,6 +4,10 @@ import { useState } from "react";
 import { Check, Code2, Copy, ExternalLink, Frame, Link2, RefreshCw } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
 import { SCOPE_FACILITY_SELECT_ID, type EmbedMethod, type WidgetFacility } from "./types";
 
 interface InstallPanelProps {
@@ -176,7 +180,7 @@ export default function InstallPanel({
     <div className="space-y-5">
       {/* Method first: everything below reads differently depending on it. */}
       <div>
-        <span className="block text-sm font-medium text-foreground mb-2">
+        <span className="block text-body font-medium text-foreground mb-2">
           How do you want to add it?
         </span>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
@@ -187,80 +191,74 @@ export default function InstallPanel({
               onClick={() => onMethodChange(id)}
               aria-pressed={method === id}
               className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-xl border text-left transition-colors",
+                "flex items-center gap-2.5 px-3 py-2.5 rounded-card border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 method === id
-                  ? "border-blue-600 bg-blue-50 dark:bg-blue-950/40"
-                  : "border-border hover:bg-muted"
+                  ? "border-brand bg-brand-subtle"
+                  : "border-border bg-card hover:bg-muted"
               )}
             >
               <Icon
                 className={cn(
-                  "w-4 h-4 shrink-0",
-                  method === id ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground"
+                  "size-4 shrink-0",
+                  method === id ? "text-brand-strong" : "text-muted-foreground"
                 )}
               />
-              <span className="min-w-0">
-                <span className="block text-sm font-medium text-foreground">{name}</span>
-                <span className="block text-xs text-muted-foreground truncate">{tagline}</span>
+              <span className="min-w-0 flex-1">
+                <span className="block text-body font-medium text-foreground">{name}</span>
+                <span className="block text-caption text-muted-foreground truncate">{tagline}</span>
               </span>
+              {method === id && <Check aria-hidden className="size-4 shrink-0 text-brand" />}
             </button>
           ))}
         </div>
       </div>
 
-      <div className="rounded-xl border border-border overflow-hidden">
-        <div className="flex items-center justify-between gap-3 px-3 py-2 bg-muted/60 border-b border-border">
+      <div className="space-y-2">
+        <div className="flex items-center justify-between gap-3">
           <div className="flex items-center gap-2 min-w-0">
-            <span className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+            <span className="text-label text-muted-foreground">
               {isLink ? "Schedule link" : "Embed code"}
             </span>
             {snippetStale && (
-              <span className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded-full bg-amber-100 dark:bg-amber-950/60 text-amber-800 dark:text-amber-400 text-[10px] font-semibold">
-                <RefreshCw className="w-2.5 h-2.5" />
+              <Badge variant="warning">
+                <RefreshCw />
                 Updated — copy again
-              </span>
+              </Badge>
             )}
           </div>
           <div className="flex items-center gap-2 shrink-0">
             {isLink && (
-              <a
-                href={shareUrl}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg border border-border bg-card text-xs font-medium text-foreground hover:bg-muted transition-colors"
-              >
-                <ExternalLink className="w-3.5 h-3.5" />
-                Open
-              </a>
+              <Button asChild variant="ghost" size="sm">
+                <a href={shareUrl} target="_blank" rel="noopener noreferrer">
+                  <ExternalLink />
+                  Open
+                </a>
+              </Button>
             )}
-            <button
-              type="button"
-              onClick={copy}
-              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-600 text-white text-xs font-medium hover:bg-blue-700 transition-colors"
-            >
-              {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
+            <Button type="button" variant="outline" size="sm" onClick={copy}>
+              {copied ? <Check /> : <Copy />}
               {copied ? "Copied" : isLink ? "Copy link" : "Copy code"}
-            </button>
+            </Button>
           </div>
         </div>
         {isLink ? (
           // Selectable input rather than a <pre>: this one gets dragged into an
           // address bar or a menu-item field, not pasted into an HTML block.
-          <input
+          <Input
             readOnly
             value={embedCode}
             onFocus={(e) => e.currentTarget.select()}
             aria-label="Public schedule link"
-            className="w-full px-4 py-3.5 text-[12px] font-mono bg-card text-foreground/85 focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500"
+            className="h-12 border-transparent bg-muted px-4 font-mono text-caption md:text-caption"
           />
         ) : (
-          <pre className="p-4 overflow-x-auto text-[12px] leading-relaxed font-mono text-foreground/85 bg-card whitespace-pre">
+          <pre className="p-4 overflow-x-auto rounded-control bg-muted text-caption font-mono text-foreground whitespace-pre">
             {embedCode}
           </pre>
         )}
       </div>
 
-      <p className="text-xs text-muted-foreground -mt-2">{activeMethod.note}</p>
+      <p className="text-caption text-muted-foreground -mt-2">{activeMethod.note}</p>
 
       {/* Per-page scoping — a property of *this copy of the code*, not of the
           saved settings. One organisation's look and one schedule list, but the
@@ -272,16 +270,16 @@ export default function InstallPanel({
         <div>
           <LabelWithInfo
             htmlFor={SCOPE_FACILITY_SELECT_ID}
-            className="block text-sm font-medium text-foreground"
+            className="block text-caption font-medium text-foreground"
             info="Only needed if your website has a separate page per building. Pick it here and this copy of the code shows just that building. Re-copy the code after changing."
           >
             Building page
           </LabelWithInfo>
-          <select
+          <NativeSelect
             id={SCOPE_FACILITY_SELECT_ID}
             value={scopeFacilityId}
             onChange={(e) => onScopeFacilityChange(e.target.value)}
-            className="w-full sm:max-w-sm px-3 py-2.5 border border-border rounded-lg text-sm bg-card focus:outline-none focus:ring-2 focus:ring-blue-500"
+            wrapperClassName="sm:max-w-sm"
           >
             <option value="">No — show everything from step 1</option>
             {facilities.map((f) => (
@@ -290,9 +288,9 @@ export default function InstallPanel({
                 {f.isPublished ? "" : " — draft"}
               </option>
             ))}
-          </select>
+          </NativeSelect>
           {scopeFacilityId && (
-            <span className="block text-xs text-muted-foreground mt-1">
+            <span className="block text-caption text-muted-foreground mt-1.5">
               {switcherCount > 1
                 ? "This code shows only that facility, and its switcher only lists that facility's schedules."
                 : "This code shows only that facility."}
@@ -304,7 +302,7 @@ export default function InstallPanel({
       {!isLink && (
         <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-3 sm:items-start">
           <label className="block">
-            <span className="flex items-center gap-1.5 text-sm font-medium text-foreground mb-1">
+            <span className="flex items-center gap-1.5 text-caption font-medium text-foreground mb-1.5">
               {method === "iframe" ? "Height" : "Starting height"}
               <InfoTip>
                 {method === "iframe"
@@ -313,15 +311,15 @@ export default function InstallPanel({
               </InfoTip>
             </span>
             <div className="relative">
-              <input
+              <Input
                 type="number"
                 value={height}
                 onChange={(e) => onHeightChange(e.target.value)}
                 min={300}
                 max={1200}
-                className="w-full px-3 py-2.5 pr-9 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="pr-9"
               />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-xs text-muted-foreground">
+              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-caption text-muted-foreground">
                 px
               </span>
             </div>
@@ -330,27 +328,27 @@ export default function InstallPanel({
       )}
 
       {isLink ? (
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">Where do I put this?</p>
+        <div className="rounded-card border border-border p-4 sm:p-5">
+          <p className="text-card-title text-foreground">Where do I put this?</p>
           <ol className="mt-3 space-y-2">
             {LINK_PLACES.map((place, i) => (
-              <li key={i} className="flex gap-2.5 text-sm text-muted-foreground">
-                <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-card border border-border text-[11px] font-semibold text-foreground">
+              <li key={i} className="flex gap-2.5 text-body text-muted-foreground">
+                <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-muted text-label font-semibold text-foreground tabular-nums">
                   {i + 1}
                 </span>
                 {place}
               </li>
             ))}
           </ol>
-          <p className="mt-3 text-xs text-muted-foreground">
+          <p className="mt-3 text-caption text-muted-foreground">
             The link stays the same when you publish changes.
           </p>
         </div>
       ) : (
-        <div className="rounded-xl border border-border bg-muted/30 p-4">
-          <p className="text-sm font-medium text-foreground">Where do I paste this?</p>
+        <div className="rounded-card border border-border p-4 sm:p-5">
+          <p className="text-card-title text-foreground">Where do I paste this?</p>
           <div className="mt-3 space-y-3">
-            <div className="flex flex-wrap gap-1.5">
+            <div className="inline-flex max-w-full flex-wrap gap-1 rounded-card sm:rounded-full bg-muted p-1">
               {CMS_GUIDES.map((g) => (
                 <button
                   key={g.id}
@@ -358,10 +356,10 @@ export default function InstallPanel({
                   onClick={() => setGuide(g.id)}
                   aria-pressed={guide === g.id}
                   className={cn(
-                    "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                    "h-8 px-3.5 rounded-full text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     guide === g.id
-                      ? "bg-foreground border-foreground text-background"
-                      : "bg-card border-border text-muted-foreground hover:text-foreground"
+                      ? "bg-raised text-foreground shadow-card"
+                      : "text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {g.name}
@@ -370,15 +368,15 @@ export default function InstallPanel({
             </div>
             <ol className="space-y-2">
               {activeGuide.steps[method].map((step, i) => (
-                <li key={i} className="flex gap-2.5 text-sm text-muted-foreground">
-                  <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-card border border-border text-[11px] font-semibold text-foreground">
+                <li key={i} className="flex gap-2.5 text-body text-muted-foreground">
+                  <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-muted text-label font-semibold text-foreground tabular-nums">
                     {i + 1}
                   </span>
                   {step}
                 </li>
               ))}
             </ol>
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               Blocked from adding code? Switch to <span className="font-medium text-foreground">Link</span>{" "}
               above and point a menu item at the schedule instead.
             </p>
