@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import { SettingsCard } from "@/components/settings/SettingsSection";
 
 /**
@@ -61,14 +62,14 @@ export default function LeaveOrganization({ orgName }: { orgName: string }) {
       description="You will lose access immediately. Someone with a Manager account would have to invite you back."
       tone="destructive"
     >
-      <Button variant="destructive" size="lg" disabled={busy} onClick={leave}>
+      <Button variant="ghost" size="lg" className="text-destructive" disabled={busy} onClick={leave}>
         {busy ? "Leaving…" : "Leave organization"}
       </Button>
 
       {error && (
-        <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+        <Banner variant="error" className="mt-3">
           {error}
-        </p>
+        </Banner>
       )}
     </SettingsCard>
   );

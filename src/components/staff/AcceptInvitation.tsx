@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
+import { Label } from "@/components/ui/field";
 
 interface AcceptInvitationProps {
   token: string;
@@ -59,9 +61,7 @@ export default function AcceptInvitation({
       </p>
 
       {error && (
-        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       <Button
@@ -91,7 +91,7 @@ export default function AcceptInvitation({
         {busy ? "Joining…" : "Accept and join"}
       </Button>
 
-      <p className="text-xs text-muted-foreground">
+      <p className="text-caption text-muted-foreground">
         Wrong account?{" "}
         <Link href={`/login?redirectTo=${next}`} className="underline hover:text-foreground">
           Sign in as someone else
@@ -167,9 +167,9 @@ function CreatePassword({
       </p>
 
       <div className="space-y-1.5">
-        <label htmlFor="invite-password" className="block text-sm font-medium text-foreground">
+        <Label htmlFor="invite-password" className="mb-0">
           Password
-        </label>
+        </Label>
         <Input
           id="invite-password"
           type="password"
@@ -187,10 +187,7 @@ function CreatePassword({
       </div>
 
       {error && (
-        <p
-          role="alert"
-          className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5"
-        >
+        <Banner variant="error">
           {error}
           {accountExists && (
             <>
@@ -200,14 +197,14 @@ function CreatePassword({
               </Link>
             </>
           )}
-        </p>
+        </Banner>
       )}
 
       <Button type="submit" className="w-full h-10" disabled={busy}>
         {busy ? "Joining…" : "Create password and join"}
       </Button>
 
-      <p className="text-center text-xs text-muted-foreground">
+      <p className="text-center text-caption text-muted-foreground">
         Already have a Dropin account?{" "}
         <Link href={`/login?redirectTo=${next}`} className="underline hover:text-foreground">
           Sign in to accept

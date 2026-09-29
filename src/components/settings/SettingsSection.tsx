@@ -1,4 +1,5 @@
 import { InfoTip } from "@/components/ui/info-tip";
+import { Banner } from "@/components/ui/banner";
 import { cn } from "@/lib/utils/cn";
 
 /**
@@ -26,7 +27,7 @@ export function SettingsHeading({
   return (
     <div className="flex items-start justify-between gap-4">
       <div className="flex items-center gap-1.5">
-        <h2 className="text-xl font-semibold text-foreground">{title}</h2>
+        <h2 className="text-heading text-foreground">{title}</h2>
         {info && <InfoTip label="About this page">{info}</InfoTip>}
       </div>
       {actions && <div className="shrink-0">{actions}</div>}
@@ -58,7 +59,7 @@ export function SettingsCard({
   return (
     <section
       className={cn(
-        "rounded-xl border bg-card p-5 sm:p-6",
+        "rounded-card border bg-card p-5 shadow-card sm:p-6",
         tone === "destructive" ? "border-destructive/40" : "border-border",
         className
       )}
@@ -68,7 +69,7 @@ export function SettingsCard({
           <div className="flex items-center gap-1.5">
             <h3
               className={cn(
-                "text-base font-semibold",
+                "text-card-title",
                 tone === "destructive" ? "text-destructive" : "text-foreground"
               )}
             >
@@ -77,7 +78,7 @@ export function SettingsCard({
             {info && <InfoTip>{info}</InfoTip>}
           </div>
           {description && (
-            <p className="mt-1 text-sm text-muted-foreground">{description}</p>
+            <p className="mt-1 text-caption text-muted-foreground">{description}</p>
           )}
         </div>
       )}
@@ -110,7 +111,7 @@ export function SettingsFact({
   return (
     <div className="min-w-0">
       <div className="flex items-center gap-1.5">
-        <dt className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <dt className="text-label text-muted-foreground">
           {label}
         </dt>
         {info && <InfoTip label={`About ${label}`}>{info}</InfoTip>}
@@ -130,8 +131,6 @@ export function SettingsFact({
  */
 export function ReadOnlyNotice({ children }: { children: React.ReactNode }) {
   return (
-    <p className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground">
-      {children}
-    </p>
+    <Banner variant="neutral">{children}</Banner>
   );
 }

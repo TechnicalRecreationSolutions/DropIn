@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getUser } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import OnboardOrgForm from "@/components/auth/OnboardOrgForm";
+import { Card, CardContent } from "@/components/ui/card";
 
 export const metadata: Metadata = {
   title: "Set Up Your Organization",
@@ -28,14 +29,16 @@ export default async function OnboardingPage() {
     typeof user.user_metadata?.org_name === "string" ? user.user_metadata.org_name : "";
 
   return (
-    <div className="w-full max-w-sm">
-      <div className="mb-8 text-center">
-        <h1 className="text-2xl font-bold text-foreground">Set up your organization</h1>
-        <p className="mt-2 text-sm text-muted-foreground">
+    <Card className="w-full max-w-[420px] [--card-spacing:--spacing(6)]">
+      <CardContent className="space-y-6">
+      <div className="text-center">
+        <h1 className="text-title text-foreground">Set up your organization</h1>
+        <p className="mt-2 text-caption text-muted-foreground">
           Create an organization to continue.
         </p>
       </div>
       <OnboardOrgForm suggestedName={suggestedName} />
-    </div>
+      </CardContent>
+    </Card>
   );
 }

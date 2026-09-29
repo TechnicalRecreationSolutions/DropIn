@@ -2,7 +2,10 @@
 
 import { useState } from "react";
 import SaveBar from "./SaveBar";
-import { useOrgPatch, orgFieldClass, orgLabelClass } from "./useOrgPatch";
+import { useOrgPatch } from "./useOrgPatch";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label, FieldHelp } from "@/components/ui/field";
 import { SettingsCard } from "@/components/settings/SettingsSection";
 
 /**
@@ -73,37 +76,34 @@ export default function OrgContactForm({
         <div className="space-y-5">
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             <div>
-              <label htmlFor="email" className={orgLabelClass}>Email</label>
-              <input
+              <Label htmlFor="email">Email</Label>
+              <Input
                 id="email" name="email" type="email" disabled={!canEdit}
-                value={form.email} onChange={handleChange}
-                className={orgFieldClass} placeholder="info@example.ca"
+                value={form.email} onChange={handleChange} placeholder="info@example.ca"
               />
             </div>
             <div>
-              <label htmlFor="phone" className={orgLabelClass}>Phone</label>
-              <input
+              <Label htmlFor="phone">Phone</Label>
+              <Input
                 id="phone" name="phone" type="tel" disabled={!canEdit}
-                value={form.phone} onChange={handleChange}
-                className={orgFieldClass} placeholder="403-555-0100"
+                value={form.phone} onChange={handleChange} placeholder="403-555-0100"
               />
             </div>
           </div>
 
           <div>
-            <label htmlFor="website_url" className={orgLabelClass}>Website</label>
-            <input
+            <Label htmlFor="website_url">Website</Label>
+            <Input
               id="website_url" name="website_url" type="url" disabled={!canEdit}
-              value={form.website_url} onChange={handleChange}
-              className={orgFieldClass} placeholder="https://..."
+              value={form.website_url} onChange={handleChange} placeholder="https://..."
             />
             {/* A visible hint rather than an (i): an invalid URL here is
                 rejected by the API with a validation error, and "include
                 https://" is the fix. Hiding the fix behind a tap makes the
                 error unactionable. */}
-            <p className="mt-1 text-xs text-muted-foreground">
+            <FieldHelp>
               Include <code>https://</code> — a bare domain is rejected.
-            </p>
+            </FieldHelp>
           </div>
         </div>
       </SettingsCard>
@@ -114,41 +114,38 @@ export default function OrgContactForm({
       >
         <div className="space-y-5">
           <div>
-            <label htmlFor="address_line1" className={orgLabelClass}>Street address</label>
-            <input
+            <Label htmlFor="address_line1">Street address</Label>
+            <Input
               id="address_line1" name="address_line1" type="text" disabled={!canEdit}
-              value={form.address_line1} onChange={handleChange}
-              className={orgFieldClass} placeholder="800 Macleod Trail SE"
+              value={form.address_line1} onChange={handleChange} placeholder="800 Macleod Trail SE"
             />
           </div>
 
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <div>
-              <label htmlFor="city" className={orgLabelClass}>City</label>
-              <input
+              <Label htmlFor="city">City</Label>
+              <Input
                 id="city" name="city" type="text" disabled={!canEdit}
-                value={form.city} onChange={handleChange}
-                className={orgFieldClass} placeholder="Calgary"
+                value={form.city} onChange={handleChange} placeholder="Calgary"
               />
             </div>
             <div>
-              <label htmlFor="province" className={orgLabelClass}>Province</label>
-              <select
+              <Label htmlFor="province">Province</Label>
+              <NativeSelect
                 id="province" name="province" disabled={!canEdit}
-                value={form.province} onChange={handleChange} className={orgFieldClass}
+                value={form.province} onChange={handleChange}
               >
                 <option value="">—</option>
                 {CANADIAN_PROVINCES.map(([code, name]) => (
                   <option key={code} value={code}>{name}</option>
                 ))}
-              </select>
+              </NativeSelect>
             </div>
             <div>
-              <label htmlFor="postal_code" className={orgLabelClass}>Postal code</label>
-              <input
+              <Label htmlFor="postal_code">Postal code</Label>
+              <Input
                 id="postal_code" name="postal_code" type="text" disabled={!canEdit}
-                value={form.postal_code} onChange={handleChange}
-                className={orgFieldClass} placeholder="T2G 2M3"
+                value={form.postal_code} onChange={handleChange} placeholder="T2G 2M3"
               />
             </div>
           </div>

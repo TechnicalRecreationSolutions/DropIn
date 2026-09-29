@@ -23,8 +23,8 @@ export const metadata: Metadata = {
 export default function FindPage() {
   return (
     <div className="mx-auto max-w-5xl px-4 py-8 sm:px-6 sm:py-12 lg:px-8">
-      <h1 className="text-2xl font-bold text-foreground sm:text-3xl">Find a recreation centre</h1>
-      <p className="mt-2 max-w-2xl text-muted-foreground">
+      <h1 className="text-title text-foreground">Find a recreation centre</h1>
+      <p className="mt-2 max-w-2xl text-body text-muted-foreground">
         Search by name or city, or use your location to see what’s nearby. Open a centre to see its drop-in
         schedule — no account needed.
       </p>
@@ -52,8 +52,8 @@ function ResultsSkeleton() {
   return (
     <div aria-busy="true" aria-label="Loading centres">
       <div className="flex flex-col gap-2 sm:flex-row">
-        <Skeleton className="h-12 flex-1 rounded-xl" />
-        <Skeleton className="h-12 rounded-xl sm:w-44" />
+        <Skeleton className="h-12 flex-1 rounded-card" />
+        <Skeleton className="h-12 rounded-card sm:w-44" />
       </div>
       <div className="mt-3 flex gap-2">
         {Array.from({ length: 4 }).map((_, i) => (
@@ -62,7 +62,7 @@ function ResultsSkeleton() {
       </div>
       <div className="mt-8 grid gap-3 md:grid-cols-2">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-28 rounded-card" />
         ))}
       </div>
     </div>

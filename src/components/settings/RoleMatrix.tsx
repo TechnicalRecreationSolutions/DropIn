@@ -69,12 +69,12 @@ export default function RoleMatrix() {
       <div className="space-y-5 sm:hidden">
         {ROLES.map((role) => (
           <div key={role}>
-            <p className="text-sm font-semibold text-foreground">{ROLE_LABELS[role]}</p>
-            <p className="mt-0.5 text-xs text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
+            <p className="text-card-title text-foreground">{ROLE_LABELS[role]}</p>
+            <p className="mt-0.5 text-caption text-muted-foreground">{ROLE_DESCRIPTIONS[role]}</p>
             <ul className="mt-2 space-y-1">
               {ROWS.filter((row) => rolesWith(row.permission).includes(role)).map((row) => (
                 <li key={row.permission} className="flex items-start gap-2 text-sm text-foreground">
-                  <Check className="mt-0.5 size-3.5 shrink-0 text-green-600 dark:text-green-400" aria-hidden />
+                  <Check className="mt-0.5 size-3.5 shrink-0 text-success" aria-hidden />
                   <span>
                     {row.label}
                     {row.note && role === "coordinator" && (
@@ -95,12 +95,12 @@ export default function RoleMatrix() {
             What each role is allowed to do. A tick means allowed; a dash means not allowed.
           </caption>
           <thead>
-            <tr className="border-b border-border">
-              <th scope="col" className="py-2 pr-4 text-left font-medium text-muted-foreground">
+            <tr className="bg-muted">
+              <th scope="col" className="px-3 py-2 text-left text-label text-muted-foreground">
                 Can do
               </th>
               {ROLES.map((role) => (
-                <th key={role} scope="col" className="px-2 py-2 text-center font-medium text-foreground">
+                <th key={role} scope="col" className="px-2 py-2 text-center text-label text-muted-foreground">
                   {ROLE_LABELS[role]}
                 </th>
               ))}
@@ -110,8 +110,8 @@ export default function RoleMatrix() {
             {ROWS.map((row) => {
               const allowed = rolesWith(row.permission);
               return (
-                <tr key={row.permission} className="border-b border-border/60 last:border-0">
-                  <th scope="row" className="py-2.5 pr-4 text-left font-normal text-foreground">
+                <tr key={row.permission} className="border-b border-border last:border-0">
+                  <th scope="row" className="px-3 py-3 text-left font-normal text-foreground">
                     {row.label}
                     {row.note && (
                       <span className="block text-xs text-muted-foreground">{row.note}</span>
@@ -122,14 +122,14 @@ export default function RoleMatrix() {
                       {allowed.includes(role) ? (
                         <>
                           <Check
-                            className="mx-auto size-4 text-green-600 dark:text-green-400"
+                            className="mx-auto size-4 text-success"
                             aria-hidden
                           />
                           <span className="sr-only">Yes</span>
                         </>
                       ) : (
                         <>
-                          <Minus className="mx-auto size-4 text-muted-foreground/40" aria-hidden />
+                          <Minus className="mx-auto size-4 text-muted-foreground" aria-hidden />
                           <span className="sr-only">No</span>
                         </>
                       )}

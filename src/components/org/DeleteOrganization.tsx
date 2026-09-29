@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
+import { Label } from "@/components/ui/field";
 import { SettingsCard } from "@/components/settings/SettingsSection";
 
 export interface DeletionScale {
@@ -106,7 +108,7 @@ export default function DeleteOrganization({
       tone="destructive"
       description="Permanent. Every schedule, space, facility and staff account below is removed, and every public page and embedded widget stops working immediately."
     >
-      <ul className="mb-4 space-y-1 text-sm text-foreground">
+      <ul className="mb-4 space-y-1 text-body text-foreground">
         {inventory.map(([count, one, many]) => (
           <li key={many}>
             <strong>{count.toLocaleString("en-CA")}</strong> {count === 1 ? one : many}
@@ -115,20 +117,20 @@ export default function DeleteOrganization({
       </ul>
 
       {blockedBySubscription ? (
-        <p className="rounded-lg border border-border bg-muted px-3 py-2.5 text-sm text-muted-foreground">
+        <Banner variant="neutral">
           Your subscription is still active. Cancel it on the Billing page first — deleting the
           organization now would remove the record Dropin uses to stop billing you, while Stripe
           kept charging the card.
-        </p>
+        </Banner>
       ) : !open ? (
-        <Button variant="destructive" onClick={() => setOpen(true)}>
+        <Button variant="ghost" className="text-destructive" onClick={() => setOpen(true)}>
           Delete organization…
         </Button>
       ) : (
         <div className="space-y-3">
-          <label htmlFor="delete-confirm" className="block text-sm text-foreground">
+          <Label htmlFor="delete-confirm" className="mb-0">
             Type <strong>{orgName}</strong> to confirm.
-          </label>
+          </Label>
           <Input
             id="delete-confirm"
             value={confirmName}
@@ -158,13 +160,9 @@ export default function DeleteOrganization({
       )}
 
       {error && (
-        <p
-          id="delete-error"
-          role="alert"
-          className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
+        <Banner id="delete-error" variant="error" className="mt-3">
           {error}
-        </p>
+        </Banner>
       )}
     </SettingsCard>
   );

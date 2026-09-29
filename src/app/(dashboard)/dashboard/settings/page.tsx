@@ -41,7 +41,7 @@ export default function SettingsGeneralPage() {
         info="Your organization's name, logo and description. All three are published: they appear on every public schedule page, in the embeddable widget, and on your directory listing."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <GeneralBody />
         </Streamed>
@@ -115,12 +115,12 @@ async function GeneralBody() {
             info="A verified organization is listed in the public resident directory and its facility pages are indexed by search engines. Unverified pages still work — your own site can link to them — but they carry noindex. Verification is granted by Dropin and cannot be set from inside the dashboard."
           >
             {verified ? (
-              <span className="inline-flex items-center gap-1.5 text-green-700 dark:text-green-400">
+              <span className="inline-flex items-center gap-1.5 text-success">
                 <BadgeCheck className="size-4" aria-hidden />
                 Verified
               </span>
             ) : (
-              <span className="inline-flex items-center gap-1.5 text-amber-700 dark:text-amber-400">
+              <span className="inline-flex items-center gap-1.5 text-warning">
                 <Clock className="size-4" aria-hidden />
                 Pending review
               </span>
@@ -138,7 +138,7 @@ async function GeneralBody() {
             label="Identifier"
             info="Your organization's permanent slug. It is not editable: it is referenced by everything already created under this organization, and changing it would need a redirect story that does not exist yet."
           >
-            <code className="rounded bg-muted px-1.5 py-0.5 text-xs">{org.slug}</code>
+            <code className="rounded-control bg-muted px-1.5 py-0.5 text-caption">{org.slug}</code>
           </SettingsFact>
 
           <SettingsFact

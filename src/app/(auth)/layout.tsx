@@ -1,5 +1,4 @@
 import Link from "next/link";
-import { MapPin } from "lucide-react";
 import Providers from "@/components/layout/Providers";
 
 export default function AuthLayout({
@@ -9,10 +8,9 @@ export default function AuthLayout({
 }) {
   return (
     <Providers>
-      <div className="min-h-screen bg-muted flex flex-col">
+      <div className="min-h-screen bg-background flex flex-col">
         <header className="px-4 py-5">
-          <Link href="/" className="inline-flex items-center gap-2 text-blue-600 dark:text-blue-400 font-bold text-lg">
-            <MapPin className="w-5 h-5" />
+          <Link href="/" className="inline-flex items-center text-lg font-bold text-foreground">
             Dropin
           </Link>
         </header>

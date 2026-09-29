@@ -32,7 +32,7 @@ export default function StaffPage() {
         info="Everyone who can sign in to your organization, and what each person can change. A Coordinator sees only the people inside their own facilities."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-6">
           <StaffBody />
         </Streamed>

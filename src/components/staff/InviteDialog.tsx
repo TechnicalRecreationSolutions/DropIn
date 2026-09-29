@@ -13,6 +13,7 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import { Input } from "@/components/ui/input";
 import { cn } from "@/lib/utils/cn";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS, invitableRolesFor } from "@/lib/auth/roles";
@@ -199,8 +200,8 @@ export default function InviteDialog({
                   <label
                     key={option}
                     className={cn(
-                      "flex items-start gap-3 min-h-11 px-3 py-2.5 rounded-lg border cursor-pointer transition-colors",
-                      role === option ? "border-primary bg-primary/5" : "border-border hover:bg-muted"
+                      "flex items-start gap-3 min-h-11 px-3 py-2.5 rounded-control border cursor-pointer transition-colors",
+                      role === option ? "border-brand bg-brand-subtle" : "border-border hover:bg-muted"
                     )}
                   >
                     <input
@@ -219,7 +220,7 @@ export default function InviteDialog({
                       <span className="block text-sm font-medium text-foreground">
                         {ROLE_LABELS[option]}
                       </span>
-                      <span className="block text-xs text-muted-foreground">
+                      <span className="block text-caption text-muted-foreground">
                         {ROLE_DESCRIPTIONS[option]}
                       </span>
                     </span>
@@ -237,9 +238,7 @@ export default function InviteDialog({
             />
 
             {error && (
-              <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-                {error}
-              </p>
+              <Banner variant="error">{error}</Banner>
             )}
 
             <DialogFooter>

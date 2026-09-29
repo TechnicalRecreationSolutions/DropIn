@@ -6,7 +6,9 @@ import { LogOut, Monitor, Moon, Sun } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Button } from "@/components/ui/button";
 import { SettingsCard } from "@/components/settings/SettingsSection";
-import { orgFieldClass, orgLabelClass } from "@/components/org/useOrgPatch";
+import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
+import { Label, FieldHelp } from "@/components/ui/field";
 
 /** Shared with DashboardTopbar's toggle — one key, or the two disagree. */
 const THEME_KEY = "dropin-theme";
@@ -112,14 +114,14 @@ function useAccountAction() {
 function Feedback({ error, message }: { error: string | null; message: string | null }) {
   if (error) {
     return (
-      <p role="alert" className="mt-3 rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive">
+      <Banner variant="error" className="mt-3">
         {error}
-      </p>
+      </Banner>
     );
   }
   if (message) {
     return (
-      <p role="status" className="mt-3 text-sm text-green-700 dark:text-green-400">
+      <p role="status" className="mt-3 text-body text-success">
         {message}
       </p>
     );
@@ -165,10 +167,10 @@ function PasswordCard() {
     >
       <form onSubmit={submit} className="space-y-4">
         <div>
-          <label htmlFor="currentPassword" className={orgLabelClass}>
+          <Label htmlFor="currentPassword">
             Current password
-          </label>
-          <input
+          </Label>
+          <Input
             id="currentPassword"
             name="currentPassword"
             type="password"
@@ -176,16 +178,15 @@ function PasswordCard() {
             required
             value={currentPassword}
             onChange={(e) => setCurrent(e.target.value)}
-            className={orgFieldClass}
           />
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="newPassword" className={orgLabelClass}>
+            <Label htmlFor="newPassword">
               New password
-            </label>
-            <input
+            </Label>
+            <Input
               id="newPassword"
               name="newPassword"
               type="password"
@@ -195,20 +196,16 @@ function PasswordCard() {
               value={newPassword}
               onChange={(e) => setNext(e.target.value)}
               aria-describedby="password-rule"
-              className={orgFieldClass}
             />
-            <p
-              id="password-rule"
-              className={`mt-1 text-xs ${tooShort ? "text-destructive" : "text-muted-foreground"}`}
-            >
+            <FieldHelp id="password-rule" className={tooShort ? "text-destructive" : undefined}>
               At least 10 characters.
-            </p>
+            </FieldHelp>
           </div>
           <div>
-            <label htmlFor="confirmPassword" className={orgLabelClass}>
+            <Label htmlFor="confirmPassword">
               Repeat new password
-            </label>
-            <input
+            </Label>
+            <Input
               id="confirmPassword"
               name="confirmPassword"
               type="password"
@@ -216,7 +213,6 @@ function PasswordCard() {
               required
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
-              className={orgFieldClass}
             />
           </div>
         </div>
@@ -260,10 +256,10 @@ function EmailCard({ currentEmail }: { currentEmail: string | null }) {
       <form onSubmit={submit} className="space-y-4">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <div>
-            <label htmlFor="newEmail" className={orgLabelClass}>
+            <Label htmlFor="newEmail">
               New email address
-            </label>
-            <input
+            </Label>
+            <Input
               id="newEmail"
               name="newEmail"
               type="email"
@@ -271,15 +267,14 @@ function EmailCard({ currentEmail }: { currentEmail: string | null }) {
               required
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className={orgFieldClass}
               placeholder="you@yourcity.ca"
             />
           </div>
           <div>
-            <label htmlFor="emailCurrentPassword" className={orgLabelClass}>
+            <Label htmlFor="emailCurrentPassword">
               Current password
-            </label>
-            <input
+            </Label>
+            <Input
               id="emailCurrentPassword"
               name="emailCurrentPassword"
               type="password"
@@ -287,7 +282,6 @@ function EmailCard({ currentEmail }: { currentEmail: string | null }) {
               required
               value={currentPassword}
               onChange={(e) => setCurrent(e.target.value)}
-              className={orgFieldClass}
             />
           </div>
         </div>
@@ -352,20 +346,21 @@ function AppearanceCard() {
           {options.map((option) => {
             const active = theme === option.value;
             return (
-              <button
+              <Button
                 key={option.value}
                 type="button"
+                variant="outline"
                 onClick={() => apply(option.value)}
                 aria-pressed={active}
-                className={`inline-flex items-center gap-2 rounded-lg border px-3 py-2 text-sm font-medium transition-colors ${
+                className={
                   active
-                    ? "border-foreground/20 bg-muted text-foreground"
-                    : "border-border text-muted-foreground hover:bg-muted/60 hover:text-foreground"
-                }`}
+                    ? "border-brand bg-brand-subtle text-brand-strong hover:bg-brand-subtle"
+                    : "text-muted-foreground hover:text-foreground"
+                }
               >
                 <option.icon className="size-4" aria-hidden />
                 {option.label}
-              </button>
+              </Button>
             );
           })}
         </div>
@@ -411,7 +406,7 @@ function SessionsCard() {
 
         <Button
           type="button"
-          variant="destructive"
+          variant="outline"
           size="lg"
           disabled={signingOut}
           onClick={signOutHere}

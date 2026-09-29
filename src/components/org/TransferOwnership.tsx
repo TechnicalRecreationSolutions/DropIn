@@ -5,6 +5,8 @@ import { useRouter } from "next/navigation";
 import { Crown } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
+import { Label } from "@/components/ui/field";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
 import { SettingsCard } from "@/components/settings/SettingsSection";
@@ -44,7 +46,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
   if (candidates.length === 0) {
     return (
       <Section>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           You can only transfer ownership to someone on your team. Add them on the Staff page first.
         </p>
       </Section>
@@ -65,7 +67,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
               {candidates.map((c) => (
                 <label
                   key={c.membershipId}
-                  className="flex items-center gap-3 min-h-11 px-3 py-2 rounded-lg border border-border hover:bg-muted cursor-pointer"
+                  className="flex items-center gap-3 min-h-11 px-3 py-2 rounded-control border border-border hover:bg-muted cursor-pointer"
                 >
                   <input
                     type="radio"
@@ -86,24 +88,22 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
           </div>
 
           <div className="space-y-1.5">
-            <label htmlFor="confirm-org" className="text-sm font-medium text-foreground">
+            <Label htmlFor="confirm-org" className="mb-0">
               Type <span className="font-mono">{orgName}</span> to confirm
-            </label>
+            </Label>
             <Input
               id="confirm-org"
               value={confirmName}
               onChange={(e) => setConfirmName(e.target.value)}
               autoComplete="off"
             />
-            <p className="text-xs text-muted-foreground">
+            <p className="text-caption text-muted-foreground">
               You will become a Manager. Only the new owner can give it back.
             </p>
           </div>
 
           {error && (
-            <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-              {error}
-            </p>
+            <Banner variant="error">{error}</Banner>
           )}
 
           <div className="flex gap-2">
@@ -119,6 +119,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
               Cancel
             </Button>
             <Button
+              variant="destructive"
               disabled={!target || confirmName.trim() !== orgName.trim() || busy}
               onClick={async () => {
                 setBusy(true);
@@ -168,7 +169,7 @@ function Section({ children }: { children: React.ReactNode }) {
       info="Only the owner can manage billing, delete the organization, or transfer ownership. There is always exactly one owner."
       description="Handing this over makes you a Manager. Only the new owner can give it back."
     >
-      <div className="flex items-center gap-2 pb-3 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 pb-3 text-caption text-muted-foreground">
         <Crown className="size-3.5" aria-hidden />
         You are the owner of this organization.
       </div>

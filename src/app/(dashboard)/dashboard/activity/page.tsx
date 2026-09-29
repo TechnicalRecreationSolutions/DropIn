@@ -96,7 +96,7 @@ async function ActivityLogBody() {
 
 function ActivityLogSkeleton() {
   return (
-    <div className="rounded-xl border border-border divide-y divide-border" aria-busy="true">
+    <div className="rounded-card border border-border divide-y divide-border" aria-busy="true">
       {Array.from({ length: 8 }).map((_, i) => (
         <div key={i} className="flex items-center gap-3 px-4 py-3">
           <Skeleton className="size-8 shrink-0 rounded-full" />

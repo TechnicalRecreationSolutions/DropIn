@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle, Clock, Crown, MoreHorizontal, Trash2, X } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -114,7 +115,7 @@ export default function StaffPanel({
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body text-muted-foreground">
           {members.length} {members.length === 1 ? "person" : "people"}
           {invitations.length > 0 && `, ${invitations.length} invited`}
         </p>
@@ -128,12 +129,10 @@ export default function StaffPanel({
       </div>
 
       {error && (
-        <p className="text-sm text-destructive bg-destructive/10 border border-destructive/20 rounded-lg px-3 py-2.5">
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
-      <div className="border border-border rounded-xl divide-y divide-border overflow-hidden">
+      <div className="border border-border rounded-card shadow-card divide-y divide-border overflow-hidden">
         {members.map((member) => {
           const scopes = describeScope(member.membership_scopes, member.role);
           const editable = canModifyMembership(actor, {
@@ -153,7 +152,7 @@ export default function StaffPanel({
                     {member.email ?? "Unknown address"}
                   </span>
                   {member.user_id === currentUserId && (
-                    <span className="text-xs text-muted-foreground">(you)</span>
+                    <span className="text-caption text-muted-foreground">(you)</span>
                   )}
                   <Badge variant={member.role === "owner" ? "default" : "secondary"}>
                     {member.role === "owner" && <Crown className="w-3 h-3" />}
@@ -163,7 +162,7 @@ export default function StaffPanel({
 
                 <div className="mt-1.5 flex flex-wrap gap-1.5">
                   {stranded ? (
-                    <span className="inline-flex items-center gap-1 text-xs text-destructive">
+                    <span className="inline-flex items-center gap-1 text-caption text-destructive">
                       <AlertTriangle className="w-3 h-3" />
                       Nothing assigned — they can sign in but see nothing
                     </span>
@@ -217,8 +216,8 @@ export default function StaffPanel({
 
       {invitations.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold text-foreground">Waiting to accept</h2>
-          <div className="border border-border rounded-xl divide-y divide-border overflow-hidden">
+          <h2 className="text-heading text-foreground">Waiting to accept</h2>
+          <div className="border border-border rounded-card shadow-card divide-y divide-border overflow-hidden">
             {invitations.map((invitation) => {
               const scopes = describeScope(invitation.invitation_scopes, invitation.role);
               const expired = new Date(invitation.expires_at) <= new Date();
@@ -231,7 +230,7 @@ export default function StaffPanel({
                         {invitation.email}
                       </span>
                       <Badge variant="secondary">{ROLE_LABELS[invitation.role]}</Badge>
-                      <span className="inline-flex items-center gap-1 text-xs text-muted-foreground">
+                      <span className="inline-flex items-center gap-1 text-caption text-muted-foreground">
                         <Clock className="w-3 h-3" />
                         {expired
                           ? "Expired"

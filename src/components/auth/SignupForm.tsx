@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 
 export default function SignupForm() {
   const [orgName, setOrgName] = useState("");
@@ -47,8 +51,8 @@ export default function SignupForm() {
   if (emailSent) {
     return (
       <div className="space-y-4 text-center">
-        <div className="rounded-lg bg-blue-50 px-4 py-5">
-          <h2 className="text-sm font-semibold text-foreground">Check your email</h2>
+        <div className="rounded-banner bg-brand-subtle px-4 py-5">
+          <h2 className="text-card-title text-foreground">Check your email</h2>
           <p className="mt-2 text-sm text-muted-foreground">
             If <span className="font-medium">{email}</span> can receive mail, we&apos;ve sent a
             link to confirm your account. Open it to finish setting up{" "}
@@ -60,7 +64,7 @@ export default function SignupForm() {
           <button
             type="button"
             onClick={() => { setEmailSent(false); setError(null); }}
-            className="text-blue-600 dark:text-blue-400 font-medium hover:underline"
+            className="text-brand font-medium hover:underline"
           >
             try a different address
           </button>
@@ -68,7 +72,7 @@ export default function SignupForm() {
         </p>
         <p className="text-center text-sm text-muted-foreground">
           Already confirmed?{" "}
-          <Link href="/login" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
+          <Link href="/login" className="text-brand font-medium hover:underline">
             Sign in
           </Link>
         </p>
@@ -79,41 +83,39 @@ export default function SignupForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="orgName" className="block text-sm font-medium text-foreground mb-1">
+        <Label htmlFor="orgName">
           Organization name
-        </label>
-        <input
+        </Label>
+        <Input
           id="orgName"
           type="text"
           required
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="City of Calgary Parks & Recreation"
         />
       </div>
 
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+        <Label htmlFor="email">
           Work email
-        </label>
-        <input
+        </Label>
+        <Input
           id="email"
           type="email"
           autoComplete="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="you@yourorg.com"
         />
       </div>
 
       <div>
-        <label htmlFor="password" className="block text-sm font-medium text-foreground mb-1">
+        <Label htmlFor="password">
           Password
-        </label>
-        <input
+        </Label>
+        <Input
           id="password"
           type="password"
           autoComplete="new-password"
@@ -121,24 +123,17 @@ export default function SignupForm() {
           minLength={8}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="Min. 8 characters"
         />
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-2.5 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Creating account…" : "Create account"}
-      </button>
+      </Button>
 
       <p className="text-center text-xs text-muted-foreground">
         By creating an account you agree to our{" "}
@@ -154,7 +149,7 @@ export default function SignupForm() {
 
       <p className="text-center text-sm text-muted-foreground">
         Already have an account?{" "}
-        <Link href="/login" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
+        <Link href="/login" className="text-brand font-medium hover:underline">
           Sign in
         </Link>
       </p>

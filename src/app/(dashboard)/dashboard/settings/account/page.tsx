@@ -37,7 +37,7 @@ export default function SettingsAccountPage() {
         info="Your sign-in details and this device's preferences. Nothing here affects anyone else in your organization."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <AccountBody />
         </Streamed>
@@ -115,11 +115,11 @@ async function AccessCard({
       </SettingsFacts>
 
       <div className="mt-5">
-        <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+        <p className="text-label text-muted-foreground">
           What you can reach
         </p>
         {scopeNames.length === 0 ? (
-          <p className="mt-1 text-sm text-foreground">
+          <p className="mt-1 text-body text-foreground">
             {role === "owner" || role === "manager"
               ? "Every facility and department in this organization."
               : "Nothing is assigned to you yet, so most pages will look empty. Ask a Manager to assign your facilities or departments."}
@@ -136,11 +136,11 @@ async function AccessCard({
       </div>
 
       {can({ role, scopes }, "staff:view") && (
-        <p className="mt-5 text-sm text-muted-foreground">
+        <p className="mt-5 text-caption text-muted-foreground">
           Roles and assignments are changed on{" "}
           <Link
             href="/dashboard/settings/staff"
-            className="text-blue-600 hover:underline dark:text-blue-400"
+            className="text-brand hover:underline"
           >
             Staff
           </Link>

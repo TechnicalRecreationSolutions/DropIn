@@ -1,6 +1,7 @@
 "use client";
 
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 
 /**
  * The submit row shared by the organization forms: one button, one error, one
@@ -32,12 +33,7 @@ export default function SaveBar({
   return (
     <>
       {error && (
-        <p
-          role="alert"
-          className="rounded-lg bg-destructive/10 px-3 py-2 text-sm text-destructive"
-        >
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       {canEdit && (
@@ -46,7 +42,7 @@ export default function SaveBar({
             {saving ? "Saving…" : label}
           </Button>
           {saved && (
-            <span role="status" className="text-sm text-green-700 dark:text-green-400">
+            <span role="status" className="text-body text-success">
               Saved.
             </span>
           )}

@@ -2,6 +2,10 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 
 /**
  * `suggestedName` comes from user_metadata.org_name, set at signup so the user
@@ -47,33 +51,26 @@ export default function OnboardOrgForm({ suggestedName = "" }: { suggestedName?:
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="orgName" className="block text-sm font-medium text-foreground mb-1">
+        <Label htmlFor="orgName">
           Organization name
-        </label>
-        <input
+        </Label>
+        <Input
           id="orgName"
           type="text"
           required
           value={orgName}
           onChange={(e) => setOrgName(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="City of Calgary Parks & Recreation"
         />
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-2.5 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Setting up…" : "Continue"}
-      </button>
+      </Button>
     </form>
   );
 }

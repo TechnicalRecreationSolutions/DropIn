@@ -33,7 +33,7 @@ export default function BillingPage() {
         info="Your plan and payment. Dropin bills per facility: departments, schedules, spaces, staff accounts and embeds are unlimited on every tier."
       />
 
-      <Suspense fallback={<Skeleton className="h-64 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-64 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-6">
           <BillingBody />
         </Streamed>

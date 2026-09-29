@@ -5,6 +5,7 @@ import { cn } from "@/lib/utils/cn";
 import type { DepartmentOption, FacilityOption } from "./types";
 import type { InvitableRole } from "@/types/app.types";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Banner } from "@/components/ui/banner";
 
 interface ScopePickerProps {
   role: InvitableRole;
@@ -40,9 +41,9 @@ export default function ScopePicker({
 }: ScopePickerProps) {
   if (role === "manager") {
     return (
-      <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">
+      <Banner variant="neutral">
         Managers can see and change everything in your organization, in every building.
-      </p>
+      </Banner>
     );
   }
 
@@ -77,14 +78,14 @@ export default function ScopePicker({
       </div>
 
       {byFacility.length === 0 ? (
-        <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">
+        <Banner variant="neutral">
           There are no departments yet. Create one before adding a coordinator.
-        </p>
+        </Banner>
       ) : (
         <div className="space-y-3">
           {byFacility.map(({ facility, rows }) => (
             <div key={facility.id}>
-              <p className="text-[11px] font-semibold uppercase tracking-wide text-muted-foreground px-1 pb-1">
+              <p className="text-label text-muted-foreground px-1 pb-1">
                 {facility.name}
               </p>
               <div className="space-y-1">
@@ -129,9 +130,9 @@ function Options({
         <InfoTip>{hint}</InfoTip>
       </div>
       {items.length === 0 ? (
-        <p className="text-sm text-muted-foreground bg-muted border border-border rounded-lg px-3 py-2.5">
+        <Banner variant="neutral">
           {empty}
-        </p>
+        </Banner>
       ) : (
         <div className="space-y-1">
           {items.map((i) => (
@@ -168,9 +169,9 @@ function Option({
       className={cn(
         // min-h-11 keeps every row a comfortable tap target on a phone, which
         // is where a supervisor actually adds a lifeguard.
-        "flex items-center gap-3 min-h-11 px-3 py-2 rounded-lg border cursor-pointer transition-colors",
+        "flex items-center gap-3 min-h-11 px-3 py-2 rounded-control border cursor-pointer transition-colors",
         checked
-          ? "border-primary bg-primary/5"
+          ? "border-brand bg-brand-subtle"
           : "border-border hover:bg-muted"
       )}
     >

@@ -41,7 +41,7 @@ export default function SettingsPublicPage() {
         info="What patrons can currently see, and where. Each switch is changed on the facility it belongs to — this page is the overview, and every row links to its editor."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <PublicBody />
         </Streamed>
@@ -88,7 +88,7 @@ async function PublicBody() {
         info="/find is the public, no-account directory of recreation facilities. A facility appears in it only when it is published, opted in, and its organization is verified — all three."
       >
         {verified ? (
-          <p className="text-sm text-foreground">
+          <p className="text-body text-foreground">
             Your organization is verified.{" "}
             {listed.length === 0 ? (
               <>
@@ -99,7 +99,7 @@ async function PublicBody() {
               <>
                 {listed.length} of your {published.length} published{" "}
                 {published.length === 1 ? "facility is" : "facilities are"} listed in{" "}
-                <Link href="/find" className="text-blue-600 hover:underline dark:text-blue-400">
+                <Link href="/find" className="text-brand hover:underline">
                   the directory
                 </Link>
                 .
@@ -107,7 +107,7 @@ async function PublicBody() {
             )}
           </p>
         ) : (
-          <p className="text-sm text-foreground">
+          <p className="text-body text-foreground">
             Your organization is <strong>not verified yet</strong>, so nothing of yours appears
             in the directory and your facility pages carry <code>noindex</code> for search
             engines. The pages themselves work — your own website can link to them.
@@ -125,11 +125,11 @@ async function PublicBody() {
         }
       >
         {facilities.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
+          <p className="text-body text-muted-foreground">
             No facilities yet.{" "}
             <Link
               href="/dashboard/facilities"
-              className="text-blue-600 hover:underline dark:text-blue-400"
+              className="text-brand hover:underline"
             >
               Add one
             </Link>{" "}
@@ -143,7 +143,7 @@ async function PublicBody() {
                 className="flex flex-col gap-2 py-3 first:pt-0 last:pb-0 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-foreground">{f.name}</p>
+                  <p className="truncate text-body font-medium text-foreground">{f.name}</p>
                   <div className="mt-1 flex flex-wrap items-center gap-1.5">
                     {f.is_published ? (
                       <Badge variant="secondary" className="gap-1">
@@ -169,7 +169,7 @@ async function PublicBody() {
                 <div className="flex shrink-0 items-center gap-3 text-sm">
                   <Link
                     href={`/dashboard/facilities/${f.id}/edit`}
-                    className="text-blue-600 hover:underline dark:text-blue-400"
+                    className="text-brand hover:underline"
                   >
                     Edit
                   </Link>
@@ -178,7 +178,7 @@ async function PublicBody() {
                       href={`${SITE_URL}/facility/${f.slug}`}
                       target="_blank"
                       rel="noreferrer"
-                      className="inline-flex items-center gap-1 text-blue-600 hover:underline dark:text-blue-400"
+                      className="inline-flex items-center gap-1 text-brand hover:underline"
                     >
                       View <ExternalLink className="size-3.5" aria-hidden />
                     </a>
@@ -196,7 +196,7 @@ async function PublicBody() {
       >
         <Link
           href="/dashboard/widget"
-          className="text-sm text-blue-600 hover:underline dark:text-blue-400"
+          className="text-sm text-brand hover:underline"
         >
           Open the widget studio
         </Link>

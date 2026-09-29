@@ -3,7 +3,10 @@
 import { useState } from "react";
 import ImageUpload from "@/components/media/ImageUpload";
 import SaveBar from "./SaveBar";
-import { useOrgPatch, orgFieldClass, orgLabelClass } from "./useOrgPatch";
+import { useOrgPatch } from "./useOrgPatch";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/field";
 import { SettingsCard } from "@/components/settings/SettingsSection";
 
 export interface OrgProfileValues {
@@ -60,10 +63,10 @@ export default function OrgProfileForm({
       <SettingsCard title="Public profile" info="Shown on your public schedule pages, in the widget, and in the resident directory.">
         <div className="space-y-5">
           <div>
-            <label htmlFor="name" className={orgLabelClass}>
+            <Label htmlFor="name">
               Organization name *
-            </label>
-            <input
+            </Label>
+            <Input
               id="name"
               name="name"
               type="text"
@@ -71,7 +74,6 @@ export default function OrgProfileForm({
               disabled={!canEdit}
               value={form.name}
               onChange={handleChange}
-              className={orgFieldClass}
               placeholder="City of Calgary Recreation"
             />
           </div>
@@ -96,17 +98,16 @@ export default function OrgProfileForm({
           </fieldset>
 
           <div>
-            <label htmlFor="description" className={orgLabelClass}>
+            <Label htmlFor="description">
               Description
-            </label>
-            <textarea
+            </Label>
+            <Textarea
               id="description"
               name="description"
               rows={3}
               disabled={!canEdit}
               value={form.description}
               onChange={handleChange}
-              className={orgFieldClass}
               placeholder="What your organization offers, in a sentence or two..."
             />
           </div>

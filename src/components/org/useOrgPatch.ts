@@ -73,9 +73,3 @@ export function useOrgPatch() {
 
   return { save, saving, saved, error, touch, setError };
 }
-
-/** The field and label classes every organization form shares. */
-export const orgFieldClass =
-  "w-full px-3 py-2.5 border border-border rounded-lg text-sm bg-background text-foreground focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent disabled:bg-muted disabled:text-muted-foreground";
-
-export const orgLabelClass = "block text-sm font-medium text-foreground mb-1";

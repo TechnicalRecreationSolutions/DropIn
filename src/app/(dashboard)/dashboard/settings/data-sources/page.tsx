@@ -47,16 +47,14 @@ export default function DataSourcesPage() {
 
       <Link
         href="/dashboard/import"
-        className="flex items-center gap-3 p-4 bg-card rounded-xl border border-border hover:border-blue-300 hover:shadow-sm transition-all group"
+        className="flex items-center gap-3 p-4 bg-card rounded-card border border-border shadow-card hover:bg-muted transition-colors duration-150 group"
       >
-        <div className="w-10 h-10 rounded-lg bg-blue-50 flex items-center justify-center shrink-0">
-          <Upload className="w-5 h-5 text-blue-600 dark:text-blue-400" />
-        </div>
+        <Upload className="w-5 h-5 text-muted-foreground shrink-0" />
         <div className="flex-1 min-w-0">
-          <p className="font-medium text-foreground">Import a spreadsheet</p>
-          <p className="text-sm text-muted-foreground">Org-wide import, pick a facility</p>
+          <p className="text-card-title text-foreground">Import a spreadsheet</p>
+          <p className="text-caption text-muted-foreground">Org-wide import, pick a facility</p>
         </div>
-        <ArrowRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-blue-400 transition-colors" />
+        <ArrowRight className="w-4 h-4 text-muted-foreground group-hover:text-foreground transition-colors" />
       </Link>
 
       <Suspense fallback={<RecentImportsSkeleton />}>
@@ -92,17 +90,17 @@ async function RecentImports() {
     .limit(20)) as unknown as { data: ImportedScheduleGroupRow[] | null };
 
   return (
-    <div className="bg-card rounded-xl border border-border p-6">
-      <h2 className="font-semibold text-foreground mb-4">Recent imports</h2>
+    <div className="bg-card rounded-card border border-border shadow-card p-6">
+      <h2 className="text-card-title text-foreground mb-4">Recent imports</h2>
       {!recentImports || recentImports.length === 0 ? (
-        <p className="text-sm text-muted-foreground">No spreadsheet imports yet.</p>
+        <p className="text-body text-muted-foreground">No spreadsheet imports yet.</p>
       ) : (
         <ul className="divide-y divide-border">
           {recentImports.map((sg) => (
             <li key={sg.id} className="py-3 flex items-center justify-between gap-3">
               <div className="min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">{sg.name}</p>
-                <p className="text-xs text-muted-foreground">
+                <p className="text-body font-medium text-foreground truncate">{sg.name}</p>
+                <p className="text-caption text-muted-foreground">
                   {/* Explicit zone: this is a server component, so an
                       unqualified toLocaleString() formats in the server's
                       zone — UTC in production — and showed staff import
@@ -125,7 +123,7 @@ async function RecentImports() {
 
 function RecentImportsSkeleton() {
   return (
-    <div className="bg-card rounded-xl border border-border p-6" aria-busy="true">
+    <div className="bg-card rounded-card border border-border shadow-card p-6" aria-busy="true">
       <Skeleton className="h-4 w-32 mb-4" />
       <div className="divide-y divide-border">
         {Array.from({ length: 5 }).map((_, i) => (

@@ -42,7 +42,7 @@ export default function OrgPermissionsForm({
         title="Facility status notices"
         info="A facility status is the “what is true right now” banner above your public schedule — a closure, a contamination, a staffing shortage. It appears on the facility page, in the embedded widget and on your Overview."
       >
-        <label className="flex items-start gap-3 text-sm">
+        <label className="flex items-start gap-3 text-body">
           <input
             type="checkbox"
             name="aux_can_post_notices"
@@ -52,7 +52,7 @@ export default function OrgPermissionsForm({
               setValue(e.target.checked);
               touch();
             }}
-            className="mt-0.5 size-4 shrink-0"
+            className="mt-0.5 size-4 shrink-0 accent-primary"
           />
           <span>
             <span className="font-medium text-foreground">

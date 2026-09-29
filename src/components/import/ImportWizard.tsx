@@ -4,6 +4,10 @@ import { useState, useRef } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Upload, CheckCircle, AlertCircle, FileText, X } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/field";
 import type { ImportPreviewRow } from "@/lib/import/rows";
 
 interface ImportWizardProps {
@@ -70,20 +74,20 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
 
   if (facilities.length === 0) {
     return (
-      <div className="p-6 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800">
+      <Banner variant="warning">
         You need to <Link href="/dashboard/facilities/new" className="underline font-medium">add a facility</Link> before importing.
-      </div>
+      </Banner>
     );
   }
 
   return (
     <div className="space-y-6">
       {/* Step indicator */}
-      <div className="flex items-center gap-2 text-xs text-muted-foreground">
+      <div className="flex items-center gap-2 text-caption text-muted-foreground">
         {(["upload", "preview", "done"] as Step[]).map((s, i) => (
           <div key={s} className="flex items-center gap-2">
             {i > 0 && <span>›</span>}
-            <span className={step === s ? "font-semibold text-blue-600 dark:text-blue-400" : ""}>
+            <span className={step === s ? "font-semibold text-brand" : ""}>
               {i + 1}. {s.charAt(0).toUpperCase() + s.slice(1)}
             </span>
           </div>
@@ -92,45 +96,44 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
 
       {/* Upload step */}
       {step === "upload" && (
-        <div className="bg-card rounded-xl border border-border p-6 space-y-5">
+        <div className="bg-card rounded-card border border-border shadow-card p-6 space-y-5">
           <div>
-            <label className="block text-sm font-medium text-foreground mb-1">
+            <Label>
               {facilityLocked ? "Importing into" : "Facility *"}
-            </label>
+            </Label>
             {facilityLocked ? (
-              <p className="px-3 py-2.5 text-sm text-foreground bg-muted rounded-lg">
+              <p className="px-3 py-2.5 text-body text-foreground bg-muted rounded-control">
                 {facilities.find((f) => f.id === facilityId)?.name ?? "This facility"}
                 {departmentName ? ` › ${departmentName}` : ""}
               </p>
             ) : (
-              <select
+              <NativeSelect
                 value={facilityId}
                 onChange={(e) => setFacilityId(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
               >
                 {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-              </select>
+              </NativeSelect>
             )}
           </div>
 
           {/* File drop zone */}
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-border rounded-xl p-10 text-center cursor-pointer hover:border-blue-400 hover:bg-blue-50 transition-colors"
+            className="border-2 border-dashed border-border rounded-card p-10 text-center cursor-pointer hover:border-brand hover:bg-brand-subtle transition-colors duration-150"
           >
-            <Upload className="w-8 h-8 text-muted-foreground/70 mx-auto mb-3" />
+            <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
             {file ? (
               <div className="flex items-center justify-center gap-2">
-                <FileText className="w-4 h-4 text-blue-600 dark:text-blue-400" />
-                <span className="text-sm font-medium text-foreground">{file.name}</span>
-                <button onClick={(e) => { e.stopPropagation(); setFile(null); }} className="text-muted-foreground/70 hover:text-muted-foreground">
+                <FileText className="w-4 h-4 text-brand" />
+                <span className="text-body font-medium text-foreground">{file.name}</span>
+                <Button variant="ghost" size="icon-xs" aria-label="Remove file" onClick={(e) => { e.stopPropagation(); setFile(null); }}>
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             ) : (
               <>
-                <p className="text-sm font-medium text-foreground">Click to upload a CSV</p>
-                <p className="text-xs text-muted-foreground/70 mt-1">
+                <p className="text-body font-medium text-foreground">Click to upload a CSV</p>
+                <p className="text-caption text-muted-foreground mt-1">
                   Max 10 MB · 500 rows · in Excel, File → Save As → CSV
                 </p>
               </>
@@ -145,19 +148,19 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
           </div>
 
           {/* Template download hint */}
-          <p className="text-xs text-muted-foreground">
-            Columns: <code className="bg-muted px-1 rounded">program_name, sport_category, days, start_time, end_time, season_start</code> (optional: activity_type, season_end, cost, location_detail)
+          <p className="text-caption text-muted-foreground">
+            Columns: <code className="bg-muted px-1 rounded-control">program_name, sport_category, days, start_time, end_time, season_start</code> (optional: activity_type, season_end, cost, location_detail)
           </p>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <Banner variant="error">{error}</Banner>}
 
-          <button
+          <Button
             onClick={handleUpload}
             disabled={!file || loading}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full"
           >
             {loading ? "Parsing file…" : "Preview import"}
-          </button>
+          </Button>
         </div>
       )}
 
@@ -166,37 +169,37 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
         <div className="space-y-4">
           <div className="flex items-center justify-between">
             <div>
-              <p className="text-sm font-medium text-foreground">{preview.length} rows · {errorCount} with errors</p>
-              <p className="text-xs text-muted-foreground">{preview.length - errorCount} rows will be imported</p>
+              <p className="text-body font-medium text-foreground">{preview.length} rows · {errorCount} with errors</p>
+              <p className="text-caption text-muted-foreground">{preview.length - errorCount} rows will be imported</p>
             </div>
-            <button onClick={() => setStep("upload")} className="text-sm text-muted-foreground hover:text-foreground underline">
+            <Button variant="ghost" onClick={() => setStep("upload")}>
               Back
-            </button>
+            </Button>
           </div>
 
-          <div className="bg-card rounded-xl border border-border overflow-hidden">
+          <div className="bg-card rounded-card border border-border shadow-card overflow-hidden">
             <div className="overflow-x-auto max-h-96">
-              <table className="w-full text-xs">
-                <thead className="bg-muted border-b border-border sticky top-0">
+              <table className="w-full text-caption">
+                <thead className="bg-muted sticky top-0">
                   <tr>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Status</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Schedule</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Sport</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Days</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Time</th>
-                    <th className="px-3 py-2 text-left font-medium text-muted-foreground">Season</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Status</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Schedule</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Sport</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Days</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Time</th>
+                    <th className="px-3 py-2 text-left text-label text-muted-foreground">Season</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-border">
                   {preview.map((row) => (
-                    <tr key={row._index} className={row._errors.length > 0 ? "bg-red-50" : ""}>
+                    <tr key={row._index} className={row._errors.length > 0 ? "bg-destructive-subtle" : ""}>
                       <td className="px-3 py-2">
                         {row._errors.length > 0 ? (
                           <span title={row._errors.join(", ")}>
-                            <AlertCircle className="w-4 h-4 text-red-500" />
+                            <AlertCircle className="w-4 h-4 text-destructive" />
                           </span>
                         ) : (
-                          <CheckCircle className="w-4 h-4 text-green-500" />
+                          <CheckCircle className="w-4 h-4 text-success" />
                         )}
                       </td>
                       <td className="px-3 py-2 font-medium text-foreground">{row.program_name}</td>
@@ -211,36 +214,34 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
             </div>
           </div>
 
-          {error && <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+          {error && <Banner variant="error">{error}</Banner>}
 
-          <button
+          <Button
             onClick={handleCommit}
             disabled={loading || preview.length - errorCount === 0}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="w-full"
           >
             {loading ? "Importing…" : `Import ${preview.length - errorCount} rows`}
-          </button>
+          </Button>
         </div>
       )}
 
       {/* Done step */}
       {step === "done" && result && (
-        <div className="bg-card rounded-xl border border-border p-10 text-center">
-          <CheckCircle className="w-12 h-12 text-green-500 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-foreground mb-1">Import complete</h3>
-          <p className="text-muted-foreground text-sm">
+        <div className="bg-card rounded-card border border-border shadow-card p-10 text-center">
+          <CheckCircle className="w-12 h-12 text-success mx-auto mb-4" />
+          <h3 className="text-heading text-foreground mb-1">Import complete</h3>
+          <p className="text-muted-foreground text-body">
             {result.scheduleGroupsCreated} schedule{result.scheduleGroupsCreated !== 1 ? "s" : ""} and{" "}
             {result.sessionsCreated} session{result.sessionsCreated !== 1 ? "s" : ""} created.
           </p>
           <div className="flex justify-center gap-3 mt-6">
-            <button onClick={() => router.push("/dashboard/schedule")}
-              className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors">
+            <Button onClick={() => router.push("/dashboard/schedule")}>
               View schedule
-            </button>
-            <button onClick={() => { setStep("upload"); setFile(null); setPreview([]); setResult(null); }}
-              className="px-4 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
+            </Button>
+            <Button variant="outline" onClick={() => { setStep("upload"); setFile(null); setPreview([]); setResult(null); }}>
               Import more
-            </button>
+            </Button>
           </div>
         </div>
       )}

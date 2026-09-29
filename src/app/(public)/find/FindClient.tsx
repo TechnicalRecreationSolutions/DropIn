@@ -4,6 +4,8 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Building2, LocateFixed, MapPin, Search, Star, X, Loader2 } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import OrgImage from "@/components/media/OrgImage";
 import { cn } from "@/lib/utils/cn";
 import { filterFacilities, sortByDistance } from "@/lib/directory/filter";
@@ -112,7 +114,7 @@ export default function FindClient({ listings }: FindClientProps) {
 
   if (listings === null) {
     return (
-      <div role="alert" className="rounded-xl border border-border bg-card p-6 text-center">
+      <div role="alert" className="rounded-card border border-border bg-card p-6 text-center shadow-card">
         <p className="font-medium text-foreground">The directory is unavailable right now.</p>
         <p className="mt-1 text-sm text-muted-foreground">Please try again in a minute.</p>
       </div>
@@ -121,7 +123,7 @@ export default function FindClient({ listings }: FindClientProps) {
 
   if (all.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card p-8 text-center">
+      <div className="rounded-card border border-dashed border-border bg-card p-8 text-center">
         <Building2 className="mx-auto size-8 text-muted-foreground" aria-hidden />
         <p className="mt-3 font-medium text-foreground">No centres are listed yet.</p>
         <p className="mt-1 text-sm text-muted-foreground">Check back soon — centres are joining Dropin.</p>
@@ -141,36 +143,37 @@ export default function FindClient({ listings }: FindClientProps) {
           <label className="relative flex-1">
             <span className="sr-only">Search by centre name or city</span>
             <Search className="pointer-events-none absolute left-3 top-1/2 size-5 -translate-y-1/2 text-muted-foreground" aria-hidden />
-            <input
+            <Input
               type="search"
               value={query}
               onChange={(e) => changeQuery(e.target.value)}
               placeholder="Centre name or city"
               maxLength={80}
               enterKeyHint="search"
-              className="h-12 w-full rounded-xl border border-border bg-card pl-10 pr-10 text-base text-foreground placeholder:text-muted-foreground focus:border-transparent focus:outline-none focus:ring-2 focus:ring-blue-500 [&::-webkit-search-cancel-button]:hidden"
+              className="h-12 rounded-card pl-10 pr-10 [&::-webkit-search-cancel-button]:hidden"
             />
             {query && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="icon-sm"
                 onClick={() => changeQuery("")}
                 aria-label="Clear search"
-                className="absolute right-1.5 top-1/2 flex size-9 -translate-y-1/2 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+                className="absolute right-2 top-1/2 size-9 -translate-y-1/2 text-muted-foreground"
               >
                 <X className="size-4" />
-              </button>
+              </Button>
             )}
           </label>
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="lg"
             onClick={locate}
             disabled={geoStatus === "locating"}
             aria-pressed={geoStatus === "on"}
             className={cn(
-              "inline-flex h-12 items-center justify-center gap-2 rounded-xl border px-4 text-sm font-medium transition-colors disabled:opacity-70",
-              geoStatus === "on"
-                ? "border-blue-600 bg-blue-600 text-white hover:bg-blue-700"
-                : "border-border bg-card text-foreground hover:bg-muted"
+              geoStatus === "on" && "border-brand bg-brand-subtle text-brand-strong hover:bg-brand-subtle"
             )}
           >
             {geoStatus === "locating" ? (
@@ -179,16 +182,16 @@ export default function FindClient({ listings }: FindClientProps) {
               <LocateFixed className="size-4" aria-hidden />
             )}
             {geoStatus === "on" ? "Sorted by distance" : geoStatus === "locating" ? "Finding you…" : "Use my location"}
-          </button>
+          </Button>
         </div>
 
         {geoMessage && (
-          <p role="status" className="text-sm text-amber-700 dark:text-amber-400">{geoMessage}</p>
+          <p role="status" className="text-caption text-warning">{geoMessage}</p>
         )}
         {geoStatus === "on" && (
-          <p className="text-xs text-muted-foreground">
+          <p className="text-caption text-muted-foreground">
             Your location is only used on this device to sort results.{" "}
-            <button type="button" onClick={locate} className="underline underline-offset-2 hover:text-foreground">
+            <button type="button" onClick={locate} className="rounded-sm underline underline-offset-2 hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring">
               Stop using it
             </button>
           </p>
@@ -214,15 +217,15 @@ export default function FindClient({ listings }: FindClientProps) {
       {/* Saved centres — only while browsing, so a search shows just its matches */}
       {!filtering && savedResults.length > 0 && (
         <section aria-labelledby="saved-heading" className="mt-8">
-          <h2 id="saved-heading" className="text-sm font-semibold text-foreground">Your saved centres</h2>
+          <h2 id="saved-heading" className="text-card-title text-foreground">Your saved centres</h2>
           <ul className="mt-3 flex gap-2 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             {savedResults.map((f) => (
               <li key={f.id} className="shrink-0">
                 <Link
                   href={f.path}
-                  className="inline-flex h-11 items-center gap-2 rounded-full border border-border bg-card px-4 text-sm font-medium text-foreground hover:bg-muted"
+                  className="inline-flex h-11 items-center gap-2 rounded-full border border-input bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Star className="size-4 fill-amber-400 text-amber-500" aria-hidden />
+                  <Star className="size-4 fill-warning text-warning" aria-hidden />
                   {f.name}
                 </Link>
               </li>
@@ -234,26 +237,22 @@ export default function FindClient({ listings }: FindClientProps) {
       {/* Results */}
       <section aria-labelledby="results-heading" className="mt-8">
         <div className="flex items-baseline justify-between gap-4">
-          <h2 id="results-heading" className="text-sm font-semibold text-foreground">
+          <h2 id="results-heading" className="text-card-title text-foreground">
             {filtering ? "Matching centres" : "All centres"}
           </h2>
-          <p aria-live="polite" className="text-sm text-muted-foreground">
+          <p aria-live="polite" className="text-caption text-muted-foreground">
             {results.length} {results.length === 1 ? "centre" : "centres"}
           </p>
         </div>
 
         {results.length === 0 ? (
-          <div className="mt-3 rounded-xl border border-dashed border-border bg-card p-8 text-center">
+          <div className="mt-3 rounded-card border border-dashed border-border bg-card p-8 text-center">
             <p className="font-medium text-foreground">
               {query.trim() ? `No centres match “${query.trim()}”` : "No centres match these filters"}
             </p>
-            <button
-              type="button"
-              onClick={clearFilters}
-              className="mt-3 inline-flex h-11 items-center rounded-lg px-4 text-sm font-medium text-blue-600 hover:bg-muted dark:text-blue-400"
-            >
+            <Button type="button" variant="ghost" onClick={clearFilters} className="mt-3 text-brand">
               Clear search and filters
-            </button>
+            </Button>
           </div>
         ) : (
           <ul className="mt-3 grid gap-3 md:grid-cols-2">
@@ -271,7 +270,7 @@ export default function FindClient({ listings }: FindClientProps) {
         )}
       </section>
 
-      <footer className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-xs text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
+      <footer className="mt-10 flex flex-col gap-3 border-t border-border pt-6 text-caption text-muted-foreground sm:flex-row sm:items-center sm:justify-between">
         <p>
           <a
             href="https://www.openstreetmap.org/copyright"
@@ -291,19 +290,18 @@ export default function FindClient({ listings }: FindClientProps) {
 
 function SportChip({ label, active, onClick }: { label: string; active: boolean; onClick: () => void }) {
   return (
-    <button
+    <Button
       type="button"
+      variant="outline"
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "h-10 shrink-0 rounded-full border px-4 text-sm font-medium transition-colors",
-        active
-          ? "border-blue-600 bg-blue-600 text-white"
-          : "border-border bg-card text-foreground hover:bg-muted"
+        "shrink-0 font-medium",
+        active && "border-brand bg-brand-subtle text-brand-strong hover:bg-brand-subtle"
       )}
     >
       {label}
-    </button>
+    </Button>
   );
 }
 
@@ -330,8 +328,8 @@ function FacilityResult({
   const hidden = facility.sports.length - shown.length;
 
   return (
-    <article className="relative flex h-full gap-3 rounded-xl border border-border bg-card p-3 transition-shadow focus-within:ring-2 focus-within:ring-blue-500 hover:shadow-md sm:p-4">
-      <div className="relative size-16 shrink-0 overflow-hidden rounded-lg bg-muted sm:size-20">
+    <article className="relative flex h-full gap-3 rounded-card border border-border bg-card p-3 shadow-card transition-colors focus-within:ring-2 focus-within:ring-ring hover:bg-muted sm:p-4">
+      <div className="relative size-16 shrink-0 overflow-hidden rounded-control bg-muted sm:size-20">
         {facility.photoUrl ? (
           <OrgImage src={facility.photoUrl} alt="" sizes="80px" className="object-cover" />
         ) : (
@@ -340,14 +338,14 @@ function FacilityResult({
       </div>
 
       <div className="min-w-0 flex-1 pr-10">
-        <h3 className="font-semibold leading-snug text-foreground">
+        <h3 className="text-card-title text-foreground">
           {/* The whole card is the link target; the star sits above it. */}
-          <Link href={facility.path} className="outline-none after:absolute after:inset-0 after:rounded-xl after:content-['']">
+          <Link href={facility.path} className="outline-none after:absolute after:inset-0 after:rounded-card after:content-['']">
             {facility.name}
           </Link>
         </h3>
-        <p className="truncate text-sm text-muted-foreground">{facility.organization.name}</p>
-        <p className="mt-1 flex items-center gap-1 text-sm text-muted-foreground">
+        <p className="truncate text-caption text-muted-foreground">{facility.organization.name}</p>
+        <p className="mt-1 flex items-center gap-1 text-caption text-muted-foreground">
           <MapPin className="size-3.5 shrink-0" aria-hidden />
           <span className="truncate">
             {facility.address.city}, {facility.address.province}
@@ -364,7 +362,7 @@ function FacilityResult({
                 className={cn(
                   "rounded-full px-2 py-0.5 text-xs font-medium",
                   s.id === highlightSport
-                    ? "bg-blue-600 text-white"
+                    ? "bg-brand-subtle text-brand-strong"
                     : "bg-muted text-muted-foreground"
                 )}
               >
@@ -378,15 +376,17 @@ function FacilityResult({
         )}
       </div>
 
-      <button
+      <Button
         type="button"
+        variant="ghost"
+        size="icon-lg"
         onClick={onToggleSaved}
         aria-pressed={saved}
         aria-label={saved ? `Remove ${facility.name} from saved` : `Save ${facility.name}`}
-        className="absolute right-1.5 top-1.5 z-10 flex size-11 items-center justify-center rounded-lg text-muted-foreground hover:bg-muted hover:text-foreground"
+        className="absolute right-1.5 top-1.5 z-10 size-11 text-muted-foreground hover:bg-background"
       >
-        <Star className={cn("size-5", saved && "fill-amber-400 text-amber-500")} />
-      </button>
+        <Star className={cn("size-5", saved && "fill-warning text-warning")} />
+      </Button>
     </article>
   );
 }
@@ -395,7 +395,7 @@ function ForCentresLink({ className }: { className?: string }) {
   return (
     <Link
       href="/"
-      className={cn("inline-block text-sm font-medium text-blue-600 hover:underline dark:text-blue-400", className)}
+      className={cn("inline-block text-sm font-medium text-brand hover:underline", className)}
     >
       Run a recreation centre? List your schedule →
     </Link>

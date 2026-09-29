@@ -16,11 +16,11 @@ export default function OnboardingLoading() {
         {Array.from({ length: 4 }).map((_, i) => (
           <div key={i} className="space-y-2">
             <Skeleton className="h-3.5 w-24" />
-            <Skeleton className="h-10 rounded-md" />
+            <Skeleton className="h-10 rounded-control" />
           </div>
         ))}
       </div>
-      <Skeleton className="h-10 w-full rounded-md" />
+      <Skeleton className="h-10 w-full rounded-full" />
     </div>
   );
 }

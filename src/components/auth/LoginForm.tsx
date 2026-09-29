@@ -3,6 +3,10 @@
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 import { createClient } from "@/lib/supabase/client";
 import { safeNext } from "@/lib/auth/safe-redirect";
 
@@ -50,59 +54,51 @@ export default function LoginForm() {
   return (
     <form onSubmit={handleSubmit} className="space-y-4">
       <div>
-        <label htmlFor="email" className="block text-sm font-medium text-foreground mb-1">
+        <Label htmlFor="email">
           Email address
-        </label>
-        <input
+        </Label>
+        <Input
           id="email"
           type="email"
           autoComplete="email"
           required
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="you@example.com"
         />
       </div>
 
       <div>
-        <div className="flex justify-between items-center mb-1">
-          <label htmlFor="password" className="block text-sm font-medium text-foreground">
+        <div className="mb-1.5 flex items-baseline justify-between">
+          <Label htmlFor="password" className="mb-0">
             Password
-          </label>
-          <Link href="/forgot-password" className="text-xs text-blue-600 dark:text-blue-400 hover:underline">
+          </Label>
+          <Link href="/forgot-password" className="text-caption text-brand hover:underline">
             Forgot password?
           </Link>
         </div>
-        <input
+        <Input
           id="password"
           type="password"
           autoComplete="current-password"
           required
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
           placeholder="••••••••"
         />
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
-          {error}
-        </p>
+        <Banner variant="error">{error}</Banner>
       )}
 
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full py-2.5 px-4 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
-      >
+      <Button type="submit" disabled={loading} className="w-full">
         {loading ? "Signing in…" : "Sign in"}
-      </button>
+      </Button>
 
       <p className="text-center text-sm text-muted-foreground">
         Don&apos;t have an account?{" "}
-        <Link href="/signup" className="text-blue-600 dark:text-blue-400 font-medium hover:underline">
+        <Link href="/signup" className="text-brand font-medium hover:underline">
           Get started
         </Link>
       </p>

@@ -21,6 +21,8 @@ import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
+import { EmptyState } from "@/components/ui/empty-state";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import {
   Dialog,
@@ -161,15 +163,14 @@ export default function ActivityLogView({ initialEntries, initialCursor, canReve
       />
 
       {entries.length === 0 ? (
-        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-          <Clock className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-          <h2 className="font-medium text-foreground mb-1">{hasFilters ? "No matching activity" : "No activity yet"}</h2>
-          <p className="text-sm text-muted-foreground">
-            {hasFilters
+        <EmptyState
+          title={hasFilters ? "No matching activity" : "No activity yet"}
+          description={
+            hasFilters
               ? "Try a different filter or search term."
-              : "Changes to facilities, schedules and sessions will show up here."}
-          </p>
-        </div>
+              : "Changes to facilities, schedules and sessions will show up here."
+          }
+        />
       ) : (
         <Card className={`divide-y divide-border py-0 ${loadingFiltered ? "opacity-60" : ""}`}>
           {entries.map((entry) => (
@@ -224,7 +225,7 @@ function FilterBar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <div className="relative flex-1 min-w-[160px]">
-        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground/70" />
+        <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-3.5 text-muted-foreground" />
         <Input
           value={search}
           onChange={(e) => onSearch(e.target.value)}
@@ -314,7 +315,7 @@ function ActivityRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-sm text-foreground">
+        <p className="text-body text-foreground">
           <span className="font-medium">{actor}</span>{" "}
           <span className="text-muted-foreground">{action.verb}</span>{" "}
           <span className="font-medium">{label}</span>
@@ -324,7 +325,7 @@ function ActivityRow({
             <ActionIcon className="size-3" />
             {table?.label ?? entry.table_name}
           </Badge>
-          <span className="text-xs text-muted-foreground/70" title={new Date(entry.created_at).toLocaleString()}>
+          <span className="text-caption text-muted-foreground" title={new Date(entry.created_at).toLocaleString()}>
             {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
           </span>
           {entry.reverted_at && (
@@ -332,7 +333,7 @@ function ActivityRow({
           )}
         </div>
         {entry.action === "update" && entry.changed_fields && entry.changed_fields.length > 0 && (
-          <p className="mt-1 text-xs text-muted-foreground/70 truncate">
+          <p className="mt-1 text-caption text-muted-foreground truncate">
             Changed: {entry.changed_fields.join(", ")}
           </p>
         )}
@@ -395,7 +396,7 @@ function RevertDialog({
         </DialogHeader>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          <Banner variant="error">{error}</Banner>
         )}
 
         <DialogFooter>

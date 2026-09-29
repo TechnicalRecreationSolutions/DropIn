@@ -50,10 +50,10 @@ export default function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) 
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors",
+                "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-150",
                 active
-                  ? "border-foreground text-foreground"
-                  : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                  ? "border-brand font-semibold text-foreground"
+                  : "border-transparent text-muted-foreground hover:text-foreground"
               )}
             >
               {item.label}
@@ -72,7 +72,7 @@ export default function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) 
         <div className="space-y-5">
           {groups.map((group) => (
             <div key={group.title}>
-              <p className="px-3 pb-1 text-[11px] font-semibold uppercase tracking-wide text-muted-foreground/60">
+              <p className="px-3 pb-1 text-label text-muted-foreground">
                 {group.title}
               </p>
               <div className="space-y-0.5">
@@ -84,14 +84,14 @@ export default function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) 
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "block rounded-lg px-3 py-2 transition-colors",
+                        "relative block rounded-control px-3 py-2 transition-colors duration-150",
                         active
-                          ? "bg-muted text-foreground"
-                          : "text-muted-foreground hover:bg-muted/60 hover:text-foreground"
+                          ? "bg-muted text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand"
+                          : "text-muted-foreground hover:bg-muted hover:text-foreground"
                       )}
                     >
-                      <span className="block text-sm font-medium">{item.label}</span>
-                      <span className="mt-0.5 block text-xs text-muted-foreground/80">
+                      <span className={cn("block text-sm", active ? "font-semibold" : "font-medium")}>{item.label}</span>
+                      <span className="mt-0.5 block text-caption text-muted-foreground">
                         {item.blurb}
                       </span>
                     </Link>

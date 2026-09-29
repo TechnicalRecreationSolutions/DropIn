@@ -20,7 +20,7 @@ export default function SettingsContactPage() {
         info="Published on your facility pages so a patron can phone or visit. Every field is optional — a blank one is hidden rather than shown empty."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <ContactBody />
         </Streamed>

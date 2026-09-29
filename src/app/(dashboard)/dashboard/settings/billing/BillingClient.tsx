@@ -2,6 +2,8 @@
 
 import { useState } from "react";
 import { CheckCircle2, Zap } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import {
   PLANS,
   TIER_ORDER,
@@ -98,17 +100,17 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
   return (
     <div className="space-y-6">
       {/* Current plan */}
-      <div className="bg-card rounded-xl border border-border p-6">
+      <div className="bg-card rounded-card border border-border shadow-card p-6">
         <div className="flex items-center justify-between gap-4">
           <div>
-            <p className="text-xs text-muted-foreground font-medium uppercase tracking-wide">
+            <p className="text-label text-muted-foreground">
               Current plan
             </p>
-            <p className="text-xl font-bold text-foreground mt-1">
+            <p className="text-heading text-foreground mt-1">
               {currentPlan ? currentPlan.name : "No active plan"}
             </p>
             {currentPlan === null ? (
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-caption text-muted-foreground mt-0.5">
                 Choose a plan below to get started.
               </p>
             ) : currentPlan.priceMonthly !== null ? (
@@ -122,7 +124,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                  worse than one stating neither. The amount and cadence live in
                  the Stripe portal behind "Manage subscription", which is
                  authoritative; the tier's list price is on its card below. */
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-caption text-muted-foreground mt-0.5">
                 {currentPlan.limits.facilities === -1
                   ? "Unlimited facilities"
                   : `Up to ${currentPlan.limits.facilities} ${
@@ -130,27 +132,26 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                     }`}
               </p>
             ) : (
-              <p className="text-sm text-muted-foreground mt-0.5">
+              <p className="text-caption text-muted-foreground mt-0.5">
                 Billed by agreement &middot; unlimited facilities
               </p>
             )}
           </div>
           {currentPlan && (
-            <button
+            <Button
+              variant="outline"
               onClick={handlePortal}
               disabled={portalLoading}
-              className="shrink-0 px-4 py-2 text-sm font-medium text-foreground bg-muted hover:bg-border rounded-lg disabled:opacity-50 transition-colors"
+              className="shrink-0"
             >
               {portalLoading ? "Opening…" : "Manage subscription"}
-            </button>
+            </Button>
           )}
         </div>
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          {error}
-        </div>
+        <Banner variant="error">{error}</Banner>
       )}
 
       {/* Billing interval. Rendered only when yearly can actually be bought —
@@ -161,7 +162,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
           <div
             role="radiogroup"
             aria-label="Billing interval"
-            className="inline-flex items-center gap-1 rounded-lg bg-muted p-1"
+            className="inline-flex items-center gap-1 rounded-full bg-muted p-1"
           >
             {([
               { value: false, label: "Monthly" },
@@ -172,9 +173,9 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                 role="radio"
                 aria-checked={annual === option.value}
                 onClick={() => setAnnual(option.value)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors duration-150 ${
                   annual === option.value
-                    ? "bg-card text-foreground shadow-sm"
+                    ? "bg-raised text-foreground shadow-card"
                     : "text-muted-foreground hover:text-foreground"
                 }`}
               >
@@ -182,7 +183,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
               </button>
             ))}
           </div>
-          <span className="ml-3 text-sm font-medium text-green-600 dark:text-green-400">
+          <span className="ml-3 text-sm font-medium text-success">
             Two months free
           </span>
         </div>
@@ -199,29 +200,29 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
           return (
             <div
               key={tier}
-              className={`bg-card rounded-xl border-2 p-5 flex flex-col ${
-                isCurrent ? "border-blue-500" : "border-border"
+              className={`bg-card rounded-card shadow-card border-2 p-5 flex flex-col ${
+                isCurrent ? "border-brand" : "border-border"
               }`}
             >
               {isCurrent ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-blue-600 dark:text-blue-400 mb-2">
+                <span className="inline-flex items-center gap-1 text-caption font-semibold text-brand mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Current plan
                 </span>
               ) : tier === FEATURED_TIER ? (
-                <span className="inline-flex items-center gap-1 text-xs font-semibold text-purple-600 mb-2">
+                <span className="inline-flex items-center gap-1 text-caption font-semibold text-brand mb-2">
                   <Zap className="w-3.5 h-3.5" /> Most centres
                 </span>
               ) : (
                 <div className="h-5 mb-2" />
               )}
 
-              <h3 className="text-lg font-bold text-foreground">{plan.name}</h3>
+              <h3 className="text-card-title text-foreground">{plan.name}</h3>
 
               {plan.priceMonthly === null ? (
                 <>
-                  <p className="text-2xl font-bold text-foreground mt-1">Let&rsquo;s talk</p>
+                  <p className="text-stat tabular-nums text-foreground mt-1">Let&rsquo;s talk</p>
                   {plan.priceAnnualFrom !== null && (
-                    <p className="text-sm text-muted-foreground">
+                    <p className="text-caption text-muted-foreground">
                       From ${dollars(plan.priceAnnualFrom)}/year
                     </p>
                   )}
@@ -230,21 +231,21 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                 /* Yearly selected: lead with what will be charged, and keep the
                    monthly figure visible so the saving is legible. */
                 <>
-                  <p className="text-2xl font-bold text-foreground mt-1">
+                  <p className="text-stat tabular-nums text-foreground mt-1">
                     ${dollars(plan.priceAnnual!)}
                     <span className="text-sm font-normal text-muted-foreground">/yr</span>
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     vs ${dollars(plan.priceMonthly * 12)}/year monthly
                   </p>
                 </>
               ) : (
                 <>
-                  <p className="text-2xl font-bold text-foreground mt-1">
+                  <p className="text-stat tabular-nums text-foreground mt-1">
                     ${dollars(plan.priceMonthly)}
                     <span className="text-sm font-normal text-muted-foreground">/mo</span>
                   </p>
-                  <p className="text-sm text-muted-foreground">
+                  <p className="text-caption text-muted-foreground">
                     or ${dollars(plan.priceAnnual!)}/year
                   </p>
                 </>
@@ -258,7 +259,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                     : `Up to ${plan.limits.facilities} facilities`}
               </p>
               {plan.limits.extraFacilityMonthly !== null && (
-                <p className="text-sm text-muted-foreground">
+                <p className="text-caption text-muted-foreground">
                   then ${dollars(plan.limits.extraFacilityMonthly)}/mo each
                 </p>
               )}
@@ -266,7 +267,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
               <ul className="mt-3 space-y-2 flex-1">
                 {plan.adds.map((f) => (
                   <li key={f} className="flex items-start gap-2 text-sm text-muted-foreground">
-                    <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0 mt-0.5" />
+                    <CheckCircle2 className="w-4 h-4 text-success shrink-0 mt-0.5" />
                     {f}
                   </li>
                 ))}
@@ -274,26 +275,26 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
 
               <div className="mt-5">
                 {isCurrent ? (
-                  <div className="w-full py-2 text-center text-sm font-medium text-muted-foreground/70 bg-muted rounded-lg">
+                  <div className="flex h-10 w-full items-center justify-center text-sm font-medium text-muted-foreground bg-muted rounded-full">
                     Current plan
                   </div>
                 ) : checkoutTier ? (
-                  <button
+                  <Button
+                    variant={tier === FEATURED_TIER ? "default" : "outline"}
                     onClick={() => handleUpgrade(tier)}
                     disabled={loading !== null}
-                    className="w-full py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                    className="w-full"
                   >
                     {loading === tier ? "Redirecting…" : `Switch to ${plan.name}`}
-                  </button>
+                  </Button>
                 ) : (
                   /* No Stripe price for this tier yet — see docs/PRICING.md.
                      A button here would 400; contact is the honest CTA. */
-                  <a
-                    href={`mailto:hello@dropin.app?subject=${encodeURIComponent(`${plan.name} plan`)}`}
-                    className="block w-full py-2 text-center text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
-                  >
-                    Contact us
-                  </a>
+                  <Button asChild variant="outline" className="w-full">
+                    <a href={`mailto:hello@dropin.app?subject=${encodeURIComponent(`${plan.name} plan`)}`}>
+                      Contact us
+                    </a>
+                  </Button>
                 )}
               </div>
             </div>
@@ -310,34 +311,33 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
           Disappears on its own once the annual Stripe prices are configured,
           because then the toggle at the top does the job. */}
       {!annualAvailable && (
-        <div className="bg-card rounded-xl border border-border p-5">
-          <p className="text-sm font-semibold text-foreground">
+        <div className="bg-card rounded-card border border-border shadow-card p-5">
+          <p className="text-card-title text-foreground">
             Prefer to pay yearly?
           </p>
-          <p className="mt-1 text-sm text-muted-foreground">
+          <p className="mt-1 text-caption text-muted-foreground">
             Yearly billing is two months free. It isn&rsquo;t self-serve yet —
             email us and we&rsquo;ll set it up for you.
           </p>
-          <a
-            href="mailto:hello@dropin.app?subject=Yearly%20billing"
-            className="mt-3 inline-block px-4 py-2 text-sm font-medium text-foreground border border-border rounded-lg hover:bg-muted transition-colors"
-          >
-            Ask about yearly billing
-          </a>
+          <Button asChild variant="outline" className="mt-3">
+            <a href="mailto:hello@dropin.app?subject=Yearly%20billing">
+              Ask about yearly billing
+            </a>
+          </Button>
         </div>
       )}
 
-      <div className="bg-card rounded-xl border border-border p-5">
-        <p className="text-sm font-semibold text-foreground">Unlimited on every plan</p>
+      <div className="bg-card rounded-card border border-border shadow-card p-5">
+        <p className="text-card-title text-foreground">Unlimited on every plan</p>
         <ul className="mt-3 flex flex-wrap gap-x-5 gap-y-2">
           {ALWAYS_UNLIMITED.map((item) => (
             <li key={item} className="flex items-center gap-1.5 text-sm text-muted-foreground">
-              <CheckCircle2 className="w-4 h-4 text-green-500 shrink-0" />
+              <CheckCircle2 className="w-4 h-4 text-success shrink-0" />
               {item}
             </li>
           ))}
         </ul>
-        <p className="mt-4 text-sm text-muted-foreground">
+        <p className="mt-4 text-caption text-muted-foreground">
           Facilities beyond your plan&rsquo;s allowance are $
           {dollars(EXTRA_FACILITY_MONTHLY)}/month each.
         </p>

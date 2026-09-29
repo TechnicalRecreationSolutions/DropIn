@@ -3,6 +3,7 @@ import { createClient } from "@/lib/supabase/server";
 import { getClaims } from "@/lib/auth/claims";
 import { ROLE_DESCRIPTIONS, ROLE_LABELS } from "@/lib/auth/roles";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Card, CardContent } from "@/components/ui/card";
 import AcceptInvitation from "@/components/staff/AcceptInvitation";
 import type { InvitableRole } from "@/types/app.types";
 
@@ -35,11 +36,13 @@ interface InvitePageProps {
 export default function InvitePage({ params }: InvitePageProps) {
   return (
     <div className="min-h-dvh flex items-center justify-center px-4 py-12">
-      <div className="w-full max-w-md space-y-5">
-        <Suspense fallback={<Skeleton className="h-64 rounded-xl" aria-busy="true" />}>
-          <InviteBody params={params} />
-        </Suspense>
-      </div>
+      <Card className="w-full max-w-[420px] [--card-spacing:--spacing(6)]">
+        <CardContent className="space-y-5">
+          <Suspense fallback={<Skeleton className="h-64 rounded-card" aria-busy="true" />}>
+            <InviteBody params={params} />
+          </Suspense>
+        </CardContent>
+      </Card>
     </div>
   );
 }
@@ -61,8 +64,8 @@ async function InviteBody({ params }: InvitePageProps) {
   if (!invitation) {
     return (
       <>
-        <h1 className="text-2xl font-bold text-foreground">This invitation is not valid</h1>
-        <p className="text-sm text-muted-foreground">
+        <h1 className="text-title text-foreground">This invitation is not valid</h1>
+        <p className="text-caption text-muted-foreground">
           The link may have expired, or it may already have been used. Ask whoever invited you
           to send a new one.
         </p>
@@ -74,15 +77,15 @@ async function InviteBody({ params }: InvitePageProps) {
 
   return (
     <>
-      <h1 className="text-2xl font-bold text-foreground">Join {invitation.org_name}</h1>
+      <h1 className="text-title text-foreground">Join {invitation.org_name}</h1>
 
-      <div className="rounded-lg border border-border bg-muted/40 px-4 py-3">
-        <p className="text-sm font-medium text-foreground">
+      <div className="rounded-panel bg-muted px-4 py-3">
+        <p className="text-body font-medium text-foreground">
           You&apos;ve been invited as {ROLE_LABELS[role]}
         </p>
-        <p className="text-xs text-muted-foreground mt-0.5">{ROLE_DESCRIPTIONS[role]}</p>
+        <p className="text-caption text-muted-foreground mt-0.5">{ROLE_DESCRIPTIONS[role]}</p>
         {invitation.scope_count > 0 && (
-          <p className="text-xs text-muted-foreground mt-1.5">
+          <p className="text-caption text-muted-foreground mt-1.5">
             {invitation.scope_count}{" "}
             {role === "coordinator"
               ? invitation.scope_count === 1

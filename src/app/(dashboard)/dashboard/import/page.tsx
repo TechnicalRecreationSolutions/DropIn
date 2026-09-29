@@ -29,7 +29,7 @@ export default function ImportPage() {
         <PageHeader title="Import schedule" info="Upload a CSV to bulk-import schedules and sessions." />
       </div>
 
-      <Suspense fallback={<Skeleton className="h-56 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-56 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-6">
           <ImportWizardBody />
         </Streamed>

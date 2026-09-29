@@ -36,7 +36,7 @@ export default function SettingsDangerPage() {
         info="Handing the organization to someone else, and closing it for good. Both are Owner-only, and neither can be undone by the person doing it."
       />
 
-      <Suspense fallback={<Skeleton className="h-64 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-64 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <DangerBody />
         </Streamed>

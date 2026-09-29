@@ -22,7 +22,7 @@ export default function SettingsPermissionsPage() {
         info="What each kind of account is allowed to do, and the one part of it your organization chooses. Roles are assigned per person on the Staff page."
       />
 
-      <Suspense fallback={<Skeleton className="h-96 rounded-xl" aria-busy="true" />}>
+      <Suspense fallback={<Skeleton className="h-96 rounded-card" aria-busy="true" />}>
         <Streamed className="space-y-8">
           <PermissionsBody />
         </Streamed>
@@ -53,10 +53,10 @@ async function PermissionsBody() {
         description="Fixed, and the same in every organization. Assign them per person on the Staff page."
       >
         <RoleMatrix />
-        <p className="mt-5 text-sm text-muted-foreground">
+        <p className="mt-5 text-caption text-muted-foreground">
           Coordinators are limited to the departments assigned to them, and Staff accounts
           to their facilities. Set that per person on{" "}
-          <Link href="/dashboard/settings/staff" className="text-blue-600 hover:underline dark:text-blue-400">
+          <Link href="/dashboard/settings/staff" className="text-brand hover:underline">
             Staff
           </Link>
           .
