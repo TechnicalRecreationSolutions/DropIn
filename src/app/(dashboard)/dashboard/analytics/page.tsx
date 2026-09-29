@@ -463,7 +463,7 @@ function NoDataYet({ periodLabel, facilityId }: { periodLabel: string; facilityI
       </p>
       <ul className="text-sm text-muted-foreground space-y-1.5 list-disc pl-5">
         <li>
-          The <Link href={widgetHref({})} className="text-accent hover:underline">widget</Link> is embedded on your own
+          The <Link href={widgetHref({})} className="text-brand hover:underline">widget</Link> is embedded on your own
           website, and its schedules are published.
         </li>
         <li>The period above covers dates after you published — try a longer one.</li>

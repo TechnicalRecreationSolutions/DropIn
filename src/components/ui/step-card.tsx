@@ -23,14 +23,14 @@ interface StepCardProps {
  */
 export default function StepCard({ step, title, description, meta, children, className }: StepCardProps) {
   return (
-    <section className={cn("bg-card rounded-xl border border-border overflow-hidden", className)}>
-      <header className="flex items-start gap-3 p-4 sm:p-5 border-b border-border">
-        <span className="shrink-0 inline-flex items-center justify-center size-7 rounded-full bg-blue-600/10 text-blue-700 dark:text-blue-400 text-sm font-semibold">
+    <section className={cn("overflow-hidden rounded-card border border-border bg-card shadow-card", className)}>
+      <header className="flex items-start gap-3 border-b border-border p-5 sm:px-6">
+        <span className="inline-flex size-7 shrink-0 items-center justify-center rounded-full bg-muted text-sm font-semibold text-foreground tabular-nums">
           {step}
         </span>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-1.5 min-h-7">
-            <h2 className="text-base font-semibold text-foreground">{title}</h2>
+            <h2 className="text-heading text-foreground">{title}</h2>
             {description && <InfoTip label={`About ${title}`}>{description}</InfoTip>}
           </div>
           {/* On a phone the meta moves under the title instead of being
@@ -42,7 +42,7 @@ export default function StepCard({ step, title, description, meta, children, cla
         </div>
         {meta && <div className="shrink-0 hidden sm:block">{meta}</div>}
       </header>
-      <div className="p-4 sm:p-5 space-y-5">{children}</div>
+      <div className="space-y-5 p-5 sm:p-6">{children}</div>
     </section>
   );
 }

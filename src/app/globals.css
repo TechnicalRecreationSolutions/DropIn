@@ -28,6 +28,16 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-subtle: var(--destructive-subtle);
+  --color-brand: var(--brand);
+  --color-brand-foreground: var(--brand-foreground);
+  --color-brand-subtle: var(--brand-subtle);
+  --color-brand-strong: var(--brand-strong);
+  --color-warning: var(--warning);
+  --color-warning-subtle: var(--warning-subtle);
+  --color-success: var(--success);
+  --color-success-subtle: var(--success-subtle);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -47,48 +57,103 @@
   --radius-2xl: calc(var(--radius) * 1.8);
   --radius-3xl: calc(var(--radius) * 2.2);
   --radius-4xl: calc(var(--radius) * 2.6);
+
+  /* docs/DESIGN.md §5, by role. Named rather than folded into the --radius
+     scale above because the landing page is drawn with that scale
+     (rounded-xl and friends) and must not move. */
+  --radius-control: 0.625rem; /* inputs, selects, nav items: 10px */
+  --radius-banner: 0.75rem; /* banners: 12px */
+  --radius-card: 1rem; /* cards: 16px */
+  --radius-dialog: 1.25rem; /* dialogs and sheets: 20px */
+  --radius-panel: 1.5rem; /* large grey panels: 24px */
+
+  /* The only shadow a card may have (§5). Menus and dialogs keep shadow-md/lg. */
+  --shadow-card: 0 1px 2px rgb(17 17 19 / 0.05);
+
+  /* docs/DESIGN.md §4, by role: text-title, text-heading, text-card-title,
+     text-body, text-caption, text-label, text-stat. Each carries its line
+     height, weight and tracking, so a heading is one class. They are
+     registered with tailwind-merge in src/lib/utils/cn.ts; without that, cn()
+     reads "text-title" as a colour and drops it next to text-foreground. */
+  --text-title: 1.75rem;
+  --text-title--line-height: 2rem;
+  --text-title--font-weight: 600;
+  --text-title--letter-spacing: -0.03em;
+  --text-heading: 1.125rem;
+  --text-heading--line-height: 1.5rem;
+  --text-heading--font-weight: 600;
+  --text-heading--letter-spacing: -0.01em;
+  --text-card-title: 0.9375rem;
+  --text-card-title--line-height: 1.25rem;
+  --text-card-title--font-weight: 600;
+  --text-body: 0.875rem;
+  --text-body--line-height: 1.25rem;
+  --text-caption: 0.8125rem;
+  --text-caption--line-height: 1.125rem;
+  --text-label: 0.75rem;
+  --text-label--line-height: 1rem;
+  --text-label--font-weight: 500;
+  --text-stat: 1.625rem;
+  --text-stat--line-height: 1.875rem;
+  --text-stat--font-weight: 600;
+  --text-stat--letter-spacing: -0.03em;
 }
 
 :root {
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.145 0 0);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.145 0 0);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.145 0 0);
-  --primary: oklch(0.205 0 0);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.97 0 0);
-  --secondary-foreground: oklch(0.205 0 0);
-  --muted: oklch(0.97 0 0);
-  /* Nudged down from shadcn's default 0.556, which lands at 4.6:1 on white and
-     dips under AA once any component adds its own opacity. Every piece of
-     secondary text in the app resolves to this, so the margin is worth having:
-     0.52 measures ~5.2:1. The dark-mode value below is already comfortable. */
-  --muted-foreground: oklch(0.52 0 0);
-  --accent: oklch(0.676 0.176 252);
-  --accent-foreground: oklch(0.16 0.02 252);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.922 0 0);
-  --input: oklch(0.922 0 0);
-  --ring: oklch(0.676 0.176 252);
+  /* docs/DESIGN.md §3. The values are the landing page's own palette, so the
+     app and the site read as one product. Change a value there first. */
+  --background: #ffffff;
+  --foreground: #111113;
+  --card: #ffffff;
+  --card-foreground: #111113;
+  --popover: #ffffff;
+  --popover-foreground: #111113;
+  /* Ink. The main action on a screen, and nothing else. */
+  --primary: #111113;
+  --primary-foreground: #ffffff;
+  --secondary: #f4f4f5;
+  --secondary-foreground: #111113;
+  --muted: #f4f4f5;
+  /* 6.5:1 on white, 6.0:1 on muted. */
+  --muted-foreground: #5d5d63;
+  /* shadcn's hover wash for menus and list rows. It used to be the blue; the
+     blue is --brand now. */
+  --accent: #f4f4f5;
+  --accent-foreground: #111113;
+  /* The one blue: links, focus rings, "you are here". Never a big fill. */
+  --brand: #0066cc;
+  --brand-foreground: #ffffff;
+  --brand-subtle: #e6f0fa;
+  --brand-strong: #004a94;
+  --destructive: #b91c1c;
+  --destructive-foreground: #ffffff;
+  --destructive-subtle: #fef2f2;
+  --warning: #92400e;
+  --warning-subtle: #fffbeb;
+  --success: #166534;
+  --success-subtle: #f0fdf4;
+  /* Hairlines between things. Never the edge of a control. */
+  --border: #e4e4e7;
+  /* The edge of a control: 3.6:1 on white, because the border is what shows
+     that a field is a field. */
+  --input: #86868d;
+  --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
   --radius: 0.625rem;
-  /* The sidebar stays dark in both light and dark canvas modes, matching
-     Supabase's dashboard chrome — it does not flip with the rest of the UI.
-     A dark navy (not black) that shares its hue with the accent blue. */
-  --sidebar: oklch(0.26 0.045 258);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.676 0.176 252);
-  --sidebar-primary-foreground: oklch(0.16 0.02 252);
-  --sidebar-accent: oklch(0.34 0.055 258);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.676 0.176 252);
+  /* The sidebar is a plain light panel that matches the page (DESIGN.md §7),
+     so its variables point at the plain tokens. */
+  --sidebar: var(--background);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
   /* ── Data-visualisation palette ───────────────────────────────────────────
      The analytics charts' colors, as tokens rather than hex literals inside
@@ -136,38 +201,49 @@
 }
 
 .dark {
-  --background: oklch(0.145 0 0);
-  --foreground: oklch(0.985 0 0);
-  --card: oklch(0.205 0 0);
-  --card-foreground: oklch(0.985 0 0);
-  --popover: oklch(0.205 0 0);
-  --popover-foreground: oklch(0.985 0 0);
-  --primary: oklch(0.922 0 0);
-  --primary-foreground: oklch(0.205 0 0);
-  --secondary: oklch(0.269 0 0);
-  --secondary-foreground: oklch(0.985 0 0);
-  --muted: oklch(0.269 0 0);
-  --muted-foreground: oklch(0.708 0 0);
-  --accent: oklch(0.676 0.176 252);
-  --accent-foreground: oklch(0.16 0.02 252);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.676 0.176 252);
+  --background: #0f0f11;
+  --foreground: #f4f4f5;
+  --card: #18181b;
+  --card-foreground: #f4f4f5;
+  --popover: #18181b;
+  --popover-foreground: #f4f4f5;
+  --primary: #f4f4f5;
+  --primary-foreground: #111113;
+  --secondary: #1f1f23;
+  --secondary-foreground: #f4f4f5;
+  --muted: #1f1f23;
+  --muted-foreground: #a1a1aa;
+  --accent: #1f1f23;
+  --accent-foreground: #f4f4f5;
+  --brand: #5aa2ee;
+  /* Ink, not white: white on the dark-mode blue is 2.7:1. */
+  --brand-foreground: #111113;
+  --brand-subtle: #1e3350;
+  --brand-strong: #b8d6f5;
+  --destructive: #f87171;
+  --destructive-foreground: #111113;
+  --destructive-subtle: #2a1616;
+  --warning: #fbbf24;
+  --warning-subtle: #2a2110;
+  --success: #4ade80;
+  --success-subtle: #12251a;
+  --border: #27272a;
+  --input: #71717a;
+  --ring: var(--brand);
   --chart-1: oklch(0.87 0 0);
   --chart-2: oklch(0.556 0 0);
   --chart-3: oklch(0.439 0 0);
   --chart-4: oklch(0.371 0 0);
   --chart-5: oklch(0.269 0 0);
-  /* Same values as :root — sidebar is dark regardless of canvas theme. */
-  --sidebar: oklch(0.26 0.045 258);
-  --sidebar-foreground: oklch(0.92 0 0);
-  --sidebar-primary: oklch(0.676 0.176 252);
-  --sidebar-primary-foreground: oklch(0.16 0.02 252);
-  --sidebar-accent: oklch(0.34 0.055 258);
-  --sidebar-accent-foreground: oklch(0.97 0 0);
-  --sidebar-border: oklch(1 0 0 / 8%);
-  --sidebar-ring: oklch(0.676 0.176 252);
+  /* Dark: the sidebar takes the card colour (DESIGN.md §7). */
+  --sidebar: var(--card);
+  --sidebar-foreground: var(--foreground);
+  --sidebar-primary: var(--brand);
+  --sidebar-primary-foreground: var(--brand-foreground);
+  --sidebar-accent: var(--muted);
+  --sidebar-accent-foreground: var(--foreground);
+  --sidebar-border: var(--border);
+  --sidebar-ring: var(--ring);
 
   /* Dark mode is a re-step of the same three ramps against the dark surface,
      not an automatic flip of the light values. The sequential and ordinal
@@ -208,16 +284,14 @@
   }
 }
 
-/* The sidebar is dark in both canvas modes, but the page's color-scheme is
-   light, so without this Windows/Chrome paint a white native scrollbar down
-   the navy sidebar whenever its menu is taller than the screen (i.e. most
-   laptops). A thin thumb in the sidebar's own palette on a transparent track. */
+/* A thin scrollbar for the sidebar when its menu is taller than the screen,
+   in the plain tokens now that the sidebar is no longer navy. */
 .sidebar-scroll {
   scrollbar-width: thin;
-  scrollbar-color: var(--sidebar-accent) transparent;
+  scrollbar-color: var(--border) transparent;
 }
 .sidebar-scroll:hover {
-  scrollbar-color: color-mix(in oklch, var(--sidebar-foreground) 35%, var(--sidebar)) transparent;
+  scrollbar-color: var(--input) transparent;
 }
 
 /* =============================================================================
@@ -255,7 +329,7 @@
 }
 
 .today-btn:hover {
-  background-color: #eff6ff; /* blue-50 fallback for WeekNavigator used outside .org-theme (dashboard) */
+  background-color: var(--muted); /* WeekNavigator used outside .org-theme (the dashboard) */
 }
 .org-theme .today-btn:hover {
   background-color: var(--org-card-bg);

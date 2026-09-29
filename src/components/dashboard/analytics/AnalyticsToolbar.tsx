@@ -240,7 +240,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
                 className={cn(
                   "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
                   range.preset === preset.id
-                    ? "bg-accent/15 font-medium text-foreground"
+                    ? "bg-brand-subtle font-medium text-brand-strong"
                     : "hover:bg-muted text-muted-foreground hover:text-foreground"
                 )}
               >

@@ -82,3 +82,6 @@ Pool Layout Map with depths.pdf
 /verify-*.pdf
 /zones-desktop.png
 /zones-mobile.png
+
+# Pictures and the kept fixture from scripts/verify/design-shots.mjs.
+/.design-shots/

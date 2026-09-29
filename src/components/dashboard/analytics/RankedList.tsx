@@ -38,7 +38,7 @@ export function RankedList({ items, total, emptyMessage, unitLabel }: RankedList
         const content = (
           <>
             <span
-              className="absolute inset-y-0 left-0 bg-accent/10"
+              className="absolute inset-y-0 left-0 bg-brand-subtle"
               style={{ width: `${(item.count / peak) * 100}%` }}
               aria-hidden
             />
