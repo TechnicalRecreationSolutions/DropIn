@@ -54,25 +54,6 @@ export default function Hero() {
       <p className="mt-4 text-center text-[13px] text-[#5d5d63]">
         {TRIAL_PERIOD_DAYS}-day free trial · Plans from ${dollars(LOWEST_MONTHLY)}/month · Cancel anytime
       </p>
-      <p className="mt-7 flex max-w-full items-center gap-2.5 rounded-full border border-[#e4e4e7] px-4 py-2.5 text-center text-sm text-[#111113] sm:text-left">
-        <svg
-          aria-hidden
-          viewBox="0 0 24 24"
-          fill="none"
-          stroke="#0066cc"
-          strokeWidth="2"
-          strokeLinecap="round"
-          strokeLinejoin="round"
-          className="hidden size-4 shrink-0 sm:block"
-        >
-          <rect x="3" y="4" width="7" height="16" rx="2" />
-          <rect x="14" y="4" width="7" height="16" rx="2" />
-        </svg>
-        <span>
-          Sits beside ActiveNet or Xplor. They record who booked what; Dropin shows where it&rsquo;s
-          happening.
-        </span>
-      </p>
 
       {/* Product picture: a pool in the widget's Map layout. */}
       <Panel className="mt-20 w-full max-w-[1200px] rounded-[36px] px-3 pt-4 pb-4 sm:mt-24 sm:px-16 sm:pt-14 sm:pb-20">
