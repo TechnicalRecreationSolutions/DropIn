@@ -3,6 +3,8 @@ import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { Building2, Eye, EyeOff, Layers, Calendar, Pencil, AlertOctagon, AlertTriangle, Megaphone } from "lucide-react";
 import type { NoticeSeverity } from "@/types/app.types";
 import OrgImage from "@/components/media/OrgImage";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 
 export interface FacilityGridItem {
   id: string;
@@ -36,37 +38,37 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
 
   return (
     <div
-      className={`relative rounded-xl border bg-card overflow-hidden transition-all ${
+      className={`relative rounded-card border bg-card overflow-hidden shadow-card transition-colors duration-150 ${
         highlighted
-          ? "border-blue-400 shadow-md"
-          : "border-border hover:border-blue-300 hover:shadow-sm"
+          ? "border-brand"
+          : "border-border hover:border-input"
       }`}
     >
-      <Link href={commandCentreHref({ facilityId: facility.id })} className="block">
-        <div className="relative h-28 bg-blue-50 flex items-center justify-center overflow-hidden">
+      <Link href={commandCentreHref({ facilityId: facility.id })} className="block focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
+        <div className="relative h-28 bg-muted flex items-center justify-center overflow-hidden">
           {coverPhoto ? (
             <OrgImage src={coverPhoto} alt="" sizes="(max-width: 640px) 100vw, 320px" className="object-contain" />
           ) : (
-            <Building2 className="w-8 h-8 text-blue-300" />
+            <Building2 className="w-8 h-8 text-muted-foreground" />
           )}
         </div>
-        <div className="p-4">
-          <div className="flex items-start justify-between gap-2 pr-7">
-            <h3 className="font-semibold text-foreground truncate">{facility.name}</h3>
+        <div className="p-5">
+          <div className="flex items-start justify-between gap-2">
+            <h3 className="text-card-title text-foreground truncate">{facility.name}</h3>
             {facility.is_published ? (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 px-2 py-0.5 rounded-full shrink-0">
+              <Badge variant="success" className="shrink-0">
                 <Eye className="w-3 h-3" /> Published
-              </span>
+              </Badge>
             ) : (
-              <span className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground bg-muted px-2 py-0.5 rounded-full shrink-0">
+              <Badge className="shrink-0">
                 <EyeOff className="w-3 h-3" /> Draft
-              </span>
+              </Badge>
             )}
           </div>
-          <p className="text-xs text-muted-foreground mt-0.5">
+          <p className="text-caption text-muted-foreground mt-0.5">
             {facility.city}, {facility.province}
           </p>
-          <div className="flex items-center gap-3 mt-3 text-xs text-muted-foreground">
+          <div className="flex items-center gap-3 mt-3 text-caption text-muted-foreground">
             <span className="inline-flex items-center gap-1">
               <Layers className="w-3.5 h-3.5" />
               {facility.department_count} department{facility.department_count !== 1 ? "s" : ""}
@@ -82,12 +84,12 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
           browser resolves it by dropping one of them, usually this one. */}
       <Link
         href={`/dashboard/facilities/${facility.id}/status`}
-        className={`flex items-center gap-2 border-t px-4 py-2.5 text-xs font-medium transition-colors ${
+        className={`flex items-center gap-2 border-t border-border px-5 py-2.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
           facility.worst_notice_severity === "closure"
-            ? "border-red-200 bg-red-50 text-red-700 hover:bg-red-100 dark:border-red-500/30 dark:bg-red-500/10 dark:text-red-300"
+            ? "bg-destructive-subtle text-destructive hover:bg-muted"
             : facility.worst_notice_severity
-              ? "border-amber-200 bg-amber-50 text-amber-800 hover:bg-amber-100 dark:border-amber-500/30 dark:bg-amber-500/10 dark:text-amber-300"
-              : "border-border text-muted-foreground hover:bg-muted"
+              ? "bg-warning-subtle text-warning hover:bg-muted"
+              : "text-muted-foreground hover:bg-muted"
         }`}
       >
         {facility.worst_notice_severity === "closure" ? (
@@ -104,13 +106,14 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
             : `${facility.live_notice_count} statuses are live`}
       </Link>
 
-      <Link
-        href={`/dashboard/facilities/${facility.id}/edit`}
-        aria-label={`Edit ${facility.name}`}
-        className="absolute top-4 right-4 p-1.5 rounded-lg bg-white/90 text-muted-foreground/70 hover:text-foreground hover:bg-muted transition-colors shadow-sm"
-      >
-        <Pencil className="w-3.5 h-3.5" />
-      </Link>
+      <Button asChild variant="outline" size="icon-sm" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
+        <Link
+          href={`/dashboard/facilities/${facility.id}/edit`}
+          aria-label={`Edit ${facility.name}`}
+        >
+          <Pencil className="w-3.5 h-3.5" />
+        </Link>
+      </Button>
     </div>
   );
 }

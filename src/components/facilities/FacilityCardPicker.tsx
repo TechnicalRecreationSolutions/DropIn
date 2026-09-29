@@ -57,25 +57,25 @@ export default function FacilityCardPicker({
                 aria-current={active ? "page" : undefined}
                 title={tooltip}
                 className={cn(
-                  "flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors whitespace-nowrap",
+                  "flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active
-                    ? "border-blue-400 bg-blue-50 text-blue-700 dark:bg-blue-950/40 dark:text-blue-300"
-                    : "border-border bg-card text-muted-foreground hover:border-blue-300 hover:text-foreground"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >
-                <span className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-blue-50 dark:bg-blue-950/40">
+                <span className="relative flex h-6 w-6 shrink-0 items-center justify-center overflow-hidden rounded-full bg-muted">
                   {coverPhoto ? (
                     <OrgImage src={coverPhoto} alt="" sizes="24px" className="object-cover" />
                   ) : (
-                    <Building2 className="h-3.5 w-3.5 text-blue-400" />
+                    <Building2 className="h-3.5 w-3.5 text-muted-foreground" />
                   )}
                 </span>
                 <span className="font-medium">{facility.name}</span>
                 {facility.meta && (
-                  <span className="hidden text-xs text-muted-foreground sm:inline">{facility.meta}</span>
+                  <span className={cn("hidden text-xs sm:inline", active ? "text-primary-foreground/75" : "text-muted-foreground")}>{facility.meta}</span>
                 )}
                 {facility.is_published === false && (
-                  <EyeOff className="h-3.5 w-3.5 shrink-0 text-muted-foreground/70" aria-label="Not published" />
+                  <EyeOff className={cn("h-3.5 w-3.5 shrink-0", active ? "text-primary-foreground/75" : "text-muted-foreground")} aria-label="Not published" />
                 )}
               </Link>
             </li>

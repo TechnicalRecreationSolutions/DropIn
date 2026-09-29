@@ -12,6 +12,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 import type { FacilityDeletionImpact } from "@/lib/facilities/deletionImpact";
 
 interface DeleteFacilityDialogProps {
@@ -116,24 +119,23 @@ export default function DeleteFacilityDialog({
         </DialogHeader>
 
         <div>
-          <label htmlFor="delete-confirmation" className="block text-sm font-medium text-foreground mb-1">
+          <Label htmlFor="delete-confirmation">
             Type <span className="font-semibold">{facilityName}</span> to confirm
-          </label>
-          <input
+          </Label>
+          <Input
             id="delete-confirmation"
             type="text"
             autoComplete="off"
             value={confirmation}
             onChange={(e) => setConfirmation(e.target.value)}
-            className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-red-500 focus:border-transparent"
             placeholder={facilityName}
           />
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
 
         <DialogFooter>

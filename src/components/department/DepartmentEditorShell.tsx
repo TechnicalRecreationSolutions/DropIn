@@ -11,6 +11,8 @@ import {
 import Link from "next/link";
 import { CalendarDays, Clock, Eye, EyeOff, Pencil, ArrowUpRight } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import {
   SectionDirtyProvider,
   type DepartmentSection,
@@ -134,7 +136,7 @@ export default function DepartmentEditorShell({
 
   return (
     <div className="space-y-5">
-      <div className="grid gap-3 sm:grid-cols-3">
+      <div className="grid gap-1 rounded-panel bg-muted p-2 sm:grid-cols-3">
         <SummaryTile
           icon={isPublished ? <Eye className="size-4" /> : <EyeOff className="size-4" />}
           label="Status"
@@ -175,7 +177,7 @@ export default function DepartmentEditorShell({
         <div
           role="tablist"
           aria-label="Department settings"
-          className="inline-flex w-full gap-1 rounded-xl border border-border bg-muted/60 p-1 sm:w-auto"
+          className="inline-flex w-full gap-1 rounded-full bg-muted p-1 sm:w-auto"
         >
           {SECTIONS.map((section, i) => (
             <button
@@ -192,10 +194,10 @@ export default function DepartmentEditorShell({
               onClick={() => select(section.key)}
               onKeyDown={(e) => onTabKeyDown(e, i)}
               className={cn(
-                "flex-1 whitespace-nowrap rounded-lg px-3 py-2 text-sm font-medium transition-colors sm:flex-none sm:px-4",
-                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500",
+                "flex-1 whitespace-nowrap rounded-full px-3 py-2 text-sm font-medium transition-colors duration-150 sm:flex-none sm:px-4",
+                "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                 active === section.key
-                  ? "bg-card text-foreground shadow-sm"
+                  ? "bg-raised text-foreground shadow-card"
                   : "text-muted-foreground hover:text-foreground"
               )}
             >
@@ -203,30 +205,29 @@ export default function DepartmentEditorShell({
               {dirty[section.key] && (
                 <span
                   aria-label="unsaved changes"
-                  className="ml-1.5 inline-block size-1.5 rounded-full bg-amber-500 align-middle"
+                  className="ml-1.5 inline-block size-1.5 rounded-full bg-warning align-middle"
                 />
               )}
             </button>
           ))}
         </div>
 
-        <Link
-          href={scheduleHref}
-          className="inline-flex items-center gap-1.5 text-sm font-medium text-blue-600 hover:underline dark:text-blue-400"
-        >
-          <ArrowUpRight className="size-4" />
-          Open in schedule
-        </Link>
+        <Button asChild variant="link">
+          <Link href={scheduleHref}>
+            <ArrowUpRight className="size-4" />
+            Open in schedule
+          </Link>
+        </Button>
       </div>
 
       {dirtyElsewhere.length > 0 && (
-        <p
+        <Banner
+          variant="warning"
           role="status"
-          className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-sm text-amber-900 dark:bg-amber-950/40 dark:text-amber-200"
+          icon={<Pencil aria-hidden className="mt-0.5 size-4 shrink-0" />}
         >
-          <Pencil className="size-3.5 shrink-0" />
           Unsaved changes in {dirtyElsewhere.join(" and ")} — still there, on that tab.
-        </p>
+        </Banner>
       )}
 
       <SectionDirtyProvider report={report}>
@@ -262,23 +263,23 @@ function SummaryTile({ icon, label, value, detail, tone, onClick }: SummaryTileP
       type="button"
       onClick={onClick}
       data-summary-tile={label}
-      className="rounded-xl border border-border bg-card p-4 text-left transition-colors hover:border-blue-500/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500"
+      className="rounded-card p-4 text-left transition-colors duration-150 hover:bg-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
     >
       <span
         className={cn(
-          "inline-flex items-center gap-1.5 text-xs font-medium uppercase tracking-wide",
+          "inline-flex items-center gap-1.5 text-label",
           tone === "positive"
-            ? "text-green-700 dark:text-green-400"
+            ? "text-success"
             : tone === "warning"
-              ? "text-amber-700 dark:text-amber-400"
+              ? "text-warning"
               : "text-muted-foreground"
         )}
       >
         {icon}
         {label}
       </span>
-      <p className="mt-1.5 text-sm font-semibold leading-snug text-foreground">{value}</p>
-      <p className="mt-0.5 text-xs leading-snug text-muted-foreground">{detail}</p>
+      <p className="mt-1.5 text-card-title text-foreground">{value}</p>
+      <p className="mt-0.5 text-caption text-muted-foreground">{detail}</p>
     </button>
   );
 }

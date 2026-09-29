@@ -5,6 +5,7 @@ import { ImagePlus, Loader2, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import OrgImage from "./OrgImage";
 import { LabelWithInfo } from "@/components/ui/info-tip";
+import { Label, FieldError } from "@/components/ui/field";
 import {
   ALLOWED_IMAGE_TYPES,
   MAX_UPLOAD_BYTES,
@@ -99,16 +100,16 @@ export default function ImageUpload({
   return (
     <div>
       {hint ? (
-        <LabelWithInfo info={hint} className="block text-sm font-medium text-foreground">{label}</LabelWithInfo>
+        <LabelWithInfo info={hint} className="block text-caption font-medium text-foreground">{label}</LabelWithInfo>
       ) : (
-        <label className="block text-sm font-medium text-foreground mb-1">{label}</label>
+        <Label>{label}</Label>
       )}
 
       {value ? (
         <div className={cn("relative", aspect === "wide" ? "w-full max-w-xs" : "w-24")}>
           <div
             className={cn(
-              "relative overflow-hidden rounded-lg border border-border bg-muted",
+              "relative overflow-hidden rounded-control border border-border bg-muted",
               aspect === "wide" ? "w-full aspect-video" : "w-24 h-24"
             )}
           >
@@ -118,7 +119,7 @@ export default function ImageUpload({
             type="button"
             onClick={handleRemove}
             aria-label={`Remove ${label.toLowerCase()}`}
-            className="absolute -top-2 -right-2 p-1 rounded-full bg-card border border-border text-muted-foreground hover:text-red-600 hover:border-red-300 shadow-sm transition-colors"
+            className="absolute -top-2 -right-2 p-1 rounded-full bg-card border border-input text-muted-foreground hover:text-destructive hover:border-destructive shadow-card transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <X className="w-3.5 h-3.5" />
           </button>
@@ -140,22 +141,22 @@ export default function ImageUpload({
           }}
           disabled={uploading}
           className={cn(
-            "w-full flex flex-col items-center justify-center gap-1.5 py-6 px-4 rounded-lg border-2 border-dashed transition-colors disabled:opacity-60",
-            dragging ? "border-blue-400 bg-blue-50" : "border-border hover:border-blue-300 hover:bg-muted"
+            "w-full flex flex-col items-center justify-center gap-1.5 py-6 px-4 rounded-card border-2 border-dashed transition-colors duration-150 disabled:opacity-60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+            dragging ? "border-brand bg-brand-subtle" : "border-input hover:bg-muted"
           )}
         >
           {uploading ? (
             <>
-              <Loader2 className="w-5 h-5 text-blue-600 dark:text-blue-400 animate-spin" />
+              <Loader2 className="w-5 h-5 text-brand animate-spin" />
               <span className="text-sm text-muted-foreground">Uploading…</span>
             </>
           ) : (
             <>
-              <ImagePlus className="w-5 h-5 text-muted-foreground/70" />
+              <ImagePlus className="w-5 h-5 text-muted-foreground" />
               <span className="text-sm font-medium text-foreground">
                 Choose an image<span className="hidden sm:inline"> or drop one here</span>
               </span>
-              <span className="text-xs text-muted-foreground/70">
+              <span className="text-xs text-muted-foreground">
                 JPEG, PNG, WebP or AVIF · up to {formatBytes(MAX_UPLOAD_BYTES)}
               </span>
             </>
@@ -178,9 +179,9 @@ export default function ImageUpload({
       />
 
       {error && (
-        <p role="alert" className="text-xs text-red-600 mt-1">
+        <FieldError>
           {error}
-        </p>
+        </FieldError>
       )}
     </div>
   );

@@ -6,6 +6,13 @@ import { RotateCcw } from "lucide-react";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { useQueryClient } from "@tanstack/react-query";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/field";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
 import { useSectionDirty } from "@/components/department/section-dirty";
 
 interface FacilityOption {
@@ -147,69 +154,63 @@ export default function DepartmentForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-4 sm:p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-card border border-border bg-card p-5 shadow-card sm:p-6">
       {heading && (
         <div className="flex items-center gap-1.5">
-          <h2 className="text-base font-semibold text-foreground">{heading}</h2>
+          <h2 className="text-heading text-foreground">{heading}</h2>
           <InfoTip label="About this department">
             The department&apos;s name and description, and whether patrons can see it. Renaming
             it here renames it everywhere — the schedule, the widget and the public pages all
             read this one row.
           </InfoTip>
           {dirty && (
-            <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+            <Badge variant="warning">
               Unsaved
-            </span>
+            </Badge>
           )}
         </div>
       )}
 
       {!fixedFacilityId && (
         <div>
-          <label htmlFor="facility_id" className={labelClass}>Facility *</label>
-          <select
+          <Label htmlFor="facility_id">Facility *</Label>
+          <NativeSelect
             id="facility_id"
             name="facility_id"
             required
             value={form.facility_id}
             onChange={handleChange}
-            className={fieldClass}
           >
             <option value="" disabled>Select a facility…</option>
             {(facilities ?? []).map((f) => (
               <option key={f.id} value={f.id}>{f.name}</option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       )}
 
       <div>
-        <label htmlFor="name" className={labelClass}>Department name *</label>
-        <input
+        <Label htmlFor="name">Department name *</Label>
+        <Input
           id="name"
           name="name"
           type="text"
           required
           value={form.name}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Aquatics"
         />
       </div>
 
       <div>
-        <label htmlFor="description" className={labelClass}>Description</label>
-        <textarea
+        <Label htmlFor="description">Description</Label>
+        <Textarea
           id="description"
           name="description"
           rows={3}
           value={form.description}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Optional description..."
         />
       </div>
@@ -221,7 +222,7 @@ export default function DepartmentForm({
           type="checkbox"
           checked={form.is_published}
           onChange={handleChange}
-          className="w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+          className="size-4 accent-primary"
         />
         <div>
           <label htmlFor="is_published" className="text-sm font-medium text-foreground">
@@ -234,53 +235,53 @@ export default function DepartmentForm({
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error">{error}</Banner>
       )}
       {saved && !dirty && (
-        <p role="status" className="text-sm text-green-700 dark:text-green-400">Saved.</p>
+        <p role="status" className="text-sm text-success">Saved.</p>
       )}
 
       {redirectTo === null ? (
         // Staying-put mode: no Cancel, because there is nothing to cancel out
         // of — the page is where the work is. Discard puts the fields back.
         <div className="flex flex-wrap items-center gap-3 pt-2">
-          <button
+          <Button
             type="submit"
             disabled={loading || !dirty}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors sm:w-auto sm:px-5"
+            className="w-full sm:w-auto"
           >
             {loading ? "Saving…" : dirty ? "Save changes" : "Saved"}
-          </button>
+          </Button>
           {dirty && !loading && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={() => {
                 setForm(JSON.parse(savedKey));
                 setError(null);
               }}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="size-3.5" />
               Discard changes
-            </button>
+            </Button>
           )}
         </div>
       ) : (
         <div className="flex gap-3 pt-2">
-          <button
+          <Button
             type="button"
+            variant="outline"
             onClick={() => router.back()}
-            className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
           >
             Cancel
-          </button>
-          <button
+          </Button>
+          <Button
             type="submit"
             disabled={loading}
-            className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+            className="flex-1"
           >
             {loading ? "Saving…" : isEditing ? "Save changes" : "Add department"}
-          </button>
+          </Button>
         </div>
       )}
     </form>

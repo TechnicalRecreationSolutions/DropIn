@@ -35,14 +35,14 @@ export default function FacilityDangerZone({
   if (!canDelete) return null;
 
   return (
-    <div className="mt-8 rounded-xl border border-red-200 bg-red-50/50 p-6">
-      <h2 className="text-sm font-semibold text-red-900">Danger zone</h2>
-      <p className="text-sm text-red-800/80 mt-1">
+    <div className="mt-8 rounded-card bg-destructive-subtle p-6">
+      <h2 className="text-heading text-destructive">Danger zone</h2>
+      <p className="text-body text-muted-foreground mt-1">
         Deleting this facility also deletes every department, schedule and session inside it.
         There is no undo.
       </p>
 
-      <Button variant="destructive" className="mt-4" onClick={() => setOpen(true)}>
+      <Button variant="outline" className="mt-4 text-destructive hover:text-destructive" onClick={() => setOpen(true)}>
         <Trash2 />
         Delete facility
       </Button>

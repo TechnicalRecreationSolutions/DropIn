@@ -4,11 +4,13 @@ import { getOrgContext } from "@/lib/auth/session";
 import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
-import { Plus, MapPin } from "lucide-react";
+import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityGridCard from "@/components/facilities/FacilityGridCard";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { SEVERITY_RANK } from "@/lib/status/notices";
 import type { NoticeSeverity } from "@/types/app.types";
 
@@ -42,16 +44,18 @@ export default function FacilitiesPage() {
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
-        <PageHeader title="Facilities" info="Physical locations where your schedules run." />
-        <Link
-          href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add facility
-        </Link>
-      </div>
+      <PageHeader
+        title="Facilities"
+        info="Physical locations where your schedules run."
+        actions={
+          <Button asChild>
+            <Link href="/dashboard/facilities/new">
+              <Plus className="w-4 h-4" />
+              Add facility
+            </Link>
+          </Button>
+        }
+      />
 
       <Suspense fallback={<FacilitiesGridSkeleton />}>
         <Streamed className="space-y-6">
@@ -118,20 +122,18 @@ async function FacilitiesGrid() {
 
   if (gridFacilities.length === 0) {
     return (
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-        <MapPin className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h3 className="font-medium text-foreground mb-1">No facilities yet</h3>
-        <p className="text-sm text-muted-foreground mb-4">
-          Add a facility to start building your schedule.
-        </p>
-        <Link
-          href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add your first facility
-        </Link>
-      </div>
+      <EmptyState
+        title="No facilities yet"
+        description="Add a facility to start building your schedule."
+        action={
+          <Button asChild variant="outline">
+            <Link href="/dashboard/facilities/new">
+              <Plus className="w-4 h-4" />
+              Add your first facility
+            </Link>
+          </Button>
+        }
+      />
     );
   }
 
@@ -155,7 +157,7 @@ function FacilitiesGridSkeleton() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4" aria-busy="true">
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-56 rounded-xl" />
+        <Skeleton key={i} className="h-56 rounded-card" />
       ))}
     </div>
   );

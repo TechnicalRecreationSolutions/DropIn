@@ -26,6 +26,8 @@ import {
   GripVertical,
 } from "lucide-react";
 import type { CommandSpace } from "@/components/schedule-command/types";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import {
   buildSpaceSections,
   moveSpaceByStep,
@@ -201,9 +203,9 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
     >
       <div className="space-y-4" data-saving={saving ? "true" : "false"}>
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
 
         {/* Reordering is optimistic, so without this there is nothing on screen
@@ -222,31 +224,30 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
         {sections.map((section) => (
           <section
             key={section.departmentId ?? "none"}
-            className="bg-card rounded-xl border border-border p-4 sm:p-5"
+            className="rounded-card border border-border bg-card p-5 shadow-card sm:p-6"
           >
             <div className="flex items-center gap-2 mb-3">
-              <Layers className="w-4 h-4 text-muted-foreground/70 shrink-0" />
-              <h2 className="text-sm font-semibold text-foreground truncate">{section.label}</h2>
-              <span className="text-xs text-muted-foreground/70 shrink-0">
+              <Layers className="w-4 h-4 text-muted-foreground shrink-0" />
+              <h2 className="text-card-title text-foreground truncate">{section.label}</h2>
+              <span className="text-caption text-muted-foreground shrink-0">
                 {section.total} space{section.total !== 1 ? "s" : ""} · {section.published} published
               </span>
-              <Link
-                href={newSpaceHref(facilityId, section.departmentId)}
-                className="ml-auto shrink-0 inline-flex items-center gap-1 px-2 py-1.5 -my-1 rounded-lg text-xs font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
-              >
-                <Plus className="w-3.5 h-3.5" />
-                <span className="hidden sm:inline">Add</span>
-                <span className="sr-only sm:hidden">Add a space to {section.label}</span>
-              </Link>
+              <Button asChild variant="ghost" size="sm" className="ml-auto shrink-0 -my-1 gap-1 text-muted-foreground hover:text-foreground">
+                <Link href={newSpaceHref(facilityId, section.departmentId)}>
+                  <Plus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">Add</span>
+                  <span className="sr-only sm:hidden">Add a space to {section.label}</span>
+                </Link>
+              </Button>
             </div>
 
             <div className="space-y-3">
               {section.zones.map((zone) => (
                 <div key={zone.zoneName ?? "__none"}>
                   {zone.zoneName && (
-                    <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground mb-1.5">
+                    <h3 className="flex items-center gap-2 text-label text-muted-foreground mb-1.5">
                       <span className="truncate">{zone.zoneName}</span>
-                      <span className="text-muted-foreground/60 shrink-0">{zone.spaces.length}</span>
+                      <span className="shrink-0 tabular-nums">{zone.spaces.length}</span>
                       <span className="h-px flex-1 bg-border" aria-hidden="true" />
                     </h3>
                   )}
@@ -254,7 +255,7 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
                       a rule of its own, so its chips do not read as part of the
                       zone above them. */}
                   {!zone.zoneName && section.zones.length > 1 && (
-                    <h3 className="flex items-center gap-2 text-xs font-medium text-muted-foreground/70 mb-1.5">
+                    <h3 className="flex items-center gap-2 text-label text-muted-foreground mb-1.5">
                       <span className="shrink-0">Not in a zone</span>
                       <span className="h-px flex-1 bg-border" aria-hidden="true" />
                     </h3>
@@ -291,8 +292,8 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
           the drop target under the cursor would move as you aim at it. */}
       <DragOverlay dropAnimation={null}>
         {drag && (
-          <div className="flex items-center gap-1.5 rounded-lg border border-blue-400 bg-card px-3 py-2 shadow-lg cursor-grabbing">
-            <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+          <div className="flex items-center gap-1.5 rounded-control border border-brand bg-card px-3 py-2 shadow-md cursor-grabbing">
+            <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
             <span className="text-sm font-medium text-foreground truncate">{drag.space.name}</span>
           </div>
         )}
@@ -354,25 +355,25 @@ function SpaceChip({
       data-space-id={space.id}
       data-drop-target={highlighted ? "true" : undefined}
       className={cn(
-        "relative min-h-11 h-full rounded-lg border border-border bg-muted/40 transition-colors hover:bg-muted hover:border-blue-300",
+        "relative min-h-11 h-full rounded-control border border-border bg-muted/40 transition-colors duration-150 hover:bg-muted hover:border-input",
         isDragging && "opacity-40",
-        highlighted && "border-blue-500 ring-2 ring-blue-500/40 bg-blue-50/60"
+        highlighted && "border-brand ring-2 ring-ring/40 bg-brand-subtle"
       )}
     >
       <Link
         href={`/dashboard/facilities/${facilityId}/spaces/${space.id}/edit`}
         aria-label={`Edit ${space.name}`}
-        className="absolute inset-0 rounded-lg focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-blue-500"
+        className="absolute inset-0 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       />
 
       <div className="relative flex flex-col justify-center gap-0.5 pl-7 pr-9 py-2 pointer-events-none">
         <span className="flex items-center gap-1.5 min-w-0">
-          <MapPin className="w-3.5 h-3.5 text-muted-foreground/70 shrink-0" />
+          <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium text-foreground truncate">{space.name}</span>
         </span>
-        <span className="flex items-center gap-1.5 text-xs text-muted-foreground/70">
+        <span className="flex items-center gap-1.5 text-xs text-muted-foreground">
           {space.isPublished ? (
-            <Eye className="w-3 h-3 text-green-600 shrink-0" />
+            <Eye className="w-3 h-3 text-success shrink-0" />
           ) : (
             <EyeOff className="w-3 h-3 shrink-0" />
           )}
@@ -395,7 +396,7 @@ function SpaceChip({
         tabIndex={-1}
         aria-hidden="true"
         data-drag-handle={space.id}
-        className="absolute left-0 top-0 bottom-0 w-7 flex items-center justify-center rounded-l-lg text-muted-foreground/50 hover:text-foreground hover:bg-background/70 cursor-grab active:cursor-grabbing touch-none transition-colors"
+        className="absolute left-0 top-0 bottom-0 w-7 flex items-center justify-center rounded-l-control text-muted-foreground hover:text-foreground hover:bg-background/70 cursor-grab active:cursor-grabbing touch-none transition-colors"
       >
         <GripVertical className="w-3.5 h-3.5" />
       </button>
@@ -436,7 +437,7 @@ function ReorderButton({
       onClick={onClick}
       disabled={disabled}
       aria-label={`Move ${spaceName} ${direction}`}
-      className="p-0.5 rounded text-muted-foreground/60 hover:text-foreground hover:bg-background disabled:opacity-0 disabled:pointer-events-none transition-colors"
+      className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-0 disabled:pointer-events-none transition-colors"
     >
       <Icon className="w-3.5 h-3.5" />
     </button>

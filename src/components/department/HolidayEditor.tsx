@@ -10,6 +10,11 @@ import {
 } from "@/lib/schedule/holiday-catalogue";
 import { timeToMinutes } from "@/lib/schedule/operating-hours";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
 import { useSectionDirty } from "@/components/department/section-dirty";
 import { cn } from "@/lib/utils/cn";
 
@@ -333,25 +338,22 @@ export default function HolidayEditor({
   const unansweredStatutory = rows.filter((r) => r.kind === "statutory" && !r.observed).length;
   const visible = onlyObserved ? observed : rows;
 
-  const fieldClass =
-    "px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
-    <section className="bg-card rounded-xl border border-border">
-      <header className="space-y-3 border-b border-border p-4 sm:p-5">
+    <section className="rounded-card border border-border bg-card shadow-card">
+      <header className="space-y-3 border-b border-border p-5 sm:p-6">
         <div className="flex flex-wrap items-start justify-between gap-3">
           <div className="min-w-0">
             <div className="flex items-center gap-1.5">
-              <h2 className="text-base font-semibold text-foreground">Holidays</h2>
+              <h2 className="text-heading text-foreground">Holidays</h2>
               <InfoTip label="About holidays">
                 Dates that override the weekly operating hours. Tick the ones this department
                 observes and say what happens — sessions set to run the whole time you are open
                 will follow. Anything left unticked is an ordinary day.
               </InfoTip>
               {dirty && (
-                <span className="rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+                <Badge variant="warning">
                   Unsaved
-                </span>
+                </Badge>
               )}
             </div>
             {/* The year's answer in one line: what is decided, and what is
@@ -371,48 +373,52 @@ export default function HolidayEditor({
               )}
             </p>
           </div>
-          <select
+          <NativeSelect
             value={year}
             onChange={(e) => changeYear(Number(e.target.value))}
             disabled={loadingYear || saving}
             aria-label="Year"
-            className={cn(fieldClass, "shrink-0 font-medium")}
+            wrapperClassName="w-auto shrink-0"
+            className="h-8 font-medium"
           >
             {years.map((y) => (
               <option key={y} value={y}>
                 {y}
               </option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
 
         <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
           {unansweredStatutory > 0 && (
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={observeAllStatutory}
-              className="text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs"
             >
               Observe all {unansweredStatutory} statutory dates
-            </button>
+            </Button>
           )}
           {observed.length > 0 && (
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={clearAll}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
               Untick everything
-            </button>
+            </Button>
           )}
           {observed.length > 0 && rows.length > observed.length && (
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => setOnlyObserved((v) => !v)}
-              className="text-muted-foreground hover:text-foreground"
+              className="text-xs text-muted-foreground hover:text-foreground"
             >
               {onlyObserved ? `Show all ${rows.length} dates` : `Show only the ${observed.length} observed`}
-            </button>
+            </Button>
           )}
         </div>
 
@@ -422,7 +428,7 @@ export default function HolidayEditor({
         </p>
       </header>
 
-      <div className={cn("p-4 sm:p-5", loadingYear && "opacity-50")}>
+      <div className={cn("p-5 sm:p-6", loadingYear && "opacity-50")}>
         {visible.length === 0 ? (
           <p className="py-6 text-center text-sm text-muted-foreground">
             {onlyObserved ? "Nothing ticked yet." : `No suggested dates for ${year}.`}
@@ -439,7 +445,7 @@ export default function HolidayEditor({
               return (
                 <div key={`${row.date}-${i}`} className="py-2.5">
                   {newMonth && !row.custom && (
-                    <p className="pb-1.5 text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                    <p className="pb-1.5 text-label text-muted-foreground">
                       {monthLabel(row.date)}
                     </p>
                   )}
@@ -450,7 +456,7 @@ export default function HolidayEditor({
                       checked={row.observed}
                       onChange={(e) => mutate(i, { observed: e.target.checked })}
                       aria-label={`Observe ${row.name || row.date}`}
-                      className="mt-1 w-4 h-4 shrink-0 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+                      className="mt-1.5 size-4 shrink-0 accent-primary"
                     />
 
                     <div className="min-w-0 flex-1 space-y-2">
@@ -459,32 +465,34 @@ export default function HolidayEditor({
                       <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5">
                         {row.custom ? (
                           <>
-                            <input
+                            <Input
                               type="date"
                               value={row.date}
                               onChange={(e) => mutate(i, { date: e.target.value })}
                               aria-label="Holiday date"
-                              className={fieldClass}
+                              className="h-8 w-auto px-2 py-1"
                             />
-                            <input
+                            <Input
                               type="text"
                               value={row.name}
                               onChange={(e) => mutate(i, { name: e.target.value })}
                               placeholder="Name, e.g. Staff training day"
                               aria-label="Holiday name"
-                              className={`${fieldClass} flex-1 min-w-[10rem]`}
+                              className="h-8 min-w-[10rem] flex-1 px-2 py-1"
                             />
-                            <button
+                            <Button
                               type="button"
+                              variant="ghost"
+                              size="icon-sm"
                               onClick={() => {
                                 setRows((prevRows) => prevRows.filter((_, j) => j !== i));
                                 setSaved(null);
                               }}
                               aria-label={`Remove ${row.name || row.date}`}
-                              className="p-1 text-muted-foreground hover:text-red-600 rounded"
+                              className="text-muted-foreground hover:text-destructive"
                             >
                               <X className="w-4 h-4" />
-                            </button>
+                            </Button>
                           </>
                         ) : (
                           <>
@@ -500,7 +508,7 @@ export default function HolidayEditor({
                               {row.name}
                             </span>
                             {row.kind === "common" && (
-                              <span className="rounded-full bg-muted px-2 py-0.5 text-[11px] text-muted-foreground">
+                              <span className="rounded-full bg-muted px-2 py-0.5 text-xs text-muted-foreground">
                                 not statutory here
                               </span>
                             )}
@@ -508,18 +516,19 @@ export default function HolidayEditor({
                         )}
 
                         {row.observed && (
-                          <select
+                          <NativeSelect
                             value={row.observance}
                             onChange={(e) => mutate(i, { observance: e.target.value as Observance })}
                             aria-label={`What happens on ${row.name || row.date}`}
-                            className={cn(fieldClass, "ml-auto shrink-0")}
+                            wrapperClassName="ml-auto w-auto shrink-0"
+                            className="h-8"
                           >
                             {(Object.keys(OBSERVANCE_LABELS) as Observance[]).map((value) => (
                               <option key={value} value={value}>
                                 {OBSERVANCE_LABELS[value]}
                               </option>
                             ))}
-                          </select>
+                          </NativeSelect>
                         )}
                       </div>
 
@@ -531,7 +540,7 @@ export default function HolidayEditor({
                         <div className="space-y-2">
                           {row.windows.map((w, wi) => (
                             <div key={wi} className="flex items-center gap-2">
-                              <input
+                              <Input
                                 type="time"
                                 value={w.opens}
                                 aria-label={`${row.name} window ${wi + 1} opens`}
@@ -542,10 +551,10 @@ export default function HolidayEditor({
                                     ),
                                   })
                                 }
-                                className={fieldClass}
+                                className="h-8 w-auto px-2 py-1"
                               />
                               <span className="text-sm text-muted-foreground">to</span>
-                              <input
+                              <Input
                                 type="time"
                                 value={w.closes}
                                 aria-label={`${row.name} window ${wi + 1} closes`}
@@ -556,29 +565,32 @@ export default function HolidayEditor({
                                     ),
                                   })
                                 }
-                                className={fieldClass}
+                                className="h-8 w-auto px-2 py-1"
                               />
                               {row.windows.length > 1 && (
-                                <button
+                                <Button
                                   type="button"
+                                  variant="ghost"
+                                  size="icon-sm"
                                   onClick={() =>
                                     mutate(i, { windows: row.windows.filter((_, j) => j !== wi) })
                                   }
                                   aria-label={`Remove ${row.name} window ${wi + 1}`}
-                                  className="p-1 text-muted-foreground hover:text-red-600 rounded"
+                                  className="text-muted-foreground hover:text-destructive"
                                 >
                                   <X className="w-4 h-4" />
-                                </button>
+                                </Button>
                               )}
                             </div>
                           ))}
-                          <button
+                          <Button
                             type="button"
+                            variant="link"
                             onClick={() => mutate(i, { windows: [...row.windows, { ...DEFAULT_WINDOW }] })}
-                            className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                            className="gap-1 text-xs"
                           >
                             <Plus className="w-3 h-3" /> Add another window
-                          </button>
+                          </Button>
                         </div>
                       )}
                     </div>
@@ -589,59 +601,60 @@ export default function HolidayEditor({
           </div>
         )}
 
-        <button
+        <Button
           type="button"
+          variant="link"
           onClick={addCustom}
-          className="mt-4 inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+          className="mt-4 gap-1 text-xs"
         >
           <Plus className="w-3 h-3" /> Add a date of your own
-        </button>
+        </Button>
       </div>
 
-      <footer className="space-y-3 border-t border-border p-4 sm:p-5">
+      <footer className="space-y-3 border-t border-border p-5 sm:p-6">
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
         {saved && (
-          <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          <p role="status" className="text-sm text-success">
             {saved}
           </p>
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="button"
             onClick={handleSave}
             disabled={saving || loadingYear || !dirty}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors sm:w-auto sm:px-5"
+            className="w-full sm:w-auto"
           >
             {saving
               ? "Saving…"
               : dirty
                 ? `Save ${observed.length} holiday${observed.length === 1 ? "" : "s"} for ${year}`
                 : "Saved"}
-          </button>
+          </Button>
 
           {dirty && !saving && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={discard}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="size-3.5" />
               Discard changes
-            </button>
+            </Button>
           )}
 
           {siblings.length > 0 && (
-            <select
+            <NativeSelect
               value=""
               disabled={copying || saving}
               onChange={(e) => e.target.value && copyTo(e.target.value)}
               aria-label="Copy these holidays to another department"
-              className={cn(fieldClass, "sm:ml-auto")}
+              wrapperClassName="w-auto sm:ml-auto"
             >
               <option value="">{copying ? "Copying…" : "Copy to…"}</option>
               {siblings.map((s) => (
@@ -649,7 +662,7 @@ export default function HolidayEditor({
                   {s.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           )}
         </div>
       </footer>

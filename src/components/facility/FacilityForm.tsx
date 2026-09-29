@@ -2,6 +2,12 @@
 
 import { useState } from "react";
 import ImageUpload from "@/components/media/ImageUpload";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 
@@ -129,21 +135,18 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-card border border-border bg-card p-5 shadow-card sm:p-6">
       <div>
-        <label htmlFor="name" className={labelClass}>Facility name *</label>
-        <input id="name" name="name" type="text" required value={form.name} onChange={handleChange}
-          className={fieldClass} placeholder="Village Square Leisure Centre" />
+        <Label htmlFor="name">Facility name *</Label>
+        <Input id="name" name="name" type="text" required value={form.name} onChange={handleChange}
+          placeholder="Village Square Leisure Centre" />
       </div>
 
       <div>
-        <label htmlFor="description" className={labelClass}>Description</label>
-        <textarea id="description" name="description" rows={3} value={form.description} onChange={handleChange}
-          className={fieldClass} placeholder="Brief description of the facility and what it offers..." />
+        <Label htmlFor="description">Description</Label>
+        <Textarea id="description" name="description" rows={3} value={form.description} onChange={handleChange}
+          placeholder="Brief description of the facility and what it offers..." />
       </div>
 
       {/* Element 0 of photo_urls is the cover — the one FacilityGridCard and
@@ -160,50 +163,50 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
       />
 
       <div>
-        <label htmlFor="address_line1" className={labelClass}>Street address *</label>
-        <input id="address_line1" name="address_line1" type="text" required value={form.address_line1} onChange={handleChange}
-          className={fieldClass} placeholder="2623 56 St NE" />
+        <Label htmlFor="address_line1">Street address *</Label>
+        <Input id="address_line1" name="address_line1" type="text" required value={form.address_line1} onChange={handleChange}
+          placeholder="2623 56 St NE" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="city" className={labelClass}>City *</label>
-          <input id="city" name="city" type="text" required value={form.city} onChange={handleChange}
-            className={fieldClass} placeholder="Calgary" />
+          <Label htmlFor="city">City *</Label>
+          <Input id="city" name="city" type="text" required value={form.city} onChange={handleChange}
+            placeholder="Calgary" />
         </div>
         <div>
-          <label htmlFor="province" className={labelClass}>Province *</label>
-          <select id="province" name="province" required value={form.province} onChange={handleChange} className={fieldClass}>
+          <Label htmlFor="province">Province *</Label>
+          <NativeSelect id="province" name="province" required value={form.province} onChange={handleChange}>
             {CANADIAN_PROVINCES.map(([code, name]) => (
               <option key={code} value={code}>{name}</option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="postal_code" className={labelClass}>Postal code *</label>
-          <input id="postal_code" name="postal_code" type="text" required value={form.postal_code} onChange={handleChange}
-            className={fieldClass} placeholder="T1Y 6E7" />
+          <Label htmlFor="postal_code">Postal code *</Label>
+          <Input id="postal_code" name="postal_code" type="text" required value={form.postal_code} onChange={handleChange}
+            placeholder="T1Y 6E7" />
         </div>
         <div>
-          <label htmlFor="phone" className={labelClass}>Phone</label>
-          <input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange}
-            className={fieldClass} placeholder="403-555-0100" />
+          <Label htmlFor="phone">Phone</Label>
+          <Input id="phone" name="phone" type="tel" value={form.phone} onChange={handleChange}
+            placeholder="403-555-0100" />
         </div>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
-          <label htmlFor="email" className={labelClass}>Email</label>
-          <input id="email" name="email" type="email" value={form.email} onChange={handleChange}
-            className={fieldClass} placeholder="info@facility.ca" />
+          <Label htmlFor="email">Email</Label>
+          <Input id="email" name="email" type="email" value={form.email} onChange={handleChange}
+            placeholder="info@facility.ca" />
         </div>
         <div>
-          <label htmlFor="website_url" className={labelClass}>Website</label>
-          <input id="website_url" name="website_url" type="url" value={form.website_url} onChange={handleChange}
-            className={fieldClass} placeholder="https://..." />
+          <Label htmlFor="website_url">Website</Label>
+          <Input id="website_url" name="website_url" type="url" value={form.website_url} onChange={handleChange}
+            placeholder="https://..." />
         </div>
       </div>
 
@@ -211,7 +214,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
         <input
           id="is_published" name="is_published" type="checkbox"
           checked={form.is_published} onChange={handleChange}
-          className="w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+          className="size-4 accent-primary"
         />
         <div>
           <label htmlFor="is_published" className="text-sm font-medium text-foreground">
@@ -225,7 +228,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
         <input
           id="listed_in_directory" name="listed_in_directory" type="checkbox"
           checked={form.listed_in_directory} onChange={handleChange}
-          className="mt-0.5 w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+          className="mt-0.5 size-4 accent-primary"
         />
         <div>
           <label htmlFor="listed_in_directory" className="text-sm font-medium text-foreground">
@@ -235,7 +238,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
             <p className="text-xs text-muted-foreground">Only shown while the facility is published.</p>
           )}
           {form.listed_in_directory && !orgVerified && (
-            <p className="mt-1 text-xs text-amber-700 dark:text-amber-400">
+            <p className="mt-1 text-xs text-warning">
               Your organization hasn’t been verified yet. We confirm that each account
               really runs the centres it lists before they appear in the directory — we’ll
               be in touch, and this facility will show up once that’s done.
@@ -245,7 +248,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
             <p
               className={
                 locationStatus === "not_found"
-                  ? "mt-1 text-xs text-amber-700 dark:text-amber-400"
+                  ? "mt-1 text-xs text-warning"
                   : "mt-1 text-xs text-muted-foreground"
               }
             >
@@ -256,24 +259,24 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => router.back()}
-          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="flex-1"
         >
           {loading ? "Saving…" : isEditing ? "Save changes" : "Add facility"}
-        </button>
+        </Button>
       </div>
     </form>
   );

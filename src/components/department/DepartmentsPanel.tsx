@@ -7,6 +7,10 @@ import { Layers, Plus, Pencil, Trash2, Eye, EyeOff, Calendar, LayoutGrid, Clock 
 import { useQueryClient } from "@tanstack/react-query";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
+import { EmptyState } from "@/components/ui/empty-state";
 
 export interface DepartmentRow {
   id: string;
@@ -93,45 +97,39 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
         <p className="truncate text-sm text-muted-foreground">
           In <span className="font-medium text-foreground">{facility.name}</span>
         </p>
-        <Link
-          href={newDepartmentHref}
-          className="shrink-0 inline-flex items-center gap-2 px-3 py-2 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add department
-        </Link>
+        <Button asChild className="shrink-0">
+          <Link href={newDepartmentHref}>
+            <Plus className="w-4 h-4" />
+            Add department
+          </Link>
+        </Button>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       {/* Not an error — the delete worked. This is the only place anyone is
           told that a coordinator just lost all their access to it. */}
       {notice && (
-        <p
-          role="status"
-          className="text-sm text-amber-900 dark:text-amber-200 bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-900 px-3 py-2.5 rounded-lg"
-        >
+        <Banner variant="warning" role="status">
           {notice}
-        </p>
+        </Banner>
       )}
 
       {departments.length === 0 ? (
-        <div className="text-center py-14 bg-card rounded-xl border border-dashed border-border">
-          <Layers className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-          <h3 className="font-medium text-foreground mb-1">No departments yet</h3>
-          <p className="text-sm text-muted-foreground mb-4 max-w-sm mx-auto">
-            Optional. Group related schedules, such as &quot;Aquatics&quot; or &quot;Fitness&quot;.
-          </p>
-          <Link
-            href={newDepartmentHref}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add a department
-          </Link>
-        </div>
+        <EmptyState
+          title="No departments yet"
+          description={<>Optional. Group related schedules, such as &quot;Aquatics&quot; or &quot;Fitness&quot;.</>}
+          action={
+            <Button asChild variant="outline">
+              <Link href={newDepartmentHref}>
+                <Plus className="w-4 h-4" />
+                Add a department
+              </Link>
+            </Button>
+          }
+        />
       ) : (
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
           {departments.map((department) => (
@@ -149,7 +147,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
               someone is most likely to want after reading the grid. */}
           <Link
             href={newDepartmentHref}
-            className="flex min-h-[7rem] flex-col items-center justify-center gap-1.5 rounded-xl border border-dashed border-border bg-card/50 p-4 text-center text-sm text-muted-foreground transition-colors hover:border-blue-300 hover:text-foreground"
+            className="flex min-h-[7rem] flex-col items-center justify-center gap-1.5 rounded-card border border-dashed border-input p-4 text-center text-sm font-medium text-muted-foreground transition-colors duration-150 hover:bg-muted hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <Plus className="size-5" />
             Add department
@@ -175,27 +173,27 @@ function DepartmentCard({ facilityId, department, deleting, onDelete }: Departme
     <div
       data-department-card={department.name}
       className={cn(
-        "relative flex flex-col rounded-xl border border-border bg-card transition-all",
-        "hover:border-blue-300 hover:shadow-sm",
+        "relative flex flex-col rounded-card border border-border bg-card shadow-card transition-colors duration-150",
+        "hover:border-input",
         deleting && "opacity-50"
       )}
     >
       {/* The card body goes to the schedule, not to this page's own editor —
           seeing what is in a department is the reason to click one. Editing is
           the pencil, exactly as on the Facilities grid. */}
-      <Link href={commandCentreHref({ facilityId, departmentId: department.id })} className="block flex-1 p-4 pr-16">
+      <Link href={commandCentreHref({ facilityId, departmentId: department.id })} className="block flex-1 rounded-t-card p-5 pr-20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring">
         <div className="flex items-start gap-2">
-          <Layers className="mt-0.5 size-4 shrink-0 text-blue-500" />
-          <h3 className="truncate font-semibold text-foreground">{department.name}</h3>
+          <Layers className="mt-0.5 size-4 shrink-0 text-muted-foreground" />
+          <h3 className="truncate text-card-title text-foreground">{department.name}</h3>
         </div>
 
         {department.description ? (
-          <p className="mt-1 line-clamp-2 text-xs text-muted-foreground">{department.description}</p>
+          <p className="mt-1 line-clamp-2 text-caption text-muted-foreground">{department.description}</p>
         ) : (
-          <p className="mt-1 text-xs text-muted-foreground/70">No description</p>
+          <p className="mt-1 text-caption text-muted-foreground">No description</p>
         )}
 
-        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted-foreground">
+        <div className="mt-3 flex flex-wrap items-center gap-x-3 gap-y-1.5 text-caption text-muted-foreground">
           <span className="inline-flex items-center gap-1">
             <Calendar className="size-3.5" />
             {department.schedule_count} schedule{department.schedule_count === 1 ? "" : "s"}
@@ -205,34 +203,34 @@ function DepartmentCard({ facilityId, department, deleting, onDelete }: Departme
             {department.space_count} space{department.space_count === 1 ? "" : "s"}
           </span>
           {department.is_published ? (
-            <span className="inline-flex items-center gap-1 text-green-700 dark:text-green-400">
-              <Eye className="size-3.5" /> Published
-            </span>
+            <Badge variant="success">
+              <Eye /> Published
+            </Badge>
           ) : (
-            <span className="inline-flex items-center gap-1">
-              <EyeOff className="size-3.5" /> Draft
-            </span>
+            <Badge>
+              <EyeOff /> Draft
+            </Badge>
           )}
         </div>
       </Link>
 
       <div className="absolute right-3 top-3 flex items-center gap-0.5">
-        <Link
-          href={editHref}
-          aria-label={`Edit ${department.name}`}
-          className="rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:bg-muted hover:text-foreground"
-        >
-          <Pencil className="size-4" />
-        </Link>
-        <button
+        <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground hover:text-foreground">
+          <Link href={editHref} aria-label={`Edit ${department.name}`}>
+            <Pencil className="size-4" />
+          </Link>
+        </Button>
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={onDelete}
           disabled={deleting}
           aria-label={`Delete ${department.name}`}
-          className="rounded-lg p-1.5 text-muted-foreground/70 transition-colors hover:bg-red-50 hover:text-red-600 disabled:opacity-50 dark:hover:bg-red-950/40"
+          className="text-destructive hover:text-destructive"
         >
           <Trash2 className="size-4" />
-        </button>
+        </Button>
       </div>
 
       {/* The one piece of setup a department can be silently missing. A
@@ -241,10 +239,10 @@ function DepartmentCard({ facilityId, department, deleting, onDelete }: Departme
       <Link
         href={`${editHref}#hours`}
         className={cn(
-          "flex items-center gap-1.5 rounded-b-xl border-t px-4 py-2 text-xs transition-colors",
+          "flex items-center gap-1.5 rounded-b-card border-t border-border px-5 py-2.5 text-caption transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           hasHours
-            ? "border-border text-muted-foreground hover:bg-muted"
-            : "border-amber-200 bg-amber-50 font-medium text-amber-800 hover:bg-amber-100 dark:border-amber-900 dark:bg-amber-950/40 dark:text-amber-200 dark:hover:bg-amber-950/60"
+            ? "text-muted-foreground hover:bg-muted"
+            : "bg-warning-subtle font-medium text-warning hover:bg-muted"
         )}
       >
         <Clock className="size-3.5 shrink-0" />

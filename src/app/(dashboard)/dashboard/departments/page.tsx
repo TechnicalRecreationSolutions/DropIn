@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import Link from "next/link";
-import { Layers, Plus } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -12,6 +12,8 @@ import DepartmentsPanel from "@/components/department/DepartmentsPanel";
 import UnassignedCallout from "@/components/department/UnassignedCallout";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import { groupHoursByDepartment, summarizeWeek } from "@/lib/schedule/operating-hours";
 
 interface DepartmentsPageProps {
@@ -165,20 +167,18 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-        <Layers className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
-        <p className="text-sm text-muted-foreground mb-4">
-          Add a facility first — departments belong to a building.
-        </p>
-        <Link
-          href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add a facility
-        </Link>
-      </div>
+      <EmptyState
+        title="No buildings yet"
+        description="Add a facility first — departments belong to a building."
+        action={
+          <Button asChild variant="outline">
+            <Link href="/dashboard/facilities/new">
+              <Plus className="w-4 h-4" />
+              Add a facility
+            </Link>
+          </Button>
+        }
+      />
     </div>
   );
 }
@@ -195,7 +195,7 @@ function DepartmentsBodySkeleton() {
           jump from one tall block to three cards as it streams in. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-40 rounded-xl" />
+          <Skeleton key={i} className="h-40 rounded-card" />
         ))}
       </div>
     </div>

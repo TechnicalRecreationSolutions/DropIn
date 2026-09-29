@@ -41,11 +41,11 @@ export default function UnassignedCallout({
   if (orphanGroups.length === 0 && orphanSpaces.length === 0) return null;
 
   return (
-    <div className="rounded-xl border border-amber-200 dark:border-amber-900 bg-amber-50 dark:bg-amber-950/40 p-4 space-y-3">
+    <div className="rounded-banner bg-warning-subtle p-4 space-y-3">
       <div className="flex items-start gap-2">
-        <AlertTriangle className="w-4 h-4 text-amber-700 dark:text-amber-400 shrink-0 mt-0.5" />
+        <AlertTriangle className="w-4 h-4 text-warning shrink-0 mt-0.5" />
         <div className="flex items-center gap-1.5">
-          <h2 className="text-sm font-semibold text-amber-900 dark:text-amber-200">
+          <h2 className="text-sm font-semibold text-warning">
             Hidden from coordinators
           </h2>
           <InfoTip>
@@ -57,7 +57,7 @@ export default function UnassignedCallout({
 
       {orphanGroups.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900/70 dark:text-amber-200/70 pb-1">
+          <p className="text-label text-muted-foreground pb-1.5">
             Schedules
           </p>
           <div className="flex flex-wrap gap-1.5">
@@ -65,7 +65,7 @@ export default function UnassignedCallout({
               <Link
                 key={g.id}
                 href={commandCentreHref({ facilityId, scheduleGroupId: g.id })}
-                className="text-xs px-2 py-1 rounded-md bg-card border border-amber-200 dark:border-amber-900 text-foreground hover:bg-muted transition-colors"
+                className="text-xs px-2.5 py-1 rounded-full bg-card border border-border text-foreground hover:bg-muted transition-colors duration-150"
               >
                 {g.name}
               </Link>
@@ -76,27 +76,27 @@ export default function UnassignedCallout({
 
       {orphanSpaces.length > 0 && (
         <div>
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-amber-900/70 dark:text-amber-200/70 pb-1">
+          <p className="text-label text-muted-foreground pb-1.5">
             Spaces
           </p>
           <div className="flex flex-wrap gap-1.5">
             {orphanSpaces.slice(0, 12).map((s) => (
               <span
                 key={s.id}
-                className="text-xs px-2 py-1 rounded-md bg-card border border-amber-200 dark:border-amber-900 text-foreground"
+                className="text-xs px-2.5 py-1 rounded-full bg-card border border-border text-foreground"
               >
                 {s.name}
               </span>
             ))}
             {orphanSpaces.length > 12 && (
-              <span className="text-xs px-2 py-1 text-amber-900/80 dark:text-amber-200/80">
+              <span className="text-xs px-2 py-1 text-muted-foreground">
                 +{orphanSpaces.length - 12} more
               </span>
             )}
           </div>
           <Link
             href={spacesHref(facilityId)}
-            className="inline-block mt-2 text-xs font-medium text-amber-900 dark:text-amber-200 underline hover:no-underline"
+            className="inline-block mt-2 text-xs font-medium text-brand underline-offset-4 hover:underline"
           >
             Assign them on the Spaces page
           </Link>

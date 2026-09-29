@@ -13,6 +13,10 @@ import {
   type OperatingWindow,
 } from "@/lib/schedule/operating-hours";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Badge } from "@/components/ui/badge";
+import { Banner } from "@/components/ui/banner";
 import { useSectionDirty } from "@/components/department/section-dirty";
 import { cn } from "@/lib/utils/cn";
 
@@ -186,15 +190,12 @@ export default function OperatingHoursEditor({
   const liveSummary = summarizeWeek(week);
   const openDays = week.filter((d) => d.length > 0).length;
 
-  const timeClass =
-    "px-2 py-1.5 border border-border rounded-lg text-sm bg-background focus:outline-none focus:ring-2 focus:ring-blue-500";
-
   return (
-    <section className="bg-card rounded-xl border border-border">
-      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-4 sm:p-5">
+    <section className="rounded-card border border-border bg-card shadow-card">
+      <header className="flex flex-wrap items-start justify-between gap-3 border-b border-border p-5 sm:p-6">
         <div className="min-w-0">
           <div className="flex items-center gap-1.5">
-            <h2 className="text-base font-semibold text-foreground">Operating hours</h2>
+            <h2 className="text-heading text-foreground">Operating hours</h2>
             <InfoTip label="About operating hours">
               When this department is open. A session can be set to run the whole time you are
               open instead of carrying its own times — change the hours here and those sessions
@@ -209,30 +210,32 @@ export default function OperatingHoursEditor({
           </p>
         </div>
         {dirty && (
-          <span className="shrink-0 rounded-full bg-amber-50 px-2.5 py-1 text-xs font-medium text-amber-800 dark:bg-amber-950/40 dark:text-amber-200">
+          <Badge variant="warning" className="shrink-0">
             Unsaved
-          </span>
+          </Badge>
         )}
       </header>
 
-      <div className="p-4 sm:p-5">
+      <div className="p-5 sm:p-6">
         {days[1].length > 0 && (
           <div className="mb-3 flex flex-wrap items-center gap-x-4 gap-y-1 text-xs">
             <span className="text-muted-foreground">Quick fill:</span>
-            <button
+            <Button
               type="button"
+              variant="link"
               onClick={() => copyMonday("weekdays")}
-              className="text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs"
             >
               Copy Monday to Tue–Fri
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="link"
               onClick={() => copyMonday("week")}
-              className="text-blue-600 hover:underline dark:text-blue-400"
+              className="text-xs"
             >
               Copy Monday to every day
-            </button>
+            </Button>
           </div>
         )}
 
@@ -273,39 +276,42 @@ export default function OperatingHoursEditor({
                     <>
                       {windows.map((w, i) => (
                         <div key={i} className="flex items-center gap-2">
-                          <input
+                          <Input
                             type="time"
                             aria-label={`${DAY_NAMES[day]} window ${i + 1} opens`}
                             value={w.opens}
                             onChange={(e) => setField(day, i, "opens", e.target.value)}
-                            className={timeClass}
+                            className="h-8 w-auto px-2 py-1"
                           />
                           <span className="text-sm text-muted-foreground">to</span>
-                          <input
+                          <Input
                             type="time"
                             aria-label={`${DAY_NAMES[day]} window ${i + 1} closes`}
                             value={w.closes}
                             onChange={(e) => setField(day, i, "closes", e.target.value)}
-                            className={timeClass}
+                            className="h-8 w-auto px-2 py-1"
                           />
-                          <button
+                          <Button
                             type="button"
+                            variant="ghost"
+                            size="icon-sm"
                             onClick={() => removeWindow(day, i)}
                             aria-label={`Remove ${DAY_NAMES[day]} window ${i + 1}`}
-                            className="p-1 text-muted-foreground hover:text-red-600 rounded"
+                            className="text-muted-foreground hover:text-destructive"
                           >
                             <X className="w-4 h-4" />
-                          </button>
+                          </Button>
                         </div>
                       ))}
                       <div className="flex items-center gap-3">
-                        <button
+                        <Button
                           type="button"
+                          variant="link"
                           onClick={() => addWindow(day)}
-                          className="inline-flex items-center gap-1 text-xs text-blue-600 dark:text-blue-400 hover:underline"
+                          className="gap-1 text-xs"
                         >
                           <Plus className="w-3 h-3" /> Add another window
-                        </button>
+                        </Button>
                         <span className="hidden text-xs text-muted-foreground sm:inline">{total}</span>
                       </div>
                     </>
@@ -317,7 +323,7 @@ export default function OperatingHoursEditor({
         </div>
       </div>
 
-      <footer className="space-y-3 border-t border-border p-4 sm:p-5">
+      <footer className="space-y-3 border-t border-border p-5 sm:p-6">
         {sessionsFollowing > 0 && (
           <p className="text-xs text-muted-foreground">
             {sessionsFollowing} active session{sessionsFollowing === 1 ? "" : "s"} follow
@@ -326,34 +332,34 @@ export default function OperatingHoursEditor({
         )}
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 dark:bg-red-950/30 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
         {saved && (
-          <p role="status" className="text-sm text-green-700 dark:text-green-400">
+          <p role="status" className="text-sm text-success">
             {saved}
           </p>
         )}
 
         <div className="flex flex-wrap items-center gap-3">
-          <button
+          <Button
             type="button"
             onClick={handleSave}
             disabled={saving || !dirty}
-            className="w-full py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors sm:w-auto sm:px-5"
+            className="w-full sm:w-auto"
           >
             {saving ? "Saving…" : dirty ? "Save operating hours" : "Saved"}
-          </button>
+          </Button>
           {dirty && !saving && (
-            <button
+            <Button
               type="button"
+              variant="ghost"
               onClick={reset}
-              className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground"
             >
               <RotateCcw className="size-3.5" />
               Discard changes
-            </button>
+            </Button>
           )}
         </div>
       </footer>
@@ -376,15 +382,15 @@ function OpenSwitch({ day, open, onChange }: OpenSwitchProps) {
       aria-label={`${DAY_NAMES[day]} open`}
       onClick={() => onChange(!open)}
       className={cn(
-        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2",
-        open ? "bg-blue-600" : "bg-muted-foreground/30"
+        "relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors duration-150",
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+        open ? "bg-primary" : "bg-input"
       )}
     >
       <span
         className={cn(
-          "inline-block size-4 rounded-full bg-white shadow transition-transform",
-          open ? "translate-x-4" : "translate-x-0.5"
+          "inline-block size-4 rounded-full shadow-card transition-transform",
+          open ? "translate-x-4 bg-primary-foreground" : "translate-x-0.5 bg-card"
         )}
       />
     </button>

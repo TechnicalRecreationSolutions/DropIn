@@ -39,8 +39,8 @@ export default function DepartmentPicker({ departments, activeDepartmentId, href
                 className={cn(
                   "block rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                   active
-                    ? "bg-blue-600 text-white dark:bg-blue-500"
-                    : "bg-muted text-muted-foreground hover:bg-muted/70 hover:text-foreground"
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-muted text-muted-foreground hover:bg-border hover:text-foreground"
                 )}
               >
                 {tab.name}

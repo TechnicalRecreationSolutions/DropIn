@@ -4,6 +4,12 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { useQueryClient } from "@tanstack/react-query";
 import { LabelWithInfo } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Label } from "@/components/ui/field";
+import { Banner } from "@/components/ui/banner";
 
 interface SpaceFormProps {
   facilityId: string;
@@ -139,56 +145,50 @@ export default function SpaceForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
-
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-card border border-border bg-card p-5 shadow-card sm:p-6">
       <div>
-        <label htmlFor="name" className={labelClass}>Space name *</label>
-        <input
+        <Label htmlFor="name">Space name *</Label>
+        <Input
           id="name"
           name="name"
           type="text"
           required
           value={form.name}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Lane 3, Court A, Studio 2"
         />
       </div>
 
       {departments.length > 0 && (
         <div>
-          <label htmlFor="department_id" className={labelClass}>Department</label>
-          <select
+          <Label htmlFor="department_id">Department</Label>
+          <NativeSelect
             id="department_id"
             name="department_id"
             value={form.department_id}
             onChange={handleChange}
-            className={fieldClass}
           >
             <option value="">No department</option>
             {departments.map((dept) => (
               <option key={dept.id} value={dept.id}>{dept.name}</option>
             ))}
-          </select>
+          </NativeSelect>
         </div>
       )}
 
       <div>
-        <LabelWithInfo htmlFor="zone_name" className={labelClass} info="Groups spaces on the Spaces page. Doesn't affect booking.">Zone</LabelWithInfo>
+        <LabelWithInfo htmlFor="zone_name" className="block text-caption font-medium text-foreground" info="Groups spaces on the Spaces page. Doesn't affect booking.">Zone</LabelWithInfo>
         {/* Free text with suggestions rather than a picker: a zone is a label
             the Spaces page groups by, not a record, so there is nothing to
             create first. The datalist is what keeps the spelling consistent. */}
-        <input
+        <Input
           id="zone_name"
           name="zone_name"
           type="text"
           list="space-zone-names"
           value={form.zone_name}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Optional — e.g. Main Pool, Gym Floor"
         />
         <datalist id="space-zone-names">
@@ -199,8 +199,8 @@ export default function SpaceForm({
       </div>
 
       <div>
-        <label htmlFor="capacity" className={labelClass}>Capacity</label>
-        <input
+        <Label htmlFor="capacity">Capacity</Label>
+        <Input
           id="capacity"
           name="capacity"
           type="number"
@@ -208,20 +208,18 @@ export default function SpaceForm({
           step={1}
           value={form.capacity}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Optional — max people/participants"
         />
       </div>
 
       <div>
-        <label htmlFor="description" className={labelClass}>Description</label>
-        <textarea
+        <Label htmlFor="description">Description</Label>
+        <Textarea
           id="description"
           name="description"
           rows={3}
           value={form.description}
           onChange={handleChange}
-          className={fieldClass}
           placeholder="Optional description..."
         />
       </div>
@@ -233,7 +231,7 @@ export default function SpaceForm({
           type="checkbox"
           checked={form.is_published}
           onChange={handleChange}
-          className="w-4 h-4 rounded border-border text-blue-600 dark:text-blue-400 focus:ring-blue-500"
+          className="size-4 accent-primary"
         />
         <div>
           <label htmlFor="is_published" className="text-sm font-medium text-foreground">
@@ -246,24 +244,24 @@ export default function SpaceForm({
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       <div className="flex gap-3 pt-2">
-        <button
+        <Button
           type="button"
+          variant="outline"
           onClick={() => router.back()}
-          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
         >
           Cancel
-        </button>
-        <button
+        </Button>
+        <Button
           type="submit"
           disabled={loading}
-          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+          className="flex-1"
         >
           {loading ? "Saving…" : isEditing ? "Save changes" : "Add space"}
-        </button>
+        </Button>
       </div>
     </form>
   );
