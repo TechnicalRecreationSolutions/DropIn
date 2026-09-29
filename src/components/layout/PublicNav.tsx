@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { useState } from "react";
-import { Menu, X, CalendarDays } from "lucide-react";
+import { Menu, X } from "lucide-react";
 
 /**
  * Top navigation for all public-facing pages.
@@ -18,29 +18,28 @@ export default function PublicNav() {
   // entries pointed at the aggregator pages deleted in ef0a035.
   const navLinks = [
     { href: "/find", label: "Find a centre" },
+    { href: "/#how-it-works", label: "How it works" },
     { href: "/#features", label: "Features" },
-    { href: "/#product", label: "Preview" },
     { href: "/#pricing", label: "Pricing" },
     { href: "/#faq", label: "FAQ" },
   ];
 
   return (
-    <header className="print:hidden sticky top-0 z-50 bg-white/85 backdrop-blur-sm border-b border-border">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16">
+    <header className="print:hidden sticky top-0 z-50 border-b border-[#efeff1] bg-white/90 backdrop-blur-sm">
+      <div className="mx-auto max-w-[1440px] px-4 sm:px-6 lg:px-12">
+        <div className="flex h-[72px] items-center justify-between">
           {/* Logo */}
-          <Link href="/" className="flex items-center gap-2 font-bold text-xl text-blue-600 dark:text-blue-400">
-            <CalendarDays className="w-5 h-5" />
+          <Link href="/" className="text-xl font-bold tracking-[-0.03em] text-[#111113]">
             Dropin
           </Link>
 
           {/* Desktop nav */}
-          <nav className="hidden md:flex items-center gap-6">
+          <nav aria-label="Main" className="hidden items-center gap-9 md:flex">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
-                className="text-sm font-medium text-muted-foreground hover:text-foreground transition-colors"
+                className="text-sm font-medium text-[#5d5d63] transition-colors hover:text-[#111113]"
               >
                 {link.label}
               </Link>
@@ -48,25 +47,25 @@ export default function PublicNav() {
           </nav>
 
           {/* Desktop CTA */}
-          <div className="hidden md:flex items-center gap-3">
+          <div className="hidden items-center gap-2 md:flex">
             <Link
               href="/login"
-              className="text-sm font-medium text-muted-foreground hover:text-foreground"
+              className="px-4 py-3 text-sm font-semibold text-[#111113] hover:text-[#0066cc]"
             >
               Sign in
             </Link>
             <Link
               href="/signup"
-              className="inline-flex items-center px-4 py-2 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
+              className="inline-flex h-10 items-center rounded-full bg-[#111113] px-5 text-sm font-semibold text-white transition-colors hover:bg-[#2a2a2e]"
             >
-              Get started
+              Start free trial
             </Link>
           </div>
 
           {/* Mobile hamburger — min 44px tap target */}
           <button
             onClick={() => setMobileOpen(!mobileOpen)}
-            className="md:hidden p-2 rounded-lg text-muted-foreground hover:bg-muted transition-colors"
+            className="rounded-lg p-2 text-[#111113] transition-colors hover:bg-[#f4f4f5] md:hidden"
             aria-label={mobileOpen ? "Close menu" : "Open menu"}
             aria-expanded={mobileOpen}
           >
@@ -77,32 +76,32 @@ export default function PublicNav() {
 
       {/* Mobile menu overlay */}
       {mobileOpen && (
-        <div className="md:hidden border-t border-border bg-card">
+        <div className="border-t border-[#efeff1] bg-white md:hidden">
           <nav className="px-4 py-4 flex flex-col gap-1">
             {navLinks.map((link) => (
               <Link
                 key={link.href}
                 href={link.href}
                 onClick={() => setMobileOpen(false)}
-                className="block py-3 px-2 text-base font-medium text-foreground hover:bg-muted rounded-lg transition-colors"
+                className="block rounded-lg px-2 py-3 text-base font-medium text-[#111113] transition-colors hover:bg-[#f4f4f5]"
               >
                 {link.label}
               </Link>
             ))}
-            <div className="mt-4 pt-4 border-t border-border flex flex-col gap-2">
+            <div className="mt-4 flex flex-col gap-2 border-t border-[#efeff1] pt-4">
               <Link
                 href="/login"
                 onClick={() => setMobileOpen(false)}
-                className="block py-3 px-2 text-base font-medium text-foreground hover:bg-muted rounded-lg text-center"
+                className="block rounded-full border border-[#d9d9de] px-2 py-3 text-center text-base font-semibold text-[#111113]"
               >
                 Sign in
               </Link>
               <Link
                 href="/signup"
                 onClick={() => setMobileOpen(false)}
-                className="block py-3 px-4 bg-blue-600 text-white text-base font-medium rounded-lg text-center hover:bg-blue-700 transition-colors"
+                className="block rounded-full bg-[#111113] px-4 py-3 text-center text-base font-semibold text-white transition-colors hover:bg-[#2a2a2e]"
               >
-                Get started
+                Start free trial
               </Link>
             </div>
           </nav>

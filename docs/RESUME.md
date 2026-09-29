@@ -2,8 +2,10 @@
 
 Open this first; it points at everything else.
 
-**Most recent session: the Staff (aux) audit** (first box below) — 2026-09-27,
-**UNCOMMITTED, migration 063 APPLIED.**
+**Most recent session: the marketing page rewrite** (first box below) —
+2026-09-28, **committed on `feat/marketing-positioning`, NOT pushed**, no migration.
+
+Before it: the Staff (aux) audit, 2026-09-27 (the box below it).
 
 Before it: the invite onboarding change, and the Settings section (second box).
 
@@ -23,6 +25,43 @@ multi-account staff roles, and a resident directory (`/find`).
 This file is the single entry point. The per-track `RESUME-*.md` files are
 historical records of finished work, not live handoffs — see
 [Related docs](#related-docs).
+
+---
+
+## Marketing page rewritten to the positioning — 2026-09-28, committed, NOT pushed
+
+Branch `feat/marketing-positioning`, committed, not pushed or merged. No migration, no API
+change, no pricing or Stripe change.
+
+The landing page now leads with pools and lanes instead of "publish once".
+**Read [`POSITIONING.md`](POSITIONING.md) before changing a claim on it** — it
+holds the one-line positioning, the target market in priority order, what is
+built with the caveat each claim has to respect, the wording the page avoids
+("open", "available", "integrates with"), and the open questions.
+
+- The hero image is the five-view sample widget (`WidgetPreview`), opening on
+  the lane view. It used to have its own section lower down; that section is gone.
+  It rotates through the views every 4 s: stops when a view is chosen, holds
+  under the pointer, has a Pause/Play button, and does not start under
+  "reduce motion". The view area has a fixed minimum height so the page below
+  the hero does not move.
+- Every view in the widget, and the printed-schedule sample, reads one sample
+  week: `src/components/marketing/sampleWeek.ts`. Change a session there, not
+  in a view.
+- The two maps under it are `FacilityMapSvg` over sample data
+  (`src/components/marketing/sampleFacilities.ts`), not drawings.
+- The printout, deck sheet and five-view samples are drawn for the page and
+  copy the real components. Change one, change its sample.
+- The analytics mock with invented numbers was removed.
+- Eight product gaps turned up while checking claims and were **not** fixed; they
+  are decisions. `POSITIONING.md` §9. The one that matters most: the public
+  floorplan calls a space with nothing scheduled "Free", closed or not.
+
+```
+tsc, eslint (changed files), NEXT_DIST_DIR=.next-verify next build — clean
+Playwright, prod build, 1280px and 390px (fr-FR, Asia/Tokyo):
+  200, no console or hydration errors, no horizontal overflow
+```
 
 ---
 

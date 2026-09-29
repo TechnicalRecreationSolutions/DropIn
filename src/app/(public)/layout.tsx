@@ -1,8 +1,34 @@
 import Link from "next/link";
-import { CalendarDays } from "lucide-react";
 import PublicNav from "@/components/layout/PublicNav";
 import CopyrightYear from "@/components/layout/CopyrightYear";
 import Providers from "@/components/layout/Providers";
+
+const FOOTER_LINKS = [
+  { title: "Residents", links: [{ href: "/find", label: "Find a centre" }] },
+  {
+    title: "Product",
+    links: [
+      { href: "/#how-it-works", label: "How it works" },
+      { href: "/#features", label: "Features" },
+      { href: "/#pricing", label: "Pricing" },
+      { href: "/#faq", label: "FAQ" },
+    ],
+  },
+  {
+    title: "Account",
+    links: [
+      { href: "/signup", label: "Get started" },
+      { href: "/login", label: "Sign in" },
+    ],
+  },
+  {
+    title: "Legal",
+    links: [
+      { href: "/privacy", label: "Privacy Policy" },
+      { href: "/terms", label: "Terms of Service" },
+    ],
+  },
+];
 
 export default function PublicLayout({
   children,
@@ -14,56 +40,29 @@ export default function PublicLayout({
       <div className="min-h-screen flex flex-col">
         <PublicNav />
         <main className="flex-1">{children}</main>
-        {/* Explicit greys, not the neutral tokens: this footer is deliberately
-            near-black in every theme, and --muted-foreground is tuned for a
-            light surface. Swapping it in here drops the text to 3.67:1. */}
-        <footer className="print:hidden bg-gray-950 text-gray-400 py-12 mt-auto">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div className="flex flex-col md:flex-row justify-between gap-6">
-              <div>
-                <p className="flex items-center gap-2 text-white font-bold mb-1">
-                  <CalendarDays className="w-4 h-4" />
-                  Dropin
-                </p>
-                <p className="text-sm">
-                  Drop-in schedules for recreation centres.
-                </p>
+        <footer className="print:hidden mt-auto border-t border-[#efeff1] bg-white">
+          <div className="mx-auto flex max-w-[1200px] flex-col gap-12 px-4 pt-14 pb-12 sm:px-6 xl:px-0">
+            <div className="flex flex-col justify-between gap-10 md:flex-row">
+              <div className="flex flex-col gap-2">
+                <p className="text-xl font-bold tracking-[-0.03em] text-[#111113]">Dropin</p>
+                <p className="text-sm text-[#5d5d63]">Visual scheduling for shared recreation space.</p>
               </div>
-              <div className="flex flex-wrap gap-8 text-sm">
-                <div>
-                  <p className="text-white font-medium mb-2">Residents</p>
-                  <ul className="space-y-1">
-                    <li><Link href="/find" className="hover:text-white transition-colors">Find a centre</Link></li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-2">Product</p>
-                  <ul className="space-y-1">
-                    <li><Link href="/#features" className="hover:text-white transition-colors">Features</Link></li>
-                    <li><Link href="/#product" className="hover:text-white transition-colors">Preview</Link></li>
-                    <li><Link href="/#pricing" className="hover:text-white transition-colors">Pricing</Link></li>
-                    <li><Link href="/#faq" className="hover:text-white transition-colors">FAQ</Link></li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-2">Account</p>
-                  <ul className="space-y-1">
-                    <li><Link href="/signup" className="hover:text-white transition-colors">Get Started</Link></li>
-                    <li><Link href="/login" className="hover:text-white transition-colors">Sign In</Link></li>
-                  </ul>
-                </div>
-                <div>
-                  <p className="text-white font-medium mb-2">Legal</p>
-                  <ul className="space-y-1">
-                    <li><Link href="/privacy" className="hover:text-white transition-colors">Privacy Policy</Link></li>
-                    <li><Link href="/terms" className="hover:text-white transition-colors">Terms of Service</Link></li>
-                  </ul>
-                </div>
+              <div className="grid grid-cols-2 gap-x-16 gap-y-8 text-sm sm:grid-cols-4">
+                {FOOTER_LINKS.map((group) => (
+                  <div key={group.title} className="flex flex-col gap-2.5">
+                    <p className="font-semibold text-[#111113]">{group.title}</p>
+                    {group.links.map((l) => (
+                      <Link key={l.href} href={l.href} className="text-[#5d5d63] transition-colors hover:text-[#111113]">
+                        {l.label}
+                      </Link>
+                    ))}
+                  </div>
+                ))}
               </div>
             </div>
-            <div className="mt-8 pt-6 border-t border-gray-800 text-xs">
+            <p className="text-[13px] text-[#5d5d63]">
               © <CopyrightYear /> Dropin. All rights reserved.
-            </div>
+            </p>
           </div>
         </footer>
       </div>

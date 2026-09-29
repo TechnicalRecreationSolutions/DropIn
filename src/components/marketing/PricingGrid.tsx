@@ -41,11 +41,11 @@ export default function PricingGrid() {
 
   return (
     <>
-      <div className="flex flex-wrap items-center gap-3 mb-8">
+      <div className="mb-10 flex flex-wrap items-center justify-center gap-3.5">
         <div
           role="radiogroup"
           aria-label="Billing interval"
-          className="inline-flex items-center gap-1 rounded-lg bg-card border border-border p-1"
+          className="inline-flex items-center gap-0.5 rounded-full bg-[#f4f4f5] p-1"
         >
           {(
             [
@@ -59,22 +59,22 @@ export default function PricingGrid() {
               role="radio"
               aria-checked={annual === option.value}
               onClick={() => setAnnual(option.value)}
-              className={`px-4 py-1.5 text-sm font-medium rounded-md transition-colors ${
+              className={`cursor-pointer rounded-full px-[18px] py-2 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc] ${
                 annual === option.value
-                  ? "bg-blue-600 text-white"
-                  : "text-muted-foreground hover:text-foreground"
+                  ? "bg-white font-semibold text-[#111113] shadow-[0_1px_2px_rgba(17,17,19,0.1)]"
+                  : "font-medium text-[#5d5d63] hover:text-[#111113]"
               }`}
             >
               {option.label}
             </button>
           ))}
         </div>
-        <span className="text-sm font-medium text-green-700 dark:text-green-400">
+        <span className="font-hand text-[22px] leading-none font-semibold text-[#0f766e]">
           Yearly is two months free
         </span>
       </div>
 
-      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
         {TIER_ORDER.map((tier) => {
           const plan = PLANS[tier];
           const featured = tier === FEATURED_TIER;
@@ -83,37 +83,36 @@ export default function PricingGrid() {
               key={tier}
               className={
                 featured
-                  ? "relative flex flex-col rounded-xl border-2 border-blue-600 bg-card p-6 shadow-sm"
-                  : "relative flex flex-col rounded-xl border border-border bg-card p-6"
+                  ? "relative flex flex-col rounded-3xl border-[1.5px] border-[#111113] bg-white p-7"
+                  : "relative flex flex-col rounded-3xl border border-[#e4e4e7] bg-white p-7"
               }
             >
               {featured && (
-                <span className="absolute -top-3 left-6 rounded-full bg-blue-600 px-2.5 py-0.5 text-xs font-semibold text-white">
+                <span className="absolute -top-3 left-6 rounded-full bg-[#111113] px-2.5 py-1 text-xs font-semibold text-white">
                   Most centres
                 </span>
               )}
-              <p className="font-semibold text-foreground">{plan.name}</p>
+              <p className="text-[17px] font-semibold text-[#111113]">{plan.name}</p>
 
               <PriceBlock tier={tier} annual={annual} />
 
-              <p className="mt-3 text-sm text-muted-foreground">{plan.blurb}</p>
+              <p className="mt-4 min-h-[42px] text-sm leading-[21px] text-[#5d5d63]">{plan.blurb}</p>
 
-              <p className="mt-4 text-sm font-semibold text-foreground">
+              <p className="mt-5 border-t border-[#efeff1] pt-[18px] text-sm font-semibold text-[#111113]">
                 {facilityLine(tier)}
               </p>
-              {plan.limits.extraFacilityMonthly !== null && (
-                <p className="text-sm text-muted-foreground">
-                  then ${dollars(plan.limits.extraFacilityMonthly)}/mo each
-                </p>
-              )}
+              <p className="min-h-5 text-[13px] text-[#5d5d63]">
+                {plan.limits.extraFacilityMonthly !== null &&
+                  `then $${dollars(plan.limits.extraFacilityMonthly)}/mo each`}
+              </p>
 
-              <ul className="mt-3 space-y-2 flex-1">
+              <ul className="mt-4 flex-1 space-y-2.5">
                 {plan.adds.map((line) => (
                   <li
                     key={line}
-                    className="flex items-start gap-2 text-sm text-foreground"
+                    className="flex items-start gap-2.5 text-sm leading-5 text-[#111113]"
                   >
-                    <Check className="w-4 h-4 text-blue-600 dark:text-blue-400 shrink-0 mt-0.5" />
+                    <Check className="mt-0.5 h-4 w-4 shrink-0 text-[#0066cc]" strokeWidth={2.5} />
                     {line}
                   </li>
                 ))}
@@ -122,7 +121,7 @@ export default function PricingGrid() {
               {plan.priceMonthly === null ? (
                 <a
                   href="mailto:hello@dropin.app?subject=Enterprise plan"
-                  className="mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
+                  className="mt-7 flex h-11 items-center justify-center rounded-full border border-[#d9d9de] text-[15px] font-semibold text-[#111113] transition-colors hover:border-[#111113]"
                 >
                   Contact us
                 </a>
@@ -131,8 +130,8 @@ export default function PricingGrid() {
                   href="/signup"
                   className={
                     featured
-                      ? "mt-6 block text-center px-4 py-2.5 rounded-lg bg-blue-600 text-white text-sm font-medium hover:bg-blue-700 transition-colors"
-                      : "mt-6 block text-center px-4 py-2.5 rounded-lg border border-border text-foreground text-sm font-medium hover:bg-muted transition-colors"
+                      ? "mt-7 flex h-11 items-center justify-center rounded-full bg-[#111113] text-[15px] font-semibold text-white transition-colors hover:bg-[#2a2a2e]"
+                      : "mt-7 flex h-11 items-center justify-center rounded-full border border-[#d9d9de] text-[15px] font-semibold text-[#111113] transition-colors hover:border-[#111113]"
                   }
                 >
                   Start free trial
@@ -159,10 +158,10 @@ function PriceBlock({ tier, annual }: { tier: PlanTier; annual: boolean }) {
   if (plan.priceMonthly === null) {
     return (
       <>
-        <p className="mt-2 text-3xl font-extrabold text-foreground">
+        <p className="mt-4 text-[44px] leading-[48px] font-semibold tracking-[-0.04em] text-[#111113]">
           Let&rsquo;s talk
         </p>
-        <p className="mt-1 text-sm text-muted-foreground">
+        <p className="mt-1.5 text-[13px] text-[#5d5d63]">
           {plan.priceAnnualFrom !== null &&
             `From $${dollars(plan.priceAnnualFrom)}/year`}
         </p>
@@ -174,11 +173,11 @@ function PriceBlock({ tier, annual }: { tier: PlanTier; annual: boolean }) {
     const monthlyForAYear = plan.priceMonthly * 12;
     return (
       <>
-        <p className="mt-2 text-3xl font-extrabold text-foreground">
+        <p className="mt-4 text-[44px] leading-[48px] font-semibold tracking-[-0.04em] text-[#111113]">
           ${dollars(plan.priceAnnual!)}
-          <span className="text-sm font-medium text-muted-foreground">/year</span>
+          <span className="text-[15px] font-medium tracking-normal text-[#5d5d63]">/year</span>
         </p>
-        <p className="mt-1 text-sm text-green-700 dark:text-green-400">
+        <p className="mt-1.5 text-[13px] text-[#0b5a54]">
           Save ${dollars(monthlyForAYear - plan.priceAnnual!)} vs monthly
         </p>
       </>
@@ -187,11 +186,11 @@ function PriceBlock({ tier, annual }: { tier: PlanTier; annual: boolean }) {
 
   return (
     <>
-      <p className="mt-2 text-3xl font-extrabold text-foreground">
+      <p className="mt-4 text-[44px] leading-[48px] font-semibold tracking-[-0.04em] text-[#111113]">
         ${dollars(plan.priceMonthly)}
-        <span className="text-sm font-medium text-muted-foreground">/mo</span>
+        <span className="text-[15px] font-medium tracking-normal text-[#5d5d63]">/mo</span>
       </p>
-      <p className="mt-1 text-sm text-muted-foreground">
+      <p className="mt-1.5 text-[13px] text-[#5d5d63]">
         or ${dollars(plan.priceAnnual!)}/year
       </p>
     </>

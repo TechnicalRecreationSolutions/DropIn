@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { Geist, Public_Sans } from "next/font/google";
+import { Caveat, Geist, Public_Sans } from "next/font/google";
 import "./globals.css";
 import { SITE_URL } from "@/lib/seo/siteUrl";
 
@@ -15,13 +15,22 @@ const publicSans = Public_Sans({
   weight: ["400", "500", "600", "700"],
 });
 
+// The handwritten margin notes on the public landing page only.
+const caveat = Caveat({
+  variable: "--font-caveat",
+  subsets: ["latin"],
+  weight: ["500", "600"],
+});
+
 export const metadata: Metadata = {
   title: {
-    default: "Dropin — Drop-In Schedules for Recreation Centres",
+    default: "Dropin — Visual Scheduling for Recreation",
     template: "%s | Dropin",
   },
+  // The positioning line, docs/POSITIONING.md. Pages with their own
+  // description (the facility pages, /find) override it.
   description:
-    "Build your drop-in schedule once and publish it everywhere: your own website and an embeddable widget.",
+    "A visual schedule for recreation centres. Dropin shows patrons and staff what's on, and where.",
   metadataBase: new URL(SITE_URL),
   openGraph: {
     siteName: "Dropin",
@@ -35,7 +44,7 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={`${geist.variable} ${publicSans.variable} h-full antialiased`}>
+    <html lang="en" className={`${geist.variable} ${publicSans.variable} ${caveat.variable} h-full antialiased`}>
       <body className="min-h-full bg-background text-foreground">{children}</body>
     </html>
   );
