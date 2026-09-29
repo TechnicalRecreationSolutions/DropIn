@@ -3,8 +3,14 @@
 import Link from "next/link";
 import { ClipboardList, Settings, Sun, Moon } from "lucide-react";
 import { useEffect, useState } from "react";
+import { buttonVariants } from "@/components/ui/button";
+import { cn } from "@/lib/utils/cn";
 
 const THEME_KEY = "dropin-theme";
+
+// The focus ring sits on the link, which is what takes focus; the round
+// ghost button inside it is only the visible shape.
+const ICON_LINK_CLASS = "rounded-full outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * Flips `.dark` on <html> and persists the choice. Deliberately minimal (no
@@ -39,12 +45,17 @@ export default function DashboardTopbar({ canViewActivity }: { canViewActivity: 
   const { isDark, toggle } = useThemeToggle();
 
   return (
-    <header className="sticky top-0 z-40 bg-card border-b border-border px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between">
+    <header className="sticky top-0 z-40 bg-background border-b border-border px-4 sm:px-6 h-14 flex items-center justify-between">
       {/* Left: wordmark on mobile. The facility tree sheet opens from the
           bottom bar's Menu tab; a hamburger here used to open the same sheet,
           and two doors into one room read as two different rooms. */}
       <div className="lg:hidden flex items-center">
-        <Link href="/dashboard" className="text-blue-600 dark:text-blue-400 font-bold text-sm">Dropin</Link>
+        <Link
+          href="/dashboard"
+          className="rounded-sm text-lg font-bold text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+        >
+          Dropin
+        </Link>
       </div>
 
       <div className="hidden lg:block" />
@@ -54,18 +65,18 @@ export default function DashboardTopbar({ canViewActivity }: { canViewActivity: 
           a permanently greyed-out control reads as an unfinished product rather
           than a planned one. Restore it here when there is something to notify
           about. Clipboard (activity log) is wired up — see 038_activity_log.sql. */}
-      <div className="flex items-center gap-1 sm:gap-3">
+      <div className="flex items-center gap-1 sm:gap-2">
         {/* Desktop only: on mobile, Activity is a bottom-bar tab. Gated like
             that tab — aux staff lack `activity:view`, and the icon used to
             hand them the whole organization's edit history anyway. */}
         {canViewActivity && (
-          <Link href="/dashboard/activity" className="hidden lg:inline-flex">
+          <Link href="/dashboard/activity" className={cn(ICON_LINK_CLASS, "hidden lg:inline-flex")}>
             <IconButton as="span" title="Activity log">
               <ClipboardList className="size-[18px]" />
             </IconButton>
           </Link>
         )}
-        <Link href="/dashboard/settings">
+        <Link href="/dashboard/settings" className={cn(ICON_LINK_CLASS, "inline-flex")}>
           <IconButton as="span" title="Settings">
             <Settings className="size-[18px]" />
           </IconButton>
@@ -76,10 +87,10 @@ export default function DashboardTopbar({ canViewActivity }: { canViewActivity: 
           onClick={toggle}
           aria-label={isDark ? "Switch to light mode" : "Switch to dark mode"}
           aria-pressed={isDark}
-          className="relative w-11 h-6 rounded-full bg-muted dark:bg-gray-700 transition-colors shrink-0"
+          className="relative ml-1 w-11 h-6 rounded-full border border-input bg-muted transition-colors duration-150 shrink-0 outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background"
         >
           <span
-            className={`absolute top-0.5 left-0.5 size-5 rounded-full bg-card shadow flex items-center justify-center transition-transform ${
+            className={`absolute top-px left-px size-5 rounded-full border border-input bg-card flex items-center justify-center transition-transform ${
               isDark ? "translate-x-5" : "translate-x-0"
             }`}
           >
@@ -106,8 +117,7 @@ function IconButton({
   disabled?: boolean;
   as?: "button" | "span";
 }) {
-  const className =
-    "inline-flex items-center justify-center size-8 rounded-md text-muted-foreground hover:text-foreground hover:bg-muted transition-colors disabled:opacity-40 disabled:hover:bg-transparent disabled:hover:text-muted-foreground disabled:cursor-not-allowed";
+  const className = buttonVariants({ variant: "ghost", size: "icon" });
 
   if (As === "span") {
     return (

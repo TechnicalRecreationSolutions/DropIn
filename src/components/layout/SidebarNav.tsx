@@ -125,7 +125,7 @@ export default function SidebarNav({ orgId, onNavigate, collapsed }: SidebarNavP
             selection={selection}
             onChange={handleFilterChange}
           />
-          <div className="border-t border-sidebar-border mx-4" />
+          <div className="border-t border-border mx-4" />
         </>
       )}
       <SidebarMenu

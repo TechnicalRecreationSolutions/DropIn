@@ -49,7 +49,7 @@ import type { OrgRole } from "@/types/app.types";
  *  - the active tab gets a tinted pill behind a heavier icon;
  *  - the bar slides away while scrolling down and returns on any scroll up;
  *  - tapping the tab you are already on scrolls to the top (Instagram/X);
- *  - translucent + blurred, padded for the home indicator via
+ *  - solid, hairline-topped, padded for the home indicator via
  *    env(safe-area-inset-bottom). That is 0 in a plain browser tab and becomes
  *    correct once the app sets viewport-fit=cover or ships in a native shell.
  * Tap targets are 56px (min-h-14), above the 44px minimum.
@@ -144,10 +144,10 @@ function TabContent({
           className={cn(
             // size-14 less the -mt-6 lift = the 32px pill slot of the other
             // tabs, so every label still shares one baseline.
-            "-mt-6 flex size-14 items-center justify-center rounded-full text-white shadow-lg ring-4 ring-card",
+            "-mt-6 flex size-14 items-center justify-center rounded-full shadow-card ring-4 ring-background",
             "transition-transform duration-150 group-active:scale-90",
             "group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring",
-            isActive ? "bg-blue-700 dark:bg-blue-500" : "bg-blue-600"
+            isActive ? "bg-brand text-brand-foreground" : "bg-primary text-primary-foreground"
           )}
         >
           <Icon className="size-[26px]" strokeWidth={2.25} />
@@ -157,7 +157,7 @@ function TabContent({
           className={cn(
             "flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200",
             "group-focus-visible:ring-2 group-focus-visible:ring-ring",
-            isActive && "bg-blue-600/12 dark:bg-blue-400/15"
+            isActive && "bg-brand-subtle"
           )}
         >
           <Icon
@@ -177,7 +177,7 @@ function tabClass(isActive: boolean) {
   return cn(
     "group flex min-h-14 flex-1 flex-col items-center justify-center gap-1 pt-2 pb-1.5",
     "select-none outline-none transition-colors [-webkit-tap-highlight-color:transparent]",
-    isActive ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground active:text-foreground"
+    isActive ? "text-brand" : "text-muted-foreground active:text-foreground"
   );
 }
 
@@ -228,8 +228,8 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
       aria-label="Primary"
       className={cn(
         "lg:hidden fixed bottom-0 inset-x-0 z-50",
-        "bg-card/85 backdrop-blur-xl backdrop-saturate-150",
-        "border-t border-border/60 pb-[env(safe-area-inset-bottom)]",
+        "bg-background",
+        "border-t border-border pb-[env(safe-area-inset-bottom)]",
         "transition-transform duration-300 ease-out motion-reduce:transition-none",
         // Past the bottom edge by the raised button's overhang too, or its
         // top would peek out while the bar is hidden.

@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { MapPin } from "lucide-react";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import OrgImage from "@/components/media/OrgImage";
 import SidebarNav from "./SidebarNav";
@@ -28,24 +27,23 @@ export default function MobileTreeSheetContents({
 
   return (
     <>
-      <SheetHeader className="px-4 py-4 border-b border-sidebar-border shrink-0">
+      <SheetHeader className="px-4 pt-4 pb-2 pr-14 shrink-0">
         <SheetTitle asChild>
           <Link
             href="/dashboard"
-            className="flex items-center gap-2 text-sidebar-primary font-bold text-lg mb-1"
+            className="self-start rounded-sm text-lg font-bold leading-8 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
             onClick={close}
           >
-            <MapPin className="size-4" />
             Dropin
           </Link>
         </SheetTitle>
         <div className="flex items-center gap-2 min-w-0">
           {orgLogoUrl && (
-            <span className="relative size-5 rounded shrink-0 overflow-hidden bg-sidebar-accent">
+            <span className="relative size-5 rounded shrink-0 overflow-hidden bg-muted">
               <OrgImage src={orgLogoUrl} alt="" sizes="20px" className="object-cover" />
             </span>
           )}
-          <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
+          <p className="text-caption text-muted-foreground truncate">{orgName}</p>
         </div>
       </SheetHeader>
 

@@ -48,7 +48,7 @@ export default function TreeNavNode({
 }: TreeNavNodeProps) {
   const rowContent = (
     <>
-      <Icon className="size-3.5 shrink-0 opacity-70" />
+      <Icon className={cn("size-4 shrink-0", isActive && !disabled ? "text-foreground" : "text-muted-foreground")} />
       {!collapsed && (
         <>
           <span className="truncate">{label}</span>
@@ -56,12 +56,12 @@ export default function TreeNavNode({
           <span className="ml-auto flex items-center gap-1.5 shrink-0">
             {isPublished === false && (
               <span
-                className="size-1.5 rounded-full bg-sidebar-foreground/30"
+                className="size-1.5 rounded-full bg-muted-foreground"
                 title="Draft — not published"
               />
             )}
             {badge !== undefined && (
-              <span className="text-[11px] tabular-nums text-sidebar-foreground/40">{badge}</span>
+              <span className="text-label tabular-nums text-muted-foreground">{badge}</span>
             )}
           </span>
         </>
@@ -72,12 +72,12 @@ export default function TreeNavNode({
   return (
     <div
       className={cn(
-        "group flex items-center gap-0.5 rounded-md text-sm transition-colors",
+        "group relative flex h-9 items-center gap-0.5 rounded-control text-sm font-medium transition-colors duration-150",
         disabled
-          ? "text-sidebar-foreground/30 cursor-not-allowed"
+          ? "text-muted-foreground opacity-60 cursor-not-allowed"
           : isActive
-            ? "bg-sidebar-accent text-sidebar-accent-foreground"
-            : "text-sidebar-foreground/70 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground"
+            ? "bg-muted font-semibold text-foreground before:absolute before:inset-y-2 before:left-0 before:w-0.5 before:rounded-full before:bg-brand"
+            : "text-foreground hover:bg-muted"
       )}
       style={{ paddingLeft: collapsed ? undefined : `${depth * 14 + 8}px` }}
     >
@@ -91,15 +91,15 @@ export default function TreeNavNode({
           }}
           aria-label={expanded ? `Collapse ${label}` : `Expand ${label}`}
           aria-expanded={expanded}
-          className="p-0.5 rounded hover:bg-sidebar-accent shrink-0 text-sidebar-foreground/40"
+          className="inline-flex size-6 items-center justify-center rounded-full shrink-0 text-muted-foreground outline-none hover:text-foreground focus-visible:ring-2 focus-visible:ring-ring"
         >
-          <ChevronRight className={cn("size-3 transition-transform", expanded && "rotate-90")} />
+          <ChevronRight className={cn("size-3.5 transition-transform", expanded && "rotate-90")} />
         </button>
       )}
       {disabled ? (
         <span
           className={cn(
-            "flex-1 flex items-center gap-2 py-1.5 min-w-0",
+            "flex-1 flex h-full items-center gap-2.5 min-w-0",
             collapsed ? "justify-center px-2" : "pr-2 pl-1"
           )}
           title={disabledReason ?? (collapsed ? label : undefined)}
@@ -111,7 +111,7 @@ export default function TreeNavNode({
         <Link
           href={href}
           className={cn(
-            "flex-1 flex items-center gap-2 py-1.5 min-w-0",
+            "flex-1 flex h-full items-center gap-2.5 min-w-0 rounded-control outline-none focus-visible:ring-2 focus-visible:ring-ring",
             collapsed ? "justify-center px-2" : "pr-2 pl-1"
           )}
           title={collapsed ? label : undefined}

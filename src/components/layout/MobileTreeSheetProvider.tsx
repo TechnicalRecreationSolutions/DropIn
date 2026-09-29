@@ -55,7 +55,7 @@ export default function MobileTreeSheetProvider({
       <Sheet open={isOpen} onOpenChange={setIsOpen}>
         <SheetContent
           side="left"
-          className="w-3/4 max-w-xs bg-sidebar text-sidebar-foreground border-sidebar-border p-0 flex flex-col gap-0"
+          className="w-3/4 max-w-xs bg-sidebar text-foreground border-border p-0 flex flex-col gap-0"
         >
           {sheetContent}
         </SheetContent>

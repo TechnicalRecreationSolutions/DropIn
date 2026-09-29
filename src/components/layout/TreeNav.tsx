@@ -2,8 +2,9 @@
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
-import { MapPin, PanelLeftClose, PanelLeftOpen } from "lucide-react";
+import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
 import OrgImage from "@/components/media/OrgImage";
+import { Button } from "@/components/ui/button";
 import SidebarNav from "./SidebarNav";
 import SidebarProfile from "./SidebarProfile";
 import { cn } from "@/lib/utils/cn";
@@ -44,39 +45,50 @@ export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }:
         // footer visible, instead of stretching to the full document height and
         // pushing the footer off the bottom. SidebarNav scrolls internally when
         // the menu itself is taller than the space left between header and footer.
-        "hidden lg:flex flex-col sticky top-0 h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border transition-[width] duration-200",
-        collapsed ? "w-16" : "w-72"
+        "hidden lg:flex flex-col sticky top-0 h-screen bg-sidebar text-foreground shrink-0 border-r border-border transition-[width] duration-200",
+        collapsed ? "w-16" : "w-62"
       )}
     >
       <div
         className={cn(
-          "border-b border-sidebar-border shrink-0",
-          collapsed ? "px-2 py-4" : "px-4 py-4"
+          "shrink-0",
+          collapsed ? "px-2 pt-3 pb-2" : "px-4 pt-3 pb-2"
         )}
       >
-        <div className={cn("flex items-center", collapsed ? "flex-col gap-3" : "justify-between gap-2 mb-1")}>
-          <Link href="/dashboard" className="flex items-center gap-2 text-sidebar-primary font-bold text-lg">
-            <MapPin className="size-4 shrink-0" />
-            {!collapsed && "Dropin"}
+        <div className={cn("flex items-center", collapsed ? "flex-col gap-2" : "justify-between gap-2")}>
+          <Link
+            href="/dashboard"
+            className="rounded-sm text-lg font-bold leading-6 text-foreground outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          >
+            {collapsed ? (
+              <>
+                <span aria-hidden>D</span>
+                <span className="sr-only">Dropin</span>
+              </>
+            ) : (
+              "Dropin"
+            )}
           </Link>
-          <button
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-sm"
             onClick={() => setCollapsed((c) => !c)}
             aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
             title={collapsed ? "Expand sidebar" : "Collapse sidebar"}
-            className="p-1 rounded hover:bg-sidebar-accent text-sidebar-foreground/50 hover:text-sidebar-foreground transition-colors shrink-0"
+            className="text-muted-foreground hover:text-foreground"
           >
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
-          </button>
+          </Button>
         </div>
         {!collapsed && (
           <div className="flex items-center gap-2 min-w-0">
             {orgLogoUrl && (
-              <span className="relative size-5 rounded shrink-0 overflow-hidden bg-sidebar-accent">
+              <span className="relative size-5 rounded shrink-0 overflow-hidden bg-muted">
                 <OrgImage src={orgLogoUrl} alt="" sizes="20px" className="object-cover" />
               </span>
             )}
-            <p className="text-xs text-sidebar-foreground/50 truncate">{orgName}</p>
+            <p className="text-caption text-muted-foreground truncate">{orgName}</p>
           </div>
         )}
       </div>

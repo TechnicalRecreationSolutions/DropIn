@@ -307,7 +307,7 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     >
       <div>
         {!collapsed && (
-          <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-3 pb-1">
+          <p className="text-label text-muted-foreground px-3 pb-1.5">
             Menu
           </p>
         )}
@@ -345,7 +345,7 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
           above a row of the same name is the heading repeating itself. The gap
           and the separator carry the grouping instead. */}
       {visible(settingsItems).length > 0 && (
-        <div className="border-t border-sidebar-border pt-3">
+        <div className="border-t border-border pt-3">
           <div className="space-y-0.5">
             {visible(settingsItems).map((item) =>
               item.children ? (

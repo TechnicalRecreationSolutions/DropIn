@@ -42,13 +42,13 @@ export default function SidebarFilters({
   if (facilities.length === 0) {
     return (
       <div className="px-4 py-3">
-        <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 mb-2">
+        <p className="text-label text-muted-foreground mb-2">
           Filters
         </p>
-        <p className="text-xs text-sidebar-foreground/50 mb-2">No facilities yet.</p>
+        <p className="text-caption text-muted-foreground mb-2">No facilities yet.</p>
         <Link
           href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-1.5 text-xs font-medium text-sidebar-primary hover:underline"
+          className="inline-flex items-center gap-1.5 rounded-sm text-caption font-medium text-brand outline-none hover:underline focus-visible:ring-2 focus-visible:ring-ring"
         >
           <Plus className="size-3.5" /> Add a facility
         </Link>
@@ -66,7 +66,7 @@ export default function SidebarFilters({
 
   return (
     <div className="px-4 py-3 space-y-2">
-      <p className="text-[11px] font-semibold uppercase tracking-wide text-sidebar-foreground/40 px-0.5">
+      <p className="text-label text-muted-foreground px-0.5">
         Filters
       </p>
 
@@ -142,8 +142,8 @@ function FilterSelect({
 }) {
   return (
     <Select value={value} onValueChange={onValueChange} disabled={disabled}>
-      <SelectTrigger className="w-full bg-sidebar-accent/40 border-sidebar-border text-sidebar-foreground hover:bg-sidebar-accent data-placeholder:text-sidebar-foreground/50 [&_svg:not([class*='text-'])]:text-sidebar-foreground/50">
-        <Icon className="size-3.5 text-sidebar-foreground/50 shrink-0" />
+      <SelectTrigger className="w-full *:data-[slot=select-value]:block *:data-[slot=select-value]:min-w-0 *:data-[slot=select-value]:flex-1 *:data-[slot=select-value]:truncate *:data-[slot=select-value]:text-left">
+        <Icon className="size-4 text-muted-foreground shrink-0" />
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
       <SelectContent>{children}</SelectContent>

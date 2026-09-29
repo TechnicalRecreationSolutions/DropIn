@@ -22,14 +22,14 @@ export default function DashboardLoading() {
 
       {/* Stats row */}
       <div className="grid grid-cols-2 gap-4">
-        <Skeleton className="h-28 rounded-xl" />
-        <Skeleton className="h-28 rounded-xl" />
+        <Skeleton className="h-28 rounded-card" />
+        <Skeleton className="h-28 rounded-card" />
       </div>
 
       {/* A list section */}
       <div className="space-y-3">
         <Skeleton className="h-4 w-32" />
-        <div className="rounded-xl border border-border divide-y divide-border">
+        <div className="rounded-card border border-border divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3">
               <Skeleton className="size-4 shrink-0 rounded" />

@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { LogOut } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
 import { ROLE_LABELS } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
@@ -45,46 +46,49 @@ export default function SidebarProfile({ userEmail, role, onNavigate, collapsed 
 
   if (collapsed) {
     return (
-      <div className="px-2 py-4 border-t border-sidebar-border flex flex-col items-center gap-2 shrink-0">
+      <div className="px-2 py-4 border-t border-border flex flex-col items-center gap-2 shrink-0">
         <div
-          className="size-9 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm"
+          className="size-9 rounded-full bg-muted text-foreground flex items-center justify-center font-semibold text-sm"
           title={userEmail ?? undefined}
         >
           {initial}
         </div>
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="icon-sm"
           onClick={handleSignOut}
           disabled={signingOut}
           title={signingOut ? "Signing out…" : "Sign out"}
           aria-label="Sign out"
-          className="inline-flex items-center justify-center size-8 rounded-md bg-destructive/10 text-destructive hover:bg-destructive/20 transition-colors disabled:opacity-50"
         >
-          <LogOut className="size-3.5" />
-        </button>
+          <LogOut className="size-4" />
+        </Button>
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-4 border-t border-sidebar-border text-center shrink-0">
-      <div className="mx-auto mb-2 size-10 rounded-full bg-sidebar-primary text-sidebar-primary-foreground flex items-center justify-center font-bold text-sm">
+    <div className="px-4 py-4 border-t border-border shrink-0 grid grid-cols-[auto_minmax(0,1fr)] items-center gap-x-3">
+      <div className="row-span-2 size-9 rounded-full bg-muted text-foreground flex items-center justify-center font-semibold text-sm">
         {initial}
       </div>
-      <p className="text-sm font-medium text-sidebar-foreground truncate" title={userEmail ?? undefined}>
+      <p className="text-sm font-medium text-foreground truncate" title={userEmail ?? undefined}>
         {userEmail ?? "Unknown user"}
       </p>
       {/* ROLE_LABELS, not the raw value: `aux` is "Staff" everywhere else. */}
-      <p className="text-xs text-sidebar-foreground/50 mb-3">{ROLE_LABELS[role as OrgRole] ?? role}</p>
-      <button
+      <p className="text-caption text-muted-foreground">{ROLE_LABELS[role as OrgRole] ?? role}</p>
+      <Button
         type="button"
+        variant="outline"
+        size="sm"
         onClick={handleSignOut}
         disabled={signingOut}
-        className="w-full inline-flex items-center justify-center gap-1.5 px-3 py-1.5 rounded-md bg-destructive/10 text-destructive text-xs font-medium hover:bg-destructive/20 transition-colors disabled:opacity-50"
+        className="col-span-2 mt-3 w-full"
       >
         <LogOut className="size-3.5" />
         {signingOut ? "Signing out…" : "Sign out"}
-      </button>
+      </Button>
     </div>
   );
 }

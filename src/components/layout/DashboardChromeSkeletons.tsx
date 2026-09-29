@@ -9,19 +9,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 export function TreeNavSkeleton() {
   return (
     <aside
-      className="hidden lg:flex flex-col w-72 sticky top-0 h-screen bg-sidebar text-sidebar-foreground shrink-0 border-r border-sidebar-border"
+      className="hidden lg:flex flex-col w-62 sticky top-0 h-screen bg-sidebar shrink-0 border-r border-border"
       aria-hidden
     >
-      <div className="px-4 py-4 border-b border-sidebar-border">
-        <div className="flex items-center gap-2 mb-1">
-          <Skeleton className="size-4 rounded bg-sidebar-accent/50" />
-          <Skeleton className="h-5 w-20 bg-sidebar-accent/50" />
+      <div className="px-4 pt-3 pb-2">
+        <div className="flex h-8 items-center">
+          <Skeleton className="h-5 w-20" />
         </div>
-        <Skeleton className="h-3 w-28 bg-sidebar-accent/40" />
+        <Skeleton className="h-3.5 w-28" />
       </div>
-      <div className="flex-1 px-2 py-3 space-y-1.5">
+      <div className="flex-1 px-2 py-3 space-y-0.5">
         {Array.from({ length: 6 }).map((_, i) => (
-          <Skeleton key={i} className="h-6 rounded bg-sidebar-accent/40" />
+          <Skeleton key={i} className="h-9 rounded-control" />
         ))}
       </div>
     </aside>
@@ -31,13 +30,13 @@ export function TreeNavSkeleton() {
 export function TopbarSkeleton() {
   return (
     <header
-      className="sticky top-0 z-40 bg-card border-b border-border px-4 sm:px-6 lg:px-8 h-14 flex items-center justify-between"
+      className="sticky top-0 z-40 bg-background border-b border-border px-4 sm:px-6 h-14 flex items-center justify-between"
       aria-hidden
     >
-      <Skeleton className="h-8 w-8 rounded lg:hidden" />
+      <Skeleton className="h-5 w-16 lg:hidden" />
       <div className="ml-auto flex items-center gap-2">
-        <Skeleton className="h-4 w-32" />
-        <Skeleton className="size-4 rounded" />
+        <Skeleton className="size-10 rounded-full" />
+        <Skeleton className="h-6 w-11 rounded-full" />
       </div>
     </header>
   );
@@ -60,13 +59,13 @@ export function DashboardPageSkeleton() {
         <Skeleton className="h-4 w-44" />
       </div>
       <Skeleton className="h-5 w-72" />
-      <div className="rounded-xl border border-border p-4 space-y-3">
+      <div className="rounded-card border border-border p-5 space-y-3">
         <Skeleton className="h-4 w-52" />
-        <Skeleton className="h-24 w-full rounded-lg" />
+        <Skeleton className="h-24 w-full rounded-control" />
       </div>
       <div className="space-y-3">
         <Skeleton className="h-8 w-48" />
-        <div className="rounded-xl border border-border divide-y divide-border">
+        <div className="rounded-card border border-border divide-y divide-border">
           {Array.from({ length: 5 }).map((_, i) => (
             <div key={i} className="flex items-center gap-3 px-5 py-3">
               <Skeleton className="size-4 shrink-0 rounded" />
@@ -90,7 +89,7 @@ export function DashboardPageSkeleton() {
 export function BottomNavSkeleton() {
   return (
     <nav
-      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-card border-t border-border/60 pb-[env(safe-area-inset-bottom)]"
+      className="lg:hidden fixed bottom-0 inset-x-0 z-40 bg-background border-t border-border pb-[env(safe-area-inset-bottom)]"
       aria-hidden
     >
       <div className="mx-auto flex max-w-lg">
@@ -107,9 +106,9 @@ export function BottomNavSkeleton() {
 
 export function MobileSheetSkeleton() {
   return (
-    <div className="flex-1 px-2 py-3 space-y-1.5" aria-hidden>
+    <div className="flex-1 px-2 py-3 space-y-0.5" aria-hidden>
       {Array.from({ length: 6 }).map((_, i) => (
-        <Skeleton key={i} className="h-6 rounded bg-sidebar-accent/40" />
+        <Skeleton key={i} className="h-9 rounded-control" />
       ))}
     </div>
   );
