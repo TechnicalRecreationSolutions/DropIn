@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { Undo2, Redo2, X, AlertTriangle } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
 import type { ScheduleBatchApi } from "./useScheduleBatch";
 
@@ -50,22 +51,22 @@ export default function CanvasUndoBar({ batch }: { batch: ScheduleBatchApi }) {
       <div
         data-canvas-undo-bar={status.error ? "error" : status.destructive ? "destructive" : "ok"}
         className={cn(
-          "flex items-start gap-3 rounded-xl border px-4 py-3 shadow-lg backdrop-blur",
+          "flex items-start gap-3 rounded-banner border px-4 py-3 shadow-lg",
           status.error
-            ? "border-red-200 bg-red-50/95 dark:border-red-900 dark:bg-red-950/90"
+            ? "border-transparent bg-destructive-subtle"
             : // A removal is not the same news as a move, and on a canvas that
               // writes without asking, this is the whole warning. Amber rather
               // than red: nothing has gone wrong, something has gone away.
               status.destructive
-              ? "border-amber-300 bg-amber-50/95 dark:border-amber-800 dark:bg-amber-950/90"
-              : "border-border bg-card/95"
+              ? "border-transparent bg-warning-subtle"
+              : "border-border bg-card"
         )}
       >
         {(status.error || status.destructive) && (
           <AlertTriangle
             className={cn(
               "w-4 h-4 mt-0.5 flex-shrink-0",
-              status.error ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
+              status.error ? "text-destructive" : "text-warning"
             )}
           />
         )}
@@ -75,58 +76,62 @@ export default function CanvasUndoBar({ batch }: { batch: ScheduleBatchApi }) {
             className={cn(
               "text-sm font-semibold leading-tight truncate",
               status.error
-                ? "text-red-800 dark:text-red-300"
+                ? "text-destructive"
                 : status.destructive
-                  ? "text-amber-900 dark:text-amber-200"
+                  ? "text-warning"
                   : "text-foreground"
             )}
           >
             {status.label}
           </p>
           {status.error ? (
-            <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{status.error}</p>
+            <p className="text-xs text-destructive mt-0.5">{status.error}</p>
           ) : (
             status.scope && <p className="text-xs text-muted-foreground mt-0.5">{status.scope}</p>
           )}
           {status.timesIgnored && !status.error && (
-            <p className="text-xs text-amber-700 dark:text-amber-400 mt-1">
+            <p className="text-xs text-warning mt-1">
               The time was not changed — this session runs the whole time its department is open.
             </p>
           )}
         </div>
 
         <div className="flex items-center gap-1 flex-shrink-0">
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="xs"
             onClick={() => batch.undo()}
             disabled={!batch.canUndo || batch.busy}
-            className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg text-xs font-semibold border border-border hover:bg-muted disabled:opacity-40"
             title="Undo (Ctrl+Z)"
           >
             <Undo2 className="w-3.5 h-3.5" />
             Undo
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="outline"
+            size="icon-xs"
             onClick={() => batch.redo()}
             disabled={!batch.canRedo || batch.busy}
-            className="p-1.5 rounded-lg border border-border hover:bg-muted disabled:opacity-40"
             aria-label="Redo (Ctrl+Shift+Z)"
             title="Redo (Ctrl+Shift+Z)"
           >
             <Redo2 className="w-3.5 h-3.5" />
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="text-muted-foreground"
             onClick={() => {
               setHiddenSeq(status.seq);
               batch.dismiss();
             }}
-            className="p-1.5 rounded-lg hover:bg-muted text-muted-foreground"
             aria-label="Dismiss"
           >
             <X className="w-3.5 h-3.5" />
-          </button>
+          </Button>
         </div>
       </div>
     </div>

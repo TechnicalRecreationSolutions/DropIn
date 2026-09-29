@@ -4,7 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ArrowLeft, ChevronLeft, ChevronRight, Printer } from "lucide-react";
-import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Banner } from "@/components/ui/banner";
 import { localDateString, parseDate, sessionDateString, toSessionTime } from "@/lib/utils/dates";
 import { useScheduleRange } from "@/hooks/useScheduleRange";
 import { buildDeckSheet } from "@/lib/schedule/deckSheet";
@@ -92,14 +95,6 @@ export default function DeckSheetPage({
     go({ date: localDateString(d) });
   }
 
-  const chipClass = (active: boolean) =>
-    cn(
-      "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
-      active
-        ? "bg-muted border-border text-foreground"
-        : "border-border text-muted-foreground hover:text-foreground"
-    );
-
   return (
     <div className="mx-auto max-w-[1400px] p-4 sm:p-6 print:p-0">
       {/* Everything in here is screen-only — see the print block in globals.css. */}
@@ -112,67 +107,68 @@ export default function DeckSheetPage({
             <ArrowLeft className="w-4 h-4" />
             Back to the schedule
           </Link>
-          <button
+          <Button
             type="button"
             onClick={() => window.print()}
             disabled={isLoading}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
           >
             <Printer className="w-4 h-4" />
             Print
-          </button>
+          </Button>
         </div>
 
         <div className="flex items-center gap-2 flex-wrap">
           <div className="flex items-center gap-1">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => shiftDay(-1)}
               aria-label="Previous day"
-              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground"
             >
               <ChevronLeft className="w-4 h-4" />
-            </button>
-            <input
+            </Button>
+            <Input
               type="date"
               value={dateKey}
               onChange={(e) => e.target.value && go({ date: e.target.value })}
               aria-label="Day"
-              className="px-3 py-2 border border-border rounded-lg text-sm"
+              className="w-auto"
             />
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="icon"
               onClick={() => shiftDay(1)}
               aria-label="Next day"
-              className="p-2 rounded-lg border border-border text-muted-foreground hover:text-foreground"
             >
               <ChevronRight className="w-4 h-4" />
-            </button>
-            <button type="button" onClick={() => go({ date: localDateString() })} className={chipClass(false)}>
+            </Button>
+            <Button type="button" variant="outline" onClick={() => go({ date: localDateString() })}>
               Today
-            </button>
+            </Button>
           </div>
 
           {facilities.length > 1 && (
-            <select
+            <NativeSelect
               value={facilityId}
               onChange={(e) => go({ facility: e.target.value })}
               aria-label="Building"
-              className="px-3 py-2 border border-border rounded-lg text-sm"
+              wrapperClassName="w-auto"
             >
               {facilities.map((f) => (
                 <option key={f.id} value={f.id}>
                   {f.name}
                 </option>
               ))}
-            </select>
+            </NativeSelect>
           )}
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error instanceof Error ? error.message : "Could not load this day."}
-          </p>
+          </Banner>
         )}
         {isLoading && <p className="text-sm text-muted-foreground">Loading the day…</p>}
       </div>

@@ -4,6 +4,11 @@ import { useCallback, useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils/cn";
 import StepCard from "@/components/ui/step-card";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
 import SessionTags from "@/components/schedule/SessionTags";
 import {
@@ -289,14 +294,13 @@ export default function SessionTemplateForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
+  const labelClass = "block text-caption font-medium text-foreground mb-1.5";
   const chipClass = (selected: boolean) =>
     cn(
-      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+      "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
       selected
-        ? "bg-blue-600 border-blue-600 text-white"
-        : "border-border text-muted-foreground hover:border-blue-300"
+        ? "bg-brand-subtle border-brand text-brand-strong"
+        : "border-input text-muted-foreground hover:text-foreground hover:border-foreground"
     );
 
   return (
@@ -309,14 +313,13 @@ export default function SessionTemplateForm({
       >
         <div>
           <label htmlFor="name" className={labelClass}>Template name *</label>
-          <input
+          <Input
             id="name"
             type="text"
             required
             autoFocus={!isEditing}
             value={name}
             onChange={(e) => setName(e.target.value)}
-            className={fieldClass}
             placeholder="Water Walking, Adult Lengths, Family Splash"
           />
         </div>
@@ -330,8 +333,8 @@ export default function SessionTemplateForm({
                 type="button"
                 onClick={() => setColor(preset)}
                 className={cn(
-                  "w-8 h-8 rounded-full border-2 transition-transform",
-                  color === preset ? "border-gray-900 scale-110" : "border-transparent"
+                  "w-8 h-8 rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-card",
+                  color === preset && "ring-2 ring-ring ring-offset-2 ring-offset-card scale-110"
                 )}
                 style={{ backgroundColor: preset }}
                 aria-label={`Use colour ${preset}`}
@@ -347,7 +350,7 @@ export default function SessionTemplateForm({
                 type="color"
                 value={color}
                 onChange={(e) => setColor(e.target.value)}
-                className="w-8 h-8 rounded-full border border-border cursor-pointer"
+                className="w-8 h-8 rounded-full border border-input cursor-pointer"
               />
               <span className="text-xs text-muted-foreground font-mono">{color}</span>
             </label>
@@ -380,7 +383,7 @@ export default function SessionTemplateForm({
               </button>
             ))}
             <span className="inline-flex items-center gap-1.5 ml-1">
-              <input
+              <Input
                 id="default_duration_minutes"
                 type="number"
                 min={1}
@@ -389,13 +392,13 @@ export default function SessionTemplateForm({
                 value={durationMinutes}
                 onChange={(e) => setDurationMinutes(e.target.value)}
                 aria-label="Custom duration in minutes"
-                className="w-20 px-2 py-1.5 border border-border rounded-lg text-xs focus:outline-none focus:ring-2 focus:ring-blue-500"
+                className="h-8 w-20 px-2 py-1 text-xs md:text-xs"
               />
               <span className="text-xs text-muted-foreground">min</span>
             </span>
           </div>
           {!durationValid && (
-            <p className="text-xs text-red-600 mt-1">
+            <p className="text-xs text-destructive mt-1">
               Enter a whole number of minutes greater than zero.
             </p>
           )}
@@ -410,21 +413,22 @@ export default function SessionTemplateForm({
             {/* Lap swim occupies every lane. Selecting eight of them one at a
                 time was the single slowest interaction on this form. */}
             {spaces.length > 1 && (
-              <button
+              <Button
                 type="button"
+                variant="link"
                 onClick={() =>
                   setDefaultSpaceIds(
                     defaultSpaceIds.length === spaces.length ? [] : spaces.map((s) => s.id)
                   )
                 }
-                className="text-xs font-medium text-blue-600 hover:text-blue-700"
+                className="text-xs"
               >
                 {defaultSpaceIds.length === spaces.length ? "Clear all" : "Select all"}
-              </button>
+              </Button>
             )}
           </div>
           {spaces.length === 0 ? (
-            <p className="text-sm text-muted-foreground/70">No spaces set up for this facility.</p>
+            <p className="text-sm text-muted-foreground">No spaces set up for this facility.</p>
           ) : (
             <>
               <div className="flex gap-1.5 flex-wrap">
@@ -474,16 +478,15 @@ export default function SessionTemplateForm({
 
           <div className="mt-3">
             <label htmlFor="template_disclosure" className={labelClass}>Patrons usually see</label>
-            <select
+            <NativeSelect
               id="template_disclosure"
               value={disclosure}
               onChange={(e) => setDisclosure(e.target.value as Disclosure)}
-              className={fieldClass}
             >
               {DISCLOSURE_OPTIONS.map((option) => (
                 <option key={option.value} value={option.value}>{option.label}</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         </div>
       </StepCard>
@@ -525,13 +528,12 @@ export default function SessionTemplateForm({
 
         <div>
           <LabelWithInfo htmlFor="description" className={labelClass} info="Plain text. Line breaks are kept, formatting is not.">Description</LabelWithInfo>
-          <textarea
+          <Textarea
             id="description"
             value={description}
             onChange={(e) => setDescription(e.target.value)}
             rows={3}
             maxLength={2000}
-            className={fieldClass}
             placeholder="Lanes are set for continuous swimming. Please self-select a lane by speed."
           />
         </div>
@@ -562,29 +564,29 @@ export default function SessionTemplateForm({
       <div className="fixed bottom-[var(--tabbar-clearance,86px)] lg:bottom-0 inset-x-0 z-20 border-t border-border bg-card/95 backdrop-blur supports-[backdrop-filter]:bg-card/80 transition-[bottom] duration-300 ease-out motion-reduce:transition-none">
         <div className="max-w-2xl mx-auto px-4 py-3 space-y-2">
           {error && (
-            <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+            <Banner variant="error" role="alert">
               {error}
-            </p>
+            </Banner>
           )}
           <div className="flex gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={() => router.back()}
-              className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors"
             >
               Cancel
-            </button>
-            <button
+            </Button>
+            <Button
               type="submit"
               disabled={loading || !name.trim() || !durationValid}
-              className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+              className="flex-1"
             >
               {loading
                 ? "Saving…"
                 : isEditing
                   ? "Save changes"
                   : "Create template"}
-            </button>
+            </Button>
           </div>
         </div>
       </div>

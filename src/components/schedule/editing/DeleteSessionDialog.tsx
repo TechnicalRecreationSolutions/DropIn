@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 
@@ -51,7 +52,7 @@ export default function DeleteSessionDialog({
         </DialogHeader>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          <Banner variant="error">{error}</Banner>
         )}
 
         <DialogFooter>

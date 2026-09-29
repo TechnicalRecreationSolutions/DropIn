@@ -6,6 +6,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { SPORT_CATEGORIES } from "@/lib/utils/sport-categories";
 import { commandCentreHref, scheduleGroupScope } from "@/lib/schedule/commandCentreHref";
 import { LabelWithInfo } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Banner } from "@/components/ui/banner";
 
 interface ScheduleGroupFormProps {
   facilityId: string;
@@ -159,89 +163,85 @@ export default function ScheduleGroupForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
+  const labelClass = "mb-1.5 block text-caption font-medium text-foreground";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-5 bg-card rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="space-y-5 rounded-card border border-border bg-card shadow-card p-6">
       <div>
         <label htmlFor="name" className={labelClass}>Schedule name *</label>
-        <input id="name" name="name" type="text" required value={form.name} onChange={handleChange}
-          className={fieldClass} placeholder="Lap Swimming" />
+        <Input id="name" name="name" type="text" required value={form.name} onChange={handleChange} placeholder="Lap Swimming" />
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         <div>
           <label htmlFor="facility_id" className={labelClass}>Facility *</label>
-          <select id="facility_id" name="facility_id" required value={form.facility_id} onChange={handleFacilityChange} className={fieldClass}>
+          <NativeSelect id="facility_id" name="facility_id" required value={form.facility_id} onChange={handleFacilityChange}>
             {!facilities.some((f) => f.id === form.facility_id) && (
               <option value={form.facility_id}>Loading…</option>
             )}
             {facilities.map((f) => <option key={f.id} value={f.id}>{f.name}</option>)}
-          </select>
+          </NativeSelect>
         </div>
         <div>
           <label htmlFor="department_id" className={labelClass}>
-            Department <span className="font-normal text-muted-foreground/70">(optional)</span>
+            Department <span className="font-normal text-muted-foreground">(optional)</span>
           </label>
-          <select id="department_id" name="department_id" value={form.department_id} onChange={handleChange} className={fieldClass}>
+          <NativeSelect id="department_id" name="department_id" value={form.department_id} onChange={handleChange}>
             <option value="">No department</option>
             {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
-          </select>
+          </NativeSelect>
         </div>
       </div>
 
       <div>
         <label htmlFor="sport_category" className={labelClass}>Sport / Activity *</label>
-        <select id="sport_category" name="sport_category" required value={form.sport_category} onChange={handleChange} className={fieldClass}>
+        <NativeSelect id="sport_category" name="sport_category" required value={form.sport_category} onChange={handleChange}>
           {SPORT_CATEGORIES.map((cat) => (
             <option key={cat.id} value={cat.id}>{cat.label}</option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       <div>
         <label htmlFor="cost_dollars" className={labelClass}>Drop-in cost ($)</label>
-        <input id="cost_dollars" name="cost_dollars" type="number" min="0" step="0.01"
-          value={form.cost_dollars} onChange={handleChange} className={fieldClass} placeholder="0.00" />
+        <Input id="cost_dollars" name="cost_dollars" type="number" min="0" step="0.01"
+          value={form.cost_dollars} onChange={handleChange} placeholder="0.00" />
       </div>
 
       <div className="border-t border-border pt-5 space-y-4">
         <div>
           <LabelWithInfo htmlFor="status" className={labelClass} info="Only published schedules appear on your public pages and widget.">Status</LabelWithInfo>
-          <select id="status" name="status" value={form.status} onChange={handleChange} className={fieldClass}>
+          <NativeSelect id="status" name="status" value={form.status} onChange={handleChange}>
             <option value="draft">Draft</option>
             <option value="published">Published</option>
-          </select>
+          </NativeSelect>
         </div>
 
         <div className="grid grid-cols-2 gap-4">
           <div>
             <LabelWithInfo htmlFor="starts_on" className={labelClass} info="Needed to publish.">Starts</LabelWithInfo>
-            <input id="starts_on" name="starts_on" type="date"
-              value={form.starts_on} onChange={handleChange} className={fieldClass} />
+            <Input id="starts_on" name="starts_on" type="date"
+              value={form.starts_on} onChange={handleChange} />
           </div>
           <div>
             <LabelWithInfo htmlFor="ends_on" className={labelClass} info="Leave blank for a schedule that keeps running, like a weekly drop-in.">Ends (optional)</LabelWithInfo>
-            <input id="ends_on" name="ends_on" type="date"
-              value={form.ends_on} onChange={handleChange} className={fieldClass} />
+            <Input id="ends_on" name="ends_on" type="date"
+              value={form.ends_on} onChange={handleChange} />
           </div>
         </div>
       </div>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error">{error}</Banner>
       )}
 
       <div className="flex gap-3 pt-2">
-        <button type="button" onClick={() => router.back()}
-          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
-        </button>
-        <button type="submit" disabled={loading}
-          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+        </Button>
+        <Button type="submit" disabled={loading} className="flex-1">
           {loading ? "Saving…" : isEditing ? "Save changes" : "Add schedule"}
-        </button>
+        </Button>
       </div>
     </form>
   );

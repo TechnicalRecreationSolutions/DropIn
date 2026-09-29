@@ -69,7 +69,7 @@ export default async function DeckPage({ searchParams }: DeckPageProps) {
   if (facilities.length === 0) {
     return (
       <div className="mx-auto max-w-xl p-8 text-center">
-        <h1 className="text-lg font-semibold text-foreground mb-1">Nothing to print yet</h1>
+        <h1 className="text-title text-foreground mb-1">Nothing to print yet</h1>
         <p className="text-sm text-muted-foreground">
           A deck sheet is one building&apos;s day. Add a facility and its spaces first.
         </p>

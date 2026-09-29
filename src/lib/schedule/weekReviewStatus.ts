@@ -10,7 +10,7 @@ export const WEEK_REVIEW_STATUS_META: Record<
   WeekReviewStatus,
   { label: string; className: string }
 > = {
-  pending: { label: "Pending review", className: "bg-gray-100 text-gray-600 border-gray-200" },
-  approved: { label: "Approved", className: "bg-green-50 text-green-700 border-green-200" },
-  needs_changes: { label: "Needs changes", className: "bg-amber-50 text-amber-700 border-amber-200" },
+  pending: { label: "Pending review", className: "border-transparent bg-muted text-foreground" },
+  approved: { label: "Approved", className: "border-transparent bg-success-subtle text-success" },
+  needs_changes: { label: "Needs changes", className: "border-transparent bg-warning-subtle text-warning" },
 };

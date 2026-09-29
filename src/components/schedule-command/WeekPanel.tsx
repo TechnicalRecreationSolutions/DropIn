@@ -3,6 +3,7 @@
 import { useMemo } from "react";
 import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "@/components/ui/sheet";
 import { cn } from "@/lib/utils/cn";
+import { Banner } from "@/components/ui/banner";
 import { useScheduleRange } from "@/hooks/useScheduleRange";
 import { useDepartmentWeekHours } from "@/hooks/useDepartmentWeekHours";
 import { format } from "date-fns";
@@ -80,7 +81,7 @@ export default function WeekPanel({
         </SheetHeader>
 
         {showHelp && (
-          <div className="px-4 flex gap-1" role="tablist" aria-label="Week panel">
+          <div className="mx-4 flex w-fit gap-1 rounded-full bg-muted p-1" role="tablist" aria-label="Week panel">
             {(["overview", "help"] as WeekPanelTab[]).map((value) => (
               <button
                 key={value}
@@ -89,10 +90,10 @@ export default function WeekPanel({
                 aria-selected={tab === value}
                 onClick={() => onTabChange(value)}
                 className={cn(
-                  "px-3 py-1.5 rounded-lg text-xs font-semibold transition-colors",
+                  "px-3 py-1.5 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   tab === value
-                    ? "bg-foreground text-background"
-                    : "text-muted-foreground hover:text-foreground hover:bg-muted"
+                    ? "bg-raised text-foreground shadow-card"
+                    : "text-muted-foreground hover:text-foreground"
                 )}
               >
                 {value === "overview" ? "Overview" : "How to edit"}
@@ -149,13 +150,13 @@ function OverviewBody({
           set is not a number worth printing. */}
       {overview.hasOpenHours ? (
         <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <h3 className="text-label text-muted-foreground mb-2">
             Open hours
           </h3>
-          <div className="rounded-xl border border-border overflow-hidden">
+          <div className="rounded-card border border-border overflow-hidden">
             <div className="flex h-2.5 bg-muted">
               <div
-                className="bg-blue-600"
+                className="bg-brand"
                 style={{ width: `${Math.min(programmedShare, 100)}%` }}
                 aria-hidden
               />
@@ -184,27 +185,27 @@ function OverviewBody({
           </div>
         </section>
       ) : (
-        <p className="text-xs text-amber-800 dark:text-amber-300 bg-amber-50 dark:bg-amber-950/40 rounded-lg px-3 py-2">
+        <Banner variant="warning" role="status" className="text-caption">
           {hasDepartment
             ? hasHours
               ? "This department is closed all week, so there is nothing to compare against."
               : "Set this department's operating hours to see how much of the week is programmed."
             : "This schedule sits outside a department, so there are no operating hours to compare against."}
-        </p>
+        </Banner>
       )}
 
       {/* The answer to "how much of each are we offering". */}
       <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        <h3 className="text-label text-muted-foreground mb-2">
           By kind
         </h3>
-        <div className="rounded-xl border border-border overflow-hidden">
+        <div className="rounded-card border border-border overflow-hidden">
           <table className="w-full text-sm">
             <thead>
-              <tr className="bg-muted/50 text-[11px] uppercase tracking-wide text-muted-foreground">
-                <th className="text-left font-semibold px-3 py-2">Kind</th>
-                <th className="text-right font-semibold px-3 py-2">Hours</th>
-                <th className="text-right font-semibold px-3 py-2">Space-hours</th>
+              <tr className="bg-muted text-label text-muted-foreground">
+                <th className="text-left font-medium px-3 py-2">Kind</th>
+                <th className="text-right font-medium px-3 py-2">Hours</th>
+                <th className="text-right font-medium px-3 py-2">Space-hours</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-border">
@@ -237,7 +238,7 @@ function OverviewBody({
       </section>
 
       <section>
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+        <h3 className="text-label text-muted-foreground mb-2">
           By day
         </h3>
         <div className="space-y-1">
@@ -248,7 +249,7 @@ function OverviewBody({
                 <span className="w-8 text-muted-foreground">{DAY_LABELS_SHORT[day.dayIndex]}</span>
                 <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                   <div
-                    className="h-full bg-blue-600/70"
+                    className="h-full bg-brand/70"
                     style={{ width: `${(day.spaceMinutes / busiest) * 100}%` }}
                     aria-hidden
                   />
@@ -265,7 +266,7 @@ function OverviewBody({
 
       {holidays.length > 0 && (
         <section>
-          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-2">
+          <h3 className="text-label text-muted-foreground mb-2">
             Holidays in this week
           </h3>
           <ul className="space-y-1">
@@ -299,7 +300,7 @@ function Line({
 }) {
   return (
     <div className="flex items-baseline justify-between gap-3 px-3 py-2">
-      <dt className={cn("text-sm", warn ? "text-amber-800 dark:text-amber-300" : "text-foreground")}>
+      <dt className={cn("text-sm", warn ? "text-warning" : "text-foreground")}>
         {term}
         {note && <span className="block text-xs text-muted-foreground">{note}</span>}
       </dt>

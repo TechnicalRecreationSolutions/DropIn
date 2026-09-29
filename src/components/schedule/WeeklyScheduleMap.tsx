@@ -446,7 +446,7 @@ function MapColumnView({
           // A drop target has to read as one in both themes; bg-blue-50 is
           // invisible against a dark surface.
           isOver ? "bg-blue-500/10 ring-2 ring-inset ring-blue-500" : "bg-muted",
-          isActiveColumn ? "border-blue-400" : "border-border"
+          isActiveColumn ? "border-brand" : "border-border"
         )}
         style={{ height: heightPx + "px" }}
       >
@@ -464,7 +464,7 @@ function MapColumnView({
         {canvas?.activeCell && canvas.activeCell.columnIndex === columnIndex && (
           <div
             aria-hidden
-            className="absolute inset-x-0 border-t-2 border-blue-500 pointer-events-none"
+            className="absolute inset-x-0 border-t-2 border-brand pointer-events-none"
             style={{
               top: ((canvas.activeCell.startMinute - GRID_START_HOUR * 60) / 30) * SLOT_HEIGHT_PX + "px",
             }}
@@ -701,7 +701,7 @@ function MapSessionBlock({
         // gone, and a shadow plus a raised z-index is what says "this one".
         isDragging && "shadow-xl z-30 cursor-grabbing",
         ghost && "shadow-lg z-20 opacity-90",
-        isSelected && "ring-2 ring-offset-1 ring-blue-600 z-10",
+        isSelected && "ring-2 ring-offset-1 ring-offset-background ring-ring z-10",
         spanTo !== null && "opacity-70"
       )}
       style={{
@@ -816,7 +816,7 @@ function MapSessionBlock({
             role="presentation"
             aria-hidden
           >
-            <div className="mx-auto h-1 w-8 rounded-full bg-blue-600 shadow" />
+            <div className="mx-auto h-1 w-8 rounded-full bg-brand shadow" />
           </div>
           <div
             onPointerDown={(event) => beginResize(event, "end")}
@@ -828,7 +828,7 @@ function MapSessionBlock({
             role="presentation"
             aria-hidden
           >
-            <div className="mx-auto h-1 w-8 rounded-full bg-blue-600 shadow" />
+            <div className="mx-auto h-1 w-8 rounded-full bg-brand shadow" />
           </div>
         </>
       )}
@@ -842,7 +842,7 @@ function MapSessionBlock({
         <div
           onPointerDown={beginLaneSpan}
           className={cn(
-            "absolute -right-1 -bottom-1 w-3 h-3 rounded-sm bg-blue-600 border border-white cursor-ew-resize touch-none transition-opacity",
+            "absolute -right-1 -bottom-1 w-3 h-3 rounded-sm bg-brand border border-card cursor-ew-resize touch-none transition-opacity",
             isSelected ? "opacity-100" : "opacity-0 group-hover/block:opacity-100"
           )}
           title="Drag sideways to extend across lanes"
@@ -887,7 +887,7 @@ function DayChip({
       className={cn(
         "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
         isActive ? "text-white" : "bg-muted text-muted-foreground hover:bg-border",
-        isOver && !isActive && "ring-2 ring-blue-500 bg-blue-50"
+        isOver && !isActive && "ring-2 ring-ring bg-brand-subtle"
       )}
       style={isActive ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
     >

@@ -192,7 +192,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                         dayLabel: DAYS[dayIndex].label,
                       })
                     }
-                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+                    className="ml-auto inline-flex items-center gap-1 text-xs font-medium text-brand hover:underline underline-offset-4"
                   >
                     <Plus className="w-3.5 h-3.5" />
                     Add session

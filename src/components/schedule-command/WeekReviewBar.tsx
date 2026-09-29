@@ -5,6 +5,8 @@ import { Check, MessageSquareWarning, RotateCcw } from "lucide-react";
 import { useWeekReviews, useSetWeekReview } from "@/hooks/useWeekReviews";
 import { WEEK_REVIEW_STATUS_META, type WeekReviewStatus } from "@/lib/schedule/weekReviewStatus";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 interface WeekReviewBarProps {
   scheduleGroupId: string;
@@ -59,40 +61,44 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart, canEdit = tr
             {isLoading ? "…" : meta.label}
           </span>
           {row?.note && status === "needs_changes" && (
-            <span className="text-xs text-amber-700 italic truncate max-w-xs">&ldquo;{row.note}&rdquo;</span>
+            <span className="text-xs text-warning italic truncate max-w-xs">&ldquo;{row.note}&rdquo;</span>
           )}
         </div>
 
         {canEdit && (
           <div className="flex items-center gap-1.5">
-            <button
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handleClick("approved")}
               disabled={setReview.isPending || status === "approved"}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-green-700 bg-green-50 border border-green-200 hover:bg-green-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <Check className="w-3.5 h-3.5" />
+              <Check className="w-3.5 h-3.5 text-success" />
               Approve
-            </button>
-            <button
+            </Button>
+            <Button
               type="button"
+              variant="outline"
+              size="sm"
               onClick={() => handleClick("needs_changes")}
               disabled={setReview.isPending || status === "needs_changes"}
-              className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-amber-700 bg-amber-50 border border-amber-200 hover:bg-amber-100 disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              <MessageSquareWarning className="w-3.5 h-3.5" />
+              <MessageSquareWarning className="w-3.5 h-3.5 text-warning" />
               Needs changes
-            </button>
+            </Button>
             {status !== "pending" && (
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => handleClick("pending")}
                 disabled={setReview.isPending}
-                className="inline-flex items-center gap-1 px-2.5 py-1 rounded-lg text-xs font-medium text-muted-foreground bg-card border border-border hover:bg-muted disabled:opacity-50"
+                className="text-muted-foreground hover:text-foreground"
               >
                 <RotateCcw className="w-3.5 h-3.5" />
                 Reset to pending
-              </button>
+              </Button>
             )}
           </div>
         )}
@@ -100,34 +106,36 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart, canEdit = tr
 
       {canEdit && showNoteFor === "needs_changes" && (
         <div className="mt-2 flex items-center gap-2">
-          <input
+          <Input
             type="text"
             value={note}
             onChange={(e) => setNote(e.target.value)}
             placeholder="What needs to change? (optional)"
-            className="flex-1 px-2.5 py-1.5 text-xs rounded-lg border border-border focus:outline-none focus:ring-1 focus:ring-amber-400"
+            className="h-8 flex-1"
             autoFocus
           />
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="sm"
             onClick={() => submit("needs_changes")}
             disabled={setReview.isPending}
-            className="px-2.5 py-1.5 rounded-lg text-xs font-medium text-white bg-amber-600 hover:bg-amber-700 disabled:opacity-50"
           >
             Flag week
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
+            variant="ghost"
+            size="sm"
             onClick={() => setShowNoteFor(null)}
-            className="px-2 py-1.5 text-xs text-muted-foreground hover:text-foreground"
           >
             Cancel
-          </button>
+          </Button>
         </div>
       )}
 
       {setReview.isError && (
-        <p className="mt-2 text-xs text-red-600">
+        <p className="mt-2 text-xs text-destructive">
           {setReview.error instanceof Error ? setReview.error.message : "Could not save this week's review."}
         </p>
       )}

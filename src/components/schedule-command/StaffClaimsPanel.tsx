@@ -110,7 +110,7 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
         type="button"
         onClick={() => setOpen((v) => !v)}
         aria-expanded={open}
-        className="flex w-full items-center gap-2 px-4 py-2 text-left"
+        className="flex w-full items-center gap-2 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
       >
         <ClipboardList className="w-3.5 h-3.5 shrink-0 text-muted-foreground" />
         <span className="text-xs font-medium text-foreground">Booked space</span>
@@ -149,10 +149,10 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
                 onClick={() => setKindFilter(null)}
                 aria-pressed={!activeKind}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                  "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   !activeKind
-                    ? "bg-muted border-border text-foreground"
-                    : "border-border text-muted-foreground hover:text-foreground"
+                    ? "bg-brand-subtle border-transparent text-brand-strong"
+                    : "border-input text-muted-foreground hover:text-foreground"
                 )}
               >
                 All {claims.length}
@@ -164,10 +164,10 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
                   onClick={() => setKindFilter(kind)}
                   aria-pressed={activeKind === kind}
                   className={cn(
-                    "px-2.5 py-1 rounded-lg text-xs font-medium border transition-colors",
+                    "px-2.5 py-1 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                     activeKind === kind
-                      ? "bg-muted border-border text-foreground"
-                      : "border-border text-muted-foreground hover:text-foreground"
+                      ? "bg-brand-subtle border-transparent text-brand-strong"
+                      : "border-input text-muted-foreground hover:text-foreground"
                   )}
                 >
                   {occupancyKindLabel(kind)} {count}
@@ -177,7 +177,7 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
           )}
 
           {days.length === 0 ? (
-            <p className="text-xs text-muted-foreground/70">
+            <p className="text-xs text-muted-foreground">
               No programs, rentals or closures are booked at this building this week.
             </p>
           ) : (
@@ -190,7 +190,7 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
                   {day.items.map((claim) => (
                     <li
                       key={claim.key}
-                      className="rounded-lg border border-border bg-card px-3 py-2 text-xs"
+                      className="rounded-control border border-border bg-card px-3 py-2 text-xs"
                     >
                       <div className="flex items-center gap-2 flex-wrap">
                         <span className="font-medium text-foreground">
@@ -226,7 +226,7 @@ export default function StaffClaimsPanel({ facilityId, weekStart }: StaffClaimsP
                       {/* The reason a guard opens this panel at all: what has to be
                           in the water before the booking starts. */}
                       {claim.setupNotes?.trim() && (
-                        <p className="mt-1 rounded-md bg-muted px-2 py-1 text-foreground">
+                        <p className="mt-1 rounded-control bg-muted px-2 py-1 text-foreground">
                           {claim.setupNotes.trim()}
                         </p>
                       )}

@@ -11,6 +11,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { sessionTimeString } from "@/lib/utils/dates";
@@ -81,32 +83,30 @@ export default function AddAnotherTimeDialog({
         <div className="flex items-center gap-3">
           <div className="flex-1">
             <label className="text-xs text-muted-foreground mb-1 block">Start</label>
-            <input
+            <Input
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
           <span className="text-muted-foreground/70 mt-5">→</span>
           <div className="flex-1">
             <label className="text-xs text-muted-foreground mb-1 block">End</label>
-            <input
+            <Input
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
               required
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
         </div>
         {startTime && endTime && startTime >= endTime && (
-          <p className="text-xs text-red-500">End time must be after start time.</p>
+          <p className="text-xs text-destructive">End time must be after start time.</p>
         )}
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          <Banner variant="error">{error}</Banner>
         )}
 
         <DialogFooter>

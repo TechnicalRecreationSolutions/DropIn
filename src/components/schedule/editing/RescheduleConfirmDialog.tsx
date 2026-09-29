@@ -9,6 +9,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 
 export interface RescheduleTarget {
   sessionId: string;
@@ -71,20 +72,20 @@ export default function RescheduleConfirmDialog({
         </DialogHeader>
 
         {target.followsOperatingHours && !target.crossesMidnight && (
-          <p className="text-sm text-amber-700 bg-amber-50 dark:bg-amber-950/30 dark:text-amber-400 px-3 py-2 rounded-lg">
+          <Banner variant="warning" role={undefined}>
             This session runs the whole time the department is open, so it keeps those hours —
             only the day changes. If it lands on a day the department is closed, it will not run
             at all.
-          </p>
+          </Banner>
         )}
 
         {target.crossesMidnight ? (
-          <p className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <Banner variant="error" role={undefined}>
             This would push the session past midnight. Choose a different time.
-          </p>
+          </Banner>
         ) : (
           error && (
-            <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+            <Banner variant="error">{error}</Banner>
           )
         )}
 

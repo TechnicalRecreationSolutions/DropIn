@@ -10,6 +10,7 @@ import { getWeekStart, getWeekEnd, parseDate, sessionWeekStart, toSessionTime, l
 import { deriveScheduleStatus, SCHEDULE_STATUS_META } from "@/lib/schedule/scheduleStatus";
 import { WEEK_REVIEW_STATUS_META } from "@/lib/schedule/weekReviewStatus";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import type { CommandScheduleGroup } from "./types";
 
 /** Weeks fetched per page — 12 * 7 = 84 days, safely under /api/sessions/expand's 120-day cap. */
@@ -52,26 +53,25 @@ export default function WeekListPanel({
   const meta = SCHEDULE_STATUS_META[status];
 
   return (
-    <div className="rounded-xl border border-border bg-card overflow-hidden">
+    <div className="rounded-card border border-border bg-card shadow-card overflow-hidden">
       <div className="flex items-center justify-between gap-3 px-4 py-3 border-b border-border">
         <div className="flex items-center gap-2 min-w-0">
-          <h2 className="font-semibold text-foreground truncate">{scheduleGroup.name}</h2>
+          <h2 className="text-card-title text-foreground truncate">{scheduleGroup.name}</h2>
           <span className={cn("shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border", meta.className)}>
             {meta.label}
           </span>
         </div>
         {canEdit && (
-          <Link
-            href={scheduleGroup.settingsHref}
-            className="shrink-0 inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300 hover:bg-muted transition-colors"
-          >
-            <Settings2 className="w-3.5 h-3.5" />
-            Settings
-          </Link>
+          <Button asChild variant="ghost" size="sm" className="text-muted-foreground hover:text-foreground">
+            <Link href={scheduleGroup.settingsHref}>
+              <Settings2 className="w-3.5 h-3.5" />
+              Settings
+            </Link>
+          </Button>
         )}
       </div>
 
-      <div className="flex gap-1 px-4 pt-3">
+      <div className="mx-4 mt-3 flex w-fit gap-1 rounded-full bg-muted p-1">
         {(["upcoming", "past"] as const).map((value) => (
           <button
             key={value}
@@ -79,8 +79,8 @@ export default function WeekListPanel({
             onClick={() => setFilter(value)}
             aria-pressed={filter === value}
             className={cn(
-              "px-3 py-1.5 rounded-lg text-xs font-medium transition-colors capitalize",
-              filter === value ? "bg-gray-900 text-white" : "bg-muted text-muted-foreground hover:bg-border"
+              "px-3 py-1 rounded-full text-xs font-medium transition-colors capitalize focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+              filter === value ? "bg-raised text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
             )}
           >
             {value}
@@ -152,7 +152,7 @@ function WeekListBody({ scheduleGroupId, facilityId, filter, startsOn, endsOn, o
 
   if (weekStarts.length === 0) {
     return (
-      <p className="px-4 py-8 text-center text-sm text-muted-foreground/70">
+      <p className="px-4 py-8 text-center text-sm text-muted-foreground">
         {filter === "past" ? "No earlier weeks." : "No upcoming weeks."}
       </p>
     );
@@ -175,13 +175,15 @@ function WeekListBody({ scheduleGroupId, facilityId, filter, startsOn, endsOn, o
         />
       ))}
       {hasMore && (
-        <button
+        <Button
           type="button"
+          variant="ghost"
+          size="sm"
           onClick={() => setPages((p) => p + 1)}
-          className="w-full py-2.5 text-center text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+          className="mt-1 w-full"
         >
           {filter === "upcoming" ? "Load more weeks" : "Load earlier weeks"}
-        </button>
+        </Button>
       )}
     </div>
   );
@@ -236,14 +238,14 @@ function WeekWindow({ scheduleGroupId, facilityId, weekStarts, onSelectWeek }: W
             key={weekStart.toISOString()}
             type="button"
             onClick={() => onSelectWeek(weekStart)}
-            className="w-full flex items-center justify-between gap-3 px-3 py-3 rounded-lg text-left hover:bg-muted transition-colors"
+            className="w-full flex items-center justify-between gap-3 px-3 py-3 rounded-control text-left hover:bg-muted transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
           >
             <div className="flex items-center gap-2 min-w-0">
               <span className="text-sm font-medium text-foreground truncate">
                 {format(weekStart, "EEE, MMM d")} – {format(weekEnd, "EEE, MMM d, yyyy")}
               </span>
               {isThisWeek && (
-                <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-blue-50 text-blue-700 dark:text-blue-300 border border-blue-200">
+                <span className="shrink-0 inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium bg-brand-subtle text-brand-strong">
                   This week
                 </span>
               )}
@@ -251,7 +253,7 @@ function WeekWindow({ scheduleGroupId, facilityId, weekStarts, onSelectWeek }: W
                 {reviewMeta.label}
               </span>
             </div>
-            <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground/70">
+            <div className="shrink-0 flex items-center gap-2 text-xs text-muted-foreground">
               {isLoading ? "…" : count === 0 ? "No sessions" : `${count} session${count === 1 ? "" : "s"}`}
               <ChevronRight className="w-4 h-4" />
             </div>

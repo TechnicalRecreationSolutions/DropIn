@@ -38,7 +38,7 @@ export default function CanvasSelectionChip({ canvas }: { canvas: ScheduleCanvas
         </span>
       )}
       {canvas.hasClipboard && (
-        <span className="text-blue-700 dark:text-blue-400">
+        <span className="text-brand">
           {count > 0 && " · "}clipboard ready — click a lane, then <Key>Ctrl</Key>
           <Key>V</Key>
         </span>

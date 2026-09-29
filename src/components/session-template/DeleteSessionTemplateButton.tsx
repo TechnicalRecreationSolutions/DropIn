@@ -12,6 +12,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 
 interface DeleteSessionTemplateButtonProps {
   templateId: string;
@@ -53,11 +54,11 @@ export default function DeleteSessionTemplateButton({ templateId, templateName }
   return (
     <>
       <Button
-        variant="outline"
+        variant="ghost"
         size="sm"
         onClick={() => setOpen(true)}
         aria-label={`Delete ${templateName}`}
-        className="text-muted-foreground hover:text-red-600 hover:bg-red-50"
+        className="text-destructive hover:text-destructive"
       >
         <Trash2 />
         <span className="hidden sm:inline">Delete</span>
@@ -81,9 +82,9 @@ export default function DeleteSessionTemplateButton({ templateId, templateName }
           </DialogHeader>
 
           {error && (
-            <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+            <Banner variant="error" role="alert">
               {error}
-            </p>
+            </Banner>
           )}
 
           <DialogFooter>

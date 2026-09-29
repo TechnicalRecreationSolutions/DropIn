@@ -12,6 +12,8 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Banner } from "@/components/ui/banner";
 import { cn } from "@/lib/utils/cn";
 import { getWeekStart } from "@/lib/utils/dates";
 import type { ExpandedSession } from "@/types/schedule.types";
@@ -114,19 +116,17 @@ export default function OverrideWeekDialog({
         {action === "modify" && (
           <div className="grid grid-cols-2 gap-3">
             <Field label="Start time">
-              <input
+              <Input
                 type="time"
                 value={startTime}
                 onChange={(e) => setStartTime(e.target.value)}
-                className={inputClass}
               />
             </Field>
             <Field label="End time">
-              <input
+              <Input
                 type="time"
                 value={endTime}
                 onChange={(e) => setEndTime(e.target.value)}
-                className={inputClass}
               />
             </Field>
           </div>
@@ -134,20 +134,19 @@ export default function OverrideWeekDialog({
 
         {action !== "clear" && (
           <Field label="Note" hint={`Shown publicly, e.g. “Closed for Family Day”.`}>
-            <input
+            <Input
               type="text"
               value={note}
               onChange={(e) => setNote(e.target.value)}
               maxLength={200}
-              className={inputClass}
             />
           </Field>
         )}
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
 
         <DialogFooter>
@@ -172,9 +171,6 @@ export default function OverrideWeekDialog({
     </Dialog>
   );
 }
-
-const inputClass =
-  "w-full px-3 py-2 rounded-lg border border-border text-sm focus:outline-none focus:ring-2 focus:ring-blue-500/40 focus:border-blue-500";
 
 function Field({ label, hint, children }: { label: string; hint?: string; children: React.ReactNode }) {
   return (
@@ -205,11 +201,11 @@ function OptionCard({
       onClick={onClick}
       aria-pressed={active}
       className={cn(
-        "w-full text-left rounded-lg border-2 p-3 transition-colors flex items-start gap-3",
-        active ? "border-blue-600 bg-blue-50" : "border-border hover:border-blue-300"
+        "w-full text-left rounded-control border p-3 transition-colors flex items-start gap-3",
+        active ? "border-brand bg-brand-subtle" : "border-input hover:bg-muted"
       )}
     >
-      <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", active ? "text-blue-600 dark:text-blue-400" : "text-muted-foreground/70")} />
+      <Icon className={cn("w-4 h-4 mt-0.5 shrink-0", active ? "text-brand" : "text-muted-foreground")} />
       <span>
         <span className="block text-sm font-medium text-foreground">{title}</span>
         <span className="block text-xs text-muted-foreground mt-0.5">{hint}</span>

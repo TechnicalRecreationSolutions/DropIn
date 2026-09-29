@@ -4,6 +4,8 @@ import { useEffect, useState } from "react";
 import { Check, Plus, X } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import { relativeLuminance } from "@/lib/utils/color";
 
 export interface TagOption {
@@ -144,7 +146,7 @@ export default function TagPicker({
       </div>
 
       {loading ? (
-        <p className="text-sm text-muted-foreground/70">Loading tags…</p>
+        <p className="text-sm text-muted-foreground">Loading tags…</p>
       ) : (
         <>
           <div className="flex gap-1.5 flex-wrap">
@@ -157,7 +159,7 @@ export default function TagPicker({
                   type="button"
                   onClick={() => toggle(tag.id)}
                   className={cn(
-                    "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border-2 transition-all",
+                    "inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-semibold border-2 transition-all focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     selected ? "border-transparent" : "border-border opacity-60 hover:opacity-100"
                   )}
                   style={
@@ -179,14 +181,16 @@ export default function TagPicker({
             })}
 
             {!creating && (
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={() => setCreating(true)}
-                className="inline-flex items-center gap-1 px-2.5 py-1.5 rounded-full text-xs font-medium border-2 border-dashed border-border text-muted-foreground hover:border-blue-300 hover:text-foreground transition-colors"
+                className="border-dashed text-muted-foreground hover:text-foreground"
               >
                 <Plus className="w-3 h-3" />
                 New tag
-              </button>
+              </Button>
             )}
           </div>
 
@@ -198,9 +202,9 @@ export default function TagPicker({
             // Not a nested <form>: this component is rendered inside the
             // template form, and nesting them is invalid HTML that makes the
             // inner submit save the outer one.
-            <div className="mt-3 p-3 rounded-lg border border-border bg-muted/40">
+            <div className="mt-3 p-3 rounded-banner bg-muted">
               <div className="flex items-center gap-2">
-                <input
+                <Input
                   type="text"
                   value={newLabel}
                   onChange={(e) => setNewLabel(e.target.value)}
@@ -213,20 +217,22 @@ export default function TagPicker({
                   maxLength={40}
                   autoFocus
                   placeholder="Women's Only, 55+, Lessons"
-                  className="flex-1 px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+                  className="flex-1"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => {
                     setCreating(false);
                     setNewLabel("");
                     setError(null);
                   }}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground"
+                  className="text-muted-foreground hover:bg-card"
                   aria-label="Cancel new tag"
                 >
                   <X className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
 
               <div className="flex flex-wrap gap-1.5 mt-2">
@@ -236,8 +242,8 @@ export default function TagPicker({
                     type="button"
                     onClick={() => setNewColor(preset)}
                     className={cn(
-                      "w-6 h-6 rounded-full border-2 transition-transform",
-                      newColor === preset ? "border-gray-900 scale-110" : "border-transparent"
+                      "w-6 h-6 rounded-full transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-muted",
+                      newColor === preset && "ring-2 ring-ring ring-offset-2 ring-offset-muted scale-110"
                     )}
                     style={{ backgroundColor: preset }}
                     aria-label={`Use colour ${preset}`}
@@ -246,17 +252,19 @@ export default function TagPicker({
                 ))}
               </div>
 
-              <button
+              <Button
                 type="button"
+                variant="outline"
+                size="sm"
                 onClick={createTag}
                 disabled={saving || !newLabel.trim()}
-                className="mt-3 w-full py-2 bg-blue-600 text-white text-xs font-semibold rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors"
+                className="mt-3 w-full"
               >
                 {saving ? "Adding…" : "Add to this facility's tags"}
-              </button>
+              </Button>
 
               {error && (
-                <p role="alert" className="text-xs text-red-600 mt-2">
+                <p role="alert" className="text-xs text-destructive mt-2">
                   {error}
                 </p>
               )}

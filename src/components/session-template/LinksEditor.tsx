@@ -3,6 +3,8 @@
 import { Plus, Trash2, ArrowUp } from "lucide-react";
 import { MAX_TEMPLATE_LINKS } from "@/lib/sessions/templateRelations";
 import { InfoTip } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 export interface LinkDraft {
   label: string;
@@ -42,9 +44,6 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
     onChange(next);
   }
 
-  const fieldClass =
-    "w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-
   return (
     <div>
       <div className="flex items-center gap-1.5 mb-1">
@@ -56,7 +55,7 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
       </div>
 
       {links.length === 0 ? (
-        <p className="text-sm text-muted-foreground/70">
+        <p className="text-sm text-muted-foreground">
           None yet — add one if this activity needs a booking or registration page.
         </p>
       ) : (
@@ -64,7 +63,7 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
           {links.map((link, index) => (
             <li key={index} className="flex items-start gap-2">
               <div className="flex-1 space-y-1.5">
-                <input
+                <Input
                   type="text"
                   value={link.label}
                   onChange={(e) => update(index, { label: e.target.value })}
@@ -72,38 +71,41 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
                   required
                   placeholder="Register here"
                   aria-label={`Link ${index + 1} label`}
-                  className={fieldClass}
                 />
-                <input
+                <Input
                   type="url"
                   value={link.url}
                   onChange={(e) => update(index, { url: e.target.value })}
                   required
                   placeholder="https://…"
                   aria-label={`Link ${index + 1} URL`}
-                  className={`${fieldClass} font-mono text-xs`}
+                  className="font-mono text-xs md:text-xs"
                 />
               </div>
               <div className="flex flex-col gap-1 pt-0.5">
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => promote(index)}
                   disabled={index === 0}
-                  className="p-2 rounded-lg hover:bg-muted text-muted-foreground disabled:opacity-30"
+                  className="text-muted-foreground"
                   aria-label={`Move link ${index + 1} up`}
                   title="Move up"
                 >
                   <ArrowUp className="w-4 h-4" />
-                </button>
-                <button
+                </Button>
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => remove(index)}
-                  className="p-2 rounded-lg hover:bg-red-50 text-red-600"
+                  className="text-destructive hover:text-destructive"
                   aria-label={`Remove link ${index + 1}`}
                   title="Remove"
                 >
                   <Trash2 className="w-4 h-4" />
-                </button>
+                </Button>
               </div>
             </li>
           ))}
@@ -111,14 +113,16 @@ export default function LinksEditor({ links, onChange }: LinksEditorProps) {
       )}
 
       {links.length < MAX_TEMPLATE_LINKS && (
-        <button
+        <Button
           type="button"
+          variant="outline"
+          size="sm"
           onClick={() => onChange([...links, { label: "", url: "" }])}
-          className="mt-2 inline-flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 border-dashed border-border text-muted-foreground hover:border-blue-300 hover:text-foreground transition-colors"
+          className="mt-2"
         >
           <Plus className="w-3 h-3" />
           Add link
-        </button>
+        </Button>
       )}
 
     </div>

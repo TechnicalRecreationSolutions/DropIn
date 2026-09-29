@@ -1,6 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { Plus, Building2 } from "lucide-react";
+import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
 import { commandCentreHref, sessionsHref } from "@/lib/schedule/commandCentreHref";
@@ -14,6 +14,8 @@ import type { CommandFacility } from "@/components/schedule-command/types";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 
 /**
  * The schedule command centre — where staff spend most of their time. Every
@@ -70,20 +72,20 @@ export default function SchedulePage({ searchParams }: SchedulePageProps) {
 
 function ScheduleHeader({ title, canEdit = false }: { title: string; canEdit?: boolean }) {
   return (
-    <div className="flex items-start justify-between gap-3">
-      <div>
-        <PageHeader title={title} info="Pick a building, then a schedule, to place and edit sessions." />
-      </div>
-      {canEdit && (
-        <Link
-          href="/dashboard/schedule/sessions/new"
-          className="shrink-0 inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          <span className="hidden sm:inline">Add session</span>
-        </Link>
-      )}
-    </div>
+    <PageHeader
+      title={title}
+      info="Pick a building, then a schedule, to place and edit sessions."
+      actions={
+        canEdit && (
+          <Button asChild>
+            <Link href="/dashboard/schedule/sessions/new">
+              <Plus className="w-4 h-4" />
+              <span className="hidden sm:inline">Add session</span>
+            </Link>
+          </Button>
+        )
+      }
+    />
   );
 }
 
@@ -351,30 +353,29 @@ function NoFacilities({ canEdit }: { canEdit: boolean }) {
     // Read-only staff cannot add a building, so offer the explanation instead
     // of a button that 403s.
     return (
-      <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
-        <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h3 className="font-medium text-foreground mb-1">No buildings to show</h3>
-        <p className="text-sm text-muted-foreground">
-          You haven&apos;t been given access to a building yet. Ask a manager to add you to one.
-        </p>
-      </div>
+      <EmptyState
+        className="py-20"
+        title="No buildings to show"
+        description={
+          <>You haven&apos;t been given access to a building yet. Ask a manager to add you to one.</>
+        }
+      />
     );
   }
   return (
-    <div className="text-center py-20 bg-card rounded-xl border border-dashed border-border">
-      <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-      <h3 className="font-medium text-foreground mb-1">No buildings yet</h3>
-      <p className="text-sm text-muted-foreground mb-4">
-        Add a facility first — schedules and sessions are built inside one.
-      </p>
-      <Link
-        href="/dashboard/facilities/new"
-        className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-      >
-        <Plus className="w-4 h-4" />
-        Add a facility
-      </Link>
-    </div>
+    <EmptyState
+      className="py-20"
+      title="No buildings yet"
+      description="Add a facility first — schedules and sessions are built inside one."
+      action={
+        <Button asChild variant="outline">
+          <Link href="/dashboard/facilities/new">
+            <Plus className="w-4 h-4" />
+            Add a facility
+          </Link>
+        </Button>
+      }
+    />
   );
 }
 
@@ -383,17 +384,17 @@ function CommandCentreSkeleton() {
     <div className="space-y-5" aria-busy="true">
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-28 rounded-xl" />
+          <Skeleton key={i} className="h-28 rounded-card" />
         ))}
       </div>
       <div className="flex gap-1.5">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-32 rounded-xl" />
+          <Skeleton key={i} className="h-9 w-32 rounded-full" />
         ))}
       </div>
       <div className="grid grid-cols-1 lg:grid-cols-[240px_1fr] gap-4">
-        <Skeleton className="h-64 rounded-xl hidden lg:block" />
-        <Skeleton className="h-96 rounded-xl" />
+        <Skeleton className="h-64 rounded-card hidden lg:block" />
+        <Skeleton className="h-96 rounded-card" />
       </div>
     </div>
   );

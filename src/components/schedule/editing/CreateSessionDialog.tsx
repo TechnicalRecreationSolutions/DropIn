@@ -17,6 +17,9 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Banner } from "@/components/ui/banner";
 import { cn } from "@/lib/utils/cn";
 import { localDateString } from "@/lib/utils/dates";
 import { DAYS } from "@/lib/schedule/weekGeometry";
@@ -160,16 +163,15 @@ export default function CreateSessionDialog({
             <label htmlFor="create-session-template" className="block text-sm font-medium text-foreground mb-1">
               Session template
             </label>
-            <select
+            <NativeSelect
               id="create-session-template"
               value={selectedTemplateId}
               onChange={(e) => handleTemplateChange(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             >
               {templates.map((t) => (
                 <option key={t.id} value={t.id}>{t.name} ({t.default_duration_minutes} min)</option>
               ))}
-            </select>
+            </NativeSelect>
           </div>
         )}
 
@@ -178,7 +180,7 @@ export default function CreateSessionDialog({
             summary line is what makes "patrons won't see the name" visible at
             placement time instead of being a property nobody looked at. The
             override is a details disclosure so the common case stays one drag. */}
-        <div className="rounded-lg border border-border bg-muted/40 p-3">
+        <div className="rounded-banner bg-muted p-3">
           <p className="text-xs text-foreground">
             <span className="font-semibold">{occupancyKindLabel(occupancyKind)}</span>
             {" · patrons see "}
@@ -195,13 +197,12 @@ export default function CreateSessionDialog({
               >
                 Who has this space <span className="font-normal text-muted-foreground">(staff only)</span>
               </label>
-              <input
+              <Input
                 id="create-session-holder"
                 type="text"
                 value={holderName}
                 onChange={(e) => setHolderName(e.target.value)}
                 placeholder="e.g. Island Swimming"
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
           )}
@@ -223,10 +224,10 @@ export default function CreateSessionDialog({
                         setDisclosure(kind.defaultDisclosure);
                       }}
                       className={cn(
-                        "px-2 py-1 rounded-md text-xs font-medium border transition-colors",
+                        "px-2 py-1 rounded-full text-xs font-medium border transition-colors",
                         selected
-                          ? "bg-blue-600 border-blue-600 text-white"
-                          : "border-border text-muted-foreground hover:border-blue-300"
+                          ? "border-brand bg-brand-subtle text-brand-strong"
+                          : "border-input text-muted-foreground hover:bg-muted"
                       )}
                       aria-pressed={selected}
                     >
@@ -235,18 +236,17 @@ export default function CreateSessionDialog({
                   );
                 })}
               </div>
-              <select
+              <NativeSelect
                 value={disclosure}
                 onChange={(e) => setDisclosure(e.target.value as Disclosure)}
                 aria-label="What patrons see"
-                className="w-full px-3 py-2 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               >
                 {DISCLOSURE_OPTIONS.map((option) => (
                   <option key={option.value} value={option.value}>
                     Patrons see: {option.label}
                   </option>
                 ))}
-              </select>
+              </NativeSelect>
               <p className="text-xs text-muted-foreground">Only affects this session, not the template.</p>
             </div>
           </details>
@@ -264,10 +264,10 @@ export default function CreateSessionDialog({
                     type="button"
                     onClick={() => toggleSpace(space.id)}
                     className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                      "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors",
                       selected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-border text-muted-foreground hover:border-blue-300"
+                        ? "border-brand bg-brand-subtle text-brand-strong"
+                        : "border-input text-muted-foreground hover:bg-muted"
                     )}
                     aria-pressed={selected}
                   >
@@ -287,8 +287,8 @@ export default function CreateSessionDialog({
               onClick={() => setOnce(false)}
               aria-pressed={!once}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                !once ? "bg-blue-600 border-blue-600 text-white" : "border-border text-muted-foreground hover:border-blue-300"
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                !once ? "border-brand bg-brand-subtle text-brand-strong" : "border-input text-muted-foreground hover:bg-muted"
               )}
             >
               Weekly
@@ -298,8 +298,8 @@ export default function CreateSessionDialog({
               onClick={() => setOnce(true)}
               aria-pressed={once}
               className={cn(
-                "px-3 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
-                once ? "bg-blue-600 border-blue-600 text-white" : "border-border text-muted-foreground hover:border-blue-300"
+                "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors",
+                once ? "border-brand bg-brand-subtle text-brand-strong" : "border-input text-muted-foreground hover:bg-muted"
               )}
             >
               Just once
@@ -321,10 +321,10 @@ export default function CreateSessionDialog({
                   type="button"
                   onClick={() => toggleDay(day.code)}
                   className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                    "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors",
                     selected
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-border text-muted-foreground hover:border-blue-300"
+                      ? "border-brand bg-brand-subtle text-brand-strong"
+                      : "border-input text-muted-foreground hover:bg-muted"
                   )}
                   aria-pressed={selected}
                 >
@@ -334,7 +334,7 @@ export default function CreateSessionDialog({
             })}
           </div>
           {!daysValid && (
-            <p className="text-xs text-red-500 mt-1">Select at least one day.</p>
+            <p className="text-xs text-destructive mt-1">Select at least one day.</p>
           )}
         </div>
         )}
@@ -344,28 +344,26 @@ export default function CreateSessionDialog({
             <label htmlFor="create-session-start-time" className="block text-sm font-medium text-foreground mb-1">
               Start time
             </label>
-            <input
+            <Input
               id="create-session-start-time"
               type="time"
               value={startTime}
               onChange={(e) => setStartTime(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           <div>
             <label htmlFor="create-session-end-time" className="block text-sm font-medium text-foreground mb-1">
               End time
             </label>
-            <input
+            <Input
               id="create-session-end-time"
               type="time"
               value={endTime}
               onChange={(e) => setEndTime(e.target.value)}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
           {!timeValid && (
-            <p className="text-xs text-red-500 col-span-2 -mt-2">End time must be after start time.</p>
+            <p className="text-xs text-destructive col-span-2 -mt-2">End time must be after start time.</p>
           )}
         </div>
 
@@ -374,7 +372,7 @@ export default function CreateSessionDialog({
             <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-foreground mb-1">
               Date
             </label>
-            <input
+            <Input
               id="create-session-valid-from"
               type="date"
               value={validFrom}
@@ -384,7 +382,6 @@ export default function CreateSessionDialog({
                 setValidFrom(e.target.value);
                 setValidUntil(e.target.value);
               }}
-              className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
             />
           </div>
         ) : (
@@ -393,29 +390,27 @@ export default function CreateSessionDialog({
               <label htmlFor="create-session-valid-from" className="block text-sm font-medium text-foreground mb-1">
                 Start date
               </label>
-              <input
+              <Input
                 id="create-session-valid-from"
                 type="date"
                 value={validFrom}
                 onChange={(e) => setValidFrom(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             <div>
               <label htmlFor="create-session-valid-until" className="block text-sm font-medium text-foreground mb-1">
                 End date <span className="font-normal text-muted-foreground/70">(optional)</span>
               </label>
-              <input
+              <Input
                 id="create-session-valid-until"
                 type="date"
                 value={validUntil}
                 min={validFrom}
                 onChange={(e) => setValidUntil(e.target.value)}
-                className="w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent"
               />
             </div>
             {!datesValid && (
-              <p className="text-xs text-red-500 col-span-2 -mt-2">End date must be on or after the start date.</p>
+              <p className="text-xs text-destructive col-span-2 -mt-2">End date must be on or after the start date.</p>
             )}
           </div>
         )}
@@ -427,7 +422,7 @@ export default function CreateSessionDialog({
         </p>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          <Banner variant="error">{error}</Banner>
         )}
 
         <DialogFooter>

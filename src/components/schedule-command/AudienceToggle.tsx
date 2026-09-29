@@ -31,7 +31,7 @@ export default function AudienceToggle({ value, onChange }: AudienceToggleProps)
 
   return (
     <div
-      className="inline-flex rounded-lg border border-border bg-muted/40 p-0.5"
+      className="inline-flex rounded-full bg-muted p-1"
       role="group"
       aria-label="Whose version of the schedule to show"
     >
@@ -45,9 +45,9 @@ export default function AudienceToggle({ value, onChange }: AudienceToggleProps)
             onClick={() => onChange(option.value)}
             aria-pressed={selected}
             className={cn(
-              "inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-medium transition-colors",
+              "inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
               selected
-                ? "bg-card text-foreground shadow-sm"
+                ? "bg-raised text-foreground shadow-card"
                 : "text-muted-foreground hover:text-foreground"
             )}
           >

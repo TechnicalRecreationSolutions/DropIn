@@ -43,9 +43,9 @@ export const SCHEDULE_STATUS_META: Record<
   ScheduleListStatus,
   { label: string; className: string }
 > = {
-  unfinished: { label: "Unfinished", className: "bg-gray-100 text-gray-600 border-gray-200" },
-  active: { label: "Active", className: "bg-blue-50 text-blue-700 border-blue-200" },
-  modified: { label: "Modified", className: "bg-amber-50 text-amber-700 border-amber-200" },
-  published: { label: "Published", className: "bg-green-50 text-green-700 border-green-200" },
-  stored: { label: "Stored", className: "bg-gray-50 text-gray-400 border-gray-200" },
+  unfinished: { label: "Unfinished", className: "border-transparent bg-muted text-foreground" },
+  active: { label: "Active", className: "border-transparent bg-brand-subtle text-brand-strong" },
+  modified: { label: "Modified", className: "border-transparent bg-warning-subtle text-warning" },
+  published: { label: "Published", className: "border-transparent bg-success-subtle text-success" },
+  stored: { label: "Stored", className: "border-transparent bg-muted text-muted-foreground" },
 };

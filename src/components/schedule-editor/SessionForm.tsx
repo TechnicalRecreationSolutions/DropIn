@@ -16,6 +16,11 @@ import {
 } from "@/lib/sessions/occupancy";
 import { cn } from "@/lib/utils/cn";
 import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 import { summarizeWeek } from "@/lib/schedule/operating-hours";
 
 /** Remembers the last schedule picked here, so entering several blocks for
@@ -424,15 +429,14 @@ export default function SessionForm({
     router.refresh();
   }
 
-  const fieldClass = "w-full px-3 py-2.5 border border-border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent";
-  const labelClass = "block text-sm font-medium text-foreground mb-1";
+  const labelClass = "block text-caption font-medium text-foreground mb-1.5";
 
   return (
-    <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-xl border border-border p-6">
+    <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-card border border-border shadow-card p-6">
       {scheduleGroups.length === 0 && (
-        <div className="p-3 bg-amber-50 border border-amber-200 rounded-lg text-sm text-amber-800">
+        <Banner variant="warning">
           You need to <Link href="/dashboard/facilities" className="underline font-medium">add a schedule</Link> before creating sessions.
-        </div>
+        </Banner>
       )}
 
       {/* Schedule selector */}
@@ -444,7 +448,7 @@ export default function SessionForm({
         ) : (
           <label htmlFor="schedule_group_id" className={labelClass}>Schedule *</label>
         )}
-        <select
+        <NativeSelect
           id="schedule_group_id"
           value={scheduleGroupId}
           onChange={(e) => {
@@ -454,14 +458,13 @@ export default function SessionForm({
           }}
           required
           disabled={isEditing}
-          className={fieldClass}
         >
           {scheduleGroups.map((sg) => (
             <option key={sg.id} value={sg.id}>
               {sg.name} — {sg.facility_name}
             </option>
           ))}
-        </select>
+        </NativeSelect>
       </div>
 
       {/* Occupancy kind + disclosure (migration 046) */}
@@ -476,10 +479,10 @@ export default function SessionForm({
                 type="button"
                 onClick={() => pickKind(kind.value)}
                 className={cn(
-                  "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                  "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   selected
-                    ? "bg-blue-600 border-blue-600 text-white"
-                    : "border-border text-muted-foreground hover:border-blue-300"
+                    ? "bg-brand-subtle border-brand text-brand-strong"
+                    : "border-input text-muted-foreground hover:text-foreground hover:border-foreground"
                 )}
                 aria-pressed={selected}
               >
@@ -494,22 +497,21 @@ export default function SessionForm({
 
         <div className="mt-4">
           <label htmlFor="disclosure" className={labelClass}>Patrons see</label>
-          <select
+          <NativeSelect
             id="disclosure"
             value={disclosure}
             onChange={(e) => setDisclosure(e.target.value as Disclosure)}
-            className={fieldClass}
           >
             {DISCLOSURE_OPTIONS.map((option) => (
               <option key={option.value} value={option.value}>{option.label}</option>
             ))}
-          </select>
+          </NativeSelect>
           <p className="text-xs text-muted-foreground mt-1">
             {DISCLOSURE_OPTIONS.find((o) => o.value === disclosure)?.hint}
           </p>
         </div>
 
-        <div className="mt-4 rounded-lg border border-border bg-muted/40 p-3 space-y-3">
+        <div className="mt-4 rounded-banner bg-muted p-3 space-y-3">
           <div className="flex items-center gap-1.5">
             <p className="text-xs font-semibold text-foreground">Staff only</p>
             <InfoTip>Never shown to patrons, whatever is set above.</InfoTip>
@@ -518,12 +520,11 @@ export default function SessionForm({
             <label htmlFor="holder_name" className="block text-xs font-medium text-foreground mb-1">
               Who has this space
             </label>
-            <input
+            <Input
               id="holder_name"
               type="text"
               value={holderName}
               onChange={(e) => setHolderName(e.target.value)}
-              className={fieldClass}
               placeholder="e.g. Island Swimming, Westside Camps"
             />
           </div>
@@ -531,12 +532,11 @@ export default function SessionForm({
             <LabelWithInfo htmlFor="setup_notes" className="block text-xs font-medium text-foreground" info="What the guard on deck needs to set up before this starts.">
               Setup notes
             </LabelWithInfo>
-            <textarea
+            <Textarea
               id="setup_notes"
               rows={2}
               value={setupNotes}
               onChange={(e) => setSetupNotes(e.target.value)}
-              className={fieldClass}
               placeholder="e.g. Soft lane ropes, wave breakers out, polo nets at the deep end"
             />
           </div>
@@ -545,7 +545,7 @@ export default function SessionForm({
 
       {/* RRule builder handles days, times, and date range */}
       <div className="border-t border-border pt-5">
-        <h3 className="text-sm font-semibold text-foreground mb-4">Recurrence</h3>
+        <h3 className="text-heading text-foreground mb-4">Recurrence</h3>
         <RRuleBuilder
           value={rrule}
           startTime={startTime}
@@ -573,7 +573,7 @@ export default function SessionForm({
       <div className="border-t border-border pt-5">
         <LabelWithInfo className={labelClass} info="Select every space this session uses at once, e.g. all 4 lanes for Lap Swim.">Spaces</LabelWithInfo>
         {facilitySpaces.length === 0 ? (
-          <p className="text-sm text-muted-foreground/70">
+          <p className="text-sm text-muted-foreground">
             {hiddenSpaceCount > 0
               ? `No spaces are in this schedule's department yet. ${hiddenSpaceCount} other space${hiddenSpaceCount === 1 ? "" : "s"} in this building ${hiddenSpaceCount === 1 ? "is" : "are"} filed elsewhere — assign ${hiddenSpaceCount === 1 ? "it" : "them"} on the Spaces page.`
               : "No spaces set up for this facility."}
@@ -589,10 +589,10 @@ export default function SessionForm({
                     type="button"
                     onClick={() => toggleSpace(space.id)}
                     className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                      "px-3 py-1.5 rounded-full text-xs font-medium border transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                       selected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-border text-muted-foreground hover:border-blue-300"
+                        ? "bg-brand-subtle border-brand text-brand-strong"
+                        : "border-input text-muted-foreground hover:text-foreground hover:border-foreground"
                     )}
                     aria-pressed={selected}
                   >
@@ -606,22 +606,21 @@ export default function SessionForm({
       </div>
 
       <Collapsible open={advancedOpen} onOpenChange={setAdvancedOpen} className="border-t border-border pt-5">
-        <CollapsibleTrigger className="flex items-center gap-1.5 text-sm font-medium text-foreground hover:text-foreground">
+        <CollapsibleTrigger className="flex items-center gap-1.5 rounded-control text-sm font-medium text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <ChevronDown className={`w-4 h-4 transition-transform ${advancedOpen ? "rotate-180" : ""}`} />
           Advanced options
-          <span className="font-normal text-muted-foreground/70">
+          <span className="font-normal text-muted-foreground">
             (location detail{canEditScheduleDetails ? ", program details" : ""})
           </span>
         </CollapsibleTrigger>
         <CollapsibleContent className="space-y-5 pt-4">
           <div>
             <LabelWithInfo htmlFor="location_detail" className={labelClass} info="Optional note shown next to the space, e.g. entry instructions.">Location detail</LabelWithInfo>
-            <input
+            <Input
               id="location_detail"
               type="text"
               value={locationDetail}
               onChange={(e) => setLocationDetail(e.target.value)}
-              className={fieldClass}
               placeholder="e.g. Enter via the north doors"
             />
           </div>
@@ -639,42 +638,42 @@ export default function SessionForm({
             <div className="grid grid-cols-3 gap-4">
               <div>
                 <label htmlFor="activity_type" className={labelClass}>Type</label>
-                <select id="activity_type" value={activityType}
-                  onChange={(e) => setActivityType(e.target.value as typeof activityType)} className={fieldClass}>
+                <NativeSelect id="activity_type" value={activityType}
+                  onChange={(e) => setActivityType(e.target.value as typeof activityType)}>
                   {ACTIVITY_TYPES.map((t) => <option key={t.value} value={t.value}>{t.label}</option>)}
-                </select>
+                </NativeSelect>
               </div>
               <div>
                 <label htmlFor="age_group" className={labelClass}>Age group</label>
-                <select id="age_group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)} className={fieldClass}>
+                <NativeSelect id="age_group" value={ageGroup} onChange={(e) => setAgeGroup(e.target.value)}>
                   {AGE_GROUPS.map((g) => <option key={g.value} value={g.value}>{g.label}</option>)}
-                </select>
+                </NativeSelect>
               </div>
               <div>
                 <label htmlFor="skill_level" className={labelClass}>Skill level</label>
-                <select id="skill_level" value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)} className={fieldClass}>
+                <NativeSelect id="skill_level" value={skillLevel} onChange={(e) => setSkillLevel(e.target.value)}>
                   {SKILL_LEVELS.map((s) => <option key={s.value} value={s.value}>{s.label}</option>)}
-                </select>
+                </NativeSelect>
               </div>
             </div>
 
             <div>
               <label htmlFor="max_participants" className={labelClass}>Max participants</label>
-              <input id="max_participants" type="number" min="1"
+              <Input id="max_participants" type="number" min="1"
                 value={maxParticipants} onChange={(e) => setMaxParticipants(e.target.value)}
-                className={fieldClass} placeholder="Leave blank for unlimited" />
+                placeholder="Leave blank for unlimited" />
             </div>
 
             <div>
               <label htmlFor="cost_notes" className={labelClass}>Cost notes</label>
-              <input id="cost_notes" type="text" value={costNotes} onChange={(e) => setCostNotes(e.target.value)}
-                className={fieldClass} placeholder="e.g. Members free, Non-members $5" />
+              <Input id="cost_notes" type="text" value={costNotes} onChange={(e) => setCostNotes(e.target.value)}
+                placeholder="e.g. Members free, Non-members $5" />
             </div>
 
             <div>
               <label htmlFor="group_description" className={labelClass}>Description</label>
-              <textarea id="group_description" rows={3} value={description}
-                onChange={(e) => setDescription(e.target.value)} className={fieldClass}
+              <Textarea id="group_description" rows={3} value={description}
+                onChange={(e) => setDescription(e.target.value)}
                 placeholder="Brief description of this schedule..." />
             </div>
 
@@ -692,24 +691,23 @@ export default function SessionForm({
       </Collapsible>
 
       {error && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+        <Banner variant="error" role="alert">{error}</Banner>
       )}
 
       <div className="flex gap-3 pt-2">
         {isEditing && (
-          <button type="button" onClick={handleDelete} disabled={loading || deleting}
-            className="px-4 py-2.5 border border-red-200 text-red-600 text-sm font-medium rounded-lg hover:bg-red-50 disabled:opacity-50 transition-colors">
+          <Button type="button" variant="ghost" onClick={handleDelete} disabled={loading || deleting}
+            className="text-destructive hover:text-destructive">
             {deleting ? "Removing…" : "Delete"}
-          </button>
+          </Button>
         )}
-        <button type="button" onClick={() => router.back()}
-          className="px-4 py-2.5 border border-border text-foreground text-sm font-medium rounded-lg hover:bg-muted transition-colors">
+        <Button type="button" variant="outline" onClick={() => router.back()}>
           Cancel
-        </button>
-        <button type="submit" disabled={loading || deleting || scheduleGroups.length === 0}
-          className="flex-1 py-2.5 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 disabled:opacity-50 transition-colors">
+        </Button>
+        <Button type="submit" disabled={loading || deleting || scheduleGroups.length === 0}
+          className="flex-1">
           {loading ? "Saving…" : isEditing ? "Save changes" : "Add session"}
-        </button>
+        </Button>
       </div>
     </form>
   );

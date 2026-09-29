@@ -31,13 +31,13 @@ export default function TemplateRail({
   onTemplateClick,
 }: TemplateRailProps) {
   return (
-    <div className="bg-card rounded-xl border border-border p-4">
+    <div className="rounded-card border border-border bg-card shadow-card p-4">
       <div className="flex items-center justify-between mb-3">
         <h2 className="text-sm font-semibold text-foreground">Session templates</h2>
         {manageTemplatesHref && (
           <Link
             href={manageTemplatesHref}
-            className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+            className="text-xs font-medium text-brand hover:underline underline-offset-4"
           >
             Manage
           </Link>
@@ -54,7 +54,7 @@ export default function TemplateRail({
           {manageTemplatesHref && (
             <Link
               href={manageTemplatesHref}
-              className="text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              className="text-xs font-medium text-brand hover:underline underline-offset-4"
             >
               Create your first template →
             </Link>
@@ -77,7 +77,7 @@ export default function TemplateRail({
       )}
 
       {templates.length > 0 && (
-        <p className="text-xs text-muted-foreground/70 mt-4 hidden lg:block">
+        <p className="text-xs text-muted-foreground mt-4 hidden lg:block">
           {draggable
             ? "Drag a template onto a space and time to place it."
             : "Click a template, or a day's +, to place a session."}

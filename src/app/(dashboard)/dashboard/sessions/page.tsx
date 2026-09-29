@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { occupancyKindLabel } from "@/lib/sessions/occupancy";
 import Link from "next/link";
-import { Clock, Pencil, Plus } from "lucide-react";
+import { Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
@@ -12,6 +12,7 @@ import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import DepartmentPicker from "@/components/department/DepartmentPicker";
 import DeleteSessionTemplateButton from "@/components/session-template/DeleteSessionTemplateButton";
 import { Button } from "@/components/ui/button";
+import { EmptyState } from "@/components/ui/empty-state";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
 
@@ -171,7 +172,7 @@ function TemplateList({
           For <span className="font-medium text-foreground">{departmentName ?? "the whole facility"}</span> at{" "}
           {facility.name}
         </p>
-        <Button size="lg" asChild>
+        <Button asChild>
           <Link href={newTemplateHref}>
             <Plus />
             New template
@@ -180,21 +181,19 @@ function TemplateList({
       </div>
 
       {templates.length === 0 ? (
-        <div className="text-center py-12 bg-card rounded-xl border border-border border-dashed">
-          <p className="text-sm text-muted-foreground">No session templates yet.</p>
-        </div>
+        <EmptyState title="No session templates yet." />
       ) : (
-        <div className="bg-card rounded-xl border border-border divide-y divide-border">
+        <div className="bg-card rounded-card border border-border shadow-card divide-y divide-border overflow-hidden">
           {templates.map((template) => (
             // The name's link stretches over the whole row (after:inset-0), so a
             // click anywhere opens the template; the actions sit above it (z-10).
             <div
               key={template.id}
-              className="relative flex items-center justify-between px-4 py-3 hover:bg-muted/50 transition-colors"
+              className="relative flex items-center justify-between px-4 py-3 hover:bg-muted transition-colors"
             >
               <div className="flex items-center gap-3 min-w-0">
                 <span
-                  className="w-4 h-4 rounded-full flex-shrink-0 border border-black/10"
+                  className="w-4 h-4 rounded-full flex-shrink-0 border border-foreground/10"
                   style={{ backgroundColor: template.color ?? "#3B82F6" }}
                 />
                 <div className="min-w-0">
@@ -235,20 +234,19 @@ function TemplateList({
 function NoFacilities() {
   return (
     <div className="max-w-2xl mx-auto">
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
-        <Clock className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h1 className="font-medium text-foreground mb-1">No buildings yet</h1>
-        <p className="text-sm text-muted-foreground mb-4">
-          Add a facility first — session templates belong to one.
-        </p>
-        <Link
-          href="/dashboard/facilities/new"
-          className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-        >
-          <Plus className="w-4 h-4" />
-          Add a facility
-        </Link>
-      </div>
+      <EmptyState
+        className="py-16"
+        title="No buildings yet"
+        description="Add a facility first — session templates belong to one."
+        action={
+          <Button asChild variant="outline">
+            <Link href="/dashboard/facilities/new">
+              <Plus className="w-4 h-4" />
+              Add a facility
+            </Link>
+          </Button>
+        }
+      />
     </div>
   );
 }
@@ -258,15 +256,15 @@ function SessionsBodySkeleton() {
     <div className="space-y-6" aria-busy="true">
       <div className="flex gap-4 overflow-hidden">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 w-56 rounded-xl shrink-0" />
+          <Skeleton key={i} className="h-24 w-56 rounded-card shrink-0" />
         ))}
       </div>
       <div className="flex gap-1.5">
         {Array.from({ length: 3 }).map((_, i) => (
-          <Skeleton key={i} className="h-9 w-28 rounded-xl" />
+          <Skeleton key={i} className="h-9 w-28 rounded-full" />
         ))}
       </div>
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-64 rounded-card" />
     </div>
   );
 }

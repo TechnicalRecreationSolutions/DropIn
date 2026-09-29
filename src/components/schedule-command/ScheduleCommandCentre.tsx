@@ -19,6 +19,7 @@ import { NO_DEPARTMENT, commandCentreHref } from "@/lib/schedule/commandCentreHr
 import { deriveScheduleStatus } from "@/lib/schedule/scheduleStatus";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule-list/ScheduleListSection";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
@@ -673,13 +674,13 @@ export default function ScheduleCommandCentre({
             canEdit={canEdit}
           />
         ) : isContinuous ? (
-          <div className="rounded-xl border border-border bg-card p-6 text-center">
-            <p className="text-sm text-muted-foreground">
+          <div className="rounded-card border border-border bg-card p-6 text-center shadow-card">
+            <p className="text-body text-muted-foreground">
               {scheduleGroup.name} is set up as always-open, so it has no placed sessions.
               {canEdit && (
                 <>
                   {" "}Change its hours from{" "}
-                  <Link href={scheduleGroup.settingsHref} className="text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300">
+                  <Link href={scheduleGroup.settingsHref} className="text-brand underline-offset-4 hover:underline">
                     its settings
                   </Link>
                   .
@@ -704,14 +705,16 @@ export default function ScheduleCommandCentre({
             canvas={canvasEnabled ? canvas : null}
           >
             <div className="space-y-3">
-              <button
+              <Button
                 type="button"
+                variant="ghost"
+                size="sm"
                 onClick={() => setWeekParam(null)}
-                className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
+                className="-ml-3 text-muted-foreground hover:text-foreground"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
                 All weeks
-              </button>
+              </Button>
 
               {/* Read-only staff get no template rail at all — the templates are
                   inert for them and its links lead to pages they cannot use — so
@@ -733,7 +736,7 @@ export default function ScheduleCommandCentre({
                   </div>
                 )}
 
-                <div className="order-1 lg:order-2 rounded-xl border border-border overflow-hidden bg-card">
+                <div className="order-1 lg:order-2 rounded-card border border-border overflow-hidden bg-card shadow-card">
                   <WeekReviewBar
                     scheduleGroupId={scheduleGroup.id}
                     weekStart={editorWeekStart}
@@ -754,46 +757,47 @@ export default function ScheduleCommandCentre({
                           in the week panel. */}
                       {canvasEnabled && <CanvasSelectionChip canvas={canvas} />}
                     </div>
-                    <div className="flex items-center gap-3">
+                    <div className="flex flex-wrap items-center gap-1">
                       {audience === "public" && (
-                        <p className="text-xs text-muted-foreground">
+                        <p className="mr-2 text-xs text-muted-foreground">
                           Editing is off while you look as a patron.
                         </p>
                       )}
-                      <button
+                      <Button
                         type="button"
+                        variant="ghost"
+                        size="sm"
                         onClick={() => setPanelTab("overview")}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                       >
                         <PieChart className="w-3.5 h-3.5" />
                         Overview
-                      </button>
+                      </Button>
                       {canvasEnabled && (
-                        <button
+                        <Button
                           type="button"
+                          variant="ghost"
+                          size="sm"
                           onClick={() => setPanelTab("help")}
-                          className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
                         >
                           <Keyboard className="w-3.5 h-3.5" />
                           How to edit
-                        </button>
+                        </Button>
                       )}
                       {/* The deck sheet is one day, not a week, so this opens on
                           today when today is in the week being edited and on the
                           week's first day otherwise — never on a day outside the
                           week someone is looking at. */}
-                      <Link
-                        href={deckSheetHref}
-                        className="inline-flex items-center gap-1.5 text-xs font-medium text-muted-foreground hover:text-foreground"
-                      >
-                        <Printer className="w-3.5 h-3.5" />
-                        Print deck sheet
-                      </Link>
+                      <Button asChild variant="ghost" size="sm">
+                        <Link href={deckSheetHref}>
+                          <Printer className="w-3.5 h-3.5" />
+                          Print deck sheet
+                        </Link>
+                      </Button>
                     </div>
                   </div>
 
                   {audience === "public" && (
-                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-blue-900 bg-blue-50 border-b border-blue-100">
+                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-brand-strong bg-brand-subtle border-b border-border">
                       <Eye className="w-3.5 h-3.5 shrink-0" />
                       <span>
                         Exactly what a patron sees. Withheld names show as
@@ -813,7 +817,7 @@ export default function ScheduleCommandCentre({
                   {/* Widget settings are owner/manager territory, and read-only
                       staff can do nothing about this — so it is not shown to them. */}
                   {viewIsOffInWidget && canEdit && (
-                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-amber-800 bg-amber-50 border-b border-amber-100">
+                    <p className="flex items-center gap-2 px-4 py-2 text-xs text-warning bg-warning-subtle border-b border-border">
                       <Info className="w-3.5 h-3.5 shrink-0" />
                       <span className="flex-1">
                         Visitors can&rsquo;t switch to this layout — it&rsquo;s off for your widget.
@@ -829,11 +833,11 @@ export default function ScheduleCommandCentre({
 
                   <div className="p-3 sm:p-4">
                     {isLoading ? (
-                      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground/70">
+                      <div className="flex items-center justify-center py-16 text-sm text-muted-foreground">
                         Loading schedule…
                       </div>
                     ) : isError ? (
-                      <div className="flex items-center justify-center py-16 text-sm text-red-500">
+                      <div className="flex items-center justify-center py-16 text-sm text-destructive">
                         Could not load this schedule. Please refresh.
                       </div>
                     ) : (
@@ -867,17 +871,18 @@ export default function ScheduleCommandCentre({
 
                   {canCreate && (
                     <div className="px-4 py-3 border-t border-border bg-muted/60">
-                      <button
+                      <Button
                         type="button"
+                        variant="outline"
+                        size="sm"
                         onClick={() =>
                           handleAddSession({ dayCode: DAYS[0].code, dayLabel: DAYS[0].label })
                         }
                         disabled={editing.templates.length === 0}
-                        className="inline-flex items-center gap-2 px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300 disabled:opacity-40 disabled:cursor-not-allowed"
                       >
                         <CalendarPlus className="w-4 h-4" />
                         Add a session to {scheduleGroup.name}
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </div>

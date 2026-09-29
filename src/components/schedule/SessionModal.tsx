@@ -7,6 +7,7 @@ import type { ExpandedSession } from "@/types/schedule.types";
 import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import SessionTags from "./SessionTags";
+import { Button } from "@/components/ui/button";
 
 interface SessionModalProps {
   session: ExpandedSession;
@@ -126,7 +127,7 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
                 session_internal via /api/sessions/expand. This same modal opens
                 on the public widget, where the field is always null. */}
             {session.setupNotes && (
-              <div className="flex items-start gap-3 text-sm rounded-lg bg-muted/50 border border-border p-3">
+              <div className="flex items-start gap-3 text-sm rounded-banner bg-muted p-3">
                 <ClipboardList className="w-4 h-4 text-muted-foreground/70 shrink-0 mt-0.5" />
                 <div>
                   <p className="text-xs font-semibold text-foreground">Setup — staff only</p>
@@ -231,14 +232,15 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
             )}
 
             {onDelete && (
-              <button
+              <Button
+                variant="ghost"
                 onClick={() => onDelete(session)}
                 disabled={isDeleting}
-                className="w-full mt-2 flex items-center justify-center gap-1.5 px-3 py-2 text-sm font-medium text-red-600 bg-red-50 border border-red-200 rounded-lg hover:bg-red-100 disabled:opacity-50 transition-colors"
+                className="w-full mt-2 text-destructive"
               >
                 <Trash2 className="w-4 h-4" />
                 {isDeleting ? "Removing…" : "Remove recurring session"}
-              </button>
+              </Button>
             )}
           </div>
         </div>

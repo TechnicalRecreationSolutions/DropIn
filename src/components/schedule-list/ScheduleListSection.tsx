@@ -7,6 +7,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { Pencil, Eye, Copy, Trash2, ArrowRight, ChevronDown, ChevronUp, ChevronRight, CalendarX2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card } from "@/components/ui/card";
+import { Banner } from "@/components/ui/banner";
 import { cn } from "@/lib/utils/cn";
 import { navTreeQueryKey } from "@/hooks/useNavTree";
 import { SCHEDULE_STATUS_META, type ScheduleListStatus } from "@/lib/schedule/scheduleStatus";
@@ -170,7 +171,7 @@ export default function ScheduleListSection({
   return (
     <div className="space-y-6">
       <div className="flex items-center justify-between gap-3">
-        <div className="flex items-center gap-1 p-0.5 bg-muted rounded-lg">
+        <div className="flex items-center gap-1 p-0.5 bg-muted rounded-full">
           {FILTERS.map((f) => (
             <button
               key={f.value}
@@ -178,8 +179,8 @@ export default function ScheduleListSection({
               onClick={() => setFilter(f.value)}
               aria-pressed={filter === f.value}
               className={cn(
-                "px-3 py-1.5 text-xs font-medium rounded-md transition-colors",
-                filter === f.value ? "bg-card text-foreground shadow-sm" : "text-muted-foreground hover:text-foreground"
+                "px-3 py-1.5 text-xs font-medium rounded-full transition-colors",
+                filter === f.value ? "bg-raised text-foreground shadow-card" : "text-muted-foreground hover:text-foreground"
               )}
             >
               {f.label}
@@ -189,7 +190,7 @@ export default function ScheduleListSection({
         {canEdit && (
           <Link
             href={newScheduleHref}
-            className="shrink-0 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+            className="shrink-0 text-xs font-medium text-brand hover:underline underline-offset-4"
           >
             + New schedule
           </Link>
@@ -197,14 +198,14 @@ export default function ScheduleListSection({
       </div>
 
       {mutateError && (
-        <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">
+        <Banner variant="error">
           {mutateError}
-        </p>
+        </Banner>
       )}
 
       {filteredCurrent.length === 0 ? (
         <Card className="px-5 py-8 text-center">
-          <CalendarX2 className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
+          <CalendarX2 className="w-8 h-8 text-muted-foreground mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">
             {rows.length === 0
               ? (emptyMessage ?? `${facilityName} has no schedules yet.`)
@@ -213,7 +214,7 @@ export default function ScheduleListSection({
           {rows.length === 0 && !emptyMessage && canEdit && (
             <Link
               href={newScheduleHref}
-              className="inline-block mt-3 text-sm font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
+              className="inline-block mt-3 text-sm font-medium text-brand hover:underline underline-offset-4"
             >
               Create your first schedule
             </Link>
@@ -236,7 +237,7 @@ export default function ScheduleListSection({
           <button
             type="button"
             onClick={() => setStoredOpen((v) => !v)}
-            className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted-foreground/70 hover:text-muted-foreground"
+            className="flex items-center gap-1.5 text-label text-muted-foreground hover:text-foreground"
           >
             <ChevronRight className={cn("size-3.5 transition-transform", storedOpen && "rotate-90")} />
             {stored.length} stored {stored.length === 1 ? "schedule" : "schedules"}
@@ -316,7 +317,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
         <div className="overflow-x-auto">
         <table className="w-full text-sm">
           <thead>
-            <tr className="border-b border-border text-left text-xs text-muted-foreground/70">
+            <tr className="border-b border-border bg-muted text-left text-label text-muted-foreground">
               <th className="px-4 py-2.5 font-medium">Type</th>
               <SortableHead label="Description" sortKey="name" active={sortKey} desc={sortDesc} onSort={onSort} />
               <th className="px-4 py-2.5 font-medium hidden sm:table-cell">Department</th>
@@ -331,13 +332,13 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
             {rows.map((row) => {
               const meta = SCHEDULE_STATUS_META[row.scheduleStatus];
               return (
-                <tr key={row.id} className="hover:bg-muted/60 transition-colors">
+                <tr key={row.id} className="hover:bg-muted transition-colors">
                   <td className="px-4 py-3 whitespace-nowrap">
                     <span className="text-base" aria-hidden>{row.typeIcon}</span>{" "}
                     <span className="text-muted-foreground text-xs">{row.typeLabel}</span>
                   </td>
                   <td className="px-4 py-3 font-medium text-foreground">
-                    <Link href={row.editHref} className="hover:text-blue-600 dark:hover:text-blue-300">
+                    <Link href={row.editHref} className="hover:text-brand">
                       {row.name}
                     </Link>
                   </td>
@@ -362,7 +363,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
                         href={row.editHref}
                         aria-label={`${openLabel} ${row.name}`}
                         title={openLabel}
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
+                        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
                       >
                         <OpenIcon className="size-3.5" />
                       </Link>
@@ -372,7 +373,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
                         rel="noopener noreferrer"
                         aria-label={`Preview ${row.name}`}
                         title="Preview"
-                        className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
+                        className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
                       >
                         <Eye className="size-3.5" />
                       </a>
@@ -383,7 +384,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
                             onClick={() => onDuplicate(row)}
                             aria-label={`Duplicate ${row.name}`}
                             title="Duplicate"
-                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-blue-600 dark:hover:text-blue-300"
+                            className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-foreground"
                           >
                             <Copy className="size-3.5" />
                           </button>
@@ -392,7 +393,7 @@ function ScheduleTable({ rows, sortKey, sortDesc, onSort, canEdit, onDuplicate, 
                             onClick={() => onDelete(row)}
                             aria-label={`Delete ${row.name}`}
                             title="Delete"
-                            className="p-1.5 rounded hover:bg-muted text-muted-foreground hover:text-red-600"
+                            className="p-1.5 rounded-full hover:bg-muted text-muted-foreground hover:text-destructive"
                           >
                             <Trash2 className="size-3.5" />
                           </button>
@@ -460,7 +461,7 @@ function ScheduleCards({
             <div className="-mx-1 flex items-center gap-1 pt-1">
               <Link
                 href={row.editHref}
-                className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-lg bg-muted text-sm font-medium text-foreground"
+                className="flex min-h-11 flex-1 items-center justify-center gap-1.5 rounded-full bg-muted text-sm font-medium text-foreground"
               >
                 {canEdit ? <Pencil className="size-4" aria-hidden /> : <ArrowRight className="size-4" aria-hidden />}
                 {canEdit ? "Edit" : "Open"}
@@ -470,7 +471,7 @@ function ScheduleCards({
                 target="_blank"
                 rel="noopener noreferrer"
                 aria-label={`Preview ${row.name}`}
-                className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+                className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
               >
                 <Eye className="size-4" aria-hidden />
               </a>
@@ -480,7 +481,7 @@ function ScheduleCards({
                     type="button"
                     onClick={() => onDuplicate(row)}
                     aria-label={`Duplicate ${row.name}`}
-                    className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+                    className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
                   >
                     <Copy className="size-4" aria-hidden />
                   </button>
@@ -488,7 +489,7 @@ function ScheduleCards({
                     type="button"
                     onClick={() => onDelete(row)}
                     aria-label={`Delete ${row.name}`}
-                    className="flex size-11 items-center justify-center rounded-lg text-muted-foreground"
+                    className="flex size-11 items-center justify-center rounded-full text-muted-foreground hover:bg-muted"
                   >
                     <Trash2 className="size-4" aria-hidden />
                   </button>
@@ -525,7 +526,7 @@ function SortableHead({
         onClick={() => onSort(sortKey)}
         className={cn(
           "inline-flex items-center gap-1 hover:text-foreground",
-          isActive ? "text-foreground" : "text-muted-foreground/70"
+          isActive ? "text-foreground" : "text-muted-foreground"
         )}
       >
         {label}

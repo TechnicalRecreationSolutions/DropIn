@@ -11,6 +11,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import { cn } from "@/lib/utils/cn";
 import type { ExpandedSession } from "@/types/schedule.types";
 import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
@@ -89,10 +90,10 @@ export default function DuplicateSessionDialog({
                     type="button"
                     onClick={() => toggleSpace(space.id)}
                     className={cn(
-                      "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                      "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors",
                       selected
-                        ? "bg-blue-600 border-blue-600 text-white"
-                        : "border-border text-muted-foreground hover:border-blue-300"
+                        ? "border-brand bg-brand-subtle text-brand-strong"
+                        : "border-input text-muted-foreground hover:bg-muted"
                     )}
                     aria-pressed={selected}
                   >
@@ -115,10 +116,10 @@ export default function DuplicateSessionDialog({
                   type="button"
                   onClick={() => toggleDay(day.code)}
                   className={cn(
-                    "px-2.5 py-1.5 rounded-lg text-xs font-medium border-2 transition-colors",
+                    "px-2.5 py-1.5 rounded-full text-xs font-medium border transition-colors",
                     selected
-                      ? "bg-blue-600 border-blue-600 text-white"
-                      : "border-border text-muted-foreground hover:border-blue-300"
+                      ? "border-brand bg-brand-subtle text-brand-strong"
+                      : "border-input text-muted-foreground hover:bg-muted"
                   )}
                   aria-pressed={selected}
                 >
@@ -128,12 +129,12 @@ export default function DuplicateSessionDialog({
             })}
           </div>
           {selectedDays.length === 0 && (
-            <p className="text-xs text-red-500 mt-1">Select at least one day.</p>
+            <p className="text-xs text-destructive mt-1">Select at least one day.</p>
           )}
         </div>
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>
+          <Banner variant="error">{error}</Banner>
         )}
 
         <DialogFooter>
