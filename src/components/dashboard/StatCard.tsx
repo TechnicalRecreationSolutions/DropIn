@@ -31,27 +31,27 @@ export function StatTile({ icon: Icon, label, value, hint, visual, href, classNa
     <Card
       className={cn(
         "h-full gap-1 px-4 py-3",
-        href && "transition-colors hover:bg-muted/50",
+        href && "transition-colors hover:bg-muted",
         className
       )}
     >
       <div className="flex items-center gap-1.5">
         <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden />
-        <p className="truncate text-[11px] font-semibold uppercase tracking-wide text-muted-foreground">
+        <p className="truncate text-label text-muted-foreground">
           {label}
         </p>
       </div>
       <div className="flex items-end justify-between gap-3">
-        <p className="text-2xl font-bold leading-none text-foreground tabular-nums">{value}</p>
+        <p className="text-stat text-foreground tabular-nums">{value}</p>
         {visual && <div className="min-w-0 flex-1">{visual}</div>}
       </div>
-      {hint && <p className="truncate text-xs text-muted-foreground">{hint}</p>}
+      {hint && <p className="truncate text-label font-normal text-muted-foreground">{hint}</p>}
     </Card>
   );
 
   if (!href) return body;
   return (
-    <Link href={href} className="block rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+    <Link href={href} className="block rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
       {body}
     </Link>
   );

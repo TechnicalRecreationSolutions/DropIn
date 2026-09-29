@@ -5,6 +5,7 @@ import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Popover as PopoverPrimitive } from "radix-ui";
 import { CalendarRange, Check, ChevronDown, Download, Loader2, Building2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -226,7 +227,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
           align="start"
           sideOffset={6}
           collisionPadding={16}
-          className="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-xl bg-popover p-3 text-popover-foreground shadow-md ring-1 ring-foreground/10 data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
+          className="z-50 w-[min(22rem,calc(100vw-2rem))] rounded-card border border-border bg-popover p-3 text-popover-foreground shadow-md data-[state=open]:animate-in data-[state=open]:fade-in-0 data-[state=open]:zoom-in-95"
         >
           <div className="grid grid-cols-2 gap-1.5">
             {RANGE_PRESETS.map((preset) => (
@@ -238,7 +239,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
                   setOpen(false);
                 }}
                 className={cn(
-                  "flex items-center gap-1.5 rounded-lg px-2.5 py-2 text-left text-sm transition-colors",
+                  "flex items-center gap-1.5 rounded-control px-2.5 py-2 text-left text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   range.preset === preset.id
                     ? "bg-brand-subtle font-medium text-brand-strong"
                     : "hover:bg-muted text-muted-foreground hover:text-foreground"
@@ -254,32 +255,31 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
           </div>
 
           <div className="mt-3 border-t border-border pt-3">
-            <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+            <p className="mb-2 text-label text-muted-foreground">
               Custom range
             </p>
             <div className="flex items-end gap-2">
-              <label className="flex-1 text-xs text-muted-foreground">
+              <label className="flex-1 text-label text-foreground">
                 From
-                <input
+                <Input
                   type="date"
                   value={from}
                   max={today}
                   onChange={(e) => setFrom(e.target.value)}
-                  className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="mt-1 px-2"
                 />
               </label>
-              <label className="flex-1 text-xs text-muted-foreground">
+              <label className="flex-1 text-label text-foreground">
                 To
-                <input
+                <Input
                   type="date"
                   value={to}
                   max={today}
                   onChange={(e) => setTo(e.target.value)}
-                  className="mt-1 h-8 w-full rounded-lg border border-input bg-transparent px-2 text-sm text-foreground outline-none focus-visible:border-ring focus-visible:ring-3 focus-visible:ring-ring/50"
+                  className="mt-1 px-2"
                 />
               </label>
               <Button
-                size="lg"
                 disabled={invalid}
                 onClick={() => {
                   onCustom(from, to);
@@ -289,7 +289,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
                 Apply
               </Button>
             </div>
-            <p className="mt-2 text-xs text-muted-foreground">
+            <p className="mt-2 text-caption text-muted-foreground">
               {invalid
                 ? "Pick a start on or before the end date."
                 : `Up to ${MAX_RANGE_DAYS} days. Currently ${range.days} day${range.days === 1 ? "" : "s"}, ${range.from} to ${range.to}.`}

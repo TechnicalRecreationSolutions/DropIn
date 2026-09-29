@@ -14,6 +14,7 @@ import {
 import { Card } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import { Banner } from "@/components/ui/banner";
 import {
   Dialog,
   DialogContent,
@@ -49,10 +50,10 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
 
   if (conflicts.length === 0) {
     return (
-      <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+      <div className="text-center py-16 bg-card rounded-card border border-dashed border-border">
         <CheckCircle2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-        <h2 className="font-medium text-foreground mb-1">No conflicts</h2>
-        <p className="text-sm text-muted-foreground">
+        <h2 className="text-card-title text-foreground mb-1">No conflicts</h2>
+        <p className="text-caption text-muted-foreground">
           No sessions overlap in the same space.
         </p>
       </div>
@@ -62,7 +63,7 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
   return (
     <div className="space-y-8">
       {active.length === 0 && (
-        <div className="text-center py-10 bg-card rounded-xl border border-dashed border-border">
+        <div className="text-center py-10 bg-card rounded-card border border-dashed border-border">
           <CheckCircle2 className="w-8 h-8 text-muted-foreground/70 mx-auto mb-2" />
           <p className="text-sm text-muted-foreground">No unresolved conflicts — everything below has been dismissed.</p>
         </div>
@@ -84,7 +85,7 @@ export default function ConflictManagerView({ initialConflicts }: ConflictManage
 
       {dismissed.length > 0 && (
         <div>
-          <h2 className="text-sm font-semibold text-foreground mb-3">Dismissed ({dismissed.length})</h2>
+          <h2 className="text-heading text-foreground mb-3">Dismissed ({dismissed.length})</h2>
           <div className="space-y-3">
             {dismissed.map((c) => (
               <ConflictCard
@@ -139,11 +140,9 @@ function ConflictCard({
   }
 
   return (
-    <Card className={conflict.dismissed ? "p-4 gap-3 opacity-60" : "p-4 gap-3"}>
+    <Card className={conflict.dismissed ? "p-5 gap-3 opacity-60" : "p-5 gap-3"}>
       <div className="flex items-start gap-3">
-        <div className="mt-0.5 shrink-0 size-7 rounded-full flex items-center justify-center bg-amber-50">
-          <AlertTriangle className="size-3.5 text-amber-600" />
-        </div>
+        <AlertTriangle className="mt-0.5 size-4 shrink-0 text-warning" />
         <div className="flex-1 min-w-0">
           <p className="text-sm text-foreground">
             Both claim <span className="font-medium">{conflict.spaceNames.join(", ")}</span>{" "}
@@ -203,10 +202,10 @@ function ParticipantBlock({
   );
 
   return (
-    <div className="rounded-lg border border-border p-3 space-y-2">
+    <div className="rounded-control border border-border p-3 space-y-2">
       <div className="flex items-center gap-2 flex-wrap">
         <span className="text-sm font-medium text-foreground">{participant.scheduleGroupName}</span>
-        <Badge variant={participant.scheduleGroupStatus === "published" ? "default" : "secondary"}>
+        <Badge variant={participant.scheduleGroupStatus === "published" ? "success" : "default"}>
           {participant.scheduleGroupStatus === "published" ? "Published" : "Draft"}
         </Badge>
         {/* Which kind of claim this is (migration 046). Both sides of a
@@ -221,35 +220,26 @@ function ParticipantBlock({
           </Badge>
         )}
       </div>
-      <p className="text-xs text-muted-foreground">
+      <p className="text-label font-normal text-muted-foreground">
         {participant.spaceNames.join(", ") || "No space"}
       </p>
-      <div className="flex flex-wrap gap-2 pt-1">
-        <Link
-          href={href}
-          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 dark:text-blue-400 hover:text-blue-700 dark:hover:text-blue-300"
-        >
-          <ExternalLink className="size-3" />
-          Open
-        </Link>
+      <div className="-ml-2.5 flex flex-wrap gap-1 pt-1">
+        <Button asChild variant="ghost" size="xs" className="text-brand">
+          <Link href={href}>
+            <ExternalLink className="size-3" />
+            Open
+          </Link>
+        </Button>
         {canReassign && (
-          <button
-            type="button"
-            onClick={onReassign}
-            className="inline-flex items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground"
-          >
+          <Button type="button" variant="ghost" size="xs" onClick={onReassign}>
             <ArrowLeftRight className="size-3" />
             Move space
-          </button>
+          </Button>
         )}
-        <button
-          type="button"
-          onClick={onDeactivate}
-          className="inline-flex items-center gap-1 text-xs font-medium text-red-600 hover:text-red-700"
-        >
+        <Button type="button" variant="ghost" size="xs" onClick={onDeactivate} className="text-destructive">
           <Ban className="size-3" />
           Deactivate
-        </button>
+        </Button>
       </div>
     </div>
   );
@@ -359,7 +349,7 @@ function ReassignDialog({
           </Select>
         )}
 
-        {error && <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+        {error && <Banner variant="error">{error}</Banner>}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => handleClose(false)} disabled={isPending}>
@@ -421,7 +411,7 @@ function DeactivateDialog({
           </DialogDescription>
         </DialogHeader>
 
-        {error && <p role="alert" className="text-sm text-red-600 bg-red-50 px-3 py-2 rounded-lg">{error}</p>}
+        {error && <Banner variant="error">{error}</Banner>}
 
         <DialogFooter>
           <Button variant="outline" onClick={onCancel} disabled={isPending}>

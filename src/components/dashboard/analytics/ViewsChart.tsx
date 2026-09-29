@@ -105,7 +105,7 @@ export function ViewsChart({ data, showVisitors = true }: ViewsChartProps) {
   }, [data, showVisitors, PLOT_W]);
 
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground/70 py-10 text-center">No views recorded in this period.</p>;
+    return <p className="text-sm text-muted-foreground py-10 text-center">No views recorded in this period.</p>;
   }
 
   /** Index of the day under the pointer, from an x position in client pixels. */
@@ -254,7 +254,7 @@ export function ViewsChart({ data, showVisitors = true }: ViewsChartProps) {
 
       {active && (
         <div
-          className="pointer-events-none absolute top-8 z-10 rounded-lg bg-popover px-3 py-2 text-xs shadow-md ring-1 ring-foreground/10"
+          className="pointer-events-none absolute top-8 z-10 rounded-control border border-border bg-popover px-3 py-2 text-xs shadow-md"
           style={tooltipSide === "left" ? { left: `${hoverRatio * 90}%` } : { right: `${(1 - hoverRatio) * 90}%` }}
         >
           <p className="font-semibold text-popover-foreground mb-1">{formatDay(active.day)}</p>

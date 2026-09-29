@@ -70,7 +70,7 @@ async function StatusIndexBody() {
 
   if (facilities.length === 0) {
     return (
-      <p className="rounded-xl border border-dashed border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">
+      <p className="rounded-card border border-dashed border-border bg-card px-4 py-12 text-center text-sm text-muted-foreground">
         No facilities assigned. Ask a Manager to assign you one.
       </p>
     );
@@ -79,7 +79,7 @@ async function StatusIndexBody() {
   const now = new Date();
 
   return (
-    <ul className="divide-y divide-border rounded-xl border border-border bg-card">
+    <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card shadow-card">
       {facilities.map((f) => {
         const { live, pendingCount } = splitStatusRows(
           (noticeRows ?? []).filter((n) => n.facility_id === f.id),
@@ -90,25 +90,25 @@ async function StatusIndexBody() {
           <li key={f.id}>
             <Link
               href={`/dashboard/facilities/${f.id}/status`}
-              className="flex min-h-14 items-center gap-3 px-4 py-3 hover:bg-muted/50"
+              className="flex min-h-14 items-center gap-3 px-4 py-3 transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring"
             >
               <span className="min-w-0 flex-1">
                 <span className="block font-medium text-foreground">{f.name}</span>
                 <span className="mt-0.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm">
                   {worst ? (
-                    <span className="flex items-center gap-1.5 text-red-700 dark:text-red-300">
+                    <span className="flex items-center gap-1.5 text-destructive">
                       <AlertOctagon className="size-3.5 shrink-0" aria-hidden />
                       {worst.headline}
                       {live.length > 1 && ` +${live.length - 1} more`}
                     </span>
                   ) : (
                     <span className="flex items-center gap-1.5 text-muted-foreground">
-                      <Check className="size-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+                      <Check className="size-3.5 shrink-0 text-success" aria-hidden />
                       Nothing posted
                     </span>
                   )}
                   {pendingCount > 0 && (
-                    <span className="flex items-center gap-1.5 text-amber-700 dark:text-amber-300">
+                    <span className="flex items-center gap-1.5 text-warning">
                       <Clock className="size-3.5 shrink-0" aria-hidden />
                       {pendingCount === 1 ? "1 report waiting" : `${pendingCount} reports waiting`}
                     </span>
@@ -128,8 +128,8 @@ async function StatusIndexBody() {
 function StatusSkeleton() {
   return (
     <div className="space-y-2">
-      <Skeleton className="h-16 w-full rounded-xl" />
-      <Skeleton className="h-16 w-full rounded-xl" />
+      <Skeleton className="h-16 w-full rounded-card" />
+      <Skeleton className="h-16 w-full rounded-card" />
     </div>
   );
 }

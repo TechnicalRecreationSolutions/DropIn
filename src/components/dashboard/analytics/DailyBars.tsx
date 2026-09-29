@@ -64,7 +64,7 @@ export default function DailyBars({
   const [selected, setSelected] = useState<number | null>(null);
 
   if (data.length === 0) {
-    return <p className="py-8 text-center text-sm text-muted-foreground/70">Nothing to chart yet.</p>;
+    return <p className="py-8 text-center text-sm text-muted-foreground">Nothing to chart yet.</p>;
   }
 
   const bucketed = data.length > BUCKET_THRESHOLD;

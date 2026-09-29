@@ -47,10 +47,10 @@ export default function AnalyticsTabs({ tabs }: { tabs: AnalyticsTab[] }) {
             key={tab.href}
             href={query ? `${tab.href}?${query}` : tab.href}
             aria-current={active ? "page" : undefined}
-            className={`shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+            className={`-mb-px shrink-0 border-b-2 px-3 py-3 text-sm transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
               active
-                ? "border-foreground text-foreground"
-                : "border-transparent text-muted-foreground hover:border-border hover:text-foreground"
+                ? "border-brand font-semibold text-foreground"
+                : "border-transparent font-medium text-muted-foreground hover:text-foreground"
             }`}
           >
             {tab.label}

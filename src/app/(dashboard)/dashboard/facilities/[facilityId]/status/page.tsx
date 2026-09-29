@@ -7,6 +7,7 @@ import Breadcrumb from "@/components/layout/Breadcrumb";
 import FacilityStatusManager from "@/components/status/FacilityStatusManager";
 import PublicConditionsSettings from "@/components/conditions/PublicConditionsSettings";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Banner } from "@/components/ui/banner";
 
 /**
  * /dashboard/facilities/[id]/status — what is true here right now.
@@ -123,10 +124,10 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
       </div>
 
       {!facility.is_published && (
-        <p className="mb-6 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm dark:border-amber-500/40 dark:bg-amber-500/10">
+        <Banner variant="warning" className="mb-6">
           This facility is not published, so nothing posted here reaches the public yet. Staff
           still see it.
-        </p>
+        </Banner>
       )}
 
       <FacilityStatusManager

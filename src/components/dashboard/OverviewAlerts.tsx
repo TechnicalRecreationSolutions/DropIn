@@ -1,6 +1,16 @@
 import Link from "next/link";
 import { AlertOctagon, AlertTriangle, ArrowRight, CheckCircle2, Clock, FileEdit } from "lucide-react";
 import type { NoticeSeverity } from "@/types/app.types";
+import { bannerVariants } from "@/components/ui/banner";
+import { cn } from "@/lib/utils/cn";
+
+// A banner that is also a link: one element, so the whole row is the target.
+function alertRowClass(variant: "warning" | "error") {
+  return cn(
+    bannerVariants({ variant }),
+    "group transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+  );
+}
 
 /** One live facility notice, already phrased — see `summary`. */
 export interface OverviewNotice {
@@ -70,7 +80,7 @@ export default function OverviewAlerts({
   if (conflictCount === 0 && draftCount === 0 && notices.length === 0 && reports.length === 0) {
     return (
       <p className="flex items-center gap-2 text-sm text-muted-foreground">
-        <CheckCircle2 className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+        <CheckCircle2 className="size-4 shrink-0 text-success" aria-hidden />
         Nothing posted, no conflicts, and every schedule here is published.
       </p>
     );
@@ -82,16 +92,16 @@ export default function OverviewAlerts({
         <Link
           key={report.id}
           href={report.href}
-          className="flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm transition-colors hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/15"
+          className={alertRowClass("error")}
         >
-          <Clock className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+          <Clock className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">
-            <span className="font-medium text-foreground">{report.summary}</span>
-            <span className="block text-muted-foreground">
+            <span className="font-semibold group-hover:underline">{report.summary}</span>
+            <span className="block">
               Reported by staff. Patrons can&apos;t see it until you publish it.
             </span>
           </span>
-          <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRight className="mt-0.5 size-4 shrink-0" aria-hidden />
         </Link>
       ))}
 
@@ -99,45 +109,41 @@ export default function OverviewAlerts({
         <Link
           key={notice.id}
           href={statusHref ?? "/dashboard/facilities"}
-          className={
-            notice.severity === "closure"
-              ? "flex items-start gap-2.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm transition-colors hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/15"
-              : "flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm transition-colors hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:hover:bg-amber-500/15"
-          }
+          className={alertRowClass(notice.severity === "closure" ? "error" : "warning")}
         >
           {notice.severity === "closure" ? (
-            <AlertOctagon className="mt-0.5 size-4 shrink-0 text-red-600 dark:text-red-400" aria-hidden />
+            <AlertOctagon className="mt-0.5 size-4 shrink-0" aria-hidden />
           ) : (
-            <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+            <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           )}
           <span className="min-w-0 flex-1">
-            <span className="font-medium text-foreground">{notice.summary}</span>
-            <span className="block text-muted-foreground">Patrons can see this now.</span>
+            <span className="font-semibold group-hover:underline">{notice.summary}</span>
+            <span className="block">Patrons can see this now.</span>
           </span>
-          <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRight className="mt-0.5 size-4 shrink-0" aria-hidden />
         </Link>
       ))}
 
       {conflictCount > 0 && (
         <Link
           href="/dashboard/conflicts"
-          className="flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm transition-colors hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:hover:bg-amber-500/15"
+          className={alertRowClass("warning")}
         >
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+          <AlertTriangle className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span className="min-w-0 flex-1">
-            <span className="font-medium text-foreground">
+            <span className="font-semibold group-hover:underline">
               {conflictCount === 1 ? "A double-booking needs a decision" : `${conflictCount} double-bookings need a decision`}
             </span>
             {conflictSummary && (
-              <span className="block truncate text-muted-foreground">{conflictSummary}</span>
+              <span className="block truncate">{conflictSummary}</span>
             )}
           </span>
-          <ArrowRight className="mt-0.5 size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRight className="mt-0.5 size-4 shrink-0" aria-hidden />
         </Link>
       )}
 
       {draftCount > 0 && (
-        <p className="flex items-start gap-2.5 px-3 text-sm text-muted-foreground">
+        <p className="flex items-start gap-3 px-4 text-body text-muted-foreground">
           <FileEdit className="mt-0.5 size-4 shrink-0" aria-hidden />
           <span>
             <span className="font-medium text-foreground">

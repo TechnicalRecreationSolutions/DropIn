@@ -1,6 +1,8 @@
 import Link from "next/link";
 import { AlertOctagon, AlertTriangle, ArrowRight, Clock, Info, Megaphone } from "lucide-react";
 import type { StatusShortcutNotice } from "@/lib/status/notices";
+import { bannerVariants } from "@/components/ui/banner";
+import { cn } from "@/lib/utils/cn";
 
 export type { StatusShortcutNotice };
 
@@ -51,20 +53,14 @@ export default function StatusShortcut({ facilityId, live, pendingCount, mode }:
           <Link
             key={n.id}
             href={href}
-            className={
-              n.severity === "closure"
-                ? "flex items-center gap-2.5 rounded-lg border border-red-300 bg-red-50 px-3 py-2.5 text-sm hover:bg-red-100 dark:border-red-500/40 dark:bg-red-500/10 dark:hover:bg-red-500/15"
-                : "flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:hover:bg-amber-500/15"
-            }
+            className={cn(
+              bannerVariants({ variant: n.severity === "closure" ? "error" : "warning" }),
+              "group items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+            )}
           >
-            <Icon
-              className={`size-4 shrink-0 ${
-                n.severity === "closure" ? "text-red-600 dark:text-red-400" : "text-amber-600 dark:text-amber-400"
-              }`}
-              aria-hidden
-            />
-            <span className="min-w-0 flex-1 truncate font-medium text-foreground">{n.headline}</span>
-            <span className="shrink-0 text-xs text-muted-foreground">Posted</span>
+            <Icon className="size-4 shrink-0" aria-hidden />
+            <span className="min-w-0 flex-1 truncate font-semibold group-hover:underline">{n.headline}</span>
+            <span className="shrink-0 text-label">Posted</span>
           </Link>
         );
       })}
@@ -72,24 +68,27 @@ export default function StatusShortcut({ facilityId, live, pendingCount, mode }:
       {pendingCount > 0 && (
         <Link
           href={href}
-          className="flex items-center gap-2.5 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2.5 text-sm hover:bg-amber-100 dark:border-amber-500/40 dark:bg-amber-500/10 dark:hover:bg-amber-500/15"
+          className={cn(
+            bannerVariants({ variant: "warning" }),
+            "group items-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          )}
         >
-          <Clock className="size-4 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
-          <span className="min-w-0 flex-1 font-medium text-foreground">
+          <Clock className="size-4 shrink-0" aria-hidden />
+          <span className="min-w-0 flex-1 font-semibold group-hover:underline">
             {pendingCount === 1 ? "1 report is" : `${pendingCount} reports are`} waiting for approval
           </span>
-          <ArrowRight className="size-4 shrink-0 text-muted-foreground" aria-hidden />
+          <ArrowRight className="size-4 shrink-0" aria-hidden />
         </Link>
       )}
 
       <Link
         href={href}
-        className="flex min-h-11 items-center gap-2.5 rounded-lg border border-border bg-card px-3 py-2.5 text-sm font-medium text-foreground hover:bg-muted"
+        className="flex min-h-11 items-center gap-3 rounded-banner border border-border bg-card px-4 py-2.5 text-sm font-medium text-foreground transition-colors duration-150 hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
       >
         <Megaphone className="size-4 shrink-0 text-muted-foreground" aria-hidden />
         <span className="flex-1">{ACTION_LABEL[mode]}</span>
         {mode !== "view" && (
-          <span className="hidden text-xs font-normal text-muted-foreground sm:inline">
+          <span className="hidden text-caption text-muted-foreground sm:inline">
             Closure, contamination, fault…
           </span>
         )}

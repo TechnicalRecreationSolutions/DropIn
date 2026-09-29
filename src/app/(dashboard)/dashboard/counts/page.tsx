@@ -12,6 +12,7 @@ import HeadCountTool from "@/components/conditions/HeadCountTool";
 import StatusShortcut from "@/components/status/StatusShortcut";
 import { splitStatusRows } from "@/lib/status/notices";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Banner } from "@/components/ui/banner";
 
 /**
  * /dashboard/counts — the head-count tool (migration 061).
@@ -90,9 +91,9 @@ async function CountsBody({ searchParams }: CountsPageProps) {
 
   if (visible.length === 0) {
     return (
-      <div className="rounded-xl border border-dashed border-border bg-card py-16 text-center">
+      <div className="rounded-card border border-dashed border-border bg-card py-16 text-center">
         <ClipboardList className="mx-auto mb-3 size-10 text-muted-foreground/70" />
-        <h3 className="mb-1 font-medium text-foreground">No facilities assigned</h3>
+        <h3 className="mb-1 text-card-title text-foreground">No facilities assigned</h3>
         <p className="text-sm text-muted-foreground">
           {isScoped(orgContext.membership.role)
             ? "Ask a Manager to assign you a facility."
@@ -163,10 +164,10 @@ async function CountsBody({ searchParams }: CountsPageProps) {
       />
 
       {!facility.is_published && (
-        <p className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+        <Banner variant="neutral">
           This facility is not published, so nothing recorded here reaches the public. The log
           is kept either way.
-        </p>
+        </Banner>
       )}
 
       {/* Where a guard already is when the pool gets fouled. Above the counter,
@@ -193,7 +194,7 @@ async function CountsBody({ searchParams }: CountsPageProps) {
       {canConfigure && (
         <Link
           href={`/dashboard/facilities/${facility.id}/status#public`}
-          className="flex items-center gap-2 text-sm text-muted-foreground hover:text-foreground"
+          className="flex min-h-11 w-fit items-center gap-2 text-sm font-medium text-brand underline-offset-4 hover:underline"
         >
           <Settings2 className="size-4 shrink-0" aria-hidden />
           Choose what patrons see from these numbers
@@ -207,8 +208,8 @@ function CountsSkeleton() {
   return (
     <div className="space-y-6">
       <Skeleton className="h-10 w-full" />
-      <Skeleton className="h-64 w-full rounded-xl" />
-      <Skeleton className="h-40 w-full rounded-xl" />
+      <Skeleton className="h-64 w-full rounded-card" />
+      <Skeleton className="h-40 w-full rounded-card" />
     </div>
   );
 }

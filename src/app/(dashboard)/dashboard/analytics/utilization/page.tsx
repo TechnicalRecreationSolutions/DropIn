@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, CalendarClock, LayoutGrid, Percent, Repeat } from "lucide-react";
+import { CalendarClock, LayoutGrid, Percent, Repeat } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
+import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
@@ -57,7 +58,7 @@ export default function UtilizationPage({ searchParams }: UtilizationPageProps) 
         />
       </div>
 
-      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-lg" />}>
+      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-full" />}>
         <ToolbarLoader />
       </Suspense>
 
@@ -93,7 +94,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
   if (!can(actor, "operations:view")) {
     return (
       <Card className="p-6">
-        <h2 className="font-semibold text-foreground">Not available for this account</h2>
+        <h2 className="text-card-title text-foreground">Not available for this account</h2>
         <p className="text-sm text-muted-foreground">
           Utilization covers the whole building, including departments outside your scope.
         </p>
@@ -117,7 +118,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
   if (data.totalOccurrences === 0) {
     return (
       <Card className="gap-3 p-6">
-        <h2 className="font-semibold text-foreground">Nothing scheduled in the {periodLabel}</h2>
+        <h2 className="text-card-title text-foreground">Nothing scheduled in the {periodLabel}</h2>
         <p className="text-sm text-muted-foreground">
           This page reads the schedule itself, so it fills in as soon as there are sessions in the
           period. Try a wider range, or a different building.
@@ -150,22 +151,20 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
   return (
     <>
       {data.clamped && (
-        <Card className="flex-row items-start gap-3 p-4 ring-amber-500/30">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
-          <p className="text-sm text-muted-foreground">
+        <Banner variant="warning">
+          <p>
             This page expands the schedule week by week, so it covers at most{" "}
             {MAX_UTILIZATION_DAYS} days. The figures below are the most recent{" "}
             {MAX_UTILIZATION_DAYS} days of the period you chose.
           </p>
-        </Card>
+        </Banner>
       )}
 
       {data.departmentsWithoutHours.length > 0 && (
-        <Card className="flex-row items-start gap-3 p-4 ring-amber-500/30">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
-          <p className="text-sm text-muted-foreground">
+        <Banner variant="warning">
+          <p>
             {/* Named, not counted — the same rule the Overview's alert row follows. */}
-            <span className="font-medium text-foreground">
+            <span className="font-semibold">
               {data.departmentsWithoutHours.map((d) => d.name).join(", ")}
             </span>{" "}
             {data.departmentsWithoutHours.length === 1 ? "has" : "have"} no operating hours, so
@@ -178,7 +177,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
             </Link>
             .
           </p>
-        </Card>
+        </Banner>
       )}
 
       {/* ── The shape of the period ─────────────────────────────────────── */}
@@ -232,7 +231,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
         />
         <div className="grid gap-4 lg:grid-cols-2">
           <Card className="gap-3 p-4">
-            <h3 className="text-sm font-medium text-foreground">Clock hours</h3>
+            <h3 className="text-card-title text-foreground">Clock hours</h3>
             <BreakdownBars
               data={kindRows}
               variant="categorical"
@@ -241,7 +240,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
             />
           </Card>
           <Card className="gap-3 p-4">
-            <h3 className="text-sm font-medium text-foreground">Space-hours</h3>
+            <h3 className="text-card-title text-foreground">Space-hours</h3>
             <BreakdownBars
               data={spaceRows}
               variant="categorical"
@@ -282,7 +281,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
 function SectionHeading({ title, info }: { title: string; info: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-heading text-foreground">{title}</h2>
       <InfoTip label={`About ${title}`}>{info}</InfoTip>
     </div>
   );
@@ -293,14 +292,14 @@ function UtilizationSkeleton() {
     <div className="space-y-8">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+          <Skeleton key={i} className="h-24 rounded-card" />
         ))}
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
-        <Skeleton className="h-56 rounded-xl" />
-        <Skeleton className="h-56 rounded-xl" />
+        <Skeleton className="h-56 rounded-card" />
+        <Skeleton className="h-56 rounded-card" />
       </div>
-      <Skeleton className="h-48 rounded-xl" />
+      <Skeleton className="h-48 rounded-card" />
     </div>
   );
 }

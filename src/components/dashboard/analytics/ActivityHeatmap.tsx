@@ -62,7 +62,7 @@ export function ActivityHeatmap({
   const peak = Math.max(...heatmap.flat(), 0);
   if (peak === 0) {
     return (
-      <p className="text-sm text-muted-foreground/70 py-8 text-center">
+      <p className="text-sm text-muted-foreground py-8 text-center">
         No {unit.many} recorded yet, so there is nothing to place on a clock.
       </p>
     );

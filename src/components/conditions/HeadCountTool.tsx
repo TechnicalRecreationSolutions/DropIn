@@ -10,6 +10,9 @@ import {
   isFresh,
 } from "@/lib/conditions/readings";
 import type { FacilityReading, ReadingMetric } from "@/types/app.types";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 
 /**
  * The tool a lifeguard uses on deck.
@@ -159,12 +162,9 @@ export default function HeadCountTool({
   return (
     <div className="space-y-6">
       {error && (
-        <p
-          role="alert"
-          className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300"
-        >
+        <Banner variant="error">
           {error}
-        </p>
+        </Banner>
       )}
 
       {/* ── Where ───────────────────────────────────────────────────────── */}
@@ -180,10 +180,10 @@ export default function HeadCountTool({
                 type="button"
                 onClick={() => setSpace(s.id)}
                 aria-pressed={space === s.id}
-                className={`shrink-0 rounded-full border px-4 py-2 text-sm transition-colors ${
+                className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   space === s.id
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border hover:bg-muted"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input bg-card text-foreground hover:bg-muted"
                 }`}
               >
                 {s.name}
@@ -194,14 +194,14 @@ export default function HeadCountTool({
       )}
 
       {/* ── How many ────────────────────────────────────────────────────── */}
-      <div className="rounded-xl border border-border bg-card p-4">
+      <div className="rounded-card border border-border bg-card p-5 shadow-card">
         <div className="mb-3 flex items-baseline justify-between gap-2">
-          <label htmlFor="count" className="flex items-center gap-2 text-sm font-medium">
+          <label htmlFor="count" className="flex items-center gap-2 text-card-title text-foreground">
             <Users className="size-4 text-muted-foreground" aria-hidden />
             People in {spaceLabel}
           </label>
           {justSaved === "headcount" && (
-            <span role="status" className="flex items-center gap-1 text-sm text-emerald-700 dark:text-emerald-400">
+            <span role="status" className="flex items-center gap-1 text-sm font-medium text-success">
               <Check className="size-4" aria-hidden /> Saved
             </span>
           )}
@@ -210,17 +210,19 @@ export default function HeadCountTool({
         <div className="flex items-center gap-3">
           {/* 56px targets. The 44px minimum is for a dry index finger; this is
               used with wet hands, often through a glove. */}
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={() => bump(-1)}
             disabled={!canWrite || count <= 0}
             aria-label="One fewer"
-            className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border text-foreground hover:bg-muted disabled:opacity-40"
+            className="size-14 disabled:opacity-40"
           >
             <Minus className="size-6" aria-hidden />
-          </button>
+          </Button>
 
-          <input
+          <Input
             id="count"
             // `inputMode` rather than `type="number"`: a numeric keypad with no
             // spinner, and no scroll-wheel changing the value by accident.
@@ -231,31 +233,34 @@ export default function HeadCountTool({
             disabled={!canWrite}
             onChange={(e) => setCountText(e.target.value.replace(/[^0-9]/g, ""))}
             onFocus={(e) => e.currentTarget.select()}
-            className="min-w-0 flex-1 rounded-xl border border-border py-3 text-center text-4xl font-semibold tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+            className="h-auto w-auto flex-1 rounded-card py-3 text-center text-4xl font-semibold tabular-nums md:text-4xl"
           />
 
-          <button
+          <Button
             type="button"
+            variant="outline"
+            size="icon"
             onClick={() => bump(1)}
             disabled={!canWrite}
             aria-label="One more"
-            className="flex size-14 shrink-0 items-center justify-center rounded-xl border border-border text-foreground hover:bg-muted disabled:opacity-40"
+            className="size-14 disabled:opacity-40"
           >
             <Plus className="size-6" aria-hidden />
-          </button>
+          </Button>
         </div>
 
         <div className="mt-2 flex flex-wrap gap-2">
           {[5, 10, 25].map((by) => (
-            <button
+            <Button
               key={by}
               type="button"
+              variant="outline"
               onClick={() => bump(by)}
               disabled={!canWrite}
-              className="rounded-lg border border-border px-3 py-1.5 text-sm text-muted-foreground hover:bg-muted disabled:opacity-40"
+              className="h-11 tabular-nums disabled:opacity-40"
             >
               +{by}
-            </button>
+            </Button>
           ))}
           {capacity != null && (
             <span className="ml-auto self-center text-xs text-muted-foreground">
@@ -264,14 +269,15 @@ export default function HeadCountTool({
           )}
         </div>
 
-        <button
+        <Button
           type="button"
+          size="lg"
           onClick={() => record("headcount", count)}
           disabled={!canWrite || !countValid || busy === "headcount"}
-          className="mt-4 w-full rounded-xl bg-foreground py-3.5 text-base font-medium text-background disabled:opacity-50"
+          className="mt-4 h-13 w-full text-base"
         >
           {busy === "headcount" ? "Saving…" : "Record count"}
-        </button>
+        </Button>
 
         {lastCount && (
           <p className="mt-2 text-center text-xs text-muted-foreground">
@@ -296,11 +302,11 @@ export default function HeadCountTool({
 
       {/* ── The log ─────────────────────────────────────────────────────── */}
       <section>
-        <h2 className="mb-2 text-sm font-semibold text-foreground">Recent entries</h2>
+        <h2 className="mb-3 text-heading text-foreground">Recent entries</h2>
         {readings.length === 0 ? (
           <p className="text-sm text-muted-foreground">Nothing recorded here yet.</p>
         ) : (
-          <ul className="divide-y divide-border rounded-lg border border-border">
+          <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
             {readings.map((r) => {
               const mine = r.recorded_by === viewerId;
               const who = mine ? "you" : (recorderNames[r.recorded_by ?? ""] ?? "a colleague");
@@ -308,7 +314,7 @@ export default function HeadCountTool({
                 ? (spaces.find((s) => s.id === r.space_id)?.name ?? "a space")
                 : "whole building";
               return (
-                <li key={r.id} className="flex items-center gap-3 px-3 py-2.5 text-sm">
+                <li key={r.id} className="flex min-h-12 items-center gap-3 px-4 py-1.5 text-sm">
                   <span className="w-20 shrink-0 font-semibold tabular-nums">
                     {formatReading(r.metric, r.value)}
                   </span>
@@ -316,16 +322,18 @@ export default function HeadCountTool({
                     {METRICS[r.metric].label} · {where} · {recordedAt(r.recorded_at)} · {who}
                   </span>
                   {canWrite && (mine || canManage) && (
-                    <button
+                    <Button
                       type="button"
+                      variant="ghost"
+                      size="icon"
                       onClick={() => remove(r)}
                       disabled={busy === r.id}
                       aria-label="Delete this entry"
                       title="For a typo. A count that was right at the time should stay — record a new one instead."
-                      className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted disabled:opacity-40"
+                      className="-mr-2 size-11 text-muted-foreground hover:text-destructive disabled:opacity-40"
                     >
                       <Trash2 className="size-4" aria-hidden />
-                    </button>
+                    </Button>
                   )}
                 </li>
               );
@@ -362,8 +370,8 @@ function TemperatureCard({
   const [values, setValues] = useState<Record<string, string>>({});
 
   return (
-    <div className="rounded-xl border border-border bg-card p-4">
-      <p className="mb-3 flex items-center gap-2 text-sm font-medium">
+    <div className="rounded-card border border-border bg-card p-5 shadow-card">
+      <p className="mb-3 flex items-center gap-2 text-card-title text-foreground">
         <Thermometer className="size-4 text-muted-foreground" aria-hidden />
         Temperature
       </p>
@@ -380,11 +388,11 @@ function TemperatureCard({
             // min-w-0: a grid item defaults to min-width:auto, so the input's
             // intrinsic ~20ch pushed Save past the card edge on a 390px phone.
             <div key={metric} className="min-w-0">
-              <label htmlFor={metric} className="mb-1 block text-xs text-muted-foreground">
+              <label htmlFor={metric} className="mb-1.5 block text-caption font-medium text-foreground">
                 {spec.label} (°C)
               </label>
               <div className="flex gap-2">
-                <input
+                <Input
                   id={metric}
                   type="text"
                   inputMode="decimal"
@@ -394,19 +402,20 @@ function TemperatureCard({
                   onChange={(e) =>
                     setValues((v) => ({ ...v, [metric]: e.target.value.replace(/[^0-9.-]/g, "") }))
                   }
-                  className="min-w-0 flex-1 rounded-lg border border-border px-3 py-2.5 text-center text-lg tabular-nums focus:outline-none focus:ring-2 focus:ring-blue-500 disabled:opacity-60"
+                  className="h-11 w-auto flex-1 text-center text-lg tabular-nums md:text-lg"
                 />
-                <button
+                <Button
                   type="button"
+                  variant="outline"
                   disabled={disabled || !valid || busy === metric}
                   onClick={() => {
                     onRecord(metric, value);
                     setValues((v) => ({ ...v, [metric]: "" }));
                   }}
-                  className="shrink-0 rounded-lg border border-border px-4 text-sm font-medium hover:bg-muted disabled:opacity-40"
+                  className="h-11 shrink-0 disabled:opacity-40"
                 >
                   {busy === metric ? "…" : justSaved === metric ? "✓" : "Save"}
-                </button>
+                </Button>
               </div>
               {last && (
                 <p className="mt-1 text-xs text-muted-foreground">

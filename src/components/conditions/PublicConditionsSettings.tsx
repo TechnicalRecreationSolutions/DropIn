@@ -4,6 +4,10 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff } from "lucide-react";
 import type { PublicHeadcountMode } from "@/types/app.types";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Label, FieldHelp } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
 
 /**
  * What this building publishes about itself, on the status page.
@@ -108,7 +112,7 @@ export default function PublicConditionsSettings({
   return (
     <section id="public" className="scroll-mt-20 space-y-4">
       <div>
-        <h2 className="flex items-center gap-2 text-sm font-semibold text-foreground">
+        <h2 className="flex items-center gap-2 text-heading text-foreground">
           {conditions || headcount !== "hidden" ? (
             <Eye className="size-4 text-muted-foreground" aria-hidden />
           ) : (
@@ -118,7 +122,7 @@ export default function PublicConditionsSettings({
         </h2>
         <p className="mt-1 text-sm text-muted-foreground">
           From the numbers staff record on the{" "}
-          <a href="/dashboard/counts" className="underline underline-offset-2">
+          <a href="/dashboard/counts" className="font-medium text-brand underline-offset-4 hover:underline">
             head count tool
           </a>
           . Nothing here is published until you turn it on, and a reading that has gone stale
@@ -126,9 +130,9 @@ export default function PublicConditionsSettings({
         </p>
       </div>
 
-      <div className="space-y-5 rounded-xl border border-border bg-card p-4">
+      <div className="space-y-5 rounded-card border border-border bg-card p-5 shadow-card">
         <fieldset disabled={!canEdit} className="space-y-3">
-          <legend className="text-sm font-medium text-foreground">Occupancy</legend>
+          <legend className="text-card-title text-foreground">Occupancy</legend>
           {HEADCOUNT_OPTIONS.map((opt) => (
             <label key={opt.value} className="flex items-start gap-2.5 text-sm">
               <input
@@ -140,20 +144,20 @@ export default function PublicConditionsSettings({
                   setHeadcount(opt.value);
                   setSaved(false);
                 }}
-                className="mt-0.5 size-4"
+                className="mt-0.5 size-4 accent-primary"
               />
               <span>
                 <span className="font-medium text-foreground">{opt.label}</span>
-                <span className="block text-xs text-muted-foreground">{opt.hint}</span>
+                <span className="block text-caption text-muted-foreground">{opt.hint}</span>
               </span>
             </label>
           ))}
 
           <div className="pl-6">
-            <label htmlFor="capacity" className="mb-1 block text-sm font-medium">
+            <Label htmlFor="capacity">
               Building capacity
-            </label>
-            <input
+            </Label>
+            <Input
               id="capacity"
               type="text"
               inputMode="numeric"
@@ -163,17 +167,17 @@ export default function PublicConditionsSettings({
                 setSaved(false);
               }}
               placeholder="250"
-              className="w-32 rounded-lg border border-border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="w-32"
             />
-            <p className="mt-1 text-xs text-muted-foreground">
+            <FieldHelp>
               What &ldquo;busy&rdquo; is measured against. A count about one space uses that
               space&rsquo;s own capacity instead, set on the Spaces page.
-            </p>
+            </FieldHelp>
             {needsCapacity && (
-              <p className="mt-2 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-xs dark:border-amber-500/40 dark:bg-amber-500/10">
+              <Banner variant="warning" className="mt-2">
                 Without a capacity there is nothing to measure &ldquo;busy&rdquo; against, so
                 nothing will appear on the public page &mdash; and no error will say why.
-              </p>
+              </Banner>
             )}
           </div>
         </fieldset>
@@ -187,11 +191,11 @@ export default function PublicConditionsSettings({
                 setConditions(e.target.checked);
                 setSaved(false);
               }}
-              className="mt-0.5 size-4"
+              className="mt-0.5 size-4 accent-primary"
             />
             <span>
               <span className="font-medium text-foreground">Show water and air temperature</span>
-              <span className="block text-xs text-muted-foreground">
+              <span className="block text-caption text-muted-foreground">
                 Whatever staff last recorded, with the time it was taken. Hidden again once it
                 is more than twelve hours old.
               </span>
@@ -200,30 +204,30 @@ export default function PublicConditionsSettings({
         </fieldset>
 
         {!hasReadings && (conditions || headcount !== "hidden") && (
-          <p className="rounded-lg border border-border bg-muted/40 px-3 py-2 text-xs text-muted-foreground">
+          <Banner variant="neutral">
             Nothing has been recorded at this facility yet, so patrons will not see anything
             until someone uses the head count tool.
-          </p>
+          </Banner>
         )}
 
         {error && (
-          <p role="alert" className="text-sm text-red-600 dark:text-red-400">
+          <Banner variant="error">
             {error}
-          </p>
+          </Banner>
         )}
 
         {canEdit && (
           <div className="flex items-center gap-3">
-            <button
+            <Button
               type="button"
+              variant="outline"
               onClick={save}
               disabled={saving || !dirty}
-              className="rounded-lg bg-foreground px-4 py-2 text-sm font-medium text-background disabled:opacity-50"
             >
               {saving ? "Saving…" : "Save"}
-            </button>
+            </Button>
             {saved && !dirty && (
-              <span role="status" className="text-sm text-emerald-700 dark:text-emerald-400">
+              <span role="status" className="text-sm font-medium text-success">
                 Saved.
               </span>
             )}

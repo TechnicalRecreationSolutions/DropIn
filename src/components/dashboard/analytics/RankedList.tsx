@@ -26,7 +26,7 @@ interface RankedListProps {
  */
 export function RankedList({ items, total, emptyMessage, unitLabel }: RankedListProps) {
   if (items.length === 0) {
-    return <p className="text-sm text-muted-foreground/70 text-center py-6 px-5">{emptyMessage}</p>;
+    return <p className="text-sm text-muted-foreground text-center py-6 px-5">{emptyMessage}</p>;
   }
 
   const peak = Math.max(...items.map((i) => i.count), 1);
@@ -56,7 +56,7 @@ export function RankedList({ items, total, emptyMessage, unitLabel }: RankedList
         return (
           <li key={item.id} className="relative">
             {item.href ? (
-              <Link href={item.href} className="relative flex px-5 py-3 text-sm hover:bg-muted/50 transition-colors">
+              <Link href={item.href} className="relative flex px-5 py-3 text-sm hover:bg-muted transition-colors">
                 {content}
               </Link>
             ) : (

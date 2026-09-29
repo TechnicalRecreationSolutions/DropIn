@@ -53,7 +53,7 @@ export function BreakdownBars({
   emptyMessage = "Nothing recorded yet.",
 }: BreakdownBarsProps) {
   if (data.length === 0) {
-    return <p className="text-sm text-muted-foreground/70 py-6 text-center">{emptyMessage}</p>;
+    return <p className="text-sm text-muted-foreground py-6 text-center">{emptyMessage}</p>;
   }
 
   // Bars are scaled against the largest row, not against the total: a

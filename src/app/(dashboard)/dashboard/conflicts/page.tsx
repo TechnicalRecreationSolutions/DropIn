@@ -62,7 +62,7 @@ function ConflictsSkeleton() {
   return (
     <div className="space-y-3" aria-busy="true">
       {Array.from({ length: 4 }).map((_, i) => (
-        <Skeleton key={i} className="h-20 rounded-xl" />
+        <Skeleton key={i} className="h-20 rounded-card" />
       ))}
     </div>
   );

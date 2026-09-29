@@ -1,9 +1,10 @@
 import { Suspense } from "react";
 import Link from "next/link";
-import { AlertTriangle, ArrowUpRight, ClipboardList, Clock, Thermometer, Users } from "lucide-react";
+import { ArrowUpRight, ClipboardList, Clock, Thermometer, Users } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { can, canReadFacility } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
+import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
@@ -68,7 +69,7 @@ export default function AttendancePage({ searchParams }: AttendancePageProps) {
         />
       </div>
 
-      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-lg" />}>
+      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-full" />}>
         <ToolbarLoader />
       </Suspense>
 
@@ -109,7 +110,7 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
   if (!can(actor, "operations:view")) {
     return (
       <Card className="p-6">
-        <h2 className="font-semibold text-foreground">Not available for this account</h2>
+        <h2 className="text-card-title text-foreground">Not available for this account</h2>
         <p className="text-sm text-muted-foreground">
           Attendance covers the whole building, including departments outside your scope.
         </p>
@@ -171,13 +172,12 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
   return (
     <>
       {summary.truncated && (
-        <Card className="flex-row items-start gap-3 p-4 ring-amber-500/30">
-          <AlertTriangle className="mt-0.5 size-4 shrink-0 text-amber-600" aria-hidden />
-          <p className="text-sm text-muted-foreground">
+        <Banner variant="warning">
+          <p>
             This period holds more readings than one page can read, so the figures below cover
             only the most recent part of it. Pick a shorter period for a complete count.
           </p>
-        </Card>
+        </Banner>
       )}
 
       {/* ── The numbers ─────────────────────────────────────────────────── */}
@@ -302,7 +302,7 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
 function SectionHeading({ title, info }: { title: string; info: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-heading text-foreground">{title}</h2>
       <InfoTip label={`About ${title}`}>{info}</InfoTip>
     </div>
   );
@@ -330,7 +330,7 @@ function NothingCounted({
 }) {
   return (
     <Card className="gap-3 p-6">
-      <h2 className="font-semibold text-foreground">No counts recorded in the {periodLabel}</h2>
+      <h2 className="text-card-title text-foreground">No counts recorded in the {periodLabel}</h2>
       <p className="text-sm text-muted-foreground">
         Head counts are entered by staff on the head count tool — a lifeguard on deck taps a
         number and it lands here. Once a few weeks have been recorded, this page can say when the
@@ -338,7 +338,7 @@ function NothingCounted({
       </p>
       <Link
         href={facilityId ? `/dashboard/counts?facility=${facilityId}` : "/dashboard/counts"}
-        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-foreground underline underline-offset-2"
+        className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-brand underline-offset-4 hover:underline"
       >
         Open the head count tool
         <ArrowUpRight className="size-4" aria-hidden />
@@ -352,11 +352,11 @@ function AttendanceSkeleton() {
     <div className="space-y-8">
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
         {Array.from({ length: 4 }).map((_, i) => (
-          <Skeleton key={i} className="h-24 rounded-xl" />
+          <Skeleton key={i} className="h-24 rounded-card" />
         ))}
       </div>
-      <Skeleton className="h-48 rounded-xl" />
-      <Skeleton className="h-64 rounded-xl" />
+      <Skeleton className="h-48 rounded-card" />
+      <Skeleton className="h-64 rounded-card" />
     </div>
   );
 }

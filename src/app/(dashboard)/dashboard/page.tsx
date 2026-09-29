@@ -36,6 +36,7 @@ import { getAnalyticsSummary } from "@/lib/analytics/queries";
 import { rangeFromPreset } from "@/lib/analytics/range";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
+import { Button } from "@/components/ui/button";
 
 /**
  * Opted in to instant-navigation validation: Next.js re-renders this route in
@@ -479,25 +480,23 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
           !isNew && (
             <div className="flex items-center gap-2">
               {canWriteSessions && (
-                <Link
-                  href={newSessionHref}
-                  className="inline-flex items-center gap-1.5 rounded-lg bg-blue-600 px-3 py-2 text-sm font-medium text-white transition-colors hover:bg-blue-700"
-                >
-                  <CalendarPlus className="size-4" aria-hidden />
-                  New session
-                </Link>
+                <Button asChild>
+                  <Link href={newSessionHref}>
+                    <CalendarPlus className="size-4" aria-hidden />
+                    New session
+                  </Link>
+                </Button>
               )}
               {/* Hidden on a phone, where the title and one button already fill
                   the row — and not lost there: ScheduleListSection carries its
                   own "+ New schedule" above the table on every viewport. */}
               {canWriteSchedules && selectedFacility && (
-                <Link
-                  href={newScheduleHref}
-                  className="hidden items-center gap-1.5 rounded-lg border border-border px-3 py-2 text-sm font-medium text-foreground transition-colors hover:bg-muted sm:inline-flex"
-                >
-                  <Plus className="size-4" aria-hidden />
-                  New schedule
-                </Link>
+                <Button asChild variant="outline" className="hidden sm:inline-flex">
+                  <Link href={newScheduleHref}>
+                    <Plus className="size-4" aria-hidden />
+                    New schedule
+                  </Link>
+                </Button>
               )}
             </div>
           )
@@ -531,8 +530,8 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
 
       {/* Quick actions for new orgs */}
       {isNew && (
-        <div className="bg-blue-50 border border-blue-100 rounded-xl p-6 dark:bg-blue-500/10 dark:border-blue-500/20">
-          <h2 className="font-semibold text-foreground mb-4">Get started in 3 steps</h2>
+        <div className="rounded-panel bg-muted p-6">
+          <h2 className="text-heading text-foreground mb-4">Get started in 3 steps</h2>
           <div className="space-y-3">
             {[
               { step: 1, label: "Add a facility", desc: "Add your rec centre, pool, or arena", href: "/dashboard/facilities/new" },
@@ -542,16 +541,16 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
               <Link
                 key={item.step}
                 href={item.href}
-                className="flex items-center gap-4 p-3 bg-card rounded-lg border border-blue-100 hover:border-blue-300 transition-colors group dark:border-blue-500/20"
+                className="flex items-center gap-4 p-3 bg-card rounded-card border border-border shadow-card hover:border-input transition-colors group"
               >
-                <span className="w-8 h-8 rounded-full bg-blue-600 text-white text-sm font-bold flex items-center justify-center shrink-0">
+                <span className="w-8 h-8 rounded-full bg-primary text-primary-foreground text-sm font-semibold tabular-nums flex items-center justify-center shrink-0">
                   {item.step}
                 </span>
                 <div className="flex-1 min-w-0">
                   <p className="font-medium text-foreground text-sm">{item.label}</p>
                   <p className="text-xs text-muted-foreground">{item.desc}</p>
                 </div>
-                <ArrowRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-blue-500 transition-colors shrink-0" />
+                <ArrowRight className="w-4 h-4 text-muted-foreground/70 group-hover:text-brand transition-colors shrink-0" />
               </Link>
             ))}
           </div>
@@ -630,17 +629,16 @@ async function DashboardOverview({ searchParams }: DashboardPageProps) {
       )}
 
       {!isNew && !selectedFacility && (
-        <div className="text-center py-16 bg-card rounded-xl border border-dashed border-border">
+        <div className="text-center py-16 bg-card rounded-card border border-dashed border-border">
           <Building2 className="w-10 h-10 text-muted-foreground/70 mx-auto mb-3" />
-          <h3 className="font-medium text-foreground mb-1">No buildings yet</h3>
-          <p className="text-sm text-muted-foreground mb-4">Add a facility to start building its schedule.</p>
-          <Link
-            href="/dashboard/facilities/new"
-            className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg hover:bg-blue-700 transition-colors"
-          >
-            <Plus className="w-4 h-4" />
-            Add a facility
-          </Link>
+          <h3 className="text-card-title text-foreground mb-1">No buildings yet</h3>
+          <p className="text-caption text-muted-foreground mb-4">Add a facility to start building its schedule.</p>
+          <Button asChild variant="outline">
+            <Link href="/dashboard/facilities/new">
+              <Plus className="w-4 h-4" />
+              Add a facility
+            </Link>
+          </Button>
         </div>
       )}
     </div>

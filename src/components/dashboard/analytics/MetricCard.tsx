@@ -66,7 +66,7 @@ export function MetricCard({
             more, and at a fifth of the row's width every one of them came
             back as "REGISTRATION…" — a tile whose name is cut off is a tile
             nobody can act on. */}
-        <p className="flex-1 text-xs font-semibold uppercase tracking-wide leading-4 text-muted-foreground">
+        <p className="flex-1 text-label text-muted-foreground">
           {label}
         </p>
         <InfoTip label={label + " — what this counts"} className="mt-px">
@@ -74,17 +74,17 @@ export function MetricCard({
         </InfoTip>
       </div>
 
-      <p className="text-2xl font-bold text-foreground tabular-nums leading-tight">{value}</p>
+      <p className="text-stat text-foreground tabular-nums">{value}</p>
 
       {hasChange && (
         <p
           className={cn(
-            "flex items-center gap-1 text-xs font-medium tabular-nums",
+            "flex items-center gap-1 text-label tabular-nums",
             flat || goodDirection === "neutral"
               ? "text-muted-foreground"
               : good
-                ? "text-green-700 dark:text-green-400"
-                : "text-red-600 dark:text-red-400"
+                ? "text-success"
+                : "text-destructive"
           )}
         >
           {/* The arrow is never the only signal — the sign is spelled out
@@ -95,7 +95,7 @@ export function MetricCard({
         </p>
       )}
 
-      {detail && <p className="text-xs text-muted-foreground">{detail}</p>}
+      {detail && <p className="text-label font-normal text-muted-foreground">{detail}</p>}
     </Card>
   );
 }

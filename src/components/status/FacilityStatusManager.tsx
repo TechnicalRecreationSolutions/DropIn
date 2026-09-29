@@ -16,6 +16,12 @@ import {
 } from "@/lib/status/notices";
 import { NOTICE_PRESETS, type NoticePreset } from "@/lib/status/notice-presets";
 import type { FacilityNotice, NoticeCategory, NoticeSeverity } from "@/types/app.types";
+import { Banner } from "@/components/ui/banner";
+import { Button } from "@/components/ui/button";
+import { Label, FieldHelp } from "@/components/ui/field";
+import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Textarea } from "@/components/ui/textarea";
 
 /**
  * The staff side of facility status.
@@ -203,26 +209,26 @@ export default function FacilityStatusManager({
   return (
     <div className="space-y-8">
       {error && (
-        <p className="rounded-lg border border-red-300 bg-red-50 px-3 py-2 text-sm text-red-700 dark:border-red-500/40 dark:bg-red-500/10 dark:text-red-300">
+        <Banner variant="error">
           {error}
-        </p>
+        </Banner>
       )}
 
       {/* ── 0. Reports waiting for someone who can publish (063) ─────────── */}
       {reports.length > 0 && (
         <section>
-          <h2 className="mb-3 text-sm font-semibold text-foreground">Waiting for approval</h2>
+          <h2 className="mb-3 text-heading text-foreground">Waiting for approval</h2>
           <ul className="space-y-2">
             {reports.map((n) => (
               <li
                 key={n.id}
-                className="flex flex-col gap-3 rounded-lg border border-amber-300 bg-amber-50 p-3 sm:flex-row sm:items-start dark:border-amber-500/40 dark:bg-amber-500/10"
+                className="flex flex-col gap-3 rounded-banner bg-warning-subtle px-4 py-3 text-warning sm:flex-row sm:items-start"
               >
-                <Clock className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400" aria-hidden />
+                <Clock className="mt-0.5 size-5 shrink-0" aria-hidden />
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-foreground">{n.headline}</p>
-                  {n.body && <p className="mt-0.5 text-sm text-muted-foreground">{n.body}</p>}
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <p className="font-semibold">{n.headline}</p>
+                  {n.body && <p className="mt-0.5 text-sm">{n.body}</p>}
+                  <p className="mt-1 text-xs">
                     {[
                       SEVERITY_LABEL[n.severity],
                       spaceName(n.space_id),
@@ -233,30 +239,32 @@ export default function FacilityStatusManager({
                       .join(" · ")}
                   </p>
                   {!canWrite && (
-                    <p className="mt-1 text-xs text-muted-foreground">
+                    <p className="mt-1 text-xs">
                       Patrons can&apos;t see this until a Manager publishes it.
                     </p>
                   )}
                 </div>
                 {canWrite && (
                   <div className="flex shrink-0 gap-2">
-                    <button
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="outline"
                       onClick={() => publish(n, true)}
                       disabled={busyId === n.id}
-                      className="rounded-lg bg-foreground px-3 py-1.5 text-sm font-medium text-background disabled:opacity-50"
                     >
                       {busyId === n.id ? "Saving…" : "Publish"}
-                    </button>
-                    <button
+                    </Button>
+                    <Button
                       type="button"
+                      size="sm"
+                      variant="outline"
                       onClick={() => clear(n)}
                       disabled={busyId === n.id}
                       title="Not needed, or already handled. Keeps the report in the record."
-                      className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
                     >
                       Dismiss
-                    </button>
+                    </Button>
                   </div>
                 )}
               </li>
@@ -267,10 +275,10 @@ export default function FacilityStatusManager({
 
       {/* ── 1. Live now ─────────────────────────────────────────────────── */}
       <section>
-        <h2 className="mb-3 text-sm font-semibold text-foreground">Live now</h2>
+        <h2 className="mb-3 text-heading text-foreground">Live now</h2>
         {live.length === 0 ? (
           <p className="flex items-center gap-2 text-sm text-muted-foreground">
-            <Check className="size-4 shrink-0 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <Check className="size-4 shrink-0 text-success" aria-hidden />
             Nothing posted. Patrons see the schedule as normal.
           </p>
         ) : (
@@ -280,14 +288,14 @@ export default function FacilityStatusManager({
               return (
                 <li
                   key={n.id}
-                  className="flex flex-col gap-3 rounded-lg border border-border bg-card p-3 sm:flex-row sm:items-start"
+                  className="flex flex-col gap-3 rounded-card border border-border bg-card p-4 shadow-card sm:flex-row sm:items-start"
                 >
                   <Icon
                     className={`mt-0.5 size-5 shrink-0 ${
                       n.severity === "closure"
-                        ? "text-red-600 dark:text-red-400"
+                        ? "text-destructive"
                         : n.severity === "caution"
-                          ? "text-amber-600 dark:text-amber-400"
+                          ? "text-warning"
                           : "text-muted-foreground"
                     }`}
                     aria-hidden
@@ -303,24 +311,27 @@ export default function FacilityStatusManager({
                   </div>
                   {canWrite && (
                     <div className="flex shrink-0 gap-2">
-                      <button
+                      <Button
                         type="button"
+                        size="sm"
+                        variant="outline"
                         onClick={() => clear(n)}
                         disabled={busyId === n.id}
-                        className="rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
                       >
                         {busyId === n.id ? "Clearing…" : "Clear"}
-                      </button>
-                      <button
+                      </Button>
+                      <Button
                         type="button"
+                        size="icon-sm"
+                        variant="ghost"
                         onClick={() => remove(n)}
                         disabled={busyId === n.id}
                         aria-label="Delete this notice"
                         title="Posted by mistake? Delete removes it from the record. Use Clear when it was real and is over."
-                        className="rounded-lg border border-border px-2.5 py-1.5 text-muted-foreground hover:bg-muted disabled:opacity-50"
+                        className="text-muted-foreground hover:text-destructive"
                       >
                         <Trash2 className="size-4" aria-hidden />
-                      </button>
+                      </Button>
                     </div>
                   )}
                 </li>
@@ -333,7 +344,7 @@ export default function FacilityStatusManager({
       {/* ── 2. Post one ─────────────────────────────────────────────────── */}
       {canWrite || reporting ? (
         <section>
-          <h2 className="mb-1 text-sm font-semibold text-foreground">
+          <h2 className="mb-1 text-heading text-foreground">
             {reporting ? "Report a problem" : "Post a status"}
           </h2>
           {reporting && (
@@ -352,10 +363,10 @@ export default function FacilityStatusManager({
                   setDraft(draftFromPreset(preset));
                   setSent(false);
                 }}
-                className={`rounded-full border px-3 py-1.5 text-sm transition-colors ${
+                className={`min-h-9 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   draft?.presetId === preset.id
-                    ? "border-foreground bg-foreground text-background"
-                    : "border-border hover:bg-muted"
+                    ? "border-primary bg-primary text-primary-foreground"
+                    : "border-input bg-card text-foreground hover:bg-muted"
                 }`}
               >
                 {preset.id === "blank" ? (
@@ -371,10 +382,9 @@ export default function FacilityStatusManager({
           </div>
 
           {sent && !draft && (
-            <p className="mt-3 flex items-center gap-2 rounded-lg border border-emerald-300 bg-emerald-50 px-3 py-2 text-sm text-emerald-800 dark:border-emerald-500/40 dark:bg-emerald-500/10 dark:text-emerald-300">
-              <Check className="size-4 shrink-0" aria-hidden />
+            <Banner variant="success" className="mt-3">
               Sent. It is at the top of this page until a Manager publishes or dismisses it.
-            </p>
+            </Banner>
           )}
 
           {draft && (
@@ -383,64 +393,63 @@ export default function FacilityStatusManager({
                 e.preventDefault();
                 post();
               }}
-              className="mt-4 space-y-4 rounded-xl border border-border bg-card p-4"
+              className="mt-4 space-y-4 rounded-card border border-border bg-card p-5 shadow-card"
             >
               <div className="flex items-start justify-between gap-3">
                 <p className="text-sm text-muted-foreground">
                   Everything here is editable — the wording came from a template.
                 </p>
-                <button
+                <Button
                   type="button"
+                  variant="ghost"
+                  size="icon-sm"
                   onClick={() => setDraft(null)}
                   aria-label="Discard this draft"
-                  className="-m-1 rounded-lg p-1 text-muted-foreground hover:bg-muted"
+                  className="-m-1 text-muted-foreground"
                 >
                   <X className="size-4" aria-hidden />
-                </button>
+                </Button>
               </div>
 
               <div>
-                <label htmlFor="headline" className="mb-1 block text-sm font-medium">
+                <Label htmlFor="headline">
                   {reporting ? "What patrons would read *" : "What patrons will read *"}
-                </label>
-                <input
+                </Label>
+                <Input
                   id="headline"
                   required
                   maxLength={120}
                   value={draft.headline}
                   onChange={(e) => setDraft({ ...draft, headline: e.target.value })}
                   placeholder="Pool closed — contamination"
-                  className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
               </div>
 
               <div>
-                <label htmlFor="body" className="mb-1 block text-sm font-medium">
+                <Label htmlFor="body">
                   More detail
-                </label>
-                <textarea
+                </Label>
+                <Textarea
                   id="body"
                   rows={3}
                   maxLength={1000}
                   value={draft.body}
                   onChange={(e) => setDraft({ ...draft, body: e.target.value })}
-                  className="w-full rounded-lg border border-border px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
                 />
-                <p className="mt-1 text-xs text-muted-foreground">
+                <FieldHelp>
                   Don&apos;t promise a reopening time unless you know one.
-                </p>
+                </FieldHelp>
               </div>
 
               <div className="grid gap-4 sm:grid-cols-2">
                 <div>
-                  <label htmlFor="space" className="mb-1 block text-sm font-medium">
+                  <Label htmlFor="space">
                     Where
-                  </label>
-                  <select
+                  </Label>
+                  <NativeSelect
                     id="space"
                     value={draft.spaceId}
                     onChange={(e) => setDraft({ ...draft, spaceId: e.target.value })}
-                    className="w-full rounded-lg border border-border px-3 py-2.5 text-sm"
                   >
                     <option value="">The whole facility</option>
                     {spaces.map((s) => (
@@ -448,64 +457,61 @@ export default function FacilityStatusManager({
                         {s.name}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 <div>
-                  <label htmlFor="severity" className="mb-1 block text-sm font-medium">
+                  <Label htmlFor="severity">
                     How serious
-                  </label>
-                  <select
+                  </Label>
+                  <NativeSelect
                     id="severity"
                     value={draft.severity}
                     onChange={(e) =>
                       setDraft({ ...draft, severity: e.target.value as NoticeSeverity })
                     }
-                    className="w-full rounded-lg border border-border px-3 py-2.5 text-sm"
                   >
                     {NOTICE_SEVERITIES.map((s) => (
                       <option key={s} value={s}>
                         {SEVERITY_LABEL[s]}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 <div>
-                  <label htmlFor="category" className="mb-1 block text-sm font-medium">
+                  <Label htmlFor="category">
                     Kind
-                  </label>
-                  <select
+                  </Label>
+                  <NativeSelect
                     id="category"
                     value={draft.category}
                     onChange={(e) =>
                       setDraft({ ...draft, category: e.target.value as NoticeCategory })
                     }
-                    className="w-full rounded-lg border border-border px-3 py-2.5 text-sm"
                   >
                     {NOTICE_CATEGORIES.map((c) => (
                       <option key={c} value={c}>
                         {CATEGORY_LABEL[c]}
                       </option>
                     ))}
-                  </select>
+                  </NativeSelect>
                 </div>
 
                 {!reporting && (
                 <div>
-                  <label htmlFor="endsAt" className="mb-1 block text-sm font-medium">
+                  <Label htmlFor="endsAt">
                     Take it down at
-                  </label>
-                  <input
+                  </Label>
+                  <Input
                     id="endsAt"
                     type="datetime-local"
                     value={draft.endsAt}
                     onChange={(e) => setDraft({ ...draft, endsAt: e.target.value })}
-                    className="w-full rounded-lg border border-border px-3 py-2.5 text-sm"
                   />
-                  <p className="mt-1 text-xs text-muted-foreground">
+                  <FieldHelp>
                     Leave empty to keep it up until you clear it.
-                  </p>
+                  </FieldHelp>
                 </div>
                 )}
               </div>
@@ -516,7 +522,7 @@ export default function FacilityStatusManager({
                   type="checkbox"
                   checked={draft.isPublished}
                   onChange={(e) => setDraft({ ...draft, isPublished: e.target.checked })}
-                  className="mt-0.5 size-4"
+                  className="mt-0.5 size-4 accent-primary"
                 />
                 <span>
                   <span className="font-medium">Show this to the public</span>
@@ -528,10 +534,10 @@ export default function FacilityStatusManager({
               </label>
               )}
 
-              <button
+              <Button
                 type="submit"
                 disabled={busyId === "new" || !draft.headline.trim()}
-                className="w-full rounded-lg bg-foreground px-4 py-2.5 text-sm font-medium text-background disabled:opacity-50 sm:w-auto"
+                className="w-full sm:w-auto"
               >
                 {busyId === "new"
                   ? reporting ? "Sending…" : "Posting…"
@@ -540,17 +546,17 @@ export default function FacilityStatusManager({
                     : draft.isPublished
                       ? "Post it"
                       : "Save as internal"}
-              </button>
+              </Button>
             </form>
           )}
         </section>
       ) : (
         readOnlyReason && (
           <section>
-            <h2 className="mb-2 text-sm font-semibold text-foreground">Post a status</h2>
-            <p className="rounded-lg border border-border bg-muted/40 px-3 py-2.5 text-sm text-muted-foreground">
+            <h2 className="mb-2 text-heading text-foreground">Post a status</h2>
+            <Banner variant="neutral">
               {readOnlyReason}
-            </p>
+            </Banner>
           </section>
         )
       )}
@@ -611,13 +617,13 @@ function NoticeList({
 
   return (
     <section>
-      <h2 className="mb-3 text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="mb-3 text-heading text-foreground">{title}</h2>
       {notices.length === 0 ? (
         <p className="text-sm text-muted-foreground">{empty}</p>
       ) : (
-        <ul className="divide-y divide-border rounded-lg border border-border">
+        <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
           {notices.map((n) => (
-            <li key={n.id} className="flex items-center gap-3 px-3 py-2.5">
+            <li key={n.id} className="flex items-center gap-3 px-4 py-3">
               <div className="min-w-0 flex-1">
                 <p className="truncate text-sm font-medium text-foreground">{n.headline}</p>
                 <p className="truncate text-xs text-muted-foreground">
@@ -631,14 +637,16 @@ function NoticeList({
                 </p>
               </div>
               {action && (
-                <button
+                <Button
                   type="button"
+                  size="sm"
+                  variant="outline"
                   onClick={() => action.run(n)}
                   disabled={action.busyId === n.id}
-                  className="shrink-0 rounded-lg border border-border px-3 py-1.5 text-sm font-medium hover:bg-muted disabled:opacity-50"
+                  className="shrink-0"
                 >
                   {action.busyId === n.id ? "Saving…" : action.label}
-                </button>
+                </Button>
               )}
             </li>
           ))}

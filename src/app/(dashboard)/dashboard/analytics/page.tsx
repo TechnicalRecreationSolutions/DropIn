@@ -1,7 +1,6 @@
 import { Suspense } from "react";
 import Link from "next/link";
 import {
-  AlertTriangle,
   Clock,
   ExternalLink,
   Eye,
@@ -16,6 +15,7 @@ import {
 import { getOrgContext } from "@/lib/auth/session";
 import { can } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
+import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import Streamed from "@/components/ui/streamed";
@@ -99,7 +99,7 @@ export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
 
       {/* Its own boundary, and a cheap one: the controls come back as soon as
           the facility list does, without waiting behind the event read. */}
-      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-lg" />}>
+      <Suspense fallback={<Skeleton className="h-9 w-full max-w-md rounded-full" />}>
         <ToolbarLoader />
       </Suspense>
 
@@ -136,7 +136,7 @@ async function AnalyticsBody({ searchParams }: AnalyticsPageProps) {
   if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "analytics:view")) {
     return (
       <Card className="p-6">
-        <h2 className="font-semibold text-foreground">Analytics is limited to owners and managers</h2>
+        <h2 className="text-card-title text-foreground">Analytics is limited to owners and managers</h2>
         <p className="text-sm text-muted-foreground">
           Visitor numbers cover the whole organization, including departments outside your scope, so
           they are not shown to coordinator or auxiliary accounts.
@@ -171,14 +171,13 @@ async function AnalyticsBody({ searchParams }: AnalyticsPageProps) {
   return (
     <>
       {summary.truncated && (
-        <Card className="flex-row items-start gap-3 p-4 ring-amber-500/30">
-          <AlertTriangle className="size-4 shrink-0 text-amber-600 mt-0.5" aria-hidden />
-          <p className="text-sm text-muted-foreground">
+        <Banner variant="warning">
+          <p>
             This period holds more events than one page can read, so the numbers below cover{" "}
-            <span className="font-medium text-foreground">{formatDay(summary.coveredFrom ?? range.from)}</span>{" "}
+            <span className="font-semibold">{formatDay(summary.coveredFrom ?? range.from)}</span>{" "}
             onward only. Pick a shorter period for a complete count.
           </p>
-        </Card>
+        </Banner>
       )}
 
       {/* ── Reach ───────────────────────────────────────────────────────── */}
@@ -440,7 +439,7 @@ async function AnalyticsBody({ searchParams }: AnalyticsPageProps) {
 function SectionHeading({ title, info }: { title: string; info: React.ReactNode }) {
   return (
     <div className="flex items-center gap-1.5">
-      <h2 className="text-sm font-semibold text-foreground">{title}</h2>
+      <h2 className="text-heading text-foreground">{title}</h2>
       <InfoTip label={`About ${title}`}>{info}</InfoTip>
     </div>
   );
@@ -456,7 +455,7 @@ function SectionHeading({ title, info }: { title: string; info: React.ReactNode 
 function NoDataYet({ periodLabel, facilityId }: { periodLabel: string; facilityId: string | null }) {
   return (
     <Card className="p-6 gap-3">
-      <h2 className="font-semibold text-foreground">Nothing recorded in the {periodLabel}</h2>
+      <h2 className="text-card-title text-foreground">Nothing recorded in the {periodLabel}</h2>
       <p className="text-sm text-muted-foreground">
         Visits are counted once your schedule is somewhere the public can see it
         {facilityId ? ", and this facility has had none in this period" : ""}. Two things to check:
@@ -489,15 +488,15 @@ function AnalyticsBodySkeleton() {
       {[0, 1].map((row) => (
         <div key={row} className="grid grid-cols-2 lg:grid-cols-5 gap-3">
           {Array.from({ length: 5 }).map((_, i) => (
-            <Skeleton key={i} className="h-24 rounded-xl" />
+            <Skeleton key={i} className="h-24 rounded-card" />
           ))}
         </div>
       ))}
-      <Skeleton className="h-64 rounded-xl" />
-      <Skeleton className="h-52 rounded-xl" />
+      <Skeleton className="h-64 rounded-card" />
+      <Skeleton className="h-52 rounded-card" />
       <div className="grid md:grid-cols-2 gap-6">
-        <Skeleton className="h-48 rounded-xl" />
-        <Skeleton className="h-48 rounded-xl" />
+        <Skeleton className="h-48 rounded-card" />
+        <Skeleton className="h-48 rounded-card" />
       </div>
     </div>
   );

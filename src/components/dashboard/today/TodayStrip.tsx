@@ -15,6 +15,7 @@ import {
 } from "@/lib/utils/dates";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { cn } from "@/lib/utils/cn";
+import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 import { axisBounds, blockRect, hourTicks, packRows, positionPct, summarise } from "./todayGeometry";
@@ -136,8 +137,8 @@ export default function TodayStrip({
   if (isError) {
     return (
       <Card className="gap-1 px-4 py-4 sm:px-5">
-        <p className="text-sm font-medium text-foreground">Today&rsquo;s schedule could not be loaded</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body font-medium text-foreground">Today&rsquo;s schedule could not be loaded</p>
+        <p className="text-caption text-muted-foreground">
           The rest of this page is still accurate. Reload to try again.
         </p>
       </Card>
@@ -147,20 +148,19 @@ export default function TodayStrip({
   if (placed.length === 0) {
     return (
       <Card className="gap-1 px-4 py-6 text-center sm:px-5">
-        <p className="text-sm font-medium text-foreground">Nothing runs at {facilityName} today</p>
-        <p className="text-sm text-muted-foreground">
+        <p className="text-body font-medium text-foreground">Nothing runs at {facilityName} today</p>
+        <p className="text-caption text-muted-foreground">
           {newSessionHref
             ? "An empty day is either a closure or a gap worth filling."
             : "An empty day is either a closure or a gap."}
         </p>
         {newSessionHref && (
-          <Link
-            href={newSessionHref}
-            className="mx-auto mt-2 inline-flex items-center gap-1.5 rounded-lg border border-border px-3 py-1.5 text-sm font-medium text-foreground hover:bg-muted"
-          >
-            <CalendarPlus className="size-4" aria-hidden />
-            Add a session
-          </Link>
+          <Button asChild variant="outline" size="sm" className="mx-auto mt-2">
+            <Link href={newSessionHref}>
+              <CalendarPlus className="size-4" aria-hidden />
+              Add a session
+            </Link>
+          </Button>
         )}
       </Card>
     );
@@ -205,7 +205,7 @@ export default function TodayStrip({
       />
 
       {overflow.length > 0 && (
-        <p className="text-xs text-muted-foreground">
+        <p className="text-label font-normal text-muted-foreground">
           {overflow.length} more {overflow.length === 1 ? "session overlaps" : "sessions overlap"} these —
           open the schedule to see every lane.
         </p>
@@ -236,7 +236,7 @@ function SummaryLine({
 }) {
   return (
     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-      <span className="text-sm font-semibold text-foreground tabular-nums">
+      <span className="text-card-title text-foreground tabular-nums">
         {total} {total === 1 ? "session" : "sessions"} today
       </span>
       {firstMin !== null && lastMin !== null && (
@@ -247,7 +247,7 @@ function SummaryLine({
       <span className="ml-auto text-xs">
         {onNow.length > 0 ? (
           <span className="inline-flex items-center gap-1.5 font-medium text-foreground">
-            <CircleDot className="size-3.5 text-emerald-600 dark:text-emerald-400" aria-hidden />
+            <CircleDot className="size-3.5 text-success" aria-hidden />
             On now: {sessionDisplayLabel(onNow[0])}
             {onNow.length > 1 && <span className="text-muted-foreground">+{onNow.length - 1}</span>}
           </span>
@@ -306,7 +306,7 @@ function Ribbon({
             <span
               key={t}
               className={cn(
-                "absolute top-0 text-[10px] tabular-nums text-muted-foreground/70",
+                "absolute top-0 text-[10px] tabular-nums text-muted-foreground",
                 // Centred on its gridline, except at the two ends, where half
                 // the label would sit outside the ribbon and be clipped by the
                 // scroller.
@@ -319,7 +319,7 @@ function Ribbon({
           ))}
         </div>
 
-        <div className="relative rounded-lg bg-muted/40 py-1.5">
+        <div className="relative rounded-control bg-muted/40 py-1.5">
           {ticks.map((t) => (
             <span
               key={t}

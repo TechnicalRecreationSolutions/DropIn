@@ -78,10 +78,10 @@ export default function RecentActivityPanel({ entries, viewerEmail }: RecentActi
   return (
     <section>
       <div className="mb-3 flex items-baseline justify-between gap-3">
-        <h2 className="text-sm font-semibold text-foreground">Latest changes</h2>
+        <h2 className="text-heading text-foreground">Latest changes</h2>
         <Link
           href="/dashboard/activity"
-          className="inline-flex items-center gap-1 text-xs font-medium text-blue-600 hover:text-blue-700 dark:text-blue-400 dark:hover:text-blue-300"
+          className="inline-flex items-center gap-1 text-caption font-medium text-brand underline-offset-4 hover:underline"
         >
           All activity
           <ArrowRight className="size-3" aria-hidden />
@@ -102,7 +102,7 @@ export default function RecentActivityPanel({ entries, viewerEmail }: RecentActi
                 : entry.actor_email.split("@")[0];
 
           return (
-            <div key={entry.id} className="flex items-center gap-3 px-4 py-2.5 sm:px-5">
+            <div key={entry.id} className="flex items-center gap-3 px-4 py-3 sm:px-5">
               <TableIcon className="size-4 shrink-0 text-muted-foreground/70" aria-hidden />
               {/* Wraps rather than truncates: at 390px a clipped line reads "Someone
                   created the s…", which names neither the change nor the thing. */}
@@ -111,7 +111,7 @@ export default function RecentActivityPanel({ entries, viewerEmail }: RecentActi
                 {ACTION_VERB[entry.action]} the {TABLE_NOUN[entry.table_name] ?? "record"}{" "}
                 <span className="font-medium text-foreground">{entry.entity_label ?? "(untitled)"}</span>
               </p>
-              <span className="shrink-0 text-xs text-muted-foreground/70">
+              <span className="shrink-0 text-label font-normal text-muted-foreground">
                 {formatDistanceToNow(new Date(entry.created_at), { addSuffix: true })}
               </span>
             </div>
