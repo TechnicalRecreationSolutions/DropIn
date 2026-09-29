@@ -42,6 +42,7 @@ never hex literals, except inside sample pictures and the `.org-theme` widget.
 | `foreground` | `#111113` | `#f4f4f5` | Body text, headings |
 | `muted-foreground` | `#5d5d63` | `#a1a1aa` | Secondary text, captions, labels |
 | `card` | `#ffffff` | `#18181b` | Cards, dialogs, sidebar (dark) |
+| `raised` *(new)* | `#ffffff` | `#3a3a41` | The selected pill of a segmented control, on a `muted` track (a `card` is darker than the track in dark mode) |
 | `muted` | `#f4f4f5` | `#1f1f23` | Soft grey panels, table headers, hover rows |
 | `border` | `#e4e4e7` | `#27272a` | Hairlines between things |
 | `input` | `#86868d` | `#71717a` | Borders of text fields, selects, checkboxes (see 3:1 note) |
@@ -162,8 +163,8 @@ square at the top.
 **Grey panel:** `muted` fill, no border, 24 px radius. Use it to group a set
 of cards, or behind a picture of the product.
 
-**Tabs:** pill segmented control (grey track, the active tab a white pill with
-the soft shadow), like the landing page's space tabs and Monthly/Yearly
+**Tabs:** pill segmented control (`muted` track, the active tab a `raised` pill
+with the soft shadow), like the landing page's space tabs and Monthly/Yearly
 switch. For page-level tabs with many entries, a text row with a 2 px `brand`
 underline on the active tab.
 

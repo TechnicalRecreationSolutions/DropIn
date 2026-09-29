@@ -570,7 +570,25 @@ async function compare(spec) {
               if (y > maxY) maxY = y;
             }
           }
-          return { n, total: da.length / 4, minY, maxY, maxDelta };
+          // A picture of where: the second image faded, differing pixels in red.
+          const c = document.createElement("canvas");
+          c.width = ib.width;
+          c.height = ib.height;
+          const g = c.getContext("2d");
+          g.drawImage(ib, 0, 0);
+          const out = g.getImageData(0, 0, ib.width, ib.height);
+          for (let i = 0; i < da.length; i += 4) {
+            const differs = da[i] !== db[i] || da[i + 1] !== db[i + 1] || da[i + 2] !== db[i + 2];
+            if (differs) {
+              out.data[i] = 255;
+              out.data[i + 1] = 0;
+              out.data[i + 2] = 0;
+            } else {
+              for (let k = 0; k < 3; k++) out.data[i + k] = 255 - (255 - out.data[i + k]) * 0.25;
+            }
+          }
+          g.putImageData(out, 0, 0);
+          return { n, total: da.length / 4, minY, maxY, maxDelta, diff: n > 0 ? c.toDataURL("image/png") : null };
         },
         [A, B]
       );
@@ -579,6 +597,8 @@ async function compare(spec) {
         bad(`${file}: size changed, ${result.sized}`);
       } else if (result.n > 0) {
         differing++;
+        fs.mkdirSync(path.join(b, "diff"), { recursive: true });
+        fs.writeFileSync(path.join(b, "diff", file), Buffer.from(result.diff.split(",")[1], "base64"));
         bad(
           `${file}: ${result.n} of ${result.total} pixels differ (largest channel difference ${result.maxDelta}/255, rows ${result.minY}-${result.maxY})`
         );

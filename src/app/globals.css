@@ -50,6 +50,7 @@
   --color-popover: var(--popover);
   --color-card-foreground: var(--card-foreground);
   --color-card: var(--card);
+  --color-raised: var(--raised);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -106,6 +107,10 @@
   --foreground: #111113;
   --card: #ffffff;
   --card-foreground: #111113;
+  /* The selected pill of a segmented control, sitting on a muted track. White
+     in light, like a card. In dark it has to be lighter than the track, which
+     a card is not. */
+  --raised: #ffffff;
   --popover: #ffffff;
   --popover-foreground: #111113;
   /* Ink. The main action on a screen, and nothing else. */
@@ -205,6 +210,7 @@
   --foreground: #f4f4f5;
   --card: #18181b;
   --card-foreground: #f4f4f5;
+  --raised: #3a3a41;
   --popover: #18181b;
   --popover-foreground: #f4f4f5;
   --primary: #f4f4f5;

@@ -11,10 +11,14 @@ function EmptyState({
   title,
   description,
   action,
+  titleAs: Title = "p",
   className,
   ...props
 }: Omit<React.ComponentProps<"div">, "title"> & {
   title: React.ReactNode
+  /** The element the title renders as. A heading when the empty state is the
+   *  only thing on the page or section and should appear in the outline. */
+  titleAs?: "p" | "h1" | "h2" | "h3"
   description?: React.ReactNode
   /** One `<Button variant="outline">`, or a link wearing one. */
   action?: React.ReactNode
@@ -28,7 +32,7 @@ function EmptyState({
       )}
       {...props}
     >
-      <p className="text-body font-medium text-foreground">{title}</p>
+      <Title className="text-body font-medium text-foreground">{title}</Title>
       {description && <p className="mt-1 max-w-md text-caption text-muted-foreground">{description}</p>}
       {action && <div className="mt-4">{action}</div>}
     </div>
