@@ -120,7 +120,14 @@ export default function ScheduleFilterBar({
             id={`${idPrefix}-day`}
             label="Day"
             allLabel="Any day"
-            items={options.days.map((d) => ({ value: String(d), label: DAY_LABELS[d] }))}
+            // All seven days, always. Listing only the days this week has sessions
+            // on read as "Saturday is missing" whenever a week had none — the
+            // empty ones stay pickable but say so up front.
+            items={DAY_LABELS.map((label, d) => ({
+              value: String(d),
+              label,
+              detail: options.days.includes(d) ? undefined : "No sessions this week",
+            }))}
             selected={state.days.map(String)}
             onChange={(days) => onChange({ ...state, days: days.map(Number).sort((a, b) => a - b) })}
             dark={dark}
