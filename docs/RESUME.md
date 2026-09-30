@@ -2,10 +2,12 @@
 
 Open this first; it points at everything else.
 
-**Most recent session: the marketing page rewrite** (first box below) —
-2026-09-28, **committed on `feat/marketing-positioning`, NOT pushed**, no migration.
+**Most recent session: the dashboard redesign** (first box below) —
+2026-09-29, **committed on `design/app-redesign`, NOT pushed**, no migration.
 
-Before it: the Staff (aux) audit, 2026-09-27 (the box below it).
+Before it: the marketing page rewrite, 2026-09-28 (the box below it).
+
+Before it: the Staff (aux) audit, 2026-09-27.
 
 Before it: the invite onboarding change, and the Settings section (second box).
 
@@ -27,6 +29,64 @@ historical records of finished work, not live handoffs — see
 [Related docs](#related-docs).
 
 ---
+
+## The dashboard redesign — 2026-09-29, committed on `design/app-redesign`, NOT pushed
+
+Every dashboard screen moved onto `docs/DESIGN.md` (the rulebook; the landing
+page is its reference implementation), following `docs/prompts/app-redesign.md`
+but run as one orchestrated project rather than five sessions: foundations,
+then eight agents on disjoint folders, then a review wave of five more.
+No migration, no API change, no behaviour or copy change intended.
+
+- **The landing page did not change.** Pixel-compared at 1440 and 390 px
+  after foundations, after the first wave and after the review wave: 0 pixels.
+  `--radius` was deliberately left alone for this reason (the landing page is
+  drawn with Tailwind's `rounded-xl` scale); the new radii are named by role.
+- Tokens added beyond the supplied rulebook, all recorded in `DESIGN.md`:
+  `brand-foreground`, `destructive-foreground` (white fails on the dark-mode
+  blue/red), `raised` (the selected pill of a segmented control; a `card` is
+  darker than the track in dark mode), the role radii (`rounded-card` …), the
+  type roles (`text-title` …, registered with tailwind-merge in `cn.ts`), and
+  `color-scheme: dark`.
+- New primitives in `src/components/ui/`: `Textarea`, `NativeSelect`, `Label`
+  / `FieldHelp` / `FieldError`, `Banner`, `EmptyState`.
+- Raw palette classes outside marketing: 1,056 → 121. Every one left is on a
+  public-side file that keeps its colours on purpose (`ScheduleFilterBar`,
+  `NoticeBanner`, `PrintableSchedule`, the public views' fallbacks).
+- Selected chips are the brand tint everywhere, never ink (the rulebook said
+  both; one ink button per view decided it).
+- **Public widget and facility page:** session cards, the centre's brand
+  header and notices are identical to the old code. Neutral text and hairlines
+  shifted by at most 12/255 because they share tokens with the dashboard.
+  Compared on Grid, List and Map, this week and next, and the printed deck
+  sheet, against the old code running on a second server.
+
+```
+tsc, eslint src, NEXT_DIST_DIR=.next-verify next build — clean
+Browser harnesses, identical to the pre-redesign baseline run the same day:
+  aa 28 · an 47 · ao 26 · ap 9 · aq 11 · ar 26 · au 52 · av 49 · aw 165 · ba 70
+  bb 64 · bc 111 · be 68 · q 52 — green
+  ac 40/1 · ay 73/1 · t 27/3 — the same assertions fail on the old code
+  ad, ag, p, r, s — fail at fixture setup on the old code too (invalid "admin" role)
+design-shots: 172 pictures, 0 overflow, 0 HTTP errors; console warnings
+  identical to the baseline set
+Static check over 173 files: no name/id/href/handler/data-*/aria-* removed
+```
+
+**Tooling:** `scripts/verify/design-shots.mjs` (`--setup`, `--shots`,
+`--landing`, `--compare`, `--teardown`; pictures under `.design-shots/`,
+gitignored). `.design-shots/gallery.html` shows every screen before and after.
+
+**Decisions left open (deliberately not made):** no breadcrumb in the top bar
+(there never was one); no 1200 px content cap (pages set their own widths);
+the ≤12/255 neutral shift on public pages (accept, or pin the old greys);
+`/privacy` and `/terms` restyled; session blocks are light in dashboard dark
+mode (the centre's colours have no dark form); map-editor overlays are faint
+in dark mode on the always-light canvas; the deck sheet printed from a
+dark-themed dashboard prints pale (pre-existing); legal "Placeholder" marks
+are quieter; six error messages now announce as `role="alert"`; dense time
+inputs are 14 px on phones (iOS zooms below 16, but two won't fit at 16);
+the root `DESIGN.md` / `app-redesign.md` are stale copies of the `docs/` ones.
 
 ## Marketing page rewritten to the positioning — 2026-09-28, committed, NOT pushed
 
