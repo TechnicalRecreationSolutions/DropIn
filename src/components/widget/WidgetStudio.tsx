@@ -370,8 +370,14 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
   // Preview reflects *unsaved* choices through the widget route's preview-only
   // params, which a real embed never sends.
+  //
+  // Relative, unlike the snippets above: the dashboard's CSP is
+  // `frame-src 'self'`, so a preview pointed at BASE_URL is blocked outright
+  // ("This content is blocked") whenever the dashboard is open on any other
+  // origin — a Vercel alias, a preview deployment, www vs apex. The preview is
+  // of this session's own app, so it belongs on whatever origin is serving it.
   const previewSrc = useMemo(() => {
-    const url = new URL(`/widget/${orgId}`, BASE_URL);
+    const url = new URL(`/widget/${orgId}`, "http://preview.invalid");
     if (scopeFacilityId) url.searchParams.set("facilityId", scopeFacilityId);
     if (theme !== "light") url.searchParams.set("theme", theme);
     url.searchParams.set("templates", allowedTemplates.join(","));
@@ -382,7 +388,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     url.searchParams.set("filters", enabledFilters.join(","));
     url.searchParams.set("print", allowPrint ? "1" : "0");
     url.searchParams.set("preview", "1");
-    return url.toString();
+    return `${url.pathname}${url.search}`;
   }, [orgId, scopeFacilityId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint]);
 
   // Typing in the colour or title field would otherwise reload the iframe on

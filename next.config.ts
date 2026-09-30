@@ -72,11 +72,10 @@ function contentSecurityPolicy(frameAncestors: string): string {
     `connect-src 'self' https://*.supabase.co wss://*.supabase.co${isDev ? " ws: http://localhost:*" : ""}`,
     "worker-src 'self'",
     "child-src 'self'",
-    // The only iframe is the widget preview in /dashboard/widget, which builds
-    // its src from NEXT_PUBLIC_APP_URL. 'self' therefore holds only while that
-    // variable matches the origin actually serving the page — on a preview
-    // deployment pointed at the production domain it does not, and the preview
-    // pane silently goes blank. Add that origin here if that setup is wanted.
+    // The only iframe is the widget preview in /dashboard/widget, whose src is
+    // a relative path (WidgetStudio's previewSrc) so it is always 'self'. It
+    // used to be built from NEXT_PUBLIC_APP_URL and was blocked on every origin
+    // other than that one — keep it relative.
     "frame-src 'self'",
     "object-src 'none'",
     "base-uri 'self'",
