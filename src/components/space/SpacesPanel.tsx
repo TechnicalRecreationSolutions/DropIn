@@ -63,6 +63,7 @@ function EmptyState({ facilityId }: { facilityId: string }) {
   return (
     <EmptyStateBox
       title="No spaces yet"
+      titleAs="h3"
       description={<>Add spaces such as &quot;Lane 3&quot; or &quot;Court A&quot; to give sessions a location.</>}
       action={
         <Button asChild variant="outline">

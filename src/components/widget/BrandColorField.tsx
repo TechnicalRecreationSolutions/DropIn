@@ -60,7 +60,7 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
               aria-label={name}
               aria-pressed={active}
               className={cn(
-                "size-9 rounded-full border-2 transition-transform flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50",
+                "size-9 rounded-full border-2 ring-1 ring-foreground/20 transition-transform flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50",
                 active ? "border-foreground scale-105" : "border-transparent hover:scale-105"
               )}
               style={{ backgroundColor: hex }}
@@ -72,7 +72,7 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
       </div>
 
       <div className="flex items-center gap-2">
-        <label className="relative size-10 shrink-0 rounded-control border border-input overflow-hidden cursor-pointer">
+        <label className="relative size-10 shrink-0 rounded-control border border-input overflow-hidden cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background">
           <input
             type="color"
             value={valid ? value : "#0066CC"}

@@ -169,6 +169,7 @@ function NoFacilities() {
     <div className="max-w-2xl mx-auto">
       <EmptyState
         title="No buildings yet"
+        titleAs="h2"
         description="Add a facility first — departments belong to a building."
         action={
           <Button asChild variant="outline">

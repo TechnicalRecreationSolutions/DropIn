@@ -167,7 +167,7 @@ function CreatePassword({
       </p>
 
       <div className="space-y-1.5">
-        <Label htmlFor="invite-password" className="mb-0">
+        <Label htmlFor="invite-password">
           Password
         </Label>
         <Input

@@ -4,6 +4,7 @@ import { useMemo, useRef, useState } from "react";
 import { Trash2, RotateCw, Copy } from "lucide-react";
 import { InfoTip } from "@/components/ui/info-tip";
 import FacilityMapSvg from "./renderer/FacilityMapSvg";
+import { MAP_COLORS } from "./renderer/style";
 import type { RenderShape, RenderContextElement } from "./renderer/types";
 import { armedLabel, armedSizeMeters, placementRect, type ArmedPlacement } from "./placement";
 import {
@@ -603,11 +604,13 @@ export default function ShapeCanvas({
           );
         })}
 
+        {/* Written on the map's paper, which is light in both themes, so it
+            takes the map's ink rather than a token that turns pale in dark. */}
         {isEmpty && (
           <div className="absolute inset-0 flex items-center justify-center pointer-events-none">
             <div className="text-center px-6">
-              <p className="text-body font-semibold text-muted-foreground">Build your facility</p>
-              <p className="text-caption text-muted-foreground mt-1 max-w-xs">
+              <p className="text-body font-semibold" style={{ color: MAP_COLORS.ink }}>Build your facility</p>
+              <p className="text-caption mt-1 max-w-xs" style={{ color: MAP_COLORS.ink }}>
                 Pick a shape under “Add shape”, then tap here to place it.
               </p>
             </div>

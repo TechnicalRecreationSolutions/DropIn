@@ -174,7 +174,7 @@ export default function PublicConditionsSettings({
               space&rsquo;s own capacity instead, set on the Spaces page.
             </FieldHelp>
             {needsCapacity && (
-              <Banner variant="warning" className="mt-2">
+              <Banner variant="warning" role={undefined} className="mt-2">
                 Without a capacity there is nothing to measure &ldquo;busy&rdquo; against, so
                 nothing will appear on the public page &mdash; and no error will say why.
               </Banner>
@@ -204,7 +204,7 @@ export default function PublicConditionsSettings({
         </fieldset>
 
         {!hasReadings && (conditions || headcount !== "hidden") && (
-          <Banner variant="neutral">
+          <Banner variant="neutral" role={undefined}>
             Nothing has been recorded at this facility yet, so patrons will not see anything
             until someone uses the head count tool.
           </Banner>

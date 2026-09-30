@@ -348,7 +348,7 @@ export default function InstallPanel({
         <div className="rounded-card border border-border p-4 sm:p-5">
           <p className="text-card-title text-foreground">Where do I paste this?</p>
           <div className="mt-3 space-y-3">
-            <div className="inline-flex max-w-full flex-wrap gap-1 rounded-card sm:rounded-full bg-muted p-1">
+            <div className="grid grid-cols-2 gap-1 rounded-card bg-muted p-1 sm:inline-flex sm:rounded-full">
               {CMS_GUIDES.map((g) => (
                 <button
                   key={g.id}

@@ -117,18 +117,18 @@ export default function DeleteOrganization({
       </ul>
 
       {blockedBySubscription ? (
-        <Banner variant="neutral">
+        <Banner variant="neutral" role={undefined}>
           Your subscription is still active. Cancel it on the Billing page first — deleting the
           organization now would remove the record Dropin uses to stop billing you, while Stripe
           kept charging the card.
         </Banner>
       ) : !open ? (
-        <Button variant="ghost" className="text-destructive" onClick={() => setOpen(true)}>
+        <Button variant="outline" className="text-destructive" onClick={() => setOpen(true)}>
           Delete organization…
         </Button>
       ) : (
         <div className="space-y-3">
-          <Label htmlFor="delete-confirm" className="mb-0">
+          <Label htmlFor="delete-confirm">
             Type <strong>{orgName}</strong> to confirm.
           </Label>
           <Input

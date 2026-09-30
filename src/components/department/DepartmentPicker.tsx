@@ -39,7 +39,7 @@ export default function DepartmentPicker({ departments, activeDepartmentId, href
                 className={cn(
                   "block rounded-full px-2.5 py-1 text-xs font-medium transition-colors whitespace-nowrap",
                   active
-                    ? "bg-primary text-primary-foreground"
+                    ? "bg-brand-subtle text-brand-strong"
                     : "bg-muted text-muted-foreground hover:bg-border hover:text-foreground"
                 )}
               >

@@ -46,11 +46,11 @@ never hex literals, except inside sample pictures and the `.org-theme` widget.
 | `muted` | `#f4f4f5` | `#1f1f23` | Soft grey panels, table headers, hover rows |
 | `border` | `#e4e4e7` | `#27272a` | Hairlines between things |
 | `input` | `#86868d` | `#71717a` | Borders of text fields, selects, checkboxes (see 3:1 note) |
-| `primary` | `#111113` | `#f4f4f5` | Main buttons, selected pills |
+| `primary` | `#111113` | `#f4f4f5` | Main buttons; the "on" side of a switch |
 | `primary-foreground` | `#ffffff` | `#111113` | Text on `primary` |
 | `brand` *(new)* | `#0066cc` | `#5aa2ee` | Links, focus ring, active nav marker, selected tab underline |
 | `brand-foreground` *(new)* | `#ffffff` | `#111113` | Text on a `brand` fill (dark uses ink: white on the dark blue is 2.7:1) |
-| `brand-subtle` *(new)* | `#e6f0fa` | `#1e3350` | Selected row / chip background |
+| `brand-subtle` *(new)* | `#e6f0fa` | `#1e3350` | Selected row / chip / filter pill background (with a `brand` border on chips that have an edge). Never ink: a selected chip beside the page's one ink button reads as a second main action |
 | `brand-strong` *(new)* | `#004a94` | `#b8d6f5` | Text on `brand-subtle` |
 | `destructive` | `#b91c1c` | `#f87171` | Delete, errors |
 | `destructive-foreground` *(new)* | `#ffffff` | `#111113` | Text on a `destructive` fill |

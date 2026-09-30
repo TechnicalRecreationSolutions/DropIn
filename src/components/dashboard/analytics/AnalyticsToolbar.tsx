@@ -110,7 +110,7 @@ export function AnalyticsToolbar({
       {facilities.length > 1 && (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="lg">
+            <Button variant="outline">
               <Building2 aria-hidden />
               <span className="max-w-[10rem] truncate">
                 {facilities.find((f) => f.id === facilityId)?.name ?? "All facilities"}
@@ -149,7 +149,7 @@ export function AnalyticsToolbar({
       <div className="ms-auto">
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button variant="outline" size="lg">
+            <Button variant="outline">
               <Download aria-hidden />
               Export
               <ChevronDown aria-hidden />
@@ -215,7 +215,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
       }}
     >
       <PopoverPrimitive.Trigger asChild>
-        <Button variant="outline" size="lg">
+        <Button variant="outline">
           <CalendarRange aria-hidden />
           {formatRangeLabel(range)}
           <ChevronDown aria-hidden />
@@ -258,8 +258,8 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
             <p className="mb-2 text-label text-muted-foreground">
               Custom range
             </p>
-            <div className="flex items-end gap-2">
-              <label className="flex-1 text-label text-foreground">
+            <div className="grid grid-cols-2 gap-2">
+              <label className="min-w-0 text-label text-foreground">
                 From
                 <Input
                   type="date"
@@ -269,7 +269,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
                   className="mt-1 px-2"
                 />
               </label>
-              <label className="flex-1 text-label text-foreground">
+              <label className="min-w-0 text-label text-foreground">
                 To
                 <Input
                   type="date"
@@ -280,6 +280,7 @@ function RangePicker({ range, onPreset, onCustom }: RangePickerProps) {
                 />
               </label>
               <Button
+                className="col-span-2 justify-self-end"
                 disabled={invalid}
                 onClick={() => {
                   onCustom(from, to);

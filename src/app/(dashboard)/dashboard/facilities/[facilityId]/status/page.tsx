@@ -124,7 +124,7 @@ export default async function FacilityStatusPage({ params }: StatusPageProps) {
       </div>
 
       {!facility.is_published && (
-        <Banner variant="warning" className="mb-6">
+        <Banner variant="warning" role={undefined} className="mb-6">
           This facility is not published, so nothing posted here reaches the public yet. Staff
           still see it.
         </Banner>

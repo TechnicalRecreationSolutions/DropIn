@@ -214,7 +214,7 @@ export default function InviteDialog({
                         // selection made for one is meaningless for the other.
                         setScope([]);
                       }}
-                      className="mt-0.5 size-4 accent-primary"
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
                     />
                     <span>
                       <span className="block text-sm font-medium text-foreground">

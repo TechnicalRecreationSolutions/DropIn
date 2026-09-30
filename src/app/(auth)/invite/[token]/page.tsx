@@ -35,7 +35,7 @@ interface InvitePageProps {
  */
 export default function InvitePage({ params }: InvitePageProps) {
   return (
-    <div className="min-h-dvh flex items-center justify-center px-4 py-12">
+    <div className="flex w-full justify-center">
       <Card className="w-full max-w-[420px] [--card-spacing:--spacing(6)]">
         <CardContent className="space-y-5">
           <Suspense fallback={<Skeleton className="h-64 rounded-card" aria-busy="true" />}>
@@ -79,7 +79,7 @@ async function InviteBody({ params }: InvitePageProps) {
     <>
       <h1 className="text-title text-foreground">Join {invitation.org_name}</h1>
 
-      <div className="rounded-panel bg-muted px-4 py-3">
+      <div className="rounded-banner bg-muted px-4 py-3">
         <p className="text-body font-medium text-foreground">
           You&apos;ve been invited as {ROLE_LABELS[role]}
         </p>

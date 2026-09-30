@@ -503,7 +503,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <div>
-            <LabelWithInfo htmlFor="widget-heading" className="block text-sm font-medium text-foreground" info="Shown in the coloured bar. Defaults to “Schedule”.">
+            <LabelWithInfo htmlFor="widget-heading" className="block text-caption font-medium text-foreground" info="Shown in the coloured bar. Defaults to “Schedule”.">
               Heading
             </LabelWithInfo>
             <Input
@@ -519,7 +519,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
 
           <div>
             <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-sm font-medium text-foreground">Theme</span>
+              <span className="text-caption font-medium text-foreground">Theme</span>
               <InfoTip>Part of the embed code. Re-copy it in step 4 after changing.</InfoTip>
             </div>
             <div className="flex h-10 gap-1 rounded-full bg-muted p-1">

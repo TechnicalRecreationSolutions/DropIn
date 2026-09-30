@@ -171,7 +171,7 @@ async function AnalyticsBody({ searchParams }: AnalyticsPageProps) {
   return (
     <>
       {summary.truncated && (
-        <Banner variant="warning">
+        <Banner variant="warning" role={undefined}>
           <p>
             This period holds more events than one page can read, so the numbers below cover{" "}
             <span className="font-semibold">{formatDay(summary.coveredFrom ?? range.from)}</span>{" "}

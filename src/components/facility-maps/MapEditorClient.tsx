@@ -638,6 +638,8 @@ export default function MapEditorClient({
             size="sm"
             onClick={() => setShowPreview(true)}
             disabled={shapes.length === 0}
+            aria-label="Preview"
+            className="max-sm:size-8 max-sm:px-0"
           >
             <Smartphone /> <span className="hidden sm:inline">Preview</span>
           </Button>

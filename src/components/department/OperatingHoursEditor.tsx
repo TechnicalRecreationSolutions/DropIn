@@ -281,7 +281,7 @@ export default function OperatingHoursEditor({
                             aria-label={`${DAY_NAMES[day]} window ${i + 1} opens`}
                             value={w.opens}
                             onChange={(e) => setField(day, i, "opens", e.target.value)}
-                            className="h-8 w-auto px-2 py-1"
+                            className="h-8 w-auto px-2 py-0 text-sm"
                           />
                           <span className="text-sm text-muted-foreground">to</span>
                           <Input
@@ -289,7 +289,7 @@ export default function OperatingHoursEditor({
                             aria-label={`${DAY_NAMES[day]} window ${i + 1} closes`}
                             value={w.closes}
                             onChange={(e) => setField(day, i, "closes", e.target.value)}
-                            className="h-8 w-auto px-2 py-1"
+                            className="h-8 w-auto px-2 py-0 text-sm"
                           />
                           <Button
                             type="button"

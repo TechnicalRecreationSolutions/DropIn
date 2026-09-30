@@ -68,7 +68,9 @@ export default function PreviewWindow({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="flex flex-col gap-0 w-[96vw] max-w-[96vw] sm:max-w-[96vw] h-[92vh] p-0 overflow-hidden">
         <header className="flex items-center gap-3 flex-wrap px-4 py-3 border-b border-border pr-12">
-          <div className="min-w-0 flex-1">
+          {/* Below sm the title takes the row to itself: beside the controls
+              it had 80px, which wrapped it and hid the badge under them. */}
+          <div className="min-w-0 flex-1 max-sm:basis-full">
             <DialogTitle className="text-card-title flex items-center gap-2">
               Live preview
               {dirty && (
@@ -155,7 +157,7 @@ export default function PreviewWindow({
                   aria-label={name}
                   aria-pressed={active}
                   className={cn(
-                    "size-6 rounded-full border-2 flex items-center justify-center transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
+                    "size-6 rounded-full border-2 ring-1 ring-foreground/20 flex items-center justify-center transition-transform focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background",
                     active ? "border-foreground scale-110" : "border-transparent hover:scale-110"
                   )}
                   style={{ backgroundColor: hex }}

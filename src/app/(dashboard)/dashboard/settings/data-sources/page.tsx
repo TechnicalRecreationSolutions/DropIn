@@ -47,7 +47,7 @@ export default function DataSourcesPage() {
 
       <Link
         href="/dashboard/import"
-        className="flex items-center gap-3 p-4 bg-card rounded-card border border-border shadow-card hover:bg-muted transition-colors duration-150 group"
+        className="flex items-center gap-3 p-4 bg-card rounded-card border border-border shadow-card outline-none hover:bg-muted transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring group"
       >
         <Upload className="w-5 h-5 text-muted-foreground shrink-0" />
         <div className="flex-1 min-w-0">

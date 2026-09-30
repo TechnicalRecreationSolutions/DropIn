@@ -131,6 +131,6 @@ export function SettingsFact({
  */
 export function ReadOnlyNotice({ children }: { children: React.ReactNode }) {
   return (
-    <Banner variant="neutral">{children}</Banner>
+    <Banner variant="neutral" role={undefined}>{children}</Banner>
   );
 }

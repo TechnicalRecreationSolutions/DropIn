@@ -225,7 +225,7 @@ export default function FindClient({ listings }: FindClientProps) {
                   href={f.path}
                   className="inline-flex h-11 items-center gap-2 rounded-full border border-input bg-card px-4 text-sm font-medium text-foreground transition-colors hover:bg-muted focus-visible:ring-2 focus-visible:ring-ring"
                 >
-                  <Star className="size-4 fill-warning text-warning" aria-hidden />
+                  <Star className="size-4 fill-brand text-brand" aria-hidden />
                   {f.name}
                 </Link>
               </li>
@@ -385,7 +385,7 @@ function FacilityResult({
         aria-label={saved ? `Remove ${facility.name} from saved` : `Save ${facility.name}`}
         className="absolute right-1.5 top-1.5 z-10 size-11 text-muted-foreground hover:bg-background"
       >
-        <Star className={cn("size-5", saved && "fill-warning text-warning")} />
+        <Star className={cn("size-5", saved && "fill-brand text-brand")} />
       </Button>
     </article>
   );

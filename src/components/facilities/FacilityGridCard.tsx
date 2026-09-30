@@ -86,9 +86,9 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
         href={`/dashboard/facilities/${facility.id}/status`}
         className={`flex items-center gap-2 border-t border-border px-5 py-2.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
           facility.worst_notice_severity === "closure"
-            ? "bg-destructive-subtle text-destructive hover:bg-muted"
+            ? "bg-destructive-subtle text-destructive hover:underline"
             : facility.worst_notice_severity
-              ? "bg-warning-subtle text-warning hover:bg-muted"
+              ? "bg-warning-subtle text-warning hover:underline"
               : "text-muted-foreground hover:bg-muted"
         }`}
       >

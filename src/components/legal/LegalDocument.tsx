@@ -26,14 +26,14 @@ export default function LegalDocument({
       <div
         className="
           mt-8 space-y-6 text-foreground leading-relaxed
-          [&_h2]:text-heading [&_h2]:text-foreground
+          [&_h2]:text-xl [&_h2]:font-semibold [&_h2]:text-foreground
           [&_h2]:mt-10 [&_h2]:mb-3 [&_h2]:scroll-mt-20
-          [&_h3]:text-card-title [&_h3]:text-foreground
+          [&_h3]:text-base [&_h3]:font-semibold [&_h3]:text-foreground
           [&_h3]:mt-6 [&_h3]:mb-2
           [&_ul]:list-disc [&_ul]:pl-6 [&_ul]:space-y-2
           [&_li]:marker:text-muted-foreground/70
           [&_a]:text-brand [&_a]:underline [&_a]:underline-offset-2
-          [&_table]:w-full [&_table]:text-caption [&_table]:border-collapse
+          [&_table]:w-full [&_table]:text-sm [&_table]:border-collapse
           [&_th]:text-left [&_th]:font-semibold [&_th]:text-foreground
           [&_th]:border-b [&_th]:border-border [&_th]:py-2 [&_th]:pr-4
           [&_td]:border-b [&_td]:border-border [&_td]:py-2 [&_td]:pr-4

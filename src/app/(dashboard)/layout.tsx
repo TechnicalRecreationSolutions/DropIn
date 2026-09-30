@@ -63,7 +63,7 @@ export default function DashboardLayout({
             </Suspense>
 
             {/* pb-20 adds bottom padding on mobile so content isn't hidden behind the tab bar */}
-            <main className="flex-1 p-4 sm:p-6 pb-24 lg:pb-6">
+            <main className="flex-1 p-4 sm:p-6 pb-24 sm:pb-24 lg:pb-6">
               <Suspense fallback={<DashboardPageSkeleton />}>
                 {children}
               </Suspense>

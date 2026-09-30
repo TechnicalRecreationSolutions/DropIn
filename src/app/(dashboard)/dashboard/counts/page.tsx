@@ -164,7 +164,7 @@ async function CountsBody({ searchParams }: CountsPageProps) {
       />
 
       {!facility.is_published && (
-        <Banner variant="neutral">
+        <Banner variant="neutral" role={undefined}>
           This facility is not published, so nothing recorded here reaches the public. The log
           is kept either way.
         </Banner>

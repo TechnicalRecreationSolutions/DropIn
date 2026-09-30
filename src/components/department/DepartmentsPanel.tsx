@@ -120,6 +120,7 @@ export default function DepartmentsPanel({ facility, departments }: DepartmentsP
       {departments.length === 0 ? (
         <EmptyState
           title="No departments yet"
+          titleAs="h2"
           description={<>Optional. Group related schedules, such as &quot;Aquatics&quot; or &quot;Fitness&quot;.</>}
           action={
             <Button asChild variant="outline">
@@ -242,7 +243,7 @@ function DepartmentCard({ facilityId, department, deleting, onDelete }: Departme
           "flex items-center gap-1.5 rounded-b-card border-t border-border px-5 py-2.5 text-caption transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
           hasHours
             ? "text-muted-foreground hover:bg-muted"
-            : "bg-warning-subtle font-medium text-warning hover:bg-muted"
+            : "bg-warning-subtle font-medium text-warning hover:underline"
         )}
       >
         <Clock className="size-3.5 shrink-0" />

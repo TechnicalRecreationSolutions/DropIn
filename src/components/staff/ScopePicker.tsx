@@ -41,7 +41,7 @@ export default function ScopePicker({
 }: ScopePickerProps) {
   if (role === "manager") {
     return (
-      <Banner variant="neutral">
+      <Banner variant="neutral" role={undefined}>
         Managers can see and change everything in your organization, in every building.
       </Banner>
     );
@@ -78,7 +78,7 @@ export default function ScopePicker({
       </div>
 
       {byFacility.length === 0 ? (
-        <Banner variant="neutral">
+        <Banner variant="neutral" role={undefined}>
           There are no departments yet. Create one before adding a coordinator.
         </Banner>
       ) : (
@@ -130,7 +130,7 @@ function Options({
         <InfoTip>{hint}</InfoTip>
       </div>
       {items.length === 0 ? (
-        <Banner variant="neutral">
+        <Banner variant="neutral" role={undefined}>
           {empty}
         </Banner>
       ) : (

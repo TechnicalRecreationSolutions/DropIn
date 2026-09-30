@@ -144,7 +144,7 @@ export default function EditMemberDialog({
                         // unchanged; otherwise it would be meaningless.
                         setScope(option === member.role ? initialScope : []);
                       }}
-                      className="mt-0.5 size-4 accent-primary"
+                      className="mt-0.5 size-4 shrink-0 accent-primary"
                     />
                     <span>
                       <span className="block text-sm font-medium text-foreground">

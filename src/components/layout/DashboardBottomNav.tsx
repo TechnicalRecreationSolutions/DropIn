@@ -147,7 +147,7 @@ function TabContent({
             "-mt-6 flex size-14 items-center justify-center rounded-full shadow-card ring-4 ring-background",
             "transition-transform duration-150 group-active:scale-90",
             "group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring",
-            isActive ? "bg-brand text-brand-foreground" : "bg-primary text-primary-foreground"
+            isActive ? "bg-brand-subtle text-brand-strong" : "bg-primary text-primary-foreground"
           )}
         >
           <Icon className="size-[26px]" strokeWidth={2.25} />

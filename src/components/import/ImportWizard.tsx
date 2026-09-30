@@ -74,7 +74,7 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
 
   if (facilities.length === 0) {
     return (
-      <Banner variant="warning">
+      <Banner variant="warning" role={undefined}>
         You need to <Link href="/dashboard/facilities/new" className="underline font-medium">add a facility</Link> before importing.
       </Banner>
     );
@@ -119,7 +119,7 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
           {/* File drop zone */}
           <div
             onClick={() => fileRef.current?.click()}
-            className="border-2 border-dashed border-border rounded-card p-10 text-center cursor-pointer hover:border-brand hover:bg-brand-subtle transition-colors duration-150"
+            className="border-2 border-dashed border-input rounded-card p-10 text-center cursor-pointer hover:border-brand hover:bg-brand-subtle transition-colors duration-150"
           >
             <Upload className="w-8 h-8 text-muted-foreground mx-auto mb-3" />
             {file ? (
@@ -203,10 +203,10 @@ export default function ImportWizard({ facilities, initialFacilityId, initialDep
                         )}
                       </td>
                       <td className="px-3 py-2 font-medium text-foreground">{row.program_name}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{row.sport_category}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{row.days}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{row.start_time}–{row.end_time}</td>
-                      <td className="px-3 py-2 text-muted-foreground">{row.season_start}{row.season_end ? ` → ${row.season_end}` : ""}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{row.sport_category}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{row.days}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{row.start_time}–{row.end_time}</td>
+                      <td className="px-3 py-2 whitespace-nowrap text-muted-foreground">{row.season_start}{row.season_end ? ` → ${row.season_end}` : ""}</td>
                     </tr>
                   ))}
                 </tbody>

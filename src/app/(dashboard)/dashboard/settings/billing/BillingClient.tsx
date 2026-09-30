@@ -173,7 +173,7 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
                 role="radio"
                 aria-checked={annual === option.value}
                 onClick={() => setAnnual(option.value)}
-                className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors duration-150 ${
+                className={`px-4 py-1.5 text-sm font-medium rounded-full outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring ${
                   annual === option.value
                     ? "bg-raised text-foreground shadow-card"
                     : "text-muted-foreground hover:text-foreground"
@@ -200,16 +200,16 @@ export default function BillingClient({ currentTier, annualAvailable }: BillingC
           return (
             <div
               key={tier}
-              className={`bg-card rounded-card shadow-card border-2 p-5 flex flex-col ${
-                isCurrent ? "border-brand" : "border-border"
+              className={`bg-card rounded-card shadow-card border p-5 flex flex-col ${
+                isCurrent ? "border-brand ring-1 ring-brand" : "border-border"
               }`}
             >
               {isCurrent ? (
-                <span className="inline-flex items-center gap-1 text-caption font-semibold text-brand mb-2">
+                <span className="inline-flex h-5 items-center gap-1 text-caption font-semibold text-brand mb-2">
                   <CheckCircle2 className="w-3.5 h-3.5" /> Current plan
                 </span>
               ) : tier === FEATURED_TIER ? (
-                <span className="inline-flex items-center gap-1 text-caption font-semibold text-brand mb-2">
+                <span className="inline-flex h-5 items-center gap-1 text-caption font-semibold text-brand mb-2">
                   <Zap className="w-3.5 h-3.5" /> Most centres
                 </span>
               ) : (

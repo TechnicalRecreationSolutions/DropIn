@@ -379,7 +379,7 @@ export default function HolidayEditor({
             disabled={loadingYear || saving}
             aria-label="Year"
             wrapperClassName="w-auto shrink-0"
-            className="h-8 font-medium"
+            className="h-8 py-0 text-sm font-medium"
           >
             {years.map((y) => (
               <option key={y} value={y}>
@@ -470,7 +470,7 @@ export default function HolidayEditor({
                               value={row.date}
                               onChange={(e) => mutate(i, { date: e.target.value })}
                               aria-label="Holiday date"
-                              className="h-8 w-auto px-2 py-1"
+                              className="h-8 w-auto px-2 py-0 text-sm"
                             />
                             <Input
                               type="text"
@@ -478,7 +478,7 @@ export default function HolidayEditor({
                               onChange={(e) => mutate(i, { name: e.target.value })}
                               placeholder="Name, e.g. Staff training day"
                               aria-label="Holiday name"
-                              className="h-8 min-w-[10rem] flex-1 px-2 py-1"
+                              className="h-8 min-w-[10rem] flex-1 px-2 py-0 text-sm"
                             />
                             <Button
                               type="button"
@@ -521,7 +521,7 @@ export default function HolidayEditor({
                             onChange={(e) => mutate(i, { observance: e.target.value as Observance })}
                             aria-label={`What happens on ${row.name || row.date}`}
                             wrapperClassName="ml-auto w-auto shrink-0"
-                            className="h-8"
+                            className="h-8 py-0 text-sm"
                           >
                             {(Object.keys(OBSERVANCE_LABELS) as Observance[]).map((value) => (
                               <option key={value} value={value}>
@@ -537,7 +537,10 @@ export default function HolidayEditor({
                       )}
 
                       {row.observed && row.observance === "custom_hours" && (
-                        <div className="space-y-2">
+                        // On a phone the row is too narrow for two times and
+                        // the remove button beside the tick box, so the
+                        // windows take the box's column as well.
+                        <div className="-ml-7 space-y-2 sm:ml-0">
                           {row.windows.map((w, wi) => (
                             <div key={wi} className="flex items-center gap-2">
                               <Input
@@ -551,7 +554,7 @@ export default function HolidayEditor({
                                     ),
                                   })
                                 }
-                                className="h-8 w-auto px-2 py-1"
+                                className="h-8 w-auto px-2 py-0 text-sm"
                               />
                               <span className="text-sm text-muted-foreground">to</span>
                               <Input
@@ -565,7 +568,7 @@ export default function HolidayEditor({
                                     ),
                                   })
                                 }
-                                className="h-8 w-auto px-2 py-1"
+                                className="h-8 w-auto px-2 py-0 text-sm"
                               />
                               {row.windows.length > 1 && (
                                 <Button

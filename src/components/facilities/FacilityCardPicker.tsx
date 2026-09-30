@@ -57,9 +57,9 @@ export default function FacilityCardPicker({
                 aria-current={active ? "page" : undefined}
                 title={tooltip}
                 className={cn(
-                  "flex items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  "flex min-h-11 items-center gap-2 rounded-full border py-1 pl-1 pr-3 text-sm sm:min-h-8 transition-colors duration-150 whitespace-nowrap focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
                   active
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-brand-strong"
                     : "border-border bg-card text-muted-foreground hover:bg-muted hover:text-foreground"
                 )}
               >

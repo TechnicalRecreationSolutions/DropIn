@@ -223,21 +223,21 @@ function ParticipantBlock({
       <p className="text-label font-normal text-muted-foreground">
         {participant.spaceNames.join(", ") || "No space"}
       </p>
-      <div className="-ml-2.5 flex flex-wrap gap-1 pt-1">
-        <Button asChild variant="ghost" size="xs" className="text-brand">
+      <div className="-ml-3 flex flex-wrap gap-1 pt-1">
+        <Button asChild variant="ghost" size="sm" className="text-brand">
           <Link href={href}>
-            <ExternalLink className="size-3" />
+            <ExternalLink className="size-3.5" />
             Open
           </Link>
         </Button>
         {canReassign && (
-          <Button type="button" variant="ghost" size="xs" onClick={onReassign}>
-            <ArrowLeftRight className="size-3" />
+          <Button type="button" variant="ghost" size="sm" onClick={onReassign}>
+            <ArrowLeftRight className="size-3.5" />
             Move space
           </Button>
         )}
-        <Button type="button" variant="ghost" size="xs" onClick={onDeactivate} className="text-destructive">
-          <Ban className="size-3" />
+        <Button type="button" variant="ghost" size="sm" onClick={onDeactivate} className="text-destructive">
+          <Ban className="size-3.5" />
           Deactivate
         </Button>
       </div>

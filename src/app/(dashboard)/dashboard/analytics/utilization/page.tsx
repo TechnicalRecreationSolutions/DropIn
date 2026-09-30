@@ -151,7 +151,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
   return (
     <>
       {data.clamped && (
-        <Banner variant="warning">
+        <Banner variant="warning" role={undefined}>
           <p>
             This page expands the schedule week by week, so it covers at most{" "}
             {MAX_UTILIZATION_DAYS} days. The figures below are the most recent{" "}
@@ -161,7 +161,7 @@ async function UtilizationBody({ searchParams }: UtilizationPageProps) {
       )}
 
       {data.departmentsWithoutHours.length > 0 && (
-        <Banner variant="warning">
+        <Banner variant="warning" role={undefined}>
           <p>
             {/* Named, not counted — the same rule the Overview's alert row follows. */}
             <span className="font-semibold">

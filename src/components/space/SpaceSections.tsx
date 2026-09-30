@@ -366,7 +366,7 @@ function SpaceChip({
         className="absolute inset-0 rounded-control focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring"
       />
 
-      <div className="relative flex flex-col justify-center gap-0.5 pl-7 pr-9 py-2 pointer-events-none">
+      <div className="relative flex flex-col justify-center gap-0.5 pl-7 pr-7 py-2 pointer-events-none">
         <span className="flex items-center gap-1.5 min-w-0">
           <MapPin className="w-3.5 h-3.5 text-muted-foreground shrink-0" />
           <span className="text-sm font-medium text-foreground truncate">{space.name}</span>

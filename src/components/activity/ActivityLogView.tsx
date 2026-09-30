@@ -164,6 +164,7 @@ export default function ActivityLogView({ initialEntries, initialCursor, canReve
 
       {entries.length === 0 ? (
         <EmptyState
+          titleAs="h2"
           title={hasFilters ? "No matching activity" : "No activity yet"}
           description={
             hasFilters
@@ -315,7 +316,7 @@ function ActivityRow({
       </div>
 
       <div className="flex-1 min-w-0">
-        <p className="text-body text-foreground">
+        <p className="text-body text-foreground break-words">
           <span className="font-medium">{actor}</span>{" "}
           <span className="text-muted-foreground">{action.verb}</span>{" "}
           <span className="font-medium">{label}</span>

@@ -98,7 +98,7 @@ interface LabelWithInfoProps {
  */
 export function LabelWithInfo({ htmlFor, info, className, children }: LabelWithInfoProps) {
   return (
-    <div className="flex items-center gap-1.5 [&>label]:mb-0 mb-1">
+    <div className="mb-1.5 flex items-center gap-1.5 [&>label]:mb-0">
       <label htmlFor={htmlFor} className={className}>{children}</label>
       <InfoTip label="Field help">{info}</InfoTip>
     </div>

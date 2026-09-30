@@ -206,6 +206,10 @@
 }
 
 .dark {
+  /* Native controls (checkboxes, radios, the date picker's icon, scrollbars)
+     draw themselves for a dark page. Without this they stay light on the dark
+     card. */
+  color-scheme: dark;
   --background: #0f0f11;
   --foreground: #f4f4f5;
   --card: #18181b;

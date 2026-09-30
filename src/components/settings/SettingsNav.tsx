@@ -50,7 +50,7 @@ export default function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) 
               href={item.href}
               aria-current={active ? "page" : undefined}
               className={cn(
-                "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium transition-colors duration-150",
+                "shrink-0 border-b-2 px-3 py-2.5 text-sm font-medium outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring",
                 active
                   ? "border-brand font-semibold text-foreground"
                   : "border-transparent text-muted-foreground hover:text-foreground"
@@ -84,7 +84,7 @@ export default function SettingsNav({ groups }: { groups: SettingsNavGroup[] }) 
                       href={item.href}
                       aria-current={active ? "page" : undefined}
                       className={cn(
-                        "relative block rounded-control px-3 py-2 transition-colors duration-150",
+                        "relative block rounded-control px-3 py-2 outline-none transition-colors duration-150 focus-visible:ring-2 focus-visible:ring-ring",
                         active
                           ? "bg-muted text-foreground before:absolute before:inset-y-1.5 before:left-0 before:w-0.5 before:rounded-full before:bg-brand"
                           : "text-muted-foreground hover:bg-muted hover:text-foreground"

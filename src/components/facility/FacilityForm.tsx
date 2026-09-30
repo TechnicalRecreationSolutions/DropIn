@@ -168,7 +168,7 @@ export default function FacilityForm({ facilityId, orgId, orgVerified, defaultVa
           placeholder="2623 56 St NE" />
       </div>
 
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-5 sm:grid-cols-2 sm:gap-4">
         <div>
           <Label htmlFor="city">City *</Label>
           <Input id="city" name="city" type="text" required value={form.city} onChange={handleChange}

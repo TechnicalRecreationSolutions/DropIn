@@ -182,7 +182,7 @@ export default function HeadCountTool({
                 aria-pressed={space === s.id}
                 className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   space === s.id
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-brand-strong"
                     : "border-input bg-card text-foreground hover:bg-muted"
                 }`}
               >
@@ -318,7 +318,7 @@ export default function HeadCountTool({
                   <span className="w-20 shrink-0 font-semibold tabular-nums">
                     {formatReading(r.metric, r.value)}
                   </span>
-                  <span className="min-w-0 flex-1 truncate text-muted-foreground">
+                  <span className="min-w-0 flex-1 text-muted-foreground sm:truncate">
                     {METRICS[r.metric].label} · {where} · {recordedAt(r.recorded_at)} · {who}
                   </span>
                   {canWrite && (mine || canManage) && (

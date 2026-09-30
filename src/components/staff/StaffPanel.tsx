@@ -132,7 +132,7 @@ export default function StaffPanel({
         <Banner variant="error">{error}</Banner>
       )}
 
-      <div className="border border-border rounded-card shadow-card divide-y divide-border overflow-hidden">
+      <div className="border border-border rounded-card bg-card shadow-card divide-y divide-border overflow-hidden">
         {members.map((member) => {
           const scopes = describeScope(member.membership_scopes, member.role);
           const editable = canModifyMembership(actor, {
@@ -216,8 +216,8 @@ export default function StaffPanel({
 
       {invitations.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-heading text-foreground">Waiting to accept</h2>
-          <div className="border border-border rounded-card shadow-card divide-y divide-border overflow-hidden">
+          <h2 className="text-card-title text-foreground">Waiting to accept</h2>
+          <div className="border border-border rounded-card bg-card shadow-card divide-y divide-border overflow-hidden">
             {invitations.map((invitation) => {
               const scopes = describeScope(invitation.invitation_scopes, invitation.role);
               const expired = new Date(invitation.expires_at) <= new Date();

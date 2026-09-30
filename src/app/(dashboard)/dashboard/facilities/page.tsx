@@ -124,6 +124,7 @@ async function FacilitiesGrid() {
     return (
       <EmptyState
         title="No facilities yet"
+        titleAs="h2"
         description="Add a facility to start building your schedule."
         action={
           <Button asChild variant="outline">

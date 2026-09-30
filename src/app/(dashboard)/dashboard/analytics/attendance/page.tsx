@@ -172,7 +172,7 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
   return (
     <>
       {summary.truncated && (
-        <Banner variant="warning">
+        <Banner variant="warning" role={undefined}>
           <p>
             This period holds more readings than one page can read, so the figures below cover
             only the most recent part of it. Pick a shorter period for a complete count.

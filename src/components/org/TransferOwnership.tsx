@@ -88,7 +88,7 @@ export default function TransferOwnership({ orgName, candidates }: TransferOwner
           </div>
 
           <div className="space-y-1.5">
-            <Label htmlFor="confirm-org" className="mb-0">
+            <Label htmlFor="confirm-org">
               Type <span className="font-mono">{orgName}</span> to confirm
             </Label>
             <Input

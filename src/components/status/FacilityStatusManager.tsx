@@ -365,7 +365,7 @@ export default function FacilityStatusManager({
                 }}
                 className={`min-h-9 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
                   draft?.presetId === preset.id
-                    ? "border-primary bg-primary text-primary-foreground"
+                    ? "border-brand bg-brand-subtle text-brand-strong"
                     : "border-input bg-card text-foreground hover:bg-muted"
                 }`}
               >
@@ -554,7 +554,7 @@ export default function FacilityStatusManager({
         readOnlyReason && (
           <section>
             <h2 className="mb-2 text-heading text-foreground">Post a status</h2>
-            <Banner variant="neutral">
+            <Banner variant="neutral" role={undefined}>
               {readOnlyReason}
             </Banner>
           </section>

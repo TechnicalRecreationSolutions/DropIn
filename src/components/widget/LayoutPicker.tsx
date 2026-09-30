@@ -99,7 +99,9 @@ export default function LayoutPicker({
             className={cn(
               "relative flex flex-col rounded-card border transition-colors duration-150",
               checked ? "border-brand bg-brand-subtle" : "border-border bg-card",
-              isDisabled && "opacity-55"
+              // A locked card keeps its explanation and its links at full
+              // strength (they are how it gets unlocked); only the picture dims.
+              disabled && "opacity-55"
             )}
           >
             {/* Full-card hit target sits *under* the artwork, so the whole tile
@@ -121,12 +123,18 @@ export default function LayoutPicker({
               <div
                 className={cn(
                   "rounded-control overflow-hidden border border-border p-1.5",
-                  checked ? "bg-card text-brand" : "bg-muted text-muted-foreground"
+                  checked ? "bg-card text-brand" : "bg-muted text-muted-foreground",
+                  locked && "opacity-55"
                 )}
               >
                 <LayoutThumbnail template={template} />
               </div>
-              <p className="mt-2 text-body font-medium text-foreground flex items-center gap-1.5">
+              <p
+                className={cn(
+                  "mt-2 text-body font-medium flex items-center gap-1.5",
+                  locked ? "text-muted-foreground" : "text-foreground"
+                )}
+              >
                 {label}
                 {locked && <Lock className="size-3 text-muted-foreground" />}
               </p>
@@ -201,7 +209,7 @@ function floorplanSummary(state: FloorplanState): string | null {
 }
 
 const actionClass =
-  "pointer-events-auto inline-flex text-label font-semibold text-brand underline-offset-4 hover:underline";
+  "pointer-events-auto inline-flex rounded-sm text-left text-label font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
 
 /**
  * The fixes, as controls on the card. The card's text layer is

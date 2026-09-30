@@ -62,7 +62,7 @@ export default function LeaveOrganization({ orgName }: { orgName: string }) {
       description="You will lose access immediately. Someone with a Manager account would have to invite you back."
       tone="destructive"
     >
-      <Button variant="ghost" size="lg" className="text-destructive" disabled={busy} onClick={leave}>
+      <Button variant="outline" size="lg" className="text-destructive" disabled={busy} onClick={leave}>
         {busy ? "Leaving…" : "Leave organization"}
       </Button>
 
