@@ -38,7 +38,7 @@ export type SessionWithRelations = SessionRow & {
   // still in Draft) gets the join-table row back with `spaces: null` rather
   // than the row being omitted. Must be filtered, not trusted present.
   session_spaces: {
-    spaces: Pick<SpaceRow, "id" | "name" | "display_order"> | null;
+    spaces: Pick<SpaceRow, "id" | "name" | "display_order" | "zone_name"> | null;
   }[];
   // Null when the session has no template_id, or the template was archived/
   // deleted — and, before migration 050, for every anonymous caller, because
@@ -351,6 +351,9 @@ export function expandSessions(
         departmentName: department?.name ?? null,
         spaceIds: attachedSpaces.map((s) => s.id),
         spaceNames: attachedSpaces.map((s) => s.name),
+        // Display only: Map groups its lane columns under these ("Main pool").
+        spaceZones: attachedSpaces.map((s) => s.zone_name ?? null),
+        spaceOrders: attachedSpaces.map((s) => s.display_order),
         templateId: template?.id ?? null,
         templateName: template?.name ?? null,
         templateColor: template?.color ?? null,

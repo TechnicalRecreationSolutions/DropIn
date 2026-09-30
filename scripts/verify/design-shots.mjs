@@ -360,7 +360,6 @@ function routes(s) {
     ["map", `/dashboard/map${q}`, true],
     ["widget", `/dashboard/widget`, true],
     ["conflicts", `/dashboard/conflicts${q}`, true],
-    ["counts", `/dashboard/counts${q}`, true],
     ["activity", `/dashboard/activity`, true],
     ["import", `/dashboard/import`, true],
     ["settings", `/dashboard/settings`, true],

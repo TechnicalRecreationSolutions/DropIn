@@ -62,7 +62,7 @@ async function StatusIndexBody() {
       .or(`ends_at.is.null,ends_at.gt.${new Date().toISOString()}`),
   ]);
 
-  // Same rule as Head counts: a scoped staffer is offered only their own
+  // Same rule as People here: a scoped staffer is offered only their own
   // buildings, even though RLS would let them read the others' names.
   const facilities = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
 

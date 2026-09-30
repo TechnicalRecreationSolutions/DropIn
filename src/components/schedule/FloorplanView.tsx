@@ -9,7 +9,7 @@ import FacilityMapSvg from "@/components/facility-maps/renderer/FacilityMapSvg";
 import type { RenderShape, RenderContextElement } from "@/components/facility-maps/renderer/types";
 import SpaceDetailSheet from "./SpaceDetailSheet";
 import TimeControl from "./TimeControl";
-import FloorplanLegend from "./FloorplanLegend";
+import FloorplanLegend, { FloorplanKey } from "./FloorplanLegend";
 
 interface FloorplanViewProps {
   facilityId: string;
@@ -192,12 +192,12 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   if (isError || !data?.facilityMap) {
     return (
       <div className="p-4 sm:p-6">
-        <div className="text-center py-14 px-6 bg-muted border border-dashed border-border rounded-xl">
+        <div className="text-center py-14 px-6 bg-muted border border-dashed border-border rounded-[16px]">
           <svg viewBox="0 0 80 48" className="w-20 h-12 mx-auto mb-3" aria-hidden="true">
-            <rect x="2" y="2" width="76" height="44" rx="6" fill="#F3F1EC" stroke="#D5CFC4" strokeWidth="2" />
-            <rect x="10" y="10" width="34" height="20" rx="3" fill="#C6E0EB" />
-            <rect x="50" y="10" width="20" height="28" rx="3" fill="#E4C6A8" />
-            <rect x="10" y="34" width="24" height="6" rx="3" fill="#E3DED5" />
+            <rect x="2" y="2" width="76" height="44" rx="6" fill="#f4f4f5" stroke="#e4e4e7" strokeWidth="2" />
+            <rect x="10" y="10" width="34" height="20" rx="3" fill="#e6f0fa" />
+            <rect x="50" y="10" width="20" height="28" rx="3" fill="#f7ecdf" />
+            <rect x="10" y="34" width="24" height="6" rx="3" fill="#e9e9ec" />
           </svg>
           <p className="text-sm font-semibold text-muted-foreground">No floor map yet</p>
           <p className="text-xs text-muted-foreground/70 mt-1 max-w-xs mx-auto">
@@ -215,42 +215,34 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
   return (
     <div className="p-4 sm:p-6 @container">
       <div className="grid grid-cols-1 gap-4 @4xl:grid-cols-[minmax(0,1fr)_300px] @4xl:items-start">
-        <div className="min-w-0">
-          {/* Summary strip — the at-a-glance count; FloorplanLegend has the detail. */}
-          <div className="flex items-center gap-4 flex-wrap mb-3 text-xs font-medium text-muted-foreground">
-            {summary.live > 0 && (
-              <span className="inline-flex items-center gap-1.5">
-                <span
-                  className="w-2.5 h-2.5 rounded-full"
-                  style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
-                />
-                {summary.live} on {isViewingNow ? "now" : `at ${viewedTimeLabel}`}
-              </span>
-            )}
-            {summary.soon > 0 && (
-              <span className="inline-flex items-center gap-1.5">
-                <span className="w-2.5 h-2.5 rounded-full bg-amber-500" />
-                {summary.soon} starting soon
-              </span>
-            )}
-            {summary.live === 0 && summary.soon === 0 && (
-              <span className="text-muted-foreground/70">
-                {summary.nextStart
-                  ? `Quiet ${isViewingNow ? "right now" : `at ${viewedTimeLabel}`} — next session at ${formatSessionTime(summary.nextStart)}`
+        {/* The map card: a heading and one-line summary, the map, the time
+            scrub and the colour key, like the pictures on the landing page. */}
+        <div className="min-w-0 rounded-[20px] border border-border bg-card p-4 sm:p-5">
+          <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+            <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">
+              {isViewingNow ? "Right now" : `At ${viewedTimeLabel}`}
+            </h3>
+            <p className="text-[13px] text-muted-foreground">
+              {summary.live > 0 || summary.soon > 0
+                ? [
+                    summary.live > 0 && `${summary.live} on`,
+                    summary.soon > 0 && `${summary.soon} starting soon`,
+                    summary.free > 0 && `${summary.free} with nothing on`,
+                  ]
+                    .filter(Boolean)
+                    .join(" · ")
+                : summary.nextStart
+                  ? `Quiet ${isViewingNow ? "right now" : "then"}. Next session at ${formatSessionTime(summary.nextStart)}`
                   : !summary.hadEarlier
                     ? "No sessions here today"
                     : isViewingNow
                       ? "No more sessions today"
                       : `No more sessions after ${viewedTimeLabel}`}
-              </span>
-            )}
-            {summary.free > 0 && (summary.live > 0 || summary.soon > 0) && (
-              <span className="text-muted-foreground/70 ml-auto">{summary.free} free</span>
-            )}
+            </p>
           </div>
 
           <FacilityMapSvg
-            className="rounded-xl overflow-hidden border border-border"
+            className="overflow-hidden rounded-[14px]"
             canvasWidth={Number(facilityMap.canvas_width)}
             canvasHeight={Number(facilityMap.canvas_height)}
             shapes={renderShapes}
@@ -269,6 +261,8 @@ export default function FloorplanView({ facilityId, sessions }: FloorplanViewPro
             onChange={handleScrub}
             onJumpToNow={handleJumpToNow}
           />
+
+          <FloorplanKey />
         </div>
 
         <FloorplanLegend

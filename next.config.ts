@@ -152,6 +152,16 @@ const nextConfig: NextConfig = {
         destination: "/dashboard/settings/data-sources",
         permanent: true,
       },
+      // Head counts became the "People here" section of the status page
+      // (2026-09-29). Not permanent: a browser caches a 308 forever, and this
+      // is the newest of these moves. `?facility=` rides along, harmlessly.
+      {
+        source: "/dashboard/counts",
+        has: [{ type: "query", key: "facility", value: "(?<facility>[0-9a-fA-F-]{36})" }],
+        destination: "/dashboard/facilities/:facility/status",
+        permanent: false,
+      },
+      { source: "/dashboard/counts", destination: "/dashboard/status", permanent: false },
     ];
   },
 

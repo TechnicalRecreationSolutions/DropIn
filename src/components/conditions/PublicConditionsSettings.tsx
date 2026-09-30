@@ -1,11 +1,12 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Eye, EyeOff } from "lucide-react";
+import { ChevronDown, Eye, EyeOff } from "lucide-react";
 import type { PublicHeadcountMode } from "@/types/app.types";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Label, FieldHelp } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
@@ -46,6 +47,11 @@ export interface PublicConditionsSettingsProps {
   hasReadings: boolean;
 }
 
+function subscribeToHash(onChange: () => void) {
+  window.addEventListener("hashchange", onChange);
+  return () => window.removeEventListener("hashchange", onChange);
+}
+
 const HEADCOUNT_OPTIONS: { value: PublicHeadcountMode; label: string; hint: string }[] = [
   { value: "hidden", label: "Nothing", hint: "Patrons see no occupancy information." },
   {
@@ -75,6 +81,16 @@ export default function PublicConditionsSettings({
   const [saving, setSaving] = useState(false);
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  // Folded by default: this is set once and left, and it sat under the
+  // notices as a full form. Opened when someone arrives from the head count
+  // tool's link, which points at #public.
+  const arrivedForThis = useSyncExternalStore(
+    subscribeToHash,
+    () => window.location.hash === "#public",
+    () => false
+  );
+  const [userOpen, setOpen] = useState<boolean | null>(null);
+  const open = userOpen ?? arrivedForThis;
 
   const dirty =
     conditions !== initial.publicConditions ||
@@ -110,25 +126,37 @@ export default function PublicConditionsSettings({
   }
 
   return (
+    <Collapsible open={open} onOpenChange={setOpen} asChild>
     <section id="public" className="scroll-mt-20 space-y-4">
-      <div>
-        <h2 className="flex items-center gap-2 text-heading text-foreground">
-          {conditions || headcount !== "hidden" ? (
-            <Eye className="size-4 text-muted-foreground" aria-hidden />
-          ) : (
-            <EyeOff className="size-4 text-muted-foreground" aria-hidden />
-          )}
-          What patrons see
-        </h2>
-        <p className="mt-1 text-sm text-muted-foreground">
-          From the numbers staff record on the{" "}
-          <a href="/dashboard/counts" className="font-medium text-brand underline-offset-4 hover:underline">
-            head count tool
-          </a>
-          . Nothing here is published until you turn it on, and a reading that has gone stale
-          drops off the page on its own.
-        </p>
-      </div>
+      <CollapsibleTrigger className="group flex w-full items-start justify-between gap-3 rounded-card px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+        <span className="min-w-0">
+          <span className="flex items-center gap-2 text-heading text-foreground">
+            {conditions || headcount !== "hidden" ? (
+              <Eye className="size-4 text-muted-foreground" aria-hidden />
+            ) : (
+              <EyeOff className="size-4 text-muted-foreground" aria-hidden />
+            )}
+            What patrons see
+          </span>
+          <span className="mt-0.5 block text-sm text-muted-foreground">
+            {summary(initial)}
+          </span>
+        </span>
+        <ChevronDown
+          className="mt-1 size-4 shrink-0 text-muted-foreground transition-transform duration-150 group-data-[state=open]:rotate-180"
+          aria-hidden
+        />
+      </CollapsibleTrigger>
+
+      <CollapsibleContent className="space-y-4">
+      <p className="text-sm text-muted-foreground">
+        From the numbers staff record under{" "}
+        <a href="#people" className="font-medium text-brand underline-offset-4 hover:underline">
+          People here
+        </a>
+        . Nothing here is published until you turn it on, and a reading that has gone stale
+        drops off the page on its own.
+      </p>
 
       <div className="space-y-5 rounded-card border border-border bg-card p-5 shadow-card">
         <fieldset disabled={!canEdit} className="space-y-3">
@@ -206,7 +234,7 @@ export default function PublicConditionsSettings({
         {!hasReadings && (conditions || headcount !== "hidden") && (
           <Banner variant="neutral" role={undefined}>
             Nothing has been recorded at this facility yet, so patrons will not see anything
-            until someone uses the head count tool.
+            until someone logs a count under People here.
           </Banner>
         )}
 
@@ -234,6 +262,19 @@ export default function PublicConditionsSettings({
           </div>
         )}
       </div>
+      </CollapsibleContent>
     </section>
+    </Collapsible>
   );
+}
+
+/** The folded row's one-line answer to "what is public here?" — the saved state, not the edit. */
+function summary(initial: PublicConditionsSettingsProps["initial"]): string {
+  const occupancy =
+    initial.publicHeadcount === "count"
+      ? "Exact head count shown"
+      : initial.publicHeadcount === "level"
+        ? "How busy shown"
+        : "Occupancy hidden";
+  return `${occupancy} · Temperatures ${initial.publicConditions ? "shown" : "hidden"}`;
 }

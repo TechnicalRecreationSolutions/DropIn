@@ -35,7 +35,8 @@ export default function SpacesPanel({ facility, departments }: SpacesPanelProps)
           <h2 className="text-heading text-foreground truncate">{facility.name}</h2>
           <InfoTip>
             Drag a space by its handle, or use the arrows, to reorder it within its zone. The order
-            here is the order spaces appear in when building a session.
+            here is the order spaces appear in when building a session. Use &ldquo;New zone&rdquo;
+            on a department to group its spaces under a heading, such as the lanes of one pool.
           </InfoTip>
         </div>
         <Button asChild className="shrink-0">

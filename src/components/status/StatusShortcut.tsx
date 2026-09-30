@@ -12,8 +12,8 @@ export type { StatusShortcutNotice };
  * The status page (migration 060) was only linked from the Overview, which aux
  * staff are redirected away from, and from the Facilities grid, which is not in
  * their navigation — so the lifeguard who found the contamination had no path
- * to the one tool built for that moment. This strip sits on Head counts and on
- * the schedule, the two places a staffer already is when something goes wrong.
+ * to the one tool built for that moment. This strip sits on the schedule (it sat
+ * on Head counts too, until counting moved onto the status page itself).
  *
  * It does two jobs at once, on purpose:
  *

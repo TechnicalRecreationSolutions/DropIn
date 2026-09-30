@@ -17,7 +17,10 @@ staff  ◄── /dashboard (alert row), /dashboard/facilities (card footer)
 | File | Job |
 |---|---|
 | `notices.ts` | The domain. The two axes and their labels, severity ranking, `isNoticeLive` and friends, and how a window reads in words. Client-safe. |
-| `notice-presets.ts` | The catalogue that pre-fills a new notice. Vocabulary, not data. |
+| `templates.ts` | The status library's shape and `templatesFor` — which statuses a department is offered. Client-safe, no runtime imports. |
+| `load-templates.ts` | Reads `notice_templates` + assignments; falls back to the built-in list before 064. |
+| `template-schema.ts` | Zod body for `/api/notice-templates`. |
+| `notice-presets.ts` | The built-in catalogue. Since 064 only the pre-migration fallback and the seed's source wording (the SQL copy in 064 is what orgs actually get). |
 | `public-notices.ts` | The cached public read. Server only. |
 
 ## The model in one paragraph
@@ -84,6 +87,32 @@ and nothing else — no update, no delete, no publish.
   status page under "Waiting for approval" with Publish / Dismiss.
 - Every read treats the column as optional (`select("*")`, `?? false`), so
   the app runs unchanged before 063 is applied; the report POST answers 503.
+
+## The status library and department statuses (migration 064)
+
+The statuses staff pick from are each organization's own now:
+`notice_templates`, edited at **Settings › Statuses** (owner/manager,
+`notice-template:manage`). `notice_template_departments` says which
+departments see each one; **no rows means every department**. Posting still
+copies the words into `facility_notices` — nothing links back, so editing or
+deleting a template never rewrites something patrons read.
+
+A notice can now be about a department (`facility_notices.department_id`).
+The route checks the department is at this facility and that a named space is
+in it. Publicly the department name is folded into `space_name` (a location
+label), so NoticeBanner and the v1 conditions API show "Tennis" without a new
+field.
+
+The status page is a **board**: a row for the whole facility and one per
+department, placed by `department_id`, else the space's department, else the
+whole facility (so pre-064 notices sit where they belong). Each row's Post opens
+`StatusComposer` (a side panel) scoped to that department.
+
+Seeding: 064 filled every existing org with the 13 built-ins and assigned the
+five pool-only ones to departments named like aquatic/pool/swim; a trigger
+seeds each new org. **A new org has no departments when it is seeded**, so its
+pool statuses start on every department until a manager assigns them. Deleting
+the last department a template is assigned to also widens it to everyone.
 
 ## Where staff find it
 

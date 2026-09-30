@@ -66,7 +66,7 @@ export interface ScheduleEditingApi {
   templates: EditorTemplate[];
   /** Every space in the current facility, so Map can show empty columns to drop
    *  into. */
-  spaces: { id: string; name: string }[];
+  spaces: { id: string; name: string; zoneName?: string | null; displayOrder?: number }[];
   /** False when the scope spans more than one schedule, since a new session needs exactly one. */
   canCreate: boolean;
   /**

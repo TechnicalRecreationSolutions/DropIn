@@ -79,6 +79,12 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
         blurb: "What patrons can see today",
         permission: "facility:edit",
       },
+      {
+        href: "/dashboard/settings/statuses",
+        label: "Statuses",
+        blurb: "What staff can post, by department",
+        permission: "notice-template:manage",
+      },
     ],
   },
   {

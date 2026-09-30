@@ -117,7 +117,7 @@ export default function SpaceDetailSheet({
             </>
           ) : (
             <p className="text-sm text-muted-foreground">
-              {viewingNow ? "Free right now." : `Free at ${viewedTimeLabel}.`}
+              {viewingNow ? "Nothing on right now." : `Nothing on at ${viewedTimeLabel}.`}
             </p>
           )}
 

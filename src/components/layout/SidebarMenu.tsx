@@ -26,7 +26,7 @@ import {
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, countsHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import type { SidebarSelection } from "./SidebarNav";
 import { can, isReadOnly } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
@@ -210,6 +210,8 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     // person may do there (post, report, or only read) is the page's call.
     // Before this row existed the status page was linked only from the
     // Overview and the Facilities grid — neither of which aux staff can reach.
+    // Since 2026-09-29 it is also where people are counted: the separate
+    // "Head counts" item was folded into it.
     {
       href: selection.facilityId
         ? `/dashboard/facilities/${selection.facilityId}/status`
@@ -217,15 +219,6 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
       label: "Facility status",
       icon: Megaphone,
       activeWhen: (path) => path === "/dashboard/status" || path.endsWith("/status"),
-    },
-    {
-      // The one item every role sees, aux included — it is their only write
-      // (migration 061). Asked as `reading:write` and not `isReadOnly(role)`,
-      // which is true for aux and would remove it from the role it is for.
-      href: countsHref(selection.facilityId),
-      label: "Head counts",
-      icon: ClipboardList,
-      permission: "reading:write",
     },
     {
       href: "/dashboard/analytics",

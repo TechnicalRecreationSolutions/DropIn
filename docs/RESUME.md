@@ -2,8 +2,15 @@
 
 Open this first; it points at everything else.
 
-**Most recent session: the dashboard redesign** (first box below) —
-2026-09-29, **committed on `design/app-redesign`, NOT pushed**, no migration.
+**Most recent session: facility status rework + status library** (first box
+below) — 2026-09-29, **UNCOMMITTED** on `design/app-redesign`, **migration 064
+APPLIED**.
+
+Before it, same day: zones made on the Spaces page (second box), UNCOMMITTED,
+no migration.
+
+Before it, same day: the dashboard redesign (second box) — **committed on
+`design/app-redesign`, NOT pushed**, no migration.
 
 Before it: the marketing page rewrite, 2026-09-28 (the box below it).
 
@@ -27,6 +34,87 @@ multi-account staff roles, and a resident directory (`/find`).
 This file is the single entry point. The per-track `RESUME-*.md` files are
 historical records of finished work, not live handoffs — see
 [Related docs](#related-docs).
+
+---
+
+## Facility status rework + status library — 2026-09-29, UNCOMMITTED, 064 APPLIED
+
+The user disliked the status page layout, wanted less clutter, and wanted a
+place to create statuses and assign them to departments ("a tennis department
+does not need a pool fecal contamination"). Built:
+
+- **Settings › Statuses** (`/dashboard/settings/statuses`, owner/manager):
+  the org's status library, filterable by department to show exactly what that
+  department is offered; add/edit/delete in a dialog, "Every department" or
+  "Only these departments". API `/api/notice-templates` (+ `[id]`).
+- **Migration 064**: `notice_templates`, `notice_template_departments`
+  (none = every department), `facility_notices.department_id`; seeded every
+  org with the 13 built-ins, pool-only ones assigned to aquatic-named
+  departments (in prod: the three Aquatics departments; Panorama Tennis no
+  longer sees them); a trigger seeds new orgs.
+- **Status page**: a board, one row per department + whole facility, "All
+  clear" or the live notices with Clear; Post per row opens a side panel
+  scoped to that department (pick a status → check the words; kind/end
+  time/staff-only under "More options"). Drafts+scheduled merged into "Not
+  live yet" (shown only when non-empty); History folded; "What patrons see"
+  folded to a one-line summary (auto-opens on `#public`). Also fixed the
+  pre-existing "uncached data during prerendering" console error with a
+  Suspense boundary.
+- Public notices name the department when there is no space.
+
+**Same day, follow-up: Head counts folded into the status page.** The user:
+"head counts is very much lifeguard language". `/dashboard/counts` is deleted
+(redirects in next.config.ts, keeping `?facility=`); the counter is a
+**People here** section under the board; temperatures fold unless the
+facility has recorded one, the log folds too; wording is "Whole facility"
+throughout. Sidebar item removed; the phone bar's raised centre is now
+**Status** for every role (was Count, plus an aux-only Status tab). Fixed a
+real hydration error on the status page (notice times formatted on the
+server) that verify-be caught once aux counting lived there. verify-bg
+51/51, verify-be 69/69, verify-ba 70/70, verify-az 44/44.
+
+Verified (first pass): verify-bg 45/45 (falsified: 8 reds on 2 breaks), verify-be 68/68
+(updated for the panel), verify-az 44/44; anon cannot read/insert the new
+tables or call the seed function. Security sweep reds are all pre-existing
+files. Known limitation: a brand-new org is seeded before it has departments,
+so its pool statuses start as "every department". Read
+`src/lib/status/README.md`.
+
+---
+
+## Zones made on the Spaces page — 2026-09-29, UNCOMMITTED, no migration
+
+A zone (`spaces.zone_name`, migration 054) was only settable one space at a
+time, through the space edit form's free-text field: making "Main Pool" for
+eight lanes meant eight edit pages and typing the label eight times. Nothing on
+`/dashboard/spaces` said "new zone".
+
+- **`PATCH /api/spaces/zone`** (`src/app/api/spaces/zone/route.ts`) — one
+  write that stamps a label onto `member_ids` and clears it from spaces still
+  carrying `previous_zone_name`. Create, rename, drop a member and dissolve are
+  the same call. Scoped to ONE department: "Main Pool" under Aquatics and
+  "Main Pool" under Fitness are different zones that share a string, so a
+  rename of one never touches the other, and the permission check is the same
+  `space:write` on that department as the per-space route. A member from
+  another department is a 400 with nothing written.
+- **`ZoneDialog`** (`src/components/space/ZoneDialog.tsx`) — name + tick the
+  section's spaces. Opened by "New zone" on each department header and by the
+  pencil on each zone heading (pre-ticked, with "Remove zone"). A ticked space
+  that is in another zone says "moving from X" — unless X is the typed name,
+  in which case it is staying. Zone is still a label, not a table.
+- **"+" on a zone heading** opens the space form with `?zone=` pre-filled, so a
+  new lane lands in its pool instead of being added loose and re-filed.
+- `SpaceSections` relabels optimistically then `router.refresh()`es — unlike
+  reorder there is no next click racing the refresh, because the dialog closed.
+
+Verified: `verify-bf` 49/49 (route: create/rename/drop/dissolve, department
+boundary, coordinator 403/200/whole-building; browser: the dialog end to end,
+the pencil rename, the pre-filled form). `verify-aj` re-run 13/13 after a
+one-word fix — it inserted the invalid role `"admin"` and had been 0/8 for
+that reason alone (see the Harness "admin" Role note in memory).
+
+Not done: nothing moves a space between departments from this page (still the
+edit form); the map sidebar reads the same grouping and needed no change.
 
 ---
 

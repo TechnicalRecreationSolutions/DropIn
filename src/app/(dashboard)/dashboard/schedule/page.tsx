@@ -146,7 +146,7 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     }>,
     supabase
       .from("spaces")
-      .select("id, name, capacity, is_published, facility_id, department_id")
+      .select("id, name, capacity, is_published, facility_id, department_id, zone_name, display_order")
       .eq("org_id", orgId)
       .order("display_order", { ascending: true })
       .order("created_at", { ascending: true }),
@@ -234,6 +234,8 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         capacity: s.capacity,
         isPublished: s.is_published,
         departmentId: s.department_id,
+        zoneName: s.zone_name,
+        displayOrder: s.display_order,
       })),
     scheduleGroups: (scheduleGroupRows ?? [])
       .filter((g) => g.facility_id === f.id)

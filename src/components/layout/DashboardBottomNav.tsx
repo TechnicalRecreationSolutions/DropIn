@@ -9,7 +9,6 @@ import {
   LayoutDashboard,
   Megaphone,
   Menu,
-  Users,
   type LucideIcon,
 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -28,16 +27,13 @@ import type { OrgRole } from "@/types/app.types";
  *   aux:                                    Schedule · (Count) · Status · Menu
  *
  * Aux has no Today because /dashboard redirects them to the schedule, and no
- * Activity because they lack `activity:view`. Status takes that slot: for a
- * lifeguard, "the pool just got fouled" is the other thing done standing up,
- * and before it was here the status page had no route in from a phone at all.
- * It costs the centred Count its exact centre for aux, which is the cheaper
- * loss.
+ * Activity because they lack `activity:view`.
  *
- * **Count is the raised centre action, the app's "+ post".** It is the one
- * thing done many times a shift, and for aux it is the whole shift. Gated on
- * `reading:write` rather than `isReadOnly(role)` — the latter is TRUE for aux
- * and would hide it from exactly them.
+ * **Status is the raised centre action, the app's "+ post".** Since
+ * 2026-09-29 it holds both things done standing up: posting a status and
+ * logging how many people are here (the old separate Count tab, whose page
+ * was folded into the status page). Shown to every role — reading status is
+ * universal, and what each person may do there is the page's call.
  *
  * Activity takes the "notifications" slot and moves off the mobile topbar.
  * It has no unread badge yet — that needs a last-seen marker, a separate job.
@@ -58,7 +54,6 @@ type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean 
 
 const todayLink: NavItem = { href: "/dashboard", label: "Today", icon: LayoutDashboard, exact: true };
 const scheduleLink: NavItem = { href: "/dashboard/schedule", label: "Schedule", icon: Calendar };
-const countLink: NavItem = { href: "/dashboard/counts", label: "Count", icon: Users };
 const activityLink: NavItem = { href: "/dashboard/activity", label: "Activity", icon: ClipboardList };
 // /dashboard/status resolves to the staffer's facility (or a list of them).
 const statusLink: NavItem = { href: "/dashboard/status", label: "Status", icon: Megaphone };
@@ -192,7 +187,6 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
   // shared across all four chrome sections), so a fetch here would be a second
   // request AND a flash of the wrong navigation while it resolved.
   const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
-  const canCount = can(actor, "reading:write");
   const canViewActivity = can(actor, "activity:view");
 
   function renderLink(item: NavItem, raised = false) {
@@ -241,9 +235,10 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
             be a second Schedule tab. */}
         {!isReadOnly(role) && renderLink(todayLink)}
         {renderLink(scheduleLink)}
-        {canCount && renderLink(countLink, true)}
+        {/* Every role: reading status is universal, and it is where counting
+            lives now (the old Count tab and aux-only Status tab, merged). */}
+        {renderLink(statusLink, true)}
         {canViewActivity && renderLink(activityLink)}
-        {isReadOnly(role) && renderLink(statusLink)}
         <button
           type="button"
           onClick={openTreeSheet}

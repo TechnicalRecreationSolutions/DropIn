@@ -1,16 +1,25 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
+import { ChevronLeft, ChevronRight } from "lucide-react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { useDraggable, useDroppable } from "@dnd-kit/core";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
+import {
+  formatSessionTime,
+  formatDayShort,
+  formatDayFull,
+  nowAsSessionTime,
+  getWeekStart,
+  nextWeek,
+  prevWeek,
+} from "@/lib/utils/dates";
+import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils/cn";
-import { getSessionCardStyle } from "./sessionCardColor";
+import { getSessionBlockStyle } from "./sessionCardColor";
 import SessionTags from "./SessionTags";
 import { mergeResidualBands } from "@/lib/schedule/residual";
 import SessionModal from "./SessionModal";
-import WeekNavigator from "./WeekNavigator";
 import {
   SLOT_HEIGHT_PX,
   GRID_START_HOUR,
@@ -45,6 +54,23 @@ interface WeeklyScheduleMapProps {
 
 const GENERAL_COLUMN = "General";
 
+/** Height of the pinned header rows above the lanes. */
+const ZONE_ROW_PX = 28;
+const LANE_ROW_PX = 34;
+const GUTTER_PX = 56;
+
+/**
+ * Identity of one drawn block within a column. Two columns hold "the same
+ * block" when the session occurrence and its times match, which is what lets a
+ * session booked into Lanes 1–3 be drawn as one block across them.
+ */
+function blockIdentity(session: ExpandedSession): string {
+  return `${session.key}|${session.start.getTime()}|${session.end.getTime()}`;
+}
+
+/** Lane 2 before Lane 10. */
+const naturalCompare = new Intl.Collator(undefined, { numeric: true, sensitivity: "base" }).compare;
+
 /** "7:15 AM" from a minute of the day — for the live labels a gesture draws,
  *  which have a number rather than a Date to render. */
 function formatMinuteOfDay(minute: number): string {
@@ -62,6 +88,8 @@ interface MapColumn {
   name: string;
   /** Set only for columns backed by a real `spaces` row — the only droppable ones. */
   spaceId: string | null;
+  /** The space's zone label ("Main pool"), which groups columns under one heading. */
+  zone: string | null;
   sessions: ExpandedSession[];
   /**
    * The column split into side-by-side sub-columns so overlapping sessions are
@@ -174,11 +202,23 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
     // spaces still get a droppable column) and otherwise from whatever the
     // sessions themselves carry, which is all a public viewer can see.
     const spaceNameById = new Map<string, string>();
+    const zoneById = new Map<string, string | null>();
+    const orderById = new Map<string, number>();
     for (const session of daySessions) {
       session.spaceIds.forEach((id, i) => {
         const name = session.spaceNames[i];
         if (name) spaceNameById.set(id, name);
+        const zone = session.spaceZones?.[i];
+        if (zone !== undefined) zoneById.set(id, zone?.trim() || null);
+        const order = session.spaceOrders?.[i];
+        if (order !== undefined) orderById.set(id, order);
       });
+    }
+    // The editor's own list wins: an optimistic move rewrites a session's
+    // spaceIds without its parallel zone array, so the index can be stale.
+    for (const space of editingSpaces ?? []) {
+      if (space.zoneName !== undefined) zoneById.set(space.id, space.zoneName?.trim() || null);
+      if (space.displayOrder !== undefined) orderById.set(space.id, space.displayOrder);
     }
 
     const spaceColumns: UnpackedColumn[] = (
@@ -188,23 +228,43 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
       .map((space) => ({
         name: spaceNameById.get(space.id) ?? space.name,
         spaceId: space.id,
+        zone: zoneById.get(space.id) ?? null,
         // Residual blocks arrive split into bands by /api/sessions/expand. A
         // band boundary caused by a claim on *another* lane means nothing in
         // this column, so rejoin what is contiguous here — otherwise an
         // untouched lane shows three stacked blocks where one belongs.
         sessions: mergeResidualBands(bySpaceId.get(space.id) ?? []),
-      }))
-      .sort((a, b) => a.name.localeCompare(b.name));
+      }));
+
+    // Lanes of one zone sit together, in the order staff set on the Spaces
+    // page (display_order), falling back to a natural name sort so Lane 2
+    // comes before Lane 10. A zone is placed where its first lane would be.
+    const orderOf = (col: UnpackedColumn) =>
+      (col.spaceId !== null ? orderById.get(col.spaceId) : undefined) ?? Number.MAX_SAFE_INTEGER;
+    const zoneRank = new Map<string, number>();
+    for (const col of spaceColumns) {
+      if (col.zone === null) continue;
+      zoneRank.set(col.zone, Math.min(zoneRank.get(col.zone) ?? Number.MAX_SAFE_INTEGER, orderOf(col)));
+    }
+    spaceColumns.sort((a, b) => {
+      const rankA = a.zone !== null ? zoneRank.get(a.zone)! : orderOf(a);
+      const rankB = b.zone !== null ? zoneRank.get(b.zone)! : orderOf(b);
+      if (rankA !== rankB) return rankA - rankB;
+      if ((a.zone ?? "") !== (b.zone ?? "")) return naturalCompare(a.zone ?? "", b.zone ?? "");
+      if (orderOf(a) !== orderOf(b)) return orderOf(a) - orderOf(b);
+      return naturalCompare(a.name, b.name);
+    });
 
     const locationColumns: UnpackedColumn[] = Array.from(byLocationName, ([name, list]) => ({
       name,
       spaceId: null,
+      zone: null,
       sessions: list,
-    })).sort((a, b) => a.name.localeCompare(b.name));
+    })).sort((a, b) => naturalCompare(a.name, b.name));
 
     const result = [...spaceColumns, ...locationColumns];
     if (withoutLocation.length > 0) {
-      result.push({ name: GENERAL_COLUMN, spaceId: null, sessions: withoutLocation });
+      result.push({ name: GENERAL_COLUMN, spaceId: null, zone: null, sessions: withoutLocation });
     }
 
     // Split each column only once the whole column is known. Packing on the
@@ -267,15 +327,130 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
     setBlocks?.(canvasBlocks);
   }, [setBlocks, canvasBlocks]);
 
+  // ── Day navigation ────────────────────────────────────────────────────────
+  // One day at a time, so "previous" and "next" step a day and roll into the
+  // neighbouring week at either end rather than stopping at Sunday/Saturday.
+  const todayIndex = dayIndexFromDate(new Date());
+  const isToday = localDateString(activeDay) === localDateString(new Date());
+
+  function goToPreviousDay() {
+    if (activeDayIndex > 0) return setActiveDayIndex(activeDayIndex - 1);
+    onWeekChange(prevWeek(weekStart));
+    setActiveDayIndex(6);
+  }
+  function goToNextDay() {
+    if (activeDayIndex < 6) return setActiveDayIndex(activeDayIndex + 1);
+    onWeekChange(nextWeek(weekStart));
+    setActiveDayIndex(0);
+  }
+  function goToToday() {
+    const thisWeek = getWeekStart(new Date());
+    if (localDateString(thisWeek) !== localDateString(weekStart)) onWeekChange(thisWeek);
+    setActiveDayIndex(todayIndex);
+  }
+
+  // ── The "now" line, today only, moved once a minute ─────────────────────
+  const [nowMinute, setNowMinute] = useState(() => minutesOfDayIn(nowAsSessionTime()));
+  useEffect(() => {
+    if (!isToday) return;
+    const timer = window.setInterval(() => setNowMinute(minutesOfDayIn(nowAsSessionTime())), 60_000);
+    return () => window.clearInterval(timer);
+  }, [isToday]);
+  const nowTopPx =
+    isToday && nowMinute >= GRID_START_HOUR * 60 && nowMinute < GRID_END_HOUR * 60
+      ? ((nowMinute - GRID_START_HOUR * 60) / 30) * SLOT_HEIGHT_PX
+      : null;
+
+  // ── One block across neighbouring lanes ──────────────────────────────────
+  // A session in Lanes 1–3 is one session; drawing it three times made the
+  // lanes look like three bookings. Neighbouring columns of the same zone that
+  // hold the same full-width block are joined, and only the first carries the
+  // label. Each lane still renders (and selects, and drops) exactly as before —
+  // this is drawing, not a change to what a block is on the canvas.
+  const joins = useMemo(() => {
+    const fullWidth = columns.map((col) =>
+      col.tracks.length === 1 ? new Set(col.sessions.map(blockIdentity)) : new Set<string>()
+    );
+    const sameZone = (a: number, b: number) =>
+      columns[a].zone !== null && columns[a].zone === columns[b].zone;
+    return (columnIndex: number, session: ExpandedSession) => {
+      const id = blockIdentity(session);
+      if (!fullWidth[columnIndex].has(id)) return { left: false, right: false, run: 1 };
+      const left = columnIndex > 0 && sameZone(columnIndex - 1, columnIndex) && fullWidth[columnIndex - 1].has(id);
+      const right =
+        columnIndex < columns.length - 1 &&
+        sameZone(columnIndex, columnIndex + 1) &&
+        fullWidth[columnIndex + 1].has(id);
+      let run = 1;
+      while (
+        columnIndex + run < columns.length &&
+        sameZone(columnIndex + run - 1, columnIndex + run) &&
+        fullWidth[columnIndex + run].has(id)
+      ) {
+        run++;
+      }
+      return { left, right, run };
+    };
+  }, [columns]);
+
+  // ── Zone headings: one per run of neighbouring columns in the same zone ──
+  const zoneRuns = useMemo(() => {
+    const runs: { zone: string | null; span: number }[] = [];
+    for (const col of columns) {
+      const last = runs[runs.length - 1];
+      if (last && col.zone !== null && last.zone === col.zone) last.span++;
+      else runs.push({ zone: col.zone, span: 1 });
+    }
+    return runs;
+  }, [columns]);
+  const hasZones = zoneRuns.some((r) => r.zone !== null);
+  const headerHeightPx = (hasZones ? ZONE_ROW_PX : 0) + LANE_ROW_PX;
+
+  // A column that had to split needs room for its sub-columns, or two thin
+  // halves make both unreadable — so its minimum grows with the track count
+  // instead of every column shrinking.
+  const columnMinWidths = columns.map((c) => Math.max(128, c.tracks.length * 110));
+  const gridTemplateColumns = columnMinWidths.map((w) => `minmax(${w}px, 1fr)`).join(" ");
+  // The scroll width is the columns' minimums, not their content: a label
+  // running across a joined block is wider than its own lane on purpose, and
+  // sizing the grid to its content would stretch every column to fit it.
+  const minContentWidthPx = GUTTER_PX + columnMinWidths.reduce((sum, w) => sum + w, 0);
+
   return (
     <div>
-      <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
+      <div className="flex items-center justify-between gap-3">
+        <Button type="button" variant="outline" size="sm" onClick={goToPreviousDay} aria-label="Previous day">
+          <ChevronLeft />
+          <span className="hidden sm:inline">Previous day</span>
+        </Button>
+        <div className="min-w-0 text-center">
+          {isToday && (
+            <p className="text-[11px] font-semibold leading-4" style={{ color: "var(--org-primary, var(--brand))" }}>
+              Today
+            </p>
+          )}
+          <h3 className="text-base font-semibold tracking-[-0.01em] text-foreground truncate">
+            {formatDayFull(activeDay)}
+          </h3>
+        </div>
+        <div className="flex items-center gap-2">
+          {!isToday && (
+            <Button type="button" variant="outline" size="sm" onClick={goToToday}>
+              Today
+            </Button>
+          )}
+          <Button type="button" variant="outline" size="sm" onClick={goToNextDay} aria-label="Next day">
+            <span className="hidden sm:inline">Next day</span>
+            <ChevronRight />
+          </Button>
+        </div>
+      </div>
 
-      {/* Day selector chips. Under an editor they are also drop targets: the
-          columns of this view are all one day, so dropping onto a chip is the
+      {/* Day strip. Under an editor each day is also a drop target: the
+          columns of this view are all one day, so dropping onto a day is the
           only single gesture that can move a block to another weekday — the
           alternative is cut, switch day, paste. */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 px-1">
+      <div className="mt-3 grid grid-cols-7 gap-1.5 sm:gap-2">
         {days.map((day, i) => (
           <DayChip
             key={i}
@@ -289,12 +464,8 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
         ))}
       </div>
 
-      <div className="flex items-baseline gap-2 flex-wrap mt-3">
-        <h3 className="text-sm font-bold text-foreground">{formatDayFull(activeDay)}</h3>
-      </div>
-
       {columns.length === 0 ? (
-        <div className="text-center py-10 text-sm text-muted-foreground/70">
+        <div className="mt-4 rounded-xl bg-muted px-6 py-10 text-center text-sm text-muted-foreground">
           <p>
             {editing
               ? "Add a space to this facility (e.g. Lane 3, Court A) to place sessions on the map."
@@ -302,47 +473,116 @@ export default function WeeklyScheduleMap({ sessions, weekStart, onWeekChange }:
           </p>
         </div>
       ) : (
-        <div className="mt-3 overflow-x-auto">
-          <div className="flex" style={{ minWidth: "max-content" }}>
-            {/* Time gutter */}
-            <div className="w-12 sm:w-16 flex-shrink-0 relative" style={{ height: gridHeightPx + "px" }}>
-              {timeLabels.map((t) => (
-                <span
-                  key={t.label}
-                  className="absolute right-2 text-xs text-muted-foreground/70 -translate-y-2.5"
-                  style={{ top: t.top + "px" }}
-                >
-                  {t.label}
-                </span>
-              ))}
+        // The staff builder scrolls inside its own box so the lane headings and
+        // times stay pinned while a long day is worked through. The public
+        // widget grows with its content instead: it resizes its iframe to fit,
+        // and a scroll box inside an embed is one scroll too many.
+        <div
+          className={cn(
+            "mt-4 overflow-auto rounded-xl border border-border bg-card",
+            editing && "max-h-[75vh]"
+          )}
+        >
+          <div className="flex" style={{ minWidth: minContentWidthPx }}>
+            {/* Time gutter, pinned to the left */}
+            <div className="sticky left-0 z-20 flex-shrink-0 bg-card" style={{ width: GUTTER_PX }}>
+              <div className="sticky top-0 z-10 bg-card" style={{ height: headerHeightPx }} />
+              <div className="relative" style={{ height: gridHeightPx + "px" }}>
+                {timeLabels.map((t) => (
+                  <span
+                    key={t.label}
+                    // The first hour sits on the top edge; centring it on the
+                    // line would tuck half of it under the pinned headings.
+                    className={cn(
+                      "absolute right-2.5 text-[11px] text-muted-foreground",
+                      t.top === 0 ? "translate-y-0.5" : "-translate-y-2"
+                    )}
+                    style={{ top: t.top + "px" }}
+                  >
+                    {t.label}
+                  </span>
+                ))}
+              </div>
             </div>
 
-            {/* Space columns on the time axis */}
-            {/* A column that had to split needs room for its sub-columns, or
-                two 80px halves make both unreadable — so its minimum grows with
-                the track count instead of every column shrinking. */}
-            <div
-              className="grid gap-3"
-              style={{
-                gridTemplateColumns: columns
-                  .map((c) => `minmax(${Math.max(160, c.tracks.length * 110)}px, 1fr)`)
-                  .join(" "),
-              }}
-            >
-              {columns.map((col, columnIndex) => (
-                <MapColumnView
-                  key={col.spaceId ?? col.name}
-                  column={col}
-                  columnIndex={columnIndex}
-                  dayCode={activeDayCode}
-                  heightPx={gridHeightPx}
-                  totalSlots={totalSlots}
-                  editing={editing}
-                  canvas={canvas}
-                  drag={drag}
-                  onSelectSession={setSelectedSession}
-                />
-              ))}
+            <div className="min-w-0 flex-1">
+              {/* Zone and lane headings, pinned to the top */}
+              <div className="sticky top-0 z-10 bg-card">
+                {hasZones && (
+                  <div className="grid" style={{ gridTemplateColumns, height: ZONE_ROW_PX }}>
+                    {zoneRuns.map((run, i) => (
+                      <div
+                        key={i}
+                        style={{ gridColumn: `span ${run.span}` }}
+                        className="flex items-center gap-2.5 px-2"
+                      >
+                        {run.zone && (
+                          <>
+                            <span aria-hidden className="h-px flex-1 bg-border" />
+                            <span className="truncate text-xs font-semibold text-foreground">{run.zone}</span>
+                            <span aria-hidden className="h-px flex-1 bg-border" />
+                          </>
+                        )}
+                      </div>
+                    ))}
+                  </div>
+                )}
+                <div
+                  className="grid border-b border-border"
+                  style={{ gridTemplateColumns, height: LANE_ROW_PX }}
+                >
+                  {columns.map((col) => (
+                    <div
+                      key={col.spaceId ?? col.name}
+                      className={cn(
+                        "flex items-center justify-center truncate px-2 text-xs font-semibold",
+                        col.name === GENERAL_COLUMN ? "text-muted-foreground" : "text-foreground"
+                      )}
+                      title={col.name}
+                    >
+                      {col.name}
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              {/* Lanes on the time axis. `isolate` keeps everything drawn in
+                  here — a label running across joined lanes, the now line —
+                  underneath the pinned headings when the day scrolls. */}
+              <div className="relative isolate grid" style={{ gridTemplateColumns }}>
+                {columns.map((col, columnIndex) => {
+                  const next = columns[columnIndex + 1];
+                  return (
+                    <MapColumnView
+                      key={col.spaceId ?? col.name}
+                      column={col}
+                      columnIndex={columnIndex}
+                      dayCode={activeDayCode}
+                      heightPx={gridHeightPx}
+                      totalSlots={totalSlots}
+                      divider={!next ? "none" : next.zone === col.zone && col.zone !== null ? "lane" : "zone"}
+                      joins={joins}
+                      editing={editing}
+                      canvas={canvas}
+                      drag={drag}
+                      onSelectSession={setSelectedSession}
+                    />
+                  );
+                })}
+
+                {nowTopPx !== null && (
+                  <div
+                    aria-hidden
+                    className="pointer-events-none absolute inset-x-0 z-[15]"
+                    style={{ top: nowTopPx + "px" }}
+                  >
+                    <div className="h-0.5 bg-destructive" />
+                    <span className="absolute left-1 -top-2.5 rounded-full bg-destructive px-1.5 py-px text-[10px] font-semibold text-white">
+                      Now
+                    </span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
         </div>
@@ -373,6 +613,8 @@ function MapColumnView({
   dayCode,
   heightPx,
   totalSlots,
+  divider,
+  joins,
   editing,
   canvas,
   drag,
@@ -383,6 +625,9 @@ function MapColumnView({
   dayCode: string;
   heightPx: number;
   totalSlots: number;
+  /** The line to its right: a dashed lane line, a solid line between zones, or none. */
+  divider: "lane" | "zone" | "none";
+  joins: (columnIndex: number, session: ExpandedSession) => { left: boolean; right: boolean; run: number };
   editing: ScheduleEditingApi | null;
   canvas: ScheduleCanvasApi | null;
   drag: { blockId: string | null; x: number; y: number } | null;
@@ -398,7 +643,6 @@ function MapColumnView({
   });
 
   const surfaceRef = useRef<HTMLDivElement | null>(null);
-  const isGeneral = column.name === GENERAL_COLUMN;
   const isActiveColumn = canvas?.activeCell?.columnIndex === columnIndex;
 
   /**
@@ -420,16 +664,7 @@ function MapColumnView({
   }
 
   return (
-    <div className="min-w-[160px]">
-      <div
-        className={cn(
-          "text-center text-xs font-bold py-2 rounded-t-lg text-white truncate px-2",
-          isGeneral && "bg-gray-500"
-        )}
-        style={isGeneral ? undefined : { backgroundColor: "var(--org-primary, #2563eb)" }}
-      >
-        {column.name}
-      </div>
+    <div className="min-w-0">
       <div
         ref={(node) => {
           setNodeRef(node);
@@ -442,18 +677,23 @@ function MapColumnView({
         // re-measure a scrolling container mid-gesture.
         data-canvas-column={columnIndex}
         className={cn(
-          "relative border border-t-0 rounded-b-lg transition-colors",
-          // A drop target has to read as one in both themes; bg-blue-50 is
-          // invisible against a dark surface.
-          isOver ? "bg-blue-500/10 ring-2 ring-inset ring-blue-500" : "bg-muted",
-          isActiveColumn ? "border-brand" : "border-border"
+          "relative transition-colors",
+          divider === "lane" && "border-r border-dashed border-border",
+          divider === "zone" && "border-r border-input/60",
+          // A drop target has to read as one in both themes.
+          isOver ? "bg-brand-subtle/60 ring-2 ring-inset ring-brand" : "bg-muted/40",
+          isActiveColumn && !isOver && "bg-brand-subtle/30"
         )}
         style={{ height: heightPx + "px" }}
       >
+        {/* Hour lines, with a fainter line on the half hour. */}
         {Array.from({ length: totalSlots }, (_, i) => (
           <div
             key={i}
-            className={cn("absolute inset-x-0 border-b pointer-events-none", i % 2 === 0 ? "border-border" : "border-border")}
+            className={cn(
+              "absolute inset-x-0 border-b pointer-events-none",
+              i % 2 === 0 ? "border-border/40" : "border-border"
+            )}
             style={{ top: i * SLOT_HEIGHT_PX + "px", height: SLOT_HEIGHT_PX + "px" }}
           />
         ))}
@@ -472,7 +712,7 @@ function MapColumnView({
         )}
 
         {droppable && column.sessions.length === 0 && (
-          <p className="absolute inset-x-0 top-4 text-xs text-muted-foreground/70 text-center px-2 pointer-events-none">
+          <p className="absolute inset-x-2 top-3 rounded-[10px] border border-dashed border-input/60 px-2 py-2 text-center text-xs text-muted-foreground pointer-events-none">
             Drop a template here
           </p>
         )}
@@ -487,6 +727,7 @@ function MapColumnView({
               spaceId={column.spaceId}
               trackIndex={trackIndex}
               trackCount={column.tracks.length}
+              join={joins(columnIndex, session)}
               editing={editing}
               canvas={canvas}
               drag={drag}
@@ -506,6 +747,7 @@ function MapSessionBlock({
   spaceId,
   trackIndex,
   trackCount,
+  join,
   editing,
   canvas,
   drag,
@@ -518,6 +760,12 @@ function MapSessionBlock({
   /** Which sub-column of its space this block sits in, and how many there are. */
   trackIndex: number;
   trackCount: number;
+  /**
+   * Whether the same block continues into the lane to the left / right, and —
+   * on the first lane of a run — how many lanes the run covers. Joined pieces
+   * lose their inner corners and gaps so the run reads as one block.
+   */
+  join: { left: boolean; right: boolean; run: number };
   editing: ScheduleEditingApi | null;
   canvas: ScheduleCanvasApi | null;
   drag: { blockId: string | null; x: number; y: number } | null;
@@ -536,6 +784,9 @@ function MapSessionBlock({
   const { top, height } = getSessionPixelPosition(session.start, session.end);
   const isPast = session.end < nowAsSessionTime();
   const displayName = sessionDisplayLabel(session);
+  // Only the first lane of a joined run carries the words; the rest of the
+  // run is the same block continued.
+  const showLabel = !join.left;
 
   const selectable = !!canvas?.enabled && !isFragment;
   const isSelected = selectable && canvas.selectedIds.has(blockId);
@@ -688,7 +939,9 @@ function MapSessionBlock({
       data-canvas-block={blockId}
       data-canvas-selected={isSelected ? "true" : "false"}
       className={cn(
-        "absolute rounded-lg border-l-4 overflow-visible group/block",
+        "absolute rounded-[10px] border overflow-visible group/block",
+        join.left && "rounded-l-none border-l-0",
+        join.right && "rounded-r-none border-r-0",
         // NOT `transition-all`. That animated top/height/transform too, so a
         // dragged block eased toward the pointer a beat behind it and a resized
         // one grew after the fact — the two things a direct-manipulation canvas
@@ -712,13 +965,16 @@ function MapSessionBlock({
           : ghost
             ? `translate3d(${ghost.x}px, ${ghost.y}px, 0)`
             : undefined,
-        // Horizontal share of the column. A single track reproduces the old
-        // `inset-x-1` exactly; two or more sit side by side, which is the only
-        // way a program booked over a drop-in block is visible at all.
-        left: `calc(${(trackIndex / trackCount) * 100}% + 4px)`,
-        width: `calc(${100 / trackCount}% - 8px)`,
-        color: isPast ? "#8FA2AD" : "var(--org-text-on-tint, #1e3a5f)",
-        ...getSessionCardStyle(session, isPast),
+        // Horizontal share of the column. Two or more tracks sit side by side,
+        // which is the only way a program booked over a drop-in block is
+        // visible at all. A joined side has no inset, so neighbouring lanes
+        // meet. Read-only, a joined piece also reaches over the 1px lane line
+        // so the run is one solid block; on the staff canvas the line is left
+        // showing, because there each lane is still its own cell.
+        left: `calc(${(trackIndex / trackCount) * 100}% + ${join.left ? 0 : 3}px)`,
+        width: `calc(${100 / trackCount}% - ${(join.left ? 0 : 3) + (join.right ? (editing ? 0 : -1) : 3)}px)`,
+        // Tint, or the hatch for a rental or closure: shared with Grid and Board.
+        ...getSessionBlockStyle(session, isPast),
       }}
       {...(editing && !isFragment ? listeners : {})}
       {...(editing && !isFragment ? attributes : {})}
@@ -755,38 +1011,53 @@ function MapSessionBlock({
           }
         }}
         aria-pressed={selectable ? isSelected : undefined}
+        aria-label={join.left ? displayName : undefined}
         className={cn(
-          "w-full h-full flex flex-col items-stretch justify-start text-left px-2 py-1 hover:brightness-95 rounded-md overflow-hidden",
+          "w-full h-full flex flex-col items-stretch justify-start text-left px-2.5 py-1.5 hover:brightness-95 rounded-[10px]",
+          join.left && "rounded-l-none",
+          join.right && "rounded-r-none",
+          // The first lane of a run lets its label run on over the lanes that
+          // continue it; everywhere else the text is clipped to the block.
+          showLabel && join.run > 1 ? "overflow-visible" : "overflow-hidden",
           // A visible focus ring, always — the canvas is navigable by Tab and
           // an invisible focus makes the arrow keys act on nothing anyone can
           // see. `focus-visible` rather than `focus` so a pointer click does
           // not leave a ring behind on every block it touches.
-          "focus:outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-1"
+          "focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1"
         )}
         // A block that cannot take a gesture has to say so where the gesture
         // would be tried. Withholding the grip silently leaves someone
         // hunting for a handle that was never going to be there.
         title={blockHint}
       >
-        <p className={cn("text-xs font-semibold leading-tight truncate", editing && "pr-4")}>
-          {displayName}
-        </p>
-        {(liveLabel || height >= SLOT_HEIGHT_PX) && (
-          <p
-            className={cn(
-              "text-xs leading-tight truncate",
-              liveLabel ? "font-semibold opacity-100 tabular-nums" : "opacity-75"
-            )}
+        {showLabel && (
+          <span
+            className="relative z-[12] flex min-w-0 flex-col"
+            // Across a joined run the label is as wide as the whole run, less
+            // room for the menu at its far end.
+            style={join.run > 1 ? { width: `calc(${join.run * 100}% - ${editing ? 24 : 4}px)` } : undefined}
           >
-            {liveLabel ?? `${formatSessionTime(session.start)}–${formatSessionTime(session.end)}`}
-          </p>
+            <span className={cn("text-[13px] font-semibold leading-4 truncate", editing && join.run === 1 && "pr-4")}>
+              {displayName}
+            </span>
+            {(liveLabel || height >= SLOT_HEIGHT_PX) && (
+              <span
+                className={cn(
+                  "text-[11.5px] leading-4 truncate",
+                  liveLabel ? "font-semibold opacity-100 tabular-nums" : "opacity-80"
+                )}
+              >
+                {liveLabel ?? `${formatSessionTime(session.start)}–${formatSessionTime(session.end)}`}
+              </span>
+            )}
+          </span>
         )}
         {/* Blocks here are drawn to the height of their own duration, so a
             short session genuinely has no room — the same reason the time
             above is gated. The tags are still in the detail modal either way,
             which is why dropping them is safe rather than lossy. */}
-        {height >= SLOT_HEIGHT_PX * 2 && (
-          <SessionTags tags={session.templateTags} size="xs" className="mt-0.5" />
+        {showLabel && height >= SLOT_HEIGHT_PX * 2 && (
+          <SessionTags tags={session.templateTags} size="xs" className="relative z-[12] mt-0.5" />
         )}
       </button>
 
@@ -838,7 +1109,7 @@ function MapSessionBlock({
           models a shared lap-swim block, rather than four copies of it.
           Square and cornered so it cannot be mistaken for the round edge
           grips, which do something else entirely. */}
-      {selectable && (
+      {selectable && !join.right && (
         <div
           onPointerDown={beginLaneSpan}
           className={cn(
@@ -851,8 +1122,8 @@ function MapSessionBlock({
         />
       )}
 
-      {editing && (
-        <SessionActionsMenu session={session} editing={editing} className="absolute top-1 right-1" />
+      {editing && !join.right && (
+        <SessionActionsMenu session={session} editing={editing} className="absolute top-1 right-1 z-[13]" />
       )}
     </div>
   );
@@ -883,23 +1154,33 @@ function DayChip({
   return (
     <button
       ref={setNodeRef}
+      type="button"
       onClick={onSelect}
+      aria-pressed={isActive}
+      aria-label={`${formatDayFull(day)}, ${count} ${count === 1 ? "session" : "sessions"}`}
       className={cn(
-        "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
-        isActive ? "text-white" : "bg-muted text-muted-foreground hover:bg-border",
+        "flex min-w-0 flex-col items-center rounded-xl border py-2 transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-ring",
+        isActive
+          ? "border-transparent text-white"
+          : "border-border bg-card text-foreground hover:bg-muted",
         isOver && !isActive && "ring-2 ring-ring bg-brand-subtle"
       )}
-      style={isActive ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
+      // The selected day is one of the few places the centre's colour shows.
+      style={isActive ? { backgroundColor: "var(--org-primary, var(--brand))" } : undefined}
     >
-      <span>{formatDayShort(day)}</span>
-      <span className="font-bold">{day.getDate()}</span>
-      <span
-        className={cn(
-          "text-[10px] leading-tight tabular-nums",
-          isActive ? "text-white/80" : "text-muted-foreground/70"
+      <span className={cn("text-[11px] font-medium", isActive ? "text-white/85" : "text-muted-foreground")}>
+        {formatDayShort(day)}
+      </span>
+      <span className="text-base font-semibold leading-5 tabular-nums">{day.getDate()}</span>
+      <span className={cn("text-[11px] leading-4 tabular-nums", isActive ? "text-white/85" : "text-muted-foreground")}>
+        {count > 0 ? (
+          <>
+            {count}
+            <span className="hidden sm:inline"> {count === 1 ? "session" : "sessions"}</span>
+          </>
+        ) : (
+          "–"
         )}
-      >
-        {count > 0 ? count : "–"}
       </span>
     </button>
   );

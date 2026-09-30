@@ -665,9 +665,13 @@ async function main() {
       guard.cookieParts.map((c) => ({ ...c, url: APP, httpOnly: false, secure: false }))
     );
     const page = await context.newPage();
+    // Since 2026-09-29 the tool is "People here" on the status page; the old
+    // URL redirects, so arrive the way an old bookmark would.
     await page.goto(`${APP}/dashboard/counts?facility=${pool.id}`, { waitUntil: "networkidle" });
 
-    check("an aux staffer reaches the tool", await page.getByRole("heading", { name: "Head counts" }).isVisible());
+    check("an aux staffer reaches the tool (via the old URL)",
+      new URL(page.url()).pathname === `/dashboard/facilities/${pool.id}/status` &&
+        (await page.getByRole("heading", { name: "People here" }).isVisible()));
 
     const scrollW = await page.evaluate(() => document.documentElement.scrollWidth);
     check("no horizontal overflow at 390px", scrollW <= 390, `scrollWidth ${scrollW}`);

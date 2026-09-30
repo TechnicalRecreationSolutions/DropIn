@@ -2,7 +2,7 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Check, Minus, Plus, Thermometer, Trash2, Users } from "lucide-react";
+import { Check, ChevronDown, Minus, Plus, Thermometer, Trash2, Users } from "lucide-react";
 import {
   METRICS,
   formatReading,
@@ -12,10 +12,14 @@ import {
 import type { FacilityReading, ReadingMetric } from "@/types/app.types";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
 
 /**
- * The tool a lifeguard uses on deck.
+ * The tool a lifeguard uses on deck — and, since 2026-09-29, everyone else:
+ * it is the "People here" section of the facility status page, not a page of
+ * its own, because "head counts" was lifeguard language and logging how many
+ * people are in the building is a status question.
  *
  * ## Designed for one thumb, standing up, in a wet room
  *
@@ -157,7 +161,7 @@ export default function HeadCountTool({
   const bump = (by: number) =>
     setCountText(String(Math.max(0, (Number.isFinite(count) ? count : 0) + by)));
 
-  const spaceLabel = space ? (spaces.find((s) => s.id === space)?.name ?? "") : "the whole building";
+  const spaceLabel = space ? (spaces.find((s) => s.id === space)?.name ?? "") : "the whole facility";
 
   return (
     <div className="space-y-6">
@@ -174,7 +178,7 @@ export default function HeadCountTool({
           {/* Scrolls sideways rather than wrapping into a tall block — the
               count field has to stay on screen with it. */}
           <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-            {[{ id: "", name: "Whole building", capacity: null }, ...spaces].map((s) => (
+            {[{ id: "", name: "Whole facility", capacity: null }, ...spaces].map((s) => (
               <button
                 key={s.id || "facility"}
                 type="button"
@@ -287,7 +291,21 @@ export default function HeadCountTool({
         )}
       </div>
 
-      {/* ── Temperatures ────────────────────────────────────────────────── */}
+      {/* ── Temperatures ────────────────────────────────────────────────────
+          Folded unless this facility has recorded one: water temperature is a
+          pool thing, and since the tool moved onto the status page (which
+          every department uses) a tennis coordinator should not meet it. A
+          building that takes temperatures gets it open, as before. */}
+      <Collapsible defaultOpen={readings.some((r) => r.metric !== "headcount")}>
+        <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          <Thermometer className="size-4" aria-hidden />
+          Water &amp; air temperature
+          <ChevronDown
+            className="size-4 transition-transform duration-150 group-data-[state=open]:rotate-180"
+            aria-hidden
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">
       <TemperatureCard
         disabled={!canWrite}
         busy={busy}
@@ -299,20 +317,27 @@ export default function HeadCountTool({
         recordedAt={recordedAt}
         onRecord={record}
       />
+        </CollapsibleContent>
+      </Collapsible>
 
       {/* ── The log ─────────────────────────────────────────────────────── */}
-      <section>
-        <h2 className="mb-3 text-heading text-foreground">Recent entries</h2>
-        {readings.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Nothing recorded here yet.</p>
-        ) : (
+      {readings.length > 0 && (
+      <Collapsible>
+        <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
+          Recent entries ({readings.length})
+          <ChevronDown
+            className="size-4 transition-transform duration-150 group-data-[state=open]:rotate-180"
+            aria-hidden
+          />
+        </CollapsibleTrigger>
+        <CollapsibleContent className="mt-3">
           <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
             {readings.map((r) => {
               const mine = r.recorded_by === viewerId;
               const who = mine ? "you" : (recorderNames[r.recorded_by ?? ""] ?? "a colleague");
               const where = r.space_id
                 ? (spaces.find((s) => s.id === r.space_id)?.name ?? "a space")
-                : "whole building";
+                : "whole facility";
               return (
                 <li key={r.id} className="flex min-h-12 items-center gap-3 px-4 py-1.5 text-sm">
                   <span className="w-20 shrink-0 font-semibold tabular-nums">
@@ -339,8 +364,9 @@ export default function HeadCountTool({
               );
             })}
           </ul>
-        )}
-      </section>
+        </CollapsibleContent>
+      </Collapsible>
+      )}
     </div>
   );
 }

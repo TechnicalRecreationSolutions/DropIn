@@ -8,7 +8,9 @@ import { formatSessionTime, formatDayShort, formatDayFull, nowAsSessionTime } fr
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
-import { getSessionCardStyle } from "./sessionCardColor";
+import { getSessionBlockStyle } from "./sessionCardColor";
+import DayStrip from "./DayStrip";
+import NowPill from "./NowPill";
 import SessionTags from "./SessionTags";
 import { DAYS, dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
@@ -95,29 +97,18 @@ export default function WeeklyScheduleGrid({
     <div>
       <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
 
-      {/* Mobile: day selector chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 sm:hidden px-1">
-        {days.map((day, i) => (
-          <button
-            key={i}
-            onClick={() => setActiveDayIndex(i)}
-            className={cn(
-              "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
-              activeDayIndex === i
-                ? "text-white"
-                : "bg-muted text-muted-foreground hover:bg-border"
-            )}
-            style={activeDayIndex === i ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
-          >
-            <span>{formatDayShort(day)}</span>
-            <span className="font-bold">{day.getDate()}</span>
-          </button>
-        ))}
-      </div>
+      {/* Phones show one day at a time; these pick it. */}
+      <DayStrip
+        className="mt-3 sm:hidden"
+        days={days}
+        counts={days.map((_, i) => sessionsByDay[i]?.length ?? 0)}
+        activeIndex={activeDayIndex}
+        onSelect={setActiveDayIndex}
+      />
 
       {/* Day columns */}
-      <div className="mt-3 overflow-x-auto">
-        <div className={cn("grid gap-1.5", "grid-cols-1 sm:grid-cols-7", "sm:min-w-[900px]")}>
+      <div className="mt-4 overflow-x-auto">
+        <div className={cn("grid gap-2", "grid-cols-1 sm:grid-cols-7", "sm:min-w-[900px]")}>
           {days.map((day, dayIndex) => {
             const isActiveDay = dayIndex === activeDayIndex;
             if (forcedSingleDay && !isActiveDay) return null;
@@ -126,18 +117,29 @@ export default function WeeklyScheduleGrid({
             const isToday = now.toDateString() === day.toDateString();
 
             return (
-              <div key={dayIndex} className={cn("flex-col", isActiveDay ? "flex" : "hidden sm:flex")}>
+              <div key={dayIndex} className={cn("min-w-0 flex-col", isActiveDay ? "flex" : "hidden sm:flex")}>
+                {/* Plain ink, like the landing page's printed week. The
+                    centre's colour only marks today. */}
                 <div
                   className={cn(
-                    "text-xs font-bold py-2 px-2 rounded-t-lg text-white",
-                    canAdd ? "flex items-center justify-between gap-1" : "text-center"
+                    "flex min-h-8 items-center justify-between gap-1 px-1 pb-1.5",
+                    isToday ? "border-b-2" : "border-b border-border mb-px"
                   )}
-                  style={{ backgroundColor: isToday ? "var(--org-accent, #2563eb)" : "var(--org-primary, #2563eb)" }}
+                  style={isToday ? { borderColor: "var(--org-primary, var(--brand))" } : undefined}
                 >
-                  <span className={cn(canAdd && "truncate")}>
-                    <span className="hidden sm:inline">{formatDayShort(day)} {day.getDate()}</span>
-                    <span className="sm:hidden">{formatDayFull(day)}</span>
-                  </span>
+                  <p className="flex min-w-0 items-baseline gap-1.5 text-[13px]">
+                    <span className="hidden font-semibold text-foreground sm:inline">{formatDayShort(day)}</span>
+                    <span className="hidden tabular-nums text-muted-foreground sm:inline">{day.getDate()}</span>
+                    <span className="truncate font-semibold text-foreground sm:hidden">{formatDayFull(day)}</span>
+                    {isToday && (
+                      <span
+                        className="text-[11px] font-semibold"
+                        style={{ color: "var(--org-primary, var(--brand))" }}
+                      >
+                        Today
+                      </span>
+                    )}
+                  </p>
                   {canAdd && (
                     <button
                       type="button"
@@ -147,53 +149,43 @@ export default function WeeklyScheduleGrid({
                           dayLabel: DAYS[dayIndex].label,
                         })
                       }
-                      className="p-0.5 rounded hover:bg-white/20"
+                      className="flex size-6 shrink-0 items-center justify-center rounded-full text-muted-foreground transition-colors hover:bg-muted hover:text-foreground"
                       aria-label={`Add session on ${DAYS[dayIndex].label}`}
                       title="Add session"
                     >
-                      <Plus className="w-3.5 h-3.5" />
+                      <Plus className="size-3.5" />
                     </button>
                   )}
                 </div>
 
-                <div
-                  className={cn(
-                    "flex-1 p-1.5 flex flex-col gap-1.5 min-h-[56px] rounded-b-lg border border-t-0",
-                    isToday ? "border-blue-100" : "border-border"
-                  )}
-                  style={{ backgroundColor: isToday ? "var(--org-card-bg, #eff6ff)" : "#FBFCFD" }}
-                >
+                <div className="mt-2 flex min-h-[56px] flex-1 flex-col gap-1.5">
                   {daySessions.length === 0 ? (
-                    <p className="text-center text-xs text-muted-foreground/70 opacity-70 py-3">No sessions</p>
+                    <p className="rounded-[10px] border border-dashed border-border px-2 py-3 text-center text-xs text-muted-foreground">
+                      Nothing scheduled
+                    </p>
                   ) : (
                     daySessions.map((session) => {
                       const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
+                      const where = [session.spaceNames.join(", "), session.locationDetail]
+                        .filter(Boolean)
+                        .join(" · ");
 
                       return (
                         <div key={session.key} className="relative">
                           <button
                             onClick={() => setSelectedSession(session)}
-                            className="w-full text-left rounded-md px-2.5 py-2 border transition-shadow hover:shadow-sm"
-                            style={{
-                              color: isPast ? "#8FA2AD" : "var(--org-text-on-tint, #1e3a5f)",
-                              ...getSessionCardStyle(session, isPast),
-                            }}
+                            className="w-full rounded-[10px] border px-2.5 py-2 text-left transition-[filter] hover:brightness-95"
+                            style={getSessionBlockStyle(session, isPast)}
                           >
-                            <p className={cn("text-xs font-semibold leading-tight truncate", editing && "pr-5")}>
+                            <p className={cn("truncate text-[13px] font-semibold leading-tight", editing && "pr-5")}>
                               {sessionDisplayLabel(session)}
                             </p>
-                            <p className="text-xs opacity-75 leading-tight mt-0.5">
+                            <p className="mt-0.5 flex items-center gap-1.5 text-xs leading-tight tabular-nums opacity-80">
                               {formatSessionTime(session.start)}–{formatSessionTime(session.end)}
+                              {isLive && <NowPill />}
                             </p>
+                            {where && <p className="mt-0.5 truncate text-[11px] leading-tight opacity-70">{where}</p>}
                             <SessionTags tags={session.templateTags} className="mt-1" />
-                            {isLive && (
-                              <span
-                                className="inline-block mt-1 text-[10px] font-bold uppercase tracking-wide text-white px-1.5 py-0.5 rounded-full"
-                                style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
-                              >
-                                On now
-                              </span>
-                            )}
                           </button>
                           {editing && (
                             <SessionActionsMenu

@@ -80,12 +80,10 @@ export function scheduleGroupScope(sg: {
 }
 
 /**
- * Link to the head-count tool, optionally scoped to a facility.
- *
- * Same `?facility=` convention as Spaces and Map — the sidebar's selection
- * decides which building the page opens on, so switching buildings there
- * carries through here rather than dropping back to the first one.
+ * Link to where people are counted — the "People here" section of a
+ * facility's status page since 2026-09-29 (/dashboard/counts redirects).
+ * Without a facility, /dashboard/status resolves the staffer's own.
  */
 export function countsHref(facilityId?: string | null): string {
-  return facilityId ? `/dashboard/counts?facility=${facilityId}` : "/dashboard/counts";
+  return facilityId ? `/dashboard/facilities/${facilityId}/status#people` : "/dashboard/status";
 }

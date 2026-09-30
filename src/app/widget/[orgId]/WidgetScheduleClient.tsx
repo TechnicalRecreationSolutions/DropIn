@@ -123,7 +123,9 @@ function ScheduleInner({
 
   return (
     <>
-      <div className="rounded-xl overflow-hidden border border-gray-200 print:hidden">
+      {/* Not overflow-hidden: a filter's checkbox list opens below its button
+          and may reach past the card. The header rounds its own top corners. */}
+      <div className="rounded-xl border border-gray-200 print:hidden">
         <ScheduleHeaderBar
           title={title}
           view={view}
@@ -136,7 +138,8 @@ function ScheduleInner({
           }
           activeScopeId={activeScope?.id}
           onScopeChange={setSelectedScopeId}
-          actions={canPrint ? <PrintScheduleButton onTint /> : undefined}
+          actions={canPrint ? <PrintScheduleButton onTint={isDark} /> : undefined}
+          dark={isDark}
         />
 
         {!isLoading && !isError && allSessions.length > 0 && enabledFilters.length > 0 && (
@@ -168,7 +171,9 @@ function ScheduleInner({
           // Distinct from the empty week above: the week has sessions, the
           // filters just hid all of them, and saying so is the difference
           // between "nothing here" and "you filtered it out".
-          <div className={`text-center py-12 text-sm ${mutedClass}`}>
+          // Tall enough for an open filter list to fit: the iframe is sized to
+          // its content, so a short message here would crop the list.
+          <div className={`text-center py-12 min-h-72 text-sm ${mutedClass}`}>
             <p>No sessions match your filters this week.</p>
             <button
               type="button"

@@ -66,7 +66,7 @@ export default function FacilityScheduleClient({
           view={view}
           onChange={setView}
           allowedViews={allowedTemplates}
-          actions={canPrint ? <PrintScheduleButton onTint /> : undefined}
+          actions={canPrint ? <PrintScheduleButton /> : undefined}
         />
 
         {!isLoading && !isError && allSessions.length > 0 && enabledFilters.length > 0 && (

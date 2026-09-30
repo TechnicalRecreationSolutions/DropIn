@@ -373,19 +373,23 @@ async function main() {
         (await main.locator(`a[href="${statusPath}"]`, { hasText: /report a problem/i }).count()) > 0);
       const nav = page.getByRole("navigation", { name: "Primary" });
       check("aux phone: the bottom bar has a Status tab", (await nav.getByRole("link", { name: "Status" }).count()) === 1);
+      // 2026-09-29: Count folded into Status — one tab, not two.
+      check("aux phone: no separate Count tab", (await nav.getByRole("link", { name: "Count" }).count()) === 0);
       check("aux phone: no Today, no Activity tab",
         (await nav.getByRole("link", { name: /today|activity/i }).count()) === 0);
 
       check("aux: /dashboard/status resolves to their one facility", (await landOn(page, "/dashboard/status")) === statusPath);
 
-      await landOn(page, "/dashboard/counts");
-      check("aux counts: Report a problem is there too",
-        (await page.locator("main").locator(`a[href="${statusPath}"]`, { hasText: /report a problem/i }).count()) > 0);
+      // The old head count URL now lands on the status page (People here).
+      check("aux: /dashboard/counts redirects to their status page", (await landOn(page, "/dashboard/counts")) === statusPath);
 
       // The whole flow, by tapping.
       await landOn(page, statusPath);
       if (has063) {
-        await page.getByRole("button", { name: /fecal \/ vomit/i }).click();
+        // Since the status page rework (verify-bg): the board's row button
+        // opens a side panel, and the statuses are listed inside it.
+        await page.getByRole("button", { name: /^report$/i }).filter({ visible: true }).first().click();
+        await page.getByRole("dialog").getByRole("button", { name: /fecal \/ vomit/i }).click();
         await page.getByLabel(/what patrons would read/i).fill(`ZZ TAPPED ${stamp}`);
         await page.getByRole("button", { name: /send to a manager/i }).click();
         await page.getByText(/^Sent\./).waitFor({ timeout: 10_000 }).catch(() => {});
@@ -429,13 +433,15 @@ async function main() {
       const errors = [];
       page.on("console", (m) => { if (m.type() === "error") errors.push(m.text()); });
       page.on("pageerror", (e) => errors.push(e.message));
-      await landOn(page, "/dashboard/counts");
+      await landOn(page, statusPath);
       await page.waitForTimeout(1000);
       const hydration = errors.filter((e) => /hydrat/i.test(e));
       // FALSIFY: render formatRecordedAt during SSR again and this goes red.
       check("aux counts: no hydration error with a reading in the log", hydration.length === 0, hydration[0]?.slice(0, 160));
       check("aux counts: the reading time is shown after hydration",
         (await page.getByText(/^Last count 12 at \d/).count()) > 0);
+      // Folded unless a temperature was recorded; this fixture has only a count.
+      await page.getByRole("button", { name: /water & air temperature/i }).click();
       const card = await page.getByText("Temperature", { exact: true }).locator("xpath=..").boundingBox();
       const saves = await page.getByRole("button", { name: "Save" }).evaluateAll((els) =>
         els.map((el) => el.getBoundingClientRect().right)

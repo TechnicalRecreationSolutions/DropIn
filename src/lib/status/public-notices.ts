@@ -9,7 +9,11 @@ export type PublicNotice = Pick<
   FacilityNotice,
   "id" | "category" | "severity" | "headline" | "body" | "starts_at" | "ends_at"
 > & {
-  /** NULL when the notice is about the whole facility. */
+  /**
+   * Where the notice applies: the space, else the department (migration 064),
+   * else NULL for the whole facility. Named for its first meaning; the public
+   * API and NoticeBanner both render it as a plain location label.
+   */
   space_name: string | null;
 };
 
@@ -52,10 +56,20 @@ export async function getPublicNotices(facilityId: string): Promise<PublicNotice
 
   const supabase = createPublicClient();
 
-  const { data, error } = await supabase
-    .from("facility_notices")
-    .select("id, category, severity, headline, body, starts_at, ends_at, spaces(name)")
-    .eq("facility_id", facilityId);
+  const base = "id, category, severity, headline, body, starts_at, ends_at, spaces(name)";
+  const read = async (columns: string) => {
+    const { data, error } = await supabase
+      .from("facility_notices")
+      .select(columns)
+      .eq("facility_id", facilityId);
+    return { data: data as unknown, error };
+  };
+  let { data, error } = await read(`${base}, departments(name)`);
+  // PGRST200/42703: migration 064 is not applied, so there is no department
+  // column to embed. Read without it rather than failing the whole page.
+  if (error && (error.code === "PGRST200" || error.code === "42703")) {
+    ({ data, error } = await read(base));
+  }
 
   // A failed read must not be cached as "nothing is wrong at this facility".
   // Returning [] here would do exactly that for the next `minutes`, which is
@@ -65,9 +79,15 @@ export async function getPublicNotices(facilityId: string): Promise<PublicNotice
 
   const rows = (data ?? []) as unknown as (Omit<PublicNotice, "space_name"> & {
     spaces: { name: string } | null;
+    // Absent before 064; null for an unpublished department, which the anon
+    // policy hides — the notice then reads as the whole facility.
+    departments?: { name: string } | null;
   })[];
 
   return sortNotices(
-    rows.map(({ spaces, ...notice }) => ({ ...notice, space_name: spaces?.name ?? null }))
+    rows.map(({ spaces, departments, ...notice }) => ({
+      ...notice,
+      space_name: spaces?.name ?? departments?.name ?? null,
+    }))
   );
 }

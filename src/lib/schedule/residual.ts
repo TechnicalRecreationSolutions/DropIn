@@ -177,6 +177,8 @@ function withSegment(
     end: new Date(band.end),
     spaceIds: kept.map((i) => block.spaceIds[i]),
     spaceNames: kept.map((i) => block.spaceNames[i]),
+    spaceZones: block.spaceZones ? kept.map((i) => block.spaceZones![i]) : undefined,
+    spaceOrders: block.spaceOrders ? kept.map((i) => block.spaceOrders![i]) : undefined,
     residualSegment: {
       blockTimeLabel: blockTimeLabel(block),
       isSlice: true,

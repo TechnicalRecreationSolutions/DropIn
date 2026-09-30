@@ -67,7 +67,7 @@ async function main() {
   const password = `Zk!${stamp}aA9`;
   const { data: userData } = await admin.auth.admin.createUser({ email, password, email_confirm: true });
   ids.users.push(userData.user.id);
-  await admin.from("org_memberships").insert({ org_id: org.id, user_id: userData.user.id, role: "admin" });
+  await admin.from("org_memberships").insert({ org_id: org.id, user_id: userData.user.id, role: "owner", email });
   const { data: signIn } = await anon.auth.signInWithPassword({ email, password });
 
   const { data: facility } = await admin.from("facilities").insert({

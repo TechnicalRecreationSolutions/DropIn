@@ -86,6 +86,15 @@ export type ExpandedSession = {
   /** Structured spaces within the facility this session occupies, if any (e.g. all of Lanes 1-4 for a shared Lap Swim block) */
   spaceIds: string[];
   spaceNames: string[];
+  /**
+   * Parallel to spaceIds: each space's zone label (migration 054, e.g. "Main
+   * pool") and display order. Display only — Map groups and orders its columns
+   * by them. Optional because not every producer of an ExpandedSession loads
+   * them; readers look them up by id rather than trusting the index after an
+   * optimistic edit has rewritten spaceIds.
+   */
+  spaceZones?: (string | null)[];
+  spaceOrders?: number[];
 
   /** Session template this occurrence was placed from, if any (see session_templates) */
   templateId: string | null;

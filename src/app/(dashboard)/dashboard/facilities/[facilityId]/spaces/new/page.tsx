@@ -9,12 +9,12 @@ import { PageHeader } from "@/components/ui/info-tip";
 
 interface NewSpacePageProps {
   params: Promise<{ facilityId: string }>;
-  searchParams: Promise<{ departmentId?: string }>;
+  searchParams: Promise<{ departmentId?: string; zone?: string }>;
 }
 
 export default async function NewSpacePage({ params, searchParams }: NewSpacePageProps) {
   const { facilityId } = await params;
-  const { departmentId } = await searchParams;
+  const { departmentId, zone } = await searchParams;
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
   // Read-only staff (aux) have nothing to do here, and the navigation not
@@ -70,7 +70,13 @@ export default async function NewSpacePage({ params, searchParams }: NewSpacePag
         facilityId={facilityId}
         departments={departments ?? []}
         zoneNames={zoneNames}
-        defaultValues={departmentId ? { department_id: departmentId } : undefined}
+        // Seeded from the Spaces page: "+ Add" on a department, or on a zone
+        // heading, so the new space lands where it was asked for.
+        defaultValues={
+          departmentId || zone
+            ? { department_id: departmentId ?? null, zone_name: zone?.trim() || null }
+            : undefined
+        }
         // Back to the Spaces page this was launched from.
         redirectTo={spacesHref(facilityId)}
       />

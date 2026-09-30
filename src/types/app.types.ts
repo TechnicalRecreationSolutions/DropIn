@@ -19,6 +19,9 @@ export type Subscription = Database["public"]["Tables"]["subscriptions"]["Row"];
 /** A public "what is true right now" notice on a facility (migration 060). */
 export type FacilityNotice =
   Database["public"]["Tables"]["facility_notices"]["Row"];
+/** A status in an organization's library (migration 064). */
+export type NoticeTemplate =
+  Database["public"]["Tables"]["notice_templates"]["Row"];
 
 // `PlanTier` deliberately does NOT live here. It used to, as
 // "free" | "pro" | "enterprise", with zero importers — every PlanTier in the app

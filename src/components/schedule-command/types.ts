@@ -36,6 +36,8 @@ export interface CommandSpace {
   /** Free-text grouping label (migration 054). Display only — the Spaces page
    *  renders subsections from it; nothing books or joins against it. */
   zoneName?: string | null;
+  /** spaces.display_order — the order Map lays its lane columns out in. */
+  displayOrder?: number;
 }
 
 /** A facility and everything inside it — one "building box" on the command centre. */

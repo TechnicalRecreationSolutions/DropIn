@@ -30,6 +30,7 @@ const NoticeSchema = z.object({
   headline: z.string().trim().min(1).max(120),
   body: z.string().max(1000).nullish(),
   space_id: z.string().uuid().nullish(),
+  department_id: z.string().uuid().nullish(),
   starts_at: z.string().datetime().optional(),
   ends_at: z.string().datetime().nullish(),
   is_published: z.boolean().optional(),
@@ -137,12 +138,36 @@ export async function POST(
   if (input.space_id) {
     const { data: space } = await supabase
       .from("spaces")
-      .select("id")
+      .select("id, department_id")
       .eq("id", input.space_id)
       .eq("facility_id", facilityId)
       .maybeSingle();
     if (!space) {
       return NextResponse.json({ error: "That space is not at this facility" }, { status: 400 });
+    }
+    // "Tennis — Court 3 closed" naming a pool lane would put the notice on the
+    // wrong row of the status board.
+    if (input.department_id && space.department_id !== input.department_id) {
+      return NextResponse.json(
+        { error: "That space is not in the chosen department" },
+        { status: 400 }
+      );
+    }
+  }
+
+  // The same cross-table check for a department (migration 064).
+  if (input.department_id) {
+    const { data: department } = await supabase
+      .from("departments")
+      .select("id")
+      .eq("id", input.department_id)
+      .eq("facility_id", facilityId)
+      .maybeSingle();
+    if (!department) {
+      return NextResponse.json(
+        { error: "That department is not at this facility" },
+        { status: 400 }
+      );
     }
   }
 
@@ -154,6 +179,9 @@ export async function POST(
       facility_id: facilityId,
       org_id: membership.org_id,
       space_id: input.space_id ?? null,
+      // Only sent when set, so a whole-facility post still works on a
+      // database without migration 064's column.
+      ...(input.department_id ? { department_id: input.department_id } : {}),
       category: input.category,
       severity: input.severity,
       headline: input.headline,
@@ -178,6 +206,12 @@ export async function POST(
   if (error) {
     // 42703 / PGRST204: the needs_review column does not exist, so migration
     // 063 has not been applied. Say so, instead of blaming the input.
+    if (input.department_id && (error.code === "42703" || error.code === "PGRST204")) {
+      return NextResponse.json(
+        { error: "Department statuses are not switched on yet (migration 064). Post it for the whole facility." },
+        { status: 503 }
+      );
+    }
     if (asReport && (error.code === "42703" || error.code === "PGRST204")) {
       return NextResponse.json(
         { error: "Reporting is not switched on yet (migration 063). Tell a Manager directly." },

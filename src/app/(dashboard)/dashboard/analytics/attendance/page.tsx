@@ -4,6 +4,7 @@ import { ArrowUpRight, ClipboardList, Clock, Thermometer, Users } from "lucide-r
 import { getOrgContext } from "@/lib/auth/session";
 import { can, canReadFacility } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
+import { countsHref } from "@/lib/schedule/commandCentreHref";
 import { Banner } from "@/components/ui/banner";
 import { Card } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -25,7 +26,7 @@ import { METRICS, formatReading } from "@/lib/conditions/readings";
  * The third of the three stories (`layout.tsx`): Engagement is who looked at
  * the schedule, Utilization is what the building was programmed for, this is
  * what happened. Reads `facility_readings` (migration 061) — the head counts
- * lifeguards enter on `/dashboard/counts`.
+ * staff enter under "People here" on the facility status page.
  *
  * ## ⚠️ What these numbers are, and what they are not
  *
@@ -61,7 +62,7 @@ export default function AttendancePage({ searchParams }: AttendancePageProps) {
           title="Attendance"
           info={
             <>
-              Head counts recorded by staff on the head count tool, and the water and air
+              Head counts recorded by staff under People here on the status page, and the water and air
               temperatures logged alongside them. These are observations made by eye, not
               turnstile numbers — read the note on each tile before quoting one.
             </>
@@ -332,15 +333,15 @@ function NothingCounted({
     <Card className="gap-3 p-6">
       <h2 className="text-card-title text-foreground">No counts recorded in the {periodLabel}</h2>
       <p className="text-sm text-muted-foreground">
-        Head counts are entered by staff on the head count tool — a lifeguard on deck taps a
-        number and it lands here. Once a few weeks have been recorded, this page can say when the
+        Counts are entered by staff under People here on the facility status page — someone
+        on shift taps a number and it lands here. Once a few weeks have been recorded, this page can say when the
         building is busy, and the public schedule can say how busy it is right now.
       </p>
       <Link
-        href={facilityId ? `/dashboard/counts?facility=${facilityId}` : "/dashboard/counts"}
+        href={countsHref(facilityId)}
         className="inline-flex w-fit items-center gap-1.5 text-sm font-medium text-brand underline-offset-4 hover:underline"
       >
-        Open the head count tool
+        Open People here
         <ArrowUpRight className="size-4" aria-hidden />
       </Link>
     </Card>

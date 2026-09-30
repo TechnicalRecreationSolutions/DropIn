@@ -52,6 +52,7 @@ export type Permission =
   | "activity:revert"
   | "staff:manage"
   | "tag:manage"
+  | "notice-template:manage"
 
   // ── Department-scoped: owner + manager org-wide, coordinator inside scope ──
   | "department:edit"
@@ -113,6 +114,9 @@ const ALLOWED: Record<Permission, readonly OrgRole[]> = {
   // Creating a tag is scoped work (see "tag:create"); RENAMING or DELETING one
   // is not — tags are org-wide and every schedule already carrying it changes.
   "tag:manage": ["owner", "manager"],
+  // The status library (migration 064) is org-wide vocabulary, like tags:
+  // posting a status is operational, deciding which ones exist is not.
+  "notice-template:manage": ["owner", "manager"],
 
   "department:edit": ["owner", "manager", "coordinator"],
   "schedule-group:write": ["owner", "manager", "coordinator"],

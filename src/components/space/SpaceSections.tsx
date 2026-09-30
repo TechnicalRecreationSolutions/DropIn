@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import {
   DndContext,
   DragOverlay,
@@ -24,10 +25,13 @@ import {
   ChevronUp,
   ChevronDown,
   GripVertical,
+  FolderPlus,
+  Pencil,
 } from "lucide-react";
 import type { CommandSpace } from "@/components/schedule-command/types";
 import { Button } from "@/components/ui/button";
 import { Banner } from "@/components/ui/banner";
+import ZoneDialog, { type ZoneDialogTarget, type ZoneWrite } from "./ZoneDialog";
 import {
   buildSpaceSections,
   moveSpaceByStep,
@@ -73,9 +77,17 @@ interface SpaceSectionsProps {
  * write lands.
  */
 export default function SpaceSections({ facilityId, departments, spaces }: SpaceSectionsProps) {
+  const router = useRouter();
   const [order, setOrder] = useState<CommandSpace[]>(spaces);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+
+  /**
+   * The zone being created or edited, or null. The dialog is only mounted
+   * while this is set, so each open starts from a blank form — the previous
+   * one's name and ticks must not leak into the next.
+   */
+  const [zoneTarget, setZoneTarget] = useState<ZoneDialogTarget | null>(null);
 
   /**
    * The drag in progress: what is moving, and which chips it may land on.
@@ -150,6 +162,49 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
     setOrder(next);
     setError(null);
     void persist(next);
+  }
+
+  function openZone(section: { departmentId: string | null; label: string }, zoneName: string | null) {
+    setZoneTarget({
+      facilityId,
+      departmentId: section.departmentId,
+      departmentLabel: section.label,
+      // The section's own spaces, from the optimistic list so a just-moved
+      // chip is listed where it now sits.
+      spaces: order.filter((s) =>
+        section.departmentId === null
+          ? s.departmentId === null || !departments.some((d) => d.id === s.departmentId)
+          : s.departmentId === section.departmentId
+      ),
+      zoneName,
+    });
+  }
+
+  /**
+   * The zone write has landed. Relabel locally so the new heading appears at
+   * once, then refresh so the server tree (and the space form's suggestion
+   * list, the map's sidebar) catches up. Unlike reorder there is no next click
+   * racing this refresh — the dialog has closed — and the seed above adopts
+   * the refreshed list only if no order save is in flight.
+   */
+  function handleZoneSaved(write: ZoneWrite) {
+    const target = zoneTarget;
+    setZoneTarget(null);
+    if (!target) return;
+
+    const members = new Set(write.memberIds);
+    const inSection = new Set(target.spaces.map((s) => s.id));
+    setOrder((prev) =>
+      prev.map((s) => {
+        if (!inSection.has(s.id)) return s;
+        if (members.has(s.id)) return { ...s, zoneName: write.zoneName };
+        if (write.previousZoneName && s.zoneName === write.previousZoneName) {
+          return { ...s, zoneName: null };
+        }
+        return s;
+      })
+    );
+    router.refresh();
   }
 
   async function persist(next: CommandSpace[]) {
@@ -232,24 +287,61 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
               <span className="text-caption text-muted-foreground shrink-0">
                 {section.total} space{section.total !== 1 ? "s" : ""} · {section.published} published
               </span>
-              <Button asChild variant="ghost" size="sm" className="ml-auto shrink-0 -my-1 gap-1 text-muted-foreground hover:text-foreground">
-                <Link href={newSpaceHref(facilityId, section.departmentId)}>
-                  <Plus className="w-3.5 h-3.5" />
-                  <span className="hidden sm:inline">Add</span>
-                  <span className="sr-only sm:hidden">Add a space to {section.label}</span>
-                </Link>
-              </Button>
+              <div className="ml-auto flex items-center shrink-0 -my-1">
+                {/* Creating a zone is done HERE, not in the space form: a zone
+                    is a label shared by several spaces, so it is made by
+                    ticking those spaces at once, not by typing it into each. */}
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="gap-1 text-muted-foreground hover:text-foreground"
+                  onClick={() => openZone(section, null)}
+                  data-new-zone={section.departmentId ?? "none"}
+                >
+                  <FolderPlus className="w-3.5 h-3.5" />
+                  <span className="hidden sm:inline">New zone</span>
+                  <span className="sr-only sm:hidden">New zone in {section.label}</span>
+                </Button>
+                <Button asChild variant="ghost" size="sm" className="gap-1 text-muted-foreground hover:text-foreground">
+                  <Link href={newSpaceHref(facilityId, section.departmentId)}>
+                    <Plus className="w-3.5 h-3.5" />
+                    <span className="hidden sm:inline">Add</span>
+                    <span className="sr-only sm:hidden">Add a space to {section.label}</span>
+                  </Link>
+                </Button>
+              </div>
             </div>
 
             <div className="space-y-3">
               {section.zones.map((zone) => (
                 <div key={zone.zoneName ?? "__none"}>
                   {zone.zoneName && (
-                    <h3 className="flex items-center gap-2 text-label text-muted-foreground mb-1.5">
-                      <span className="truncate">{zone.zoneName}</span>
+                    <div className="flex items-center gap-2 mb-1.5 text-label text-muted-foreground">
+                      <h3 className="truncate">{zone.zoneName}</h3>
                       <span className="shrink-0 tabular-nums">{zone.spaces.length}</span>
                       <span className="h-px flex-1 bg-border" aria-hidden="true" />
-                    </h3>
+                      {/* Rename, re-tick or dissolve — same dialog as "New zone",
+                          seeded with this zone. */}
+                      <button
+                        type="button"
+                        onClick={() => openZone(section, zone.zoneName)}
+                        aria-label={`Edit zone ${zone.zoneName}`}
+                        data-edit-zone={zone.zoneName}
+                        className="shrink-0 -my-1 p-1.5 rounded-full hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                      >
+                        <Pencil className="w-3.5 h-3.5" />
+                      </button>
+                      {/* A new space lands in this zone directly, instead of
+                          being added loose and then re-filed. */}
+                      <Link
+                        href={newSpaceHref(facilityId, section.departmentId, zone.zoneName)}
+                        aria-label={`Add a space to ${zone.zoneName}`}
+                        className="shrink-0 -my-1 p-1.5 rounded-full hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring transition-colors"
+                      >
+                        <Plus className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
                   )}
                   {/* A zone-less bucket under a department that also has zones gets
                       a rule of its own, so its chips do not read as part of the
@@ -298,6 +390,14 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
           </div>
         )}
       </DragOverlay>
+
+      {zoneTarget && (
+        <ZoneDialog
+          target={zoneTarget}
+          onCancel={() => setZoneTarget(null)}
+          onSaved={handleZoneSaved}
+        />
+      )}
     </DndContext>
   );
 }
@@ -444,7 +544,14 @@ function ReorderButton({
   );
 }
 
-function newSpaceHref(facilityId: string, departmentId: string | null): string {
-  const base = `/dashboard/facilities/${facilityId}/spaces/new`;
-  return departmentId ? `${base}?departmentId=${departmentId}` : base;
+function newSpaceHref(
+  facilityId: string,
+  departmentId: string | null,
+  zoneName?: string | null
+): string {
+  const params = new URLSearchParams();
+  if (departmentId) params.set("departmentId", departmentId);
+  if (zoneName) params.set("zone", zoneName);
+  const query = params.toString();
+  return `/dashboard/facilities/${facilityId}/spaces/new${query ? `?${query}` : ""}`;
 }

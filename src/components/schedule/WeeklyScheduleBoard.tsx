@@ -8,7 +8,8 @@ import { nowAsSessionTime, minutesOfDayIn } from "@/lib/utils/dates";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
-import { getSessionCardStyle } from "./sessionCardColor";
+import { getSessionBlockStyle } from "./sessionCardColor";
+import NowPill from "./NowPill";
 import SessionTags from "./SessionTags";
 import { DAYS, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
@@ -82,7 +83,7 @@ function formatBandLabel(startMinute: number, endMinute: number): string {
     const h12 = h % 12 || 12;
     return m === 0 ? `${h12}${period}` : `${h12}:${String(m).padStart(2, "0")}${period}`;
   };
-  return `${fmt(startMinute)}-${fmt(endMinute)}`;
+  return `${fmt(startMinute)}–${fmt(endMinute)}`;
 }
 
 function minutesToTimeString(minutes: number): string {
@@ -124,22 +125,33 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
       <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
 
       {rows.length === 0 ? (
-        <p className="text-center text-sm text-muted-foreground/70 py-10">No sessions scheduled this week.</p>
+        <p className="mt-4 rounded-[14px] border border-dashed border-border py-10 text-center text-sm text-muted-foreground">Nothing scheduled this week.</p>
       ) : (
-        <div className="mt-3 overflow-x-auto">
+        <div className="mt-4 overflow-x-auto">
           <table className="w-full border-collapse" style={{ minWidth: "900px" }}>
             <thead>
               <tr>
                 <th className="w-20 sm:w-24" />
                 {days.map((day, i) => {
                   const isToday = now.toDateString() === day.toDateString();
+                  // Plain ink, like a printed schedule's column heads; the
+                  // centre's colour only marks today.
                   return (
                     <th
                       key={i}
-                      className="text-xs font-bold py-2 px-1.5 text-white first:rounded-tl-lg last:rounded-tr-lg"
-                      style={{ backgroundColor: isToday ? "var(--org-accent, #2563eb)" : "var(--org-primary, #2563eb)" }}
+                      className={cn("px-1.5 pb-2 text-left text-[13px] font-normal", isToday ? "border-b-2" : "border-b border-border")}
+                      style={isToday ? { borderColor: "var(--org-primary, var(--brand))" } : undefined}
                     >
-                      {DAYS[i].short.toUpperCase()} {day.getDate()}
+                      <span className="font-semibold text-foreground">{DAYS[i].short}</span>{" "}
+                      <span className="tabular-nums text-muted-foreground">{day.getDate()}</span>
+                      {isToday && (
+                        <span
+                          className="ml-1.5 text-[11px] font-semibold"
+                          style={{ color: "var(--org-primary, var(--brand))" }}
+                        >
+                          Today
+                        </span>
+                      )}
                     </th>
                   );
                 })}
@@ -150,8 +162,8 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
                 <tr key={row.startMinute}>
                   <td
                     className={cn(
-                      "align-top text-[11px] font-semibold text-muted-foreground pr-2 py-1.5 text-right whitespace-nowrap",
-                      rowIndex % 2 === 1 && "bg-muted/60"
+                      "align-top whitespace-nowrap py-2 pr-3 text-right text-[11px] font-semibold tabular-nums text-muted-foreground",
+                      rowIndex > 0 && "border-t border-border/70"
                     )}
                   >
                     {formatBandLabel(row.startMinute, row.endMinute)}
@@ -160,7 +172,7 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
                     <BoardCell
                       key={dayIndex}
                       sessions={cellSessions}
-                      shaded={rowIndex % 2 === 1}
+                      ruled={rowIndex > 0}
                       canAdd={canAdd}
                       onAdd={
                         canAdd
@@ -205,7 +217,7 @@ export default function WeeklyScheduleBoard({ sessions, weekStart, onWeekChange 
 
 function BoardCell({
   sessions,
-  shaded,
+  ruled,
   canAdd,
   onAdd,
   onSelect,
@@ -213,7 +225,8 @@ function BoardCell({
   editing,
 }: {
   sessions: ExpandedSession[];
-  shaded: boolean;
+  /** Hairline above the row, instead of the old alternate shading. */
+  ruled: boolean;
   canAdd: boolean;
   onAdd?: () => void;
   onSelect: (session: ExpandedSession) => void;
@@ -223,7 +236,7 @@ function BoardCell({
   const editingApi = useScheduleEditing();
 
   return (
-    <td className={cn("align-top p-1", shaded && "bg-muted/60")}>
+    <td className={cn("align-top p-1", ruled && "border-t border-border/70")}>
       <div className="flex flex-col gap-1 min-h-[40px]">
         {sessions.map((session) => {
           const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
@@ -231,11 +244,8 @@ function BoardCell({
             <div key={session.key} className="relative">
               <button
                 onClick={() => onSelect(session)}
-                className="w-full text-left rounded-md px-1.5 py-1 border transition-shadow hover:shadow-sm"
-                style={{
-                  color: isPast ? "#8FA2AD" : "var(--org-text-on-tint, #1e3a5f)",
-                  ...getSessionCardStyle(session, isPast),
-                }}
+                className="w-full rounded-lg border px-2 py-1.5 text-left transition-[filter] hover:brightness-95"
+                style={getSessionBlockStyle(session, isPast)}
               >
                 <p className={cn("text-[11px] font-semibold leading-tight", editing && "pr-4")}>
                   {sessionDisplayLabel(session)}
@@ -250,14 +260,7 @@ function BoardCell({
                     colour key on the paper schedule. `xs` because a board box
                     is the smallest card in the app. */}
                 <SessionTags tags={session.templateTags} size="xs" className="mt-0.5" />
-                {isLive && (
-                  <span
-                    className="inline-block mt-0.5 text-[9px] font-bold uppercase tracking-wide text-white px-1 py-0.5 rounded-full"
-                    style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
-                  >
-                    On now
-                  </span>
-                )}
+                {isLive && <NowPill className="mt-1" />}
               </button>
               {editingApi && (
                 <SessionActionsMenu session={session} editing={editingApi} className="absolute top-0.5 right-0.5" />
@@ -270,7 +273,7 @@ function BoardCell({
           <button
             type="button"
             onClick={onAdd}
-            className="flex-1 min-h-[36px] flex items-center justify-center rounded-md border border-dashed border-border text-muted-foreground/70 hover:text-muted-foreground hover:border-border transition-colors"
+            className="flex min-h-[36px] flex-1 items-center justify-center rounded-lg border border-dashed border-border text-muted-foreground/70 transition-colors hover:border-input hover:text-foreground"
             aria-label="Add session"
           >
             <Plus className="w-3.5 h-3.5" />

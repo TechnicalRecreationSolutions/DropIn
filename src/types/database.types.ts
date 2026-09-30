@@ -423,6 +423,11 @@ export type Database = {
            * before 063 is applied the column is absent.
            */
           needs_review?: boolean;
+          /**
+           * The department the notice is about (migration 064). Optional for
+           * the same reason as `needs_review`: absent before 064 is applied.
+           */
+          department_id?: string | null;
           created_by: string | null;
           created_at: string;
           updated_at: string;
@@ -450,6 +455,45 @@ export type Database = {
           updated_at?: string;
         };
         Update: Partial<Database["public"]["Tables"]["facility_notices"]["Insert"]>;
+        Relationships: [];
+      };
+      /**
+       * An organization's status library (migration 064). Vocabulary: posting
+       * copies a template into facility_notices and nothing links back.
+       */
+      notice_templates: {
+        Row: {
+          id: string;
+          org_id: string;
+          /** The button's name in the composer. */
+          label: string;
+          category: NoticeCategory;
+          severity: NoticeSeverity;
+          headline: string;
+          body: string | null;
+          display_order: number;
+          created_at: string;
+          updated_at: string;
+        };
+        Insert: Omit<
+          Database["public"]["Tables"]["notice_templates"]["Row"],
+          "id" | "created_at" | "updated_at" | "body" | "display_order"
+        > & {
+          body?: string | null;
+          display_order?: number;
+          updated_at?: string;
+        };
+        Update: Partial<Database["public"]["Tables"]["notice_templates"]["Insert"]>;
+        Relationships: [];
+      };
+      /** No rows for a template = offered to every department (migration 064). */
+      notice_template_departments: {
+        Row: {
+          template_id: string;
+          department_id: string;
+        };
+        Insert: Database["public"]["Tables"]["notice_template_departments"]["Row"];
+        Update: Partial<Database["public"]["Tables"]["notice_template_departments"]["Row"]>;
         Relationships: [];
       };
       /**

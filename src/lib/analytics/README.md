@@ -30,7 +30,7 @@ SessionModal ─────────┘                                     
                                                                                           │
 sessions + department_hours/holidays (058/059) ─► utilization.ts ─► summariseRange() ─────┼─► Utilization
                                                                                           │
-/dashboard/counts ─► facility_readings (061) ─► attendance.ts ────────────────────────────┴─► Attendance
+/dashboard/facilities/[id]/status (People here) ─► facility_readings (061) ─► attendance.ts ────────────────────────────┴─► Attendance
                                                                                           │
                                                                         /api/analytics/export
                                                                         (6 datasets, 2 gates)

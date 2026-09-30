@@ -3,7 +3,7 @@
 Head counts and temperatures: what staff record, and what patrons get.
 
 ```
-lifeguard → /dashboard/counts ─► POST /api/facilities/[id]/readings
+staff → status page, People here ─► POST /api/facilities/[id]/readings
                                           │
                                           └─► facility_readings (migration 061)
                                                       │
@@ -90,3 +90,14 @@ node --experimental-strip-types scripts/verify/verify-ba.mjs                # ne
   count uses `spaces.capacity` for its band but cannot be published separately.
 - **Chlorine, pH, air quality.** They would be `metric` values and nothing else
   would move.
+
+## Where staff record (since 2026-09-29)
+
+There is no `/dashboard/counts` page any more. The counter (`HeadCountTool`)
+is the **People here** section of the facility status page, under the board,
+because "head counts" was lifeguard language and logging how many people are
+in the building is a status question every department has. The old URL
+redirects (next.config.ts), keeping `?facility=`. The temperature card folds
+away unless the facility has recorded a temperature; the log is folded too.
+The phone bottom bar's raised centre action is now **Status** for every role
+(it was Count, plus an aux-only Status tab).

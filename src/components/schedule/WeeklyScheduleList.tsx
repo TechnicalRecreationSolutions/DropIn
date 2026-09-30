@@ -4,17 +4,15 @@ import { useMemo, useState } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { ChevronDown, ChevronUp, Plus } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import {
-  formatSessionTime,
-  formatDayShort,
-  formatDayFull,
-  nowAsSessionTime,
-} from "@/lib/utils/dates";
+import { formatSessionTime, formatDayFull, nowAsSessionTime } from "@/lib/utils/dates";
 import { dayIndexFromDate, sessionDayIndex } from "@/lib/schedule/weekGeometry";
 import { cn } from "@/lib/utils/cn";
 import SessionModal from "./SessionModal";
 import WeekNavigator from "./WeekNavigator";
 import SessionTags from "./SessionTags";
+import DayStrip from "./DayStrip";
+import NowPill from "./NowPill";
+import { TAKEN_HATCH, isTakenSession } from "./sessionCardColor";
 import { getSessionLiveStatus } from "@/lib/utils/sessionStatus";
 import { DAYS } from "@/lib/schedule/weekGeometry";
 import { useScheduleEditing } from "./editing/ScheduleEditingContext";
@@ -123,27 +121,15 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
     <div>
       <WeekNavigator weekStart={weekStart} onWeekChange={onWeekChange} />
 
-      {/* Mobile: day selector chips */}
-      <div className="flex gap-1.5 overflow-x-auto pb-2 mt-3 sm:hidden px-1">
-        {visibleDayIndexes.map((i) => {
-          const day = days[i];
-          const isActive = effectiveActiveDayIndex === i;
-          return (
-            <button
-              key={i}
-              onClick={() => setActiveDayIndex(i)}
-              className={cn(
-                "flex-shrink-0 flex flex-col items-center px-3 py-2 rounded-xl text-xs font-medium transition-colors",
-                isActive ? "text-white" : "bg-muted text-muted-foreground hover:bg-border"
-              )}
-              style={isActive ? { backgroundColor: "var(--org-primary, #2563eb)" } : undefined}
-            >
-              <span>{formatDayShort(day)}</span>
-              <span className="font-bold">{day.getDate()}</span>
-            </button>
-          );
-        })}
-      </div>
+      {/* Phones show one day at a time; these pick it. */}
+      <DayStrip
+        className="mt-3 sm:hidden"
+        days={days}
+        indexes={visibleDayIndexes}
+        counts={days.map((_, i) => sessionsByDay[i]?.length ?? 0)}
+        activeIndex={effectiveActiveDayIndex}
+        onSelect={setActiveDayIndex}
+      />
 
       {pastDayCount > 0 && (
         <button
@@ -159,7 +145,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
         </button>
       )}
 
-      <div className="mt-3 space-y-6">
+      <div className="mt-4 space-y-7">
         {visibleDayIndexes.map((dayIndex) => {
           const day = days[dayIndex];
           const isMobileHidden = dayIndex !== effectiveActiveDayIndex;
@@ -167,19 +153,18 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
           const isToday = now.toDateString() === day.toDateString();
 
           return (
-            <div key={dayIndex} className={cn(isMobileHidden ? "hidden sm:block" : "block")}>
-              <div
-                className={cn("flex items-baseline gap-2 pb-2 border-b-2", !isToday && "border-border")}
-                style={isToday ? { borderColor: "var(--org-accent, #2563eb)" } : undefined}
-              >
-                <h3
-                  className={cn("text-sm font-bold", !isToday && "text-foreground")}
-                  style={isToday ? { color: "var(--org-accent, #2563eb)" } : undefined}
-                >
-                  {formatDayFull(day)}
-                </h3>
+            <section key={dayIndex} className={cn(isMobileHidden ? "hidden sm:block" : "block")}>
+              {/* A plain heading, like the landing page's printed week; the
+                  centre's colour only marks today. */}
+              <div className="flex items-baseline gap-2 pb-2">
+                <h3 className="text-[15px] font-semibold tracking-[-0.01em] text-foreground">{formatDayFull(day)}</h3>
+                {isToday && (
+                  <span className="text-xs font-semibold" style={{ color: "var(--org-primary, var(--brand))" }}>
+                    Today
+                  </span>
+                )}
                 {daySessions.length > 0 && (
-                  <span className="text-xs text-muted-foreground/70">
+                  <span className="text-xs text-muted-foreground">
                     {daySessions.length} session{daySessions.length === 1 ? "" : "s"}
                   </span>
                 )}
@@ -201,45 +186,62 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
               </div>
 
               {daySessions.length === 0 ? (
-                <p className="text-sm text-muted-foreground/70 py-4">No drop-ins scheduled.</p>
+                <p className="border-t border-border py-4 text-sm text-muted-foreground">Nothing scheduled.</p>
               ) : (
-                <ul className="divide-y divide-border mt-1">
+                <ul className="border-t border-border">
                   {daySessions.map((session) => {
                     const { isLive, isPast } = getSessionLiveStatus(session, sessionNow);
-                    const dotColor = session.templateColor ?? "var(--org-primary, #2563eb)";
+                    const taken = isTakenSession(session);
+                    const where = [session.spaceNames.join(", "), session.locationDetail]
+                      .filter(Boolean)
+                      .join(" · ");
 
                     return (
-                      <li key={session.key} className="group flex items-center">
+                      <li key={session.key} className="group flex items-center border-b border-border/70 last:border-b-0">
                         <button
                           onClick={() => setSelectedSession(session)}
                           className={cn(
-                            "flex-1 min-w-0 flex items-center gap-3 py-3 text-left hover:bg-muted rounded-lg px-2 -mx-2 transition-colors",
+                            "flex min-w-0 flex-1 items-start gap-3 rounded-lg px-2 -mx-2 py-3 text-left transition-colors hover:bg-muted",
                             isPast && "opacity-50"
                           )}
                         >
-                          <span className="w-2.5 h-2.5 rounded-full shrink-0" style={{ backgroundColor: dotColor }} />
-                          <span className="w-24 sm:w-28 shrink-0 text-xs font-medium text-muted-foreground">
-                            {formatSessionTime(session.start)}
-                          </span>
-                          <span className="flex-1 min-w-0">
-                            <span className="block text-sm font-semibold text-foreground truncate">
-                              {sessionDisplayLabel(session)}
+                          {/* Time first and in the centre's colour, as on the
+                              landing page's widget: it's what people scan. */}
+                          <span className="w-[4.75rem] shrink-0 pt-px tabular-nums">
+                            <span
+                              className="block text-xs font-semibold"
+                              style={{ color: "var(--org-text-on-tint, var(--foreground))" }}
+                            >
+                              {formatSessionTime(session.start)}
                             </span>
-                            {(session.spaceNames.length > 0 || session.locationDetail) && (
-                              <span className="block text-xs text-muted-foreground/70 truncate">
-                                {[session.spaceNames.join(", "), session.locationDetail].filter(Boolean).join(" · ")}
+                            <span className="block text-[11px] text-muted-foreground">
+                              to {formatSessionTime(session.end)}
+                            </span>
+                          </span>
+                          <span className="min-w-0 flex-1">
+                            <span className="flex items-center gap-2">
+                              <span
+                                aria-hidden
+                                className="size-2.5 shrink-0 rounded-[3px] border"
+                                style={
+                                  taken
+                                    ? { backgroundImage: TAKEN_HATCH, borderColor: "#a1a1a8" }
+                                    : {
+                                        backgroundColor: session.templateColor ?? "var(--org-primary, var(--brand))",
+                                        borderColor: "transparent",
+                                      }
+                                }
+                              />
+                              <span className="truncate text-sm font-semibold text-foreground">
+                                {sessionDisplayLabel(session)}
                               </span>
+                              {isLive && <NowPill />}
+                            </span>
+                            {where && (
+                              <span className="mt-0.5 block truncate text-xs text-muted-foreground">{where}</span>
                             )}
                             <SessionTags tags={session.templateTags} className="mt-1" />
                           </span>
-                          {isLive && (
-                            <span
-                              className="shrink-0 text-[10px] font-bold uppercase tracking-wide text-white px-2 py-0.5 rounded-full"
-                              style={{ backgroundColor: "var(--org-accent, #2563eb)" }}
-                            >
-                              On now
-                            </span>
-                          )}
                         </button>
                         {editing && (
                           <SessionActionsMenu session={session} editing={editing} variant="on-row" />
@@ -249,7 +251,7 @@ export default function WeeklyScheduleList({ sessions, weekStart, onWeekChange }
                   })}
                 </ul>
               )}
-            </div>
+            </section>
           );
         })}
       </div>

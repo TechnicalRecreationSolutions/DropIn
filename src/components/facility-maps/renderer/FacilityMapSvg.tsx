@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { RenderShape, RenderContextElement, StatusBySpaceId } from "./types";
 import { MAP_COLORS, shapeFamily } from "./style";
 import {
@@ -13,7 +13,6 @@ import {
   RoomShape,
   ContextElement,
   type UnitRect,
-  type DefRefs,
 } from "./shapes";
 
 interface FacilityMapSvgProps {
@@ -31,16 +30,15 @@ interface FacilityMapSvgProps {
 
 /** Fixed viewBox width — all geometry scales into this regardless of canvas meters. */
 const VIEW_W = 1000;
-/** Inset of the building shell from the canvas edge, in viewBox units. */
-const SHELL_INSET = 8;
 
 /**
- * The shared facility-map rendering engine ("soft depth" visual language):
- * one SVG that both the public floorplan view and the map builder draw
- * through, so the two can never diverge. Turns normalized hotspot rects
- * into illustrated spaces — gradient water with lane ropes, material courts
- * with markings, pale rooms — inside a building shell, with live/soon
- * status washes from `statusBySpaceId` (absence = free).
+ * The shared facility-map rendering engine: one SVG that both the public
+ * floorplan view and the map builder draw through, so the two can never
+ * diverge. Turns normalized hotspot rects into flat spaces in the landing
+ * page's style (see style.ts) — pale water with white lane dividers, tinted
+ * courts with their lines, white rooms — on a light grey floor, with the
+ * centre's colour and a white label card for whatever `statusBySpaceId`
+ * says is on (absence = nothing on).
  *
  * Geometry: a fixed 1000-unit-wide viewBox (height follows the canvas's
  * real-world aspect ratio), so font/stroke sizes are consistent fractions
@@ -74,23 +72,6 @@ export default function FacilityMapSvg({
   }, []);
   const pxPerUnit = (pxWidth || 640) / VIEW_W;
 
-  // Gradient ids must be unique per mounted instance — the builder and a
-  // preview can render two maps on one page.
-  const uid = useId().replace(/[^a-zA-Z0-9_-]/g, "");
-  const gradientIds = {
-    water: `fm-water-${uid}`,
-    wood: `fm-wood-${uid}`,
-    acrylicGreen: `fm-ag-${uid}`,
-    acrylicBlue: `fm-ab-${uid}`,
-    floor: `fm-floor-${uid}`,
-  };
-  const defs: DefRefs = {
-    water: `url(#${gradientIds.water})`,
-    wood: `url(#${gradientIds.wood})`,
-    acrylicGreen: `url(#${gradientIds.acrylicGreen})`,
-    acrylicBlue: `url(#${gradientIds.acrylicBlue})`,
-  };
-
   function toUnits(s: { x: number; y: number; width: number; height: number }): UnitRect {
     return { x: s.x * VIEW_W, y: s.y * viewH, w: s.width * VIEW_W, h: s.height * viewH };
   }
@@ -116,41 +97,8 @@ export default function FacilityMapSvg({
         aria-label="Facility map"
         style={{ display: "block", width: "100%", height: "auto" }}
       >
-        <defs>
-          <linearGradient id={gradientIds.floor} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={MAP_COLORS.floorTop} />
-            <stop offset="1" stopColor={MAP_COLORS.floorBottom} />
-          </linearGradient>
-          <linearGradient id={gradientIds.water} x1="0" y1="0" x2="0" y2="1">
-            <stop offset="0" stopColor={MAP_COLORS.waterTop} />
-            <stop offset="1" stopColor={MAP_COLORS.waterBottom} />
-          </linearGradient>
-          <linearGradient id={gradientIds.wood} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor={MAP_COLORS.woodLight} />
-            <stop offset="1" stopColor={MAP_COLORS.woodDark} />
-          </linearGradient>
-          <linearGradient id={gradientIds.acrylicGreen} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor={MAP_COLORS.acrylicGreenLight} />
-            <stop offset="1" stopColor={MAP_COLORS.acrylicGreenDark} />
-          </linearGradient>
-          <linearGradient id={gradientIds.acrylicBlue} x1="0" y1="0" x2="1" y2="0">
-            <stop offset="0" stopColor={MAP_COLORS.acrylicBlueLight} />
-            <stop offset="1" stopColor={MAP_COLORS.acrylicBlueDark} />
-          </linearGradient>
-        </defs>
-
-        {/* Floor + building shell — the "you are inside a building" anchor. */}
-        <rect x={0} y={0} width={VIEW_W} height={viewH} fill={`url(#${gradientIds.floor})`} />
-        <rect
-          x={SHELL_INSET}
-          y={SHELL_INSET}
-          width={VIEW_W - SHELL_INSET * 2}
-          height={viewH - SHELL_INSET * 2}
-          rx={12}
-          fill={MAP_COLORS.shellFill}
-          stroke={MAP_COLORS.shellStroke}
-          strokeWidth={3}
-        />
+        {/* The floor: the landing page's light grey panel. */}
+        <rect x={0} y={0} width={VIEW_W} height={viewH} fill={MAP_COLORS.floor} />
 
         {contextElements.map((element) => (
           <ContextElement key={element.key} element={element} rect={toUnits(element)} pxPerUnit={pxPerUnit} />
@@ -166,7 +114,6 @@ export default function FacilityMapSvg({
               status: statusBySpaceId?.get(shape.spaceId),
               selected: shape.spaceId === selectedSpaceId,
               pxPerUnit,
-              defs,
               onClick: onSpaceClick,
             };
             renderUnits.push({
@@ -185,7 +132,6 @@ export default function FacilityMapSvg({
                       lanes={[{ shape, status: common.status }]}
                       selectedSpaceId={selectedSpaceId}
                       pxPerUnit={pxPerUnit}
-                      defs={defs}
                       onLaneClick={onSpaceClick}
                     />
                   );
@@ -213,7 +159,6 @@ export default function FacilityMapSvg({
                   lanes={members.map((m) => ({ shape: m, status: statusBySpaceId?.get(m.spaceId) }))}
                   selectedSpaceId={selectedSpaceId}
                   pxPerUnit={pxPerUnit}
-                  defs={defs}
                   onLaneClick={onSpaceClick}
                 />
               ),

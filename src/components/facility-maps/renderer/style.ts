@@ -1,72 +1,69 @@
 /**
- * The facility map's visual language ("soft depth" direction): every
- * material and status color the renderer uses, plus the preset-key →
- * shape-family mapping that decides which illustration a hotspot gets.
+ * The facility map's visual language: the landing page's "pool from above"
+ * picture, applied to every kind of space. Flat pale fills, a slightly
+ * darker edge, white or tinted markings, no gradients, shadows or glows
+ * (docs/DESIGN.md). What's on is a white label card floating over the
+ * space, as on the landing page, not a coloured wash with text on it.
  *
- * The map is deliberately a light "paper map" in both app themes — like an
- * embedded street map, it reads as an illustration of a physical place, not
- * a themed UI surface. Status colors are the exception: live spaces use the
- * org's accent (via --org-accent, matching every other schedule view) and
- * "starting soon" uses a fixed amber that stays legible on all materials.
+ * The map stays light in both app themes, like an embedded street map: it
+ * is a picture of a building, not a themed UI surface. Live spaces take the
+ * centre's own colour (--org-primary, the same one every other schedule view
+ * uses for "today" and "now"); "starting soon" is a fixed amber.
  */
 
+/** One kind of floor: its fill, edge, label colour and line markings. */
+export interface Surface {
+  fill: string;
+  edge: string;
+  text: string;
+  marking: string;
+}
+
+const ORG = "var(--org-primary, #0066cc)";
+
+export const SURFACES = {
+  water: { fill: "#e6f0fa", edge: "#cfe0f5", text: "#004a94", marking: "#ffffff" },
+  wood: { fill: "#f7ecdf", edge: "#ead7bf", text: "#7a4a1c", marking: "#e2c9a6" },
+  acrylicGreen: { fill: "#e6f2e9", edge: "#cbe3d2", text: "#14532d", marking: "#b5d8bf" },
+  acrylicBlue: { fill: "#e2f2ef", edge: "#c4e3dc", text: "#0b5a54", marking: "#a9d6cc" },
+  ice: { fill: "#f3f8fb", edge: "#d6e3ec", text: "#3f5a70", marking: "#c9d9e6" },
+  stone: { fill: "#efeff1", edge: "#dcdce0", text: "#3f3f45", marking: "#dcdce0" },
+  room: { fill: "#ffffff", edge: "#e4e4e7", text: "#111113", marking: "#e4e4e7" },
+  live: {
+    fill: `color-mix(in srgb, ${ORG} 16%, white)`,
+    edge: ORG,
+    text: "var(--org-text-on-tint, #004a94)",
+    marking: `color-mix(in srgb, ${ORG} 28%, white)`,
+  },
+  soon: { fill: "#fdf1dc", edge: "#e9b25a", text: "#8a5b04", marking: "#f3d9a8" },
+} as const satisfies Record<string, Surface>;
+
 export const MAP_COLORS = {
-  floorTop: "#F7F4EF",
-  floorBottom: "#EDE8E0",
-  shellFill: "rgba(255,255,255,0.55)",
-  shellStroke: "#C9C2B6",
+  floor: "#f4f4f5",
+  ink: "#111113",
+  inkSoft: "#5d5d63",
+  card: "#ffffff",
+  cardEdge: "rgba(17,17,19,0.10)",
 
-  deck: "#DCE9EF",
-  waterTop: "#6FBEDC",
-  waterBottom: "#4A9FC2",
-  waterText: "#FFFFFF",
-  waterTextDim: "#E4F2F8",
-  rope: "rgba(255,255,255,0.85)",
+  zoneFill: "#e9e9ec",
+  zoneText: "#6b6b72",
+  entrance: "#111113",
 
-  woodLight: "#E9B27C",
-  woodDark: "#D6945A",
-  acrylicGreenLight: "#79AC90",
-  acrylicGreenDark: "#5E9377",
-  acrylicBlueLight: "#6E9DBC",
-  acrylicBlueDark: "#5586A6",
-  marking: "rgba(255,255,255,0.92)",
-
-  roomFill: "#F3EFE8",
-  roomStroke: "#DDD5C8",
-  ink: "#3B4149",
-  inkSoft: "#6E7682",
-
-  zoneFill: "#E9E4DB",
-  zoneText: "#948C7E",
-  entrance: "#3B4149",
-
-  ice: "#EDF5F9",
-  iceLine: "#C74A4A",
-  iceBlue: "#4A7BC7",
-  iceText: "#4A6B85",
-  stoneLight: "#A99E90",
-  stoneDark: "#8D8274",
-
-  accent: "var(--org-accent, #2563eb)",
-  soonFill: "#F5A623",
-  soonStroke: "#E8960C",
-  soonText: "#8A5B04",
+  accent: ORG,
+  soonFill: SURFACES.soon.fill,
+  soonStroke: SURFACES.soon.edge,
+  soonText: SURFACES.soon.text,
   /**
    * Transition alerts (ending / changeover / starting within minutes). A
-   * burnt orange rather than the "soon" amber, so an alert outline still
-   * reads on top of an amber "soon" wash.
+   * burnt orange rather than the "soon" amber, so an alert still reads next
+   * to an amber "soon" space.
    */
-  alert: "#C2410C",
-  alertText: "#FFFFFF",
+  alert: "#c2410c",
+  alertText: "#ffffff",
 
-  card: "#FFFFFF",
+  /** Muted climbing holds, so the wall reads as a wall without shouting. */
+  holds: ["#f2c4bf", "#f5dca9", "#c6e2cd", "#c5d9ee", "#dccfee"],
 } as const;
-
-/** Soft lift under every placed shape. */
-export const SHAPE_SHADOW = "drop-shadow(0 2px 3px rgba(58,52,43,0.28))";
-/** Accent halo behind live spaces. */
-export const LIVE_GLOW =
-  "drop-shadow(0 0 9px color-mix(in srgb, var(--org-accent, #2563eb) 55%, transparent))";
 
 export type ShapeFamily =
   | "pool"
