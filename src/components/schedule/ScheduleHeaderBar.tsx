@@ -39,6 +39,18 @@ const OPTIONS: { value: ScheduleTemplate; label: string; icon: typeof Columns3 }
 ];
 
 /**
+ * Phone-width columns by view count: up to three share one row, four split
+ * 2 + 2, five split 3 + 2 — never a lone pill stranded on the second row.
+ * Literal class names so Tailwind picks them up.
+ */
+const MOBILE_COLUMNS: Record<number, string> = {
+  2: "grid-cols-2",
+  3: "grid-cols-3",
+  4: "grid-cols-2",
+  5: "grid-cols-3",
+};
+
+/**
  * Neutral header bar with a pill-shaped view toggle (docs/DESIGN.md: the
  * centre's brand colour is an accent — the active view — never a filled bar), letting a viewer
  * switch between the views the org has enabled (widget_configs.
@@ -85,16 +97,18 @@ export default function ScheduleHeaderBar({
         {title}
       </h2>
       {(options.length > 1 || actions) && (
-        <div className="flex items-center gap-2 max-w-full min-w-0">
+        <div className="flex items-center gap-2 w-full min-w-0 sm:w-auto">
           {options.length > 1 && (
-            // Five view pills are wider than a phone. The bar wraps them onto their
-            // own line, but the card clips the overflow, so the last one ("Floorplan")
-            // was cut through the middle of the word with no indication it was
-            // reachable. Scrolling the strip itself keeps every view available at
-            // 390px without shrinking the labels to nothing.
+            // Every view stays visible — seeing them all is what gets visitors to
+            // try another one. Below `sm` five pills don't fit on one line (a
+            // scrolling strip hid the last ones), so the toggle takes the full
+            // width and splits them over two balanced rows (MOBILE_COLUMNS);
+            // from `sm` up it is the usual single pill.
             <div
               className={cn(
-                "inline-flex gap-0.5 rounded-full p-[3px] max-w-full overflow-x-auto [scrollbar-width:none] [&::-webkit-scrollbar]:hidden",
+                "grid flex-1 min-w-0 gap-0.5 rounded-2xl p-[3px]",
+                MOBILE_COLUMNS[options.length] ?? "grid-cols-3",
+                "sm:inline-flex sm:flex-none sm:rounded-full",
                 dark ? "bg-white/10" : "bg-muted"
               )}
               role="group"
@@ -109,7 +123,7 @@ export default function ScheduleHeaderBar({
                     type="button"
                     onClick={() => onChange(option.value)}
                     className={cn(
-                      "flex shrink-0 whitespace-nowrap items-center gap-1.5 px-3 py-1.5 rounded-full text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
+                      "flex min-w-0 whitespace-nowrap items-center justify-center gap-1.5 px-2 sm:px-3 sm:shrink-0 py-1.5 rounded-full text-[13px] transition-colors focus-visible:outline-2 focus-visible:outline-offset-1 focus-visible:outline-ring",
                       active
                         ? "bg-white font-semibold shadow-[0_1px_2px_rgba(17,17,19,0.1)]"
                         : dark
@@ -120,7 +134,7 @@ export default function ScheduleHeaderBar({
                     style={active ? { color: "var(--org-primary, var(--brand))" } : undefined}
                     aria-pressed={active}
                   >
-                    <Icon className="w-3.5 h-3.5" />
+                    <Icon className="w-3.5 h-3.5 shrink-0" />
                     {option.label}
                   </button>
                 );
