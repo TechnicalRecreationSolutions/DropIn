@@ -12,7 +12,7 @@ diverge.
 | File | Role |
 |---|---|
 | `FacilityMapSvg.tsx` | The engine: viewBox math, gradient defs, building shell, unit z-ordering, dispatch to shape components. |
-| `shapes.tsx` | One component per shape family (pool, leisure pool, courts, rink, gym floor, climbing wall, room) plus context scenery and shared label/status helpers. |
+| `shapes.tsx` | One component per shape family (pool, leisure pool, courts, rink, field, gym floor, climbing wall, room) plus context scenery and shared label/status helpers. |
 | `style.ts` | The palette (`MAP_COLORS`), shadows/glow, and the `preset_key → ShapeFamily` mapping. |
 | `types.ts` | `RenderShape` / `RenderContextElement` / `SpaceStatusInfo` — the engine's input model, fed by both viewer and builder. |
 

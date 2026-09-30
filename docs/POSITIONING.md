@@ -61,10 +61,16 @@ limit on who the product is for: the headline speaks to any shared space.
 |---|---|---|---|
 | 1 | **Pools** | Rec software does not show lanes. The public PDF cannot show that a club has half the pool. Staff keep a separate Excel deck sheet. | Lead story, hero visual |
 | 2 | **Shared multi-sport courts** | One floor hosts pickleball, basketball, volleyball. A list cannot show which section is which. | Second story |
-| 3 | Arena dressing rooms, fitness and weight rooms, fields | They are spaces on a schedule like any other. Fields have no shape in the map builder, so they work in the by-space view and not on a floorplan. | One strip, no more |
+| 3 | Arena dressing rooms, fitness and weight rooms, fields | They are spaces on a schedule like any other. Fields got a shape in the map builder on 2026-09-30 (`field-soccer`), so they now draw on a floorplan too. | One strip, no more |
 
 **Not a target:** tennis and racquet clubs, intramurals. A tennis court shape
 exists in the map builder and `/find` can filter by sport; neither is marketed.
+
+> 2026-09-30: at the owner's request the hero widget's sample includes a
+> **Racquets** space (tennis and pickleball courts), alongside an arena, a
+> soccer field and an outdoor multi-sport court. That is a sample, not a
+> change to the target list above; revisit this section if the owner means it
+> as one.
 
 ### The first buyer
 
@@ -249,11 +255,9 @@ Found while checking claims. None was changed; each is a decision.
 | Surface | File |
 |---|---|
 | Landing page | `src/app/(public)/page.tsx` |
-| Sample week (data, behind the hero widget and the printout) | `src/components/marketing/sampleWeek.ts` |
-| Sample buildings (data) | `src/components/marketing/sampleFacilities.ts` |
-| Sample map, time chips | `src/components/marketing/SampleMap.tsx`, `SharedSpaceDemo.tsx` |
-| Sample printouts | `src/components/marketing/PaperSamples.tsx` |
-| Hero image: the five-view sample widget | `src/components/marketing/WidgetPreview.tsx` |
+| Hero: the live widget (real public widget components on a sample week) | `src/components/marketing/landing/LiveWidgetDemo.tsx`, data in `heroWidgetSample.ts` |
+| Other page visuals (hand-drawn copies of the product) | `src/components/marketing/landing/*Section.tsx`, `landing/ui.tsx` |
+| No longer used by the page (left in place, not deleted) | `sampleWeek.ts`, `sampleFacilities.ts`, `SampleMap.tsx`, `SharedSpaceDemo.tsx`, `PaperSamples.tsx`, `WidgetPreview.tsx` in `src/components/marketing/` |
 | FAQ | `src/components/marketing/FaqSection.tsx` |
 | Pricing cards and plan wording | `src/components/marketing/PricingGrid.tsx`, `src/lib/stripe/plans.ts` (unchanged) |
 | Default title and description | `src/app/layout.tsx` |

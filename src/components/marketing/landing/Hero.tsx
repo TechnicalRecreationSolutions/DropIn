@@ -1,18 +1,7 @@
 import Link from "next/link";
 import { LOWEST_MONTHLY, TRIAL_PERIOD_DAYS, dollars } from "@/lib/stripe/plans";
-import { ArrowRight, Hand, Legend, MapView, Panel, btnDark, btnLine, type MapBlock } from "./ui";
-
-/** Sample morning for the hero's pool map. Illustrative, not live data. */
-const LANES = ["Lane 1", "Lane 2", "Lane 3", "Lane 4", "Lane 5", "Lane 6", "Lane 7", "Lane 8"];
-const MORNING: MapBlock[] = [
-  { col: 0, span: 4, start: 6, end: 7.5, tone: "blue", title: "Lane Swim · Lanes 1–4", detail: "6:00 – 7:30 AM" },
-  { col: 4, span: 4, start: 6, end: 7.5, tone: "reserved", title: "Swim Club · Lanes 5–8", detail: "Reserved · 5:30 – 7:30 AM" },
-  { col: 0, span: 8, start: 7.5, end: 9, tone: "blue", title: "Lane Swim · Lanes 1–8", detail: "7:30 – 9:00 AM" },
-  { col: 0, span: 4, start: 9.5, end: 10.25, tone: "teal", title: "Aqua Fit · Lanes 1–4", detail: "9:30 – 10:15 AM" },
-  { col: 0, span: 4, start: 10.5, end: 12, tone: "pink", title: "Lessons · Lanes 1–4", detail: "10:30 AM – 12:00 PM" },
-  { col: 4, span: 4, start: 9, end: 12, tone: "blue", title: "Lane Swim · Lanes 5–8", detail: "9:00 AM – 12:00 PM" },
-  { col: 0, span: 8, start: 12, end: 13.5, tone: "blue", title: "Lane Swim · Lanes 1–8", detail: "12:00 – 1:30 PM" },
-];
+import { ArrowRight, Panel, btnDark, btnLine } from "./ui";
+import HeroWidget from "./HeroWidget";
 
 export default function Hero() {
   return (
@@ -55,60 +44,13 @@ export default function Hero() {
         {TRIAL_PERIOD_DAYS}-day free trial · Plans from ${dollars(LOWEST_MONTHLY)}/month · Cancel anytime
       </p>
 
-      {/* Product picture: a pool in the widget's Map layout. */}
-      <Panel className="mt-20 w-full max-w-[1200px] rounded-[36px] px-3 pt-4 pb-4 sm:mt-24 sm:px-16 sm:pt-14 sm:pb-20">
-        <Hand className="absolute -top-14 right-20 hidden -rotate-[4deg] text-[26px] md:flex md:items-end md:gap-1.5">
-          one column per lane
-          <svg viewBox="0 0 54 72" className="-mb-14 h-[72px] w-[54px]">
-            <path d="M6 4 C 34 8, 48 30, 40 66" fill="none" stroke="#0066cc" strokeWidth="2.5" strokeLinecap="round" />
-            <path d="M32 58 L 40 67 L 47 57" fill="none" stroke="#0066cc" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-          </svg>
-        </Hand>
-        <Hand tone="teal" className="absolute right-36 bottom-6 hidden -rotate-2 text-[27px] md:block">
-          ↑ the swim club has half the pool
-        </Hand>
-        <div className="overflow-x-auto">
-          <MapView
-            className="min-w-[680px]"
-            title="Pool"
-            subtitle="Sample · Monday, Sep 28"
-            columns={LANES}
-            start={6}
-            end={14}
-            ticks={["6 AM", "8 AM", "10 AM", "12 PM", "2 PM"]}
-            blocks={MORNING}
-            bodyHeight={420}
-            header={
-              <div
-                aria-hidden
-                className="hidden rounded-full bg-[#f4f4f5] p-[3px] text-[13px] font-medium sm:flex"
-              >
-                {["Grid", "List", "Map", "Board"].map((v) => (
-                  <span
-                    key={v}
-                    className={
-                      v === "Map"
-                        ? "rounded-full bg-white px-3.5 py-1.5 text-[#111113] shadow-[0_1px_2px_rgba(17,17,19,0.08)]"
-                        : "px-3.5 py-1.5 text-[#5d5d63]"
-                    }
-                  >
-                    {v}
-                  </span>
-                ))}
-              </div>
-            }
-            footer={
-              <Legend
-                items={[
-                  { label: "Drop-in", tone: "blue" },
-                  { label: "Program", tone: "teal" },
-                  { label: "Reserved", tone: "reserved" },
-                  { label: "Nothing scheduled", tone: "open" },
-                ]}
-              />
-            }
-          />
-        </div>
+      {/* Product picture: the real widget on a sample week, touring its views.
+          Wider than the page's 1200 px column, because the schedule is the
+          picture: nearly edge to edge on a phone (the panel eats into the
+          section gutter), capped at 1480 px so the grid's day columns do not
+          stretch into lines too long to scan. */}
+      <Panel className="-mx-2 mt-16 w-[calc(100%+1rem)] max-w-[1480px] rounded-[28px] px-2 pt-3 pb-3 sm:mx-0 sm:mt-24 sm:w-full sm:rounded-[36px] sm:px-6 sm:pt-14 sm:pb-8 lg:px-10">
+        <HeroWidget />
       </Panel>
     </section>
   );

@@ -791,6 +791,63 @@ export function RinkShape(props: StandaloneShapeProps) {
 }
 
 // ---------------------------------------------------------------------------
+// Playing field
+// ---------------------------------------------------------------------------
+
+/**
+ * A grass or turf field: soft green with soccer lines — halfway line, centre
+ * circle, and a penalty and goal box at each end. Proportions are fractions of
+ * a 105 × 68 m pitch, so a smaller field keeps the same picture.
+ */
+export function FieldShape(props: StandaloneShapeProps) {
+  const { rect, pxPerUnit, status } = props;
+  const { cx, cy } = centerOf(rect);
+  const r = radius(rect, 6, 0.04, pxPerUnit);
+  const showMarkings = rect.w * pxPerUnit >= 110;
+  const strokeW = clamp(1.2, 1.5 / pxPerUnit, 3);
+  return (
+    <StandaloneFrame
+      {...props}
+      r={r}
+      base={SURFACES.turf}
+      markings={(surface) => {
+        const color = status ? surface.marking : SURFACES.turf.marking;
+        // Penalty box, then goal box, as shares of the pitch's length and width.
+        const boxes = (fromLeft: boolean) =>
+          [
+            { depth: 0.157, height: 0.593 },
+            { depth: 0.052, height: 0.269 },
+          ].map(({ depth, height }) => (
+            <rect
+              key={`${fromLeft}-${depth}`}
+              x={fromLeft ? rect.x : rect.x + rect.w * (1 - depth)}
+              y={cy - (rect.h * height) / 2}
+              width={rect.w * depth}
+              height={rect.h * height}
+              fill="none"
+              stroke={color}
+              strokeWidth={strokeW}
+            />
+          ));
+        return (
+          <>
+            <BoundaryLine rect={rect} r={r} strokeW={strokeW} color={color} />
+            {showMarkings && (
+              <g pointerEvents="none">
+                <line x1={cx} y1={rect.y} x2={cx} y2={rect.y + rect.h} stroke={color} strokeWidth={strokeW} />
+                <circle cx={cx} cy={cy} r={Math.min(rect.h * 0.135, rect.w * 0.087)} fill="none" stroke={color} strokeWidth={strokeW} />
+                {boxes(true)}
+                {boxes(false)}
+              </g>
+            )}
+          </>
+        );
+      }}
+    />
+  );
+}
+
+// ---------------------------------------------------------------------------
 // Gym floor
 // ---------------------------------------------------------------------------
 

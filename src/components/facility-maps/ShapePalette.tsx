@@ -1,6 +1,6 @@
 "use client";
 
-import { Waves, Square, Snowflake, Building2, MapPin, DoorOpen, type LucideIcon } from "lucide-react";
+import { Waves, Square, Snowflake, Goal, Building2, MapPin, DoorOpen, type LucideIcon } from "lucide-react";
 import { SHAPE_PRESETS, SHAPE_PRESET_CATEGORIES, type ShapePreset } from "@/lib/facility-shapes/presets";
 import { CONTEXT_ITEMS, armedKey, type ArmedPlacement } from "./placement";
 import { cn } from "@/lib/utils/cn";
@@ -15,6 +15,7 @@ const CATEGORY_ICONS: Record<ShapePreset["category"], LucideIcon> = {
   pool: Waves,
   court: Square,
   rink: Snowflake,
+  field: Goal,
   generic: Building2,
 };
 

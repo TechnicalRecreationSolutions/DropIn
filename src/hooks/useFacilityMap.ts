@@ -3,11 +3,14 @@
 import { useQuery } from "@tanstack/react-query";
 import type { FacilityMap, MapContextElement, SpaceHotspotWithSpace } from "@/types/schedule.types";
 
-async function fetchFacilityMap(facilityId: string): Promise<{
+/** What /api/facility-maps/public returns for one facility. */
+export interface FacilityMapPayload {
   facilityMap: FacilityMap | null;
   hotspots: SpaceHotspotWithSpace[];
   contextElements: MapContextElement[];
-}> {
+}
+
+async function fetchFacilityMap(facilityId: string): Promise<FacilityMapPayload> {
   const url = new URL("/api/facility-maps/public", window.location.origin);
   url.searchParams.set("facilityId", facilityId);
 

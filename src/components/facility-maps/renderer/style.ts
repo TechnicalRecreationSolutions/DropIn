@@ -27,6 +27,7 @@ export const SURFACES = {
   acrylicGreen: { fill: "#e6f2e9", edge: "#cbe3d2", text: "#14532d", marking: "#b5d8bf" },
   acrylicBlue: { fill: "#e2f2ef", edge: "#c4e3dc", text: "#0b5a54", marking: "#a9d6cc" },
   ice: { fill: "#f3f8fb", edge: "#d6e3ec", text: "#3f5a70", marking: "#c9d9e6" },
+  turf: { fill: "#e4f1dc", edge: "#c9e0ba", text: "#2f5a1f", marking: "#b8d7a4" },
   stone: { fill: "#efeff1", edge: "#dcdce0", text: "#3f3f45", marking: "#dcdce0" },
   room: { fill: "#ffffff", edge: "#e4e4e7", text: "#111113", marking: "#e4e4e7" },
   live: {
@@ -74,6 +75,7 @@ export type ShapeFamily =
   | "court-badminton"
   | "court-pickleball"
   | "rink"
+  | "field"
   | "gym-floor"
   | "climbing-wall"
   | "room";
@@ -101,6 +103,7 @@ export function shapeFamily(presetKey: string): ShapeFamily {
   }
   if (presetKey.startsWith("court-")) return "court-basketball";
   if (presetKey.startsWith("rink")) return "rink";
+  if (presetKey.startsWith("field")) return "field";
   if (presetKey.startsWith("gym")) return "gym-floor";
   if (presetKey.startsWith("climb")) return "climbing-wall";
   return "room";

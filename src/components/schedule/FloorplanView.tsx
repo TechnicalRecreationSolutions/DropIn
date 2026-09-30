@@ -2,7 +2,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { ExpandedSession } from "@/types/schedule.types";
-import { useFacilityMap } from "@/hooks/useFacilityMap";
+import { useFacilityMap, type FacilityMapPayload } from "@/hooks/useFacilityMap";
 import { formatSessionTime, minutesOfDayIn, nowAsSessionTime, sessionDateString } from "@/lib/utils/dates";
 import { computeFloorplanStatus } from "@/lib/floorplan/spaceStatus";
 import FacilityMapSvg from "@/components/facility-maps/renderer/FacilityMapSvg";
@@ -14,6 +14,13 @@ import FloorplanLegend, { FloorplanKey } from "./FloorplanLegend";
 interface FloorplanViewProps {
   facilityId: string;
   sessions: ExpandedSession[];
+  /**
+   * A map to draw instead of fetching one — the landing page's sample
+   * building, which has no row behind it. The fetch is skipped entirely (an
+   * empty id disables the query), so its 60-second refetch never asks the API
+   * about a facility that does not exist.
+   */
+  map?: FacilityMapPayload;
 }
 
 const DEFAULT_RANGE = { startMinutes: 360, endMinutes: 1320 }; // 6am–10pm fallback
@@ -51,8 +58,11 @@ const DEFAULT_RANGE = { startMinutes: 360, endMinutes: 1320 }; // 6am–10pm fal
  * — falling back to a fixed 6am–10pm window when there are no sessions
  * today, since no facility open/close-hours field exists to read instead.
  */
-export default function FloorplanView({ facilityId, sessions }: FloorplanViewProps) {
-  const { data, isLoading, isError } = useFacilityMap(facilityId);
+export default function FloorplanView({ facilityId, sessions, map }: FloorplanViewProps) {
+  const query = useFacilityMap(map ? "" : facilityId);
+  const data = map ?? query.data;
+  const isLoading = !map && query.isLoading;
+  const isError = !map && query.isError;
   const [selectedSpaceId, setSelectedSpaceId] = useState<string | null>(null);
 
   // Ticks every 30s so a visitor who leaves the tab open doesn't get stuck

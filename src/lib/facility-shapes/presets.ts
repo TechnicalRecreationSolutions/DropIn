@@ -16,7 +16,7 @@
 export interface ShapePreset {
   key: string;
   label: string;
-  category: "pool" | "court" | "rink" | "generic";
+  category: "pool" | "court" | "rink" | "field" | "generic";
   widthM: number;
   heightM: number;
   laneCount: number;
@@ -34,6 +34,7 @@ export const SHAPE_PRESETS: ShapePreset[] = [
   { key: "court-badminton", label: "Badminton Court", category: "court", widthM: 13.4, heightM: 6.1, laneCount: 1 },
   { key: "court-pickleball", label: "Pickleball Court", category: "court", widthM: 13.41, heightM: 6.1, laneCount: 1 },
   { key: "rink-hockey", label: "Ice Rink", category: "rink", widthM: 60, heightM: 26, laneCount: 1 },
+  { key: "field-soccer", label: "Soccer Field", category: "field", widthM: 105, heightM: 68, laneCount: 1 },
   { key: "gym-floor", label: "Gym Floor", category: "generic", widthM: 20, heightM: 15, laneCount: 1 },
   { key: "climb-wall", label: "Climbing Wall", category: "generic", widthM: 12, heightM: 4, laneCount: 1 },
   { key: "generic-studio", label: "Studio", category: "generic", widthM: 10, heightM: 8, laneCount: 1 },
@@ -45,5 +46,6 @@ export const SHAPE_PRESET_CATEGORIES: { value: ShapePreset["category"]; label: s
   { value: "pool", label: "Pools" },
   { value: "court", label: "Courts" },
   { value: "rink", label: "Rinks" },
+  { value: "field", label: "Fields" },
   { value: "generic", label: "Rooms & More" },
 ];

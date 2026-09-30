@@ -187,15 +187,27 @@ holds the one-line positioning, the target market in priority order, what is
 built with the caveat each claim has to respect, the wording the page avoids
 ("open", "available", "integrates with"), and the open questions.
 
-- The hero image is the five-view sample widget (`WidgetPreview`), opening on
-  the lane view. It used to have its own section lower down; that section is gone.
-  It rotates through the views every 4 s: stops when a view is chosen, holds
-  under the pointer, has a Pause/Play button, and does not start under
-  "reduce motion". The view area has a fixed minimum height so the page below
-  the hero does not move.
-- Every view in the widget, and the printed-schedule sample, reads one sample
-  week: `src/components/marketing/sampleWeek.ts`. Change a session there, not
-  in a view.
+- The hero picture is the **real public widget** (`landing/LiveWidgetDemo.tsx`):
+  ScheduleHeaderBar, ScheduleFilterBar, all five views, the session popup and
+  the floorplan, running on a sample week (`landing/heroWidgetSample.ts`: Pool, Gym,
+  Multi-sport court, Arena, Soccer field, Racquets and Studios in the schedule
+  switcher, which is a dropdown at that count; expanded for whichever week is
+  on screen). The tour goes through the five views, then moves to the next
+  space. The soccer field needed a floorplan face: `FieldShape` in
+  `facility-maps/renderer/shapes.tsx`, which also added a `field-soccer`
+  preset ("Fields" category) to the map builder. It makes no API calls: FloorplanView takes a `map` prop instead of
+  fetching, and `SessionTrackingContext` turns off click analytics. It mounts
+  client-only (`HeroWidget.tsx`) because "this week" and the greyed-out past
+  sessions come from the visitor's clock.
+- It tours the views every 6 s until the visitor clicks, types or drags
+  anything inside it, then stops for good; it holds while hovered or
+  off-screen, never starts under "reduce motion", and has Pause/Play plus a
+  progress bar per view. The panel is wider than the page column (up to
+  1480 px, near edge-to-edge on phones) and the card height follows the
+  screen (`CARD_HEIGHT` in `HeroWidget.tsx`): scrolled to, the whole widget
+  fits in one screenful from 390x844 to 2560x1440. The height is fixed per
+  screen, with the schedule scrolling inside, so the page never moves as views
+  change. On phones the filters sit behind a "Filters" toggle.
 - The two maps under it are `FacilityMapSvg` over sample data
   (`src/components/marketing/sampleFacilities.ts`), not drawings.
 - The printout, deck sheet and five-view samples are drawn for the page and

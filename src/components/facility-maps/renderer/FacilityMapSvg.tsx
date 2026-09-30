@@ -8,6 +8,7 @@ import {
   LeisurePoolShape,
   CourtShape,
   RinkShape,
+  FieldShape,
   GymFloorShape,
   ClimbingWallShape,
   RoomShape,
@@ -138,6 +139,7 @@ export default function FacilityMapSvg({
                 }
                 if (family.startsWith("court-")) return <CourtShape key={shape.key} {...common} family={family} />;
                 if (family === "rink") return <RinkShape key={shape.key} {...common} />;
+                if (family === "field") return <FieldShape key={shape.key} {...common} />;
                 if (family === "gym-floor") return <GymFloorShape key={shape.key} {...common} />;
                 if (family === "climbing-wall") return <ClimbingWallShape key={shape.key} {...common} />;
                 return <RoomShape key={shape.key} {...common} />;

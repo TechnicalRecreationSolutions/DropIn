@@ -458,3 +458,19 @@
     break-after: avoid;
   }
 }
+
+/* The landing hero's view tour: one bar fill per view (LiveWidgetDemo). */
+@keyframes hero-dwell {
+  from {
+    width: 0%;
+  }
+  to {
+    width: 100%;
+  }
+}
+
+.hero-dwell {
+  animation-name: hero-dwell;
+  animation-timing-function: linear;
+  animation-fill-mode: forwards;
+}

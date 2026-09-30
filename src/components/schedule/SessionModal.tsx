@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef } from "react";
+import { createContext, useCallback, useContext, useEffect, useRef } from "react";
 import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { X, Clock, ClipboardList, MapPin, DollarSign, Users, Tag, Trash2, ExternalLink } from "lucide-react";
 import type { ExpandedSession } from "@/types/schedule.types";
@@ -8,6 +8,13 @@ import { formatSessionTime, formatSessionDayFull } from "@/lib/utils/dates";
 import { getSportCategory } from "@/lib/utils/sport-categories";
 import SessionTags from "./SessionTags";
 import { Button } from "@/components/ui/button";
+
+/**
+ * False where a visitor's click is not a click on a real schedule — the landing
+ * page's sample widget, whose sessions belong to no org. Default true, so every
+ * real surface counts without opting in.
+ */
+export const SessionTrackingContext = createContext(true);
 
 interface SessionModalProps {
   session: ExpandedSession;
@@ -40,14 +47,16 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
   // preview, so its presence is what distinguishes staff from a visitor — a
   // staff member checking their own schedule isn't a "click" worth counting,
   // and the same goes for them following a registration link to test it.
+  const trackingEnabled = useContext(SessionTrackingContext);
   const isStaffView = !!onDelete;
+  const skipTracking = isStaffView || !trackingEnabled;
 
   // One shape for both events, so link_click carries exactly the attribution
   // program_click does and the two stay comparable in the analytics summary.
   // A click's whole value is the ratio between them.
   const track = useCallback(
     (event: "program_click" | "link_click") => {
-      if (isStaffView) return;
+      if (skipTracking) return;
       fetch("/api/analytics/track", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -65,13 +74,13 @@ export default function SessionModal({ session, onClose, onDelete, isDeleting }:
         keepalive: true,
       }).catch(() => {});
     },
-    [isStaffView, session.orgId, session.facilityId, session.scheduleGroupId]
+    [skipTracking, session.orgId, session.facilityId, session.scheduleGroupId]
   );
 
   // Fires once per open, and only for visitors.
   const trackedKey = useRef<string | null>(null);
   useEffect(() => {
-    if (isStaffView || trackedKey.current === session.key) return;
+    if (skipTracking || trackedKey.current === session.key) return;
     trackedKey.current = session.key;
     track("program_click");
     // Only re-fires when a different session opens in the same mounted modal.
