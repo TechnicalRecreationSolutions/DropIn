@@ -81,7 +81,7 @@ export default function AddAnotherTimeDialog({
         </DialogHeader>
 
         <div className="flex items-center gap-3">
-          <div className="flex-1">
+          <div className="flex-1 min-w-0">
             <label className="text-xs text-muted-foreground mb-1 block">Start</label>
             <Input
               type="time"
@@ -90,8 +90,8 @@ export default function AddAnotherTimeDialog({
               required
             />
           </div>
-          <span className="text-muted-foreground/70 mt-5">→</span>
-          <div className="flex-1">
+          <span className="hidden text-muted-foreground/70 mt-5 sm:block">→</span>
+          <div className="flex-1 min-w-0">
             <label className="text-xs text-muted-foreground mb-1 block">End</label>
             <Input
               type="time"

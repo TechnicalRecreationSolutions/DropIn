@@ -185,7 +185,7 @@ function OverviewBody({
           </div>
         </section>
       ) : (
-        <Banner variant="warning" role="status" className="text-caption">
+        <Banner variant="warning" role={undefined} className="text-caption">
           {hasDepartment
             ? hasHours
               ? "This department is closed all week, so there is nothing to compare against."

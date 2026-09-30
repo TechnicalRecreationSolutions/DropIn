@@ -60,7 +60,7 @@ export default function DuplicateScheduleDialog({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="space-y-3">
+        <div className="min-w-0 space-y-3">
           <div>
             <label className="text-xs text-muted-foreground mb-1 block">Name</label>
             <Input
@@ -71,7 +71,7 @@ export default function DuplicateScheduleDialog({
             />
           </div>
           <div className="flex items-center gap-3">
-            <div className="flex-1">
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-muted-foreground mb-1 block">Start (optional)</label>
               <Input
                 type="date"
@@ -79,8 +79,8 @@ export default function DuplicateScheduleDialog({
                 onChange={(e) => setStartsOn(e.target.value)}
               />
             </div>
-            <span className="text-muted-foreground/70 mt-5">→</span>
-            <div className="flex-1">
+            <span className="hidden text-muted-foreground/70 mt-5 sm:block">→</span>
+            <div className="flex-1 min-w-0">
               <label className="text-xs text-muted-foreground mb-1 block">End (optional)</label>
               <Input
                 type="date"

@@ -356,6 +356,7 @@ function NoFacilities({ canEdit }: { canEdit: boolean }) {
       <EmptyState
         className="py-20"
         title="No buildings to show"
+        titleAs="h3"
         description={
           <>You haven&apos;t been given access to a building yet. Ask a manager to add you to one.</>
         }
@@ -366,6 +367,7 @@ function NoFacilities({ canEdit }: { canEdit: boolean }) {
     <EmptyState
       className="py-20"
       title="No buildings yet"
+      titleAs="h3"
       description="Add a facility first — schedules and sessions are built inside one."
       action={
         <Button asChild variant="outline">

@@ -434,7 +434,7 @@ export default function SessionForm({
   return (
     <form onSubmit={handleSubmit} className="space-y-6 bg-card rounded-card border border-border shadow-card p-6">
       {scheduleGroups.length === 0 && (
-        <Banner variant="warning">
+        <Banner variant="warning" role={undefined}>
           You need to <Link href="/dashboard/facilities" className="underline font-medium">add a schedule</Link> before creating sessions.
         </Banner>
       )}

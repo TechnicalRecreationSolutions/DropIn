@@ -150,7 +150,7 @@ export default function CreateSessionDialog({
 
   return (
     <Dialog open={!!target} onOpenChange={(next) => !next && onCancel()}>
-      <DialogContent>
+      <DialogContent className="max-h-[90dvh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>{draggedTemplate ? `Place "${draggedTemplate.name}"` : "Add session"}</DialogTitle>
           <DialogDescription>

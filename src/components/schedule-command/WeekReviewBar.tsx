@@ -55,9 +55,9 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart, canEdit = tr
   return (
     <div className="px-4 py-3 border-b border-border bg-muted/60">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-2">
-          <span className="text-xs font-medium text-muted-foreground">This week&rsquo;s review:</span>
-          <span className={cn("inline-flex items-center px-2 py-0.5 rounded-full text-[11px] font-medium border", meta.className)}>
+        <div className="flex min-w-0 items-center gap-2">
+          <span className="shrink-0 text-xs font-medium text-muted-foreground">This week&rsquo;s review:</span>
+          <span className={cn("inline-flex shrink-0 items-center whitespace-nowrap px-2 py-0.5 rounded-full text-[11px] font-medium border", meta.className)}>
             {isLoading ? "…" : meta.label}
           </span>
           {row?.note && status === "needs_changes" && (
@@ -66,7 +66,7 @@ export default function WeekReviewBar({ scheduleGroupId, weekStart, canEdit = tr
         </div>
 
         {canEdit && (
-          <div className="flex items-center gap-1.5">
+          <div className="flex flex-wrap items-center gap-1.5">
             <Button
               type="button"
               variant="outline"

@@ -237,6 +237,7 @@ function NoFacilities() {
       <EmptyState
         className="py-16"
         title="No buildings yet"
+        titleAs="h1"
         description="Add a facility first — session templates belong to one."
         action={
           <Button asChild variant="outline">

@@ -231,7 +231,7 @@ export default function RRuleBuilder({
                 required
               />
             </div>
-            <span className="text-muted-foreground mt-6">→</span>
+            <span className="hidden text-muted-foreground mt-6 sm:block">→</span>
             <div className="flex-1 min-w-0">
               <Label>End</Label>
               <Input
@@ -271,7 +271,7 @@ export default function RRuleBuilder({
                 required
               />
             </div>
-            <span className="text-muted-foreground mt-6">→</span>
+            <span className="hidden text-muted-foreground mt-6 sm:block">→</span>
             <div className="flex-1 min-w-0">
               <Label>Ends (optional)</Label>
               <Input
