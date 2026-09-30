@@ -169,9 +169,19 @@ export default function LiveWidgetDemo({
     <div ref={rootRef} className="relative">
       <Hand
         key={`${view}-${scope.id}`}
-        className="absolute -top-12 right-6 hidden -rotate-[3deg] text-[26px] animate-in fade-in duration-500 md:block"
+        className="absolute -top-12 right-6 hidden -rotate-[3deg] text-[26px] animate-in fade-in duration-500 lg:block"
       >
         {captionFor(view, scope.id)} ↓
+      </Hand>
+
+      {/* The space picker is a dropdown at seven spaces, which is easy to read
+          as a title. This note says what it does: beside it where there is
+          room (lg+), above the card otherwise, where the view note gives way. */}
+      <Hand
+        tone="teal"
+        className="absolute -top-10 left-3 -rotate-2 text-[22px] sm:-top-12 sm:left-4 sm:text-[26px] lg:hidden"
+      >
+        works for every department and space ↓
       </Hand>
 
       <SessionTrackingContext.Provider value={false}>
@@ -183,10 +193,16 @@ export default function LiveWidgetDemo({
             onMouseEnter={() => setHovering(true)}
             onMouseLeave={() => setHovering(false)}
             className={cn(
-              "flex flex-col rounded-[20px] border border-[#e4e4e7] bg-white text-left text-gray-900 shadow-[0_1px_2px_rgba(17,17,19,0.05),0_12px_32px_-12px_rgba(17,17,19,0.12)]",
+              "relative flex flex-col rounded-[20px] border border-[#e4e4e7] bg-white text-left text-gray-900 shadow-[0_1px_2px_rgba(17,17,19,0.05),0_12px_32px_-12px_rgba(17,17,19,0.12)]",
               heightClass,
             )}
           >
+            <Hand
+              tone="teal"
+              className="pointer-events-none absolute top-[64px] left-[262px] z-10 hidden -rotate-2 text-[26px] lg:block"
+            >
+              ← works for every department and space
+            </Hand>
             <ScheduleHeaderBar
               title="Drop-in schedule"
               view={view}

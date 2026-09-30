@@ -49,7 +49,7 @@ export default function Hero() {
           picture: nearly edge to edge on a phone (the panel eats into the
           section gutter), capped at 1480 px so the grid's day columns do not
           stretch into lines too long to scan. */}
-      <Panel className="-mx-2 mt-16 w-[calc(100%+1rem)] max-w-[1480px] rounded-[28px] px-2 pt-3 pb-3 sm:mx-0 sm:mt-24 sm:w-full sm:rounded-[36px] sm:px-6 sm:pt-14 sm:pb-8 lg:px-10">
+      <Panel className="-mx-2 mt-16 w-[calc(100%+1rem)] max-w-[1480px] rounded-[28px] px-2 pt-11 pb-3 sm:mx-0 sm:mt-24 sm:w-full sm:rounded-[36px] sm:px-6 sm:pt-14 sm:pb-8 lg:px-10">
         <HeroWidget />
       </Panel>
     </section>

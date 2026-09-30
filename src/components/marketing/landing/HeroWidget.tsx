@@ -23,7 +23,7 @@ import dynamic from "next/dynamic";
  * phone's collapsing address bar does not resize it mid-tour.
  */
 const CARD_HEIGHT =
-  "h-[clamp(540px,calc(100svh-150px),760px)] sm:h-[clamp(560px,calc(100svh-216px),980px)]";
+  "h-[clamp(540px,calc(100svh-182px),760px)] sm:h-[clamp(560px,calc(100svh-216px),980px)]";
 const LiveWidgetDemo = dynamic<{ heightClass: string }>(
   () => import("./LiveWidgetDemo"),
   {
