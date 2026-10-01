@@ -19,6 +19,7 @@ import {
 import { cn } from "@/lib/utils/cn";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import { Hand } from "./ui";
+import DemoScopeFilters from "./DemoScopeFilters";
 import { DEMO_SCOPES, demoSessionsForWeek } from "./heroWidgetSample";
 
 const VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorplan"];
@@ -30,6 +31,9 @@ const VIEW_LABELS: Record<ScheduleTemplate, string> = {
   floorplan: "Floorplan",
 };
 const FILTERS: SessionFilterKey[] = ["search", "activity", "day", "time"];
+
+/** The schedules the auto-tour visits: each department's full one. */
+const TOUR_SCOPES = DEMO_SCOPES.filter((s) => !s.sliceOf);
 
 /** How long each view stays up before the next one. */
 const DWELL_MS = 6000;
@@ -69,12 +73,14 @@ function captionFor(view: ScheduleTemplate, scopeId: string): string {
  * from the same components, so the landing page cannot drift from what a
  * patron sees. What differs: the data comes from the sample instead of
  * /api/sessions/expand, session clicks are not counted (SessionTrackingContext),
- * the floorplan is handed its map instead of fetching one, and there is no
- * print button (it would print this page).
+ * the floorplan is handed its map instead of fetching one, there is no
+ * print button (it would print this page), and the switcher row is three
+ * Facility / Department / Schedule dropdowns (DemoScopeFilters) rather than
+ * the embed's single schedule picker.
  *
  * It cycles through the five views on its own, then moves to the next space in
- * the switcher and goes round again — with seven spaces the switcher is a
- * dropdown (ScheduleScopeSwitcher), so the tour is what shows the range. It
+ * the switcher and goes round again — the dropdowns hide the other choices,
+ * so the tour is what shows the range. It
  * keeps going until the visitor does anything
  * with it — a click, a key, a drag of the floorplan's time slider — and then
  * stops for good, so a view is never pulled away from someone reading it. It
@@ -149,8 +155,13 @@ export default function LiveWidgetDemo({
   const advance = () => {
     const next = (VIEWS.indexOf(view) + 1) % VIEWS.length;
     if (next === 0) {
-      const i = DEMO_SCOPES.findIndex((s) => s.id === scope.id);
-      changeScope(DEMO_SCOPES[(i + 1) % DEMO_SCOPES.length].id);
+      // Department to department only: through all 24 schedules a tour
+      // would run twelve minutes. From a slice the visitor picked,
+      // it carries on after that slice's department.
+      const i = TOUR_SCOPES.findIndex(
+        (s) => s.id === (scope.sliceOf ?? scope.id),
+      );
+      changeScope(TOUR_SCOPES[(i + 1) % TOUR_SCOPES.length].id);
     }
     setView(VIEWS[next]);
   };
@@ -171,10 +182,10 @@ export default function LiveWidgetDemo({
         key={`${view}-${scope.id}`}
         className="absolute -top-12 right-6 hidden -rotate-[3deg] text-[26px] animate-in fade-in duration-500 lg:block"
       >
-        {captionFor(view, scope.id)} ↓
+        {captionFor(view, scope.sliceOf ?? scope.id)} ↓
       </Hand>
 
-      {/* The space picker is a dropdown at seven spaces, which is easy to read
+      {/* The Facility / Department / Schedule dropdowns are easy to read
           as a title. This note says what it does: beside it where there is
           room (lg+), above the card otherwise, where the view note gives way. */}
       <Hand
@@ -197,24 +208,26 @@ export default function LiveWidgetDemo({
               heightClass,
             )}
           >
-            <Hand
-              tone="teal"
-              className="pointer-events-none absolute top-[64px] left-[262px] z-10 hidden -rotate-2 text-[26px] lg:block"
-            >
-              ← works for every department and space
-            </Hand>
             <ScheduleHeaderBar
               title="Drop-in schedule"
               view={view}
               onChange={setView}
               allowedViews={VIEWS}
-              scopeOptions={DEMO_SCOPES.map((s) => ({
-                id: s.id,
-                label: s.label,
-                context: s.context,
-              }))}
-              activeScopeId={scope.id}
-              onScopeChange={changeScope}
+              scopeControl={
+                <DemoScopeFilters
+                  scopes={DEMO_SCOPES}
+                  active={scope}
+                  onChange={changeScope}
+                  after={
+                    <Hand
+                      tone="teal"
+                      className="pointer-events-none ml-3 hidden -rotate-2 text-[26px] whitespace-nowrap lg:block"
+                    >
+                      ← works for every department and space
+                    </Hand>
+                  }
+                />
+              }
             />
             <button
               type="button"

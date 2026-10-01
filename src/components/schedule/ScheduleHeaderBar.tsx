@@ -20,6 +20,10 @@ interface ScheduleHeaderBarProps {
   scopeOptions?: ScheduleHeaderScope[];
   activeScopeId?: string;
   onScopeChange?: (id: string) => void;
+  /** Replaces the schedule switcher row with custom controls — the landing
+   *  hero's Facility / Department / Schedule dropdowns. Takes precedence over
+   *  scopeOptions. */
+  scopeControl?: ReactNode;
   /** Extra controls after the view toggle — the visitor Print button, when the org allows it. */
   actions?: ReactNode;
   /**
@@ -72,6 +76,7 @@ export default function ScheduleHeaderBar({
   scopeOptions,
   activeScopeId,
   onScopeChange,
+  scopeControl,
   actions,
   dark = false,
 }: ScheduleHeaderBarProps) {
@@ -148,7 +153,9 @@ export default function ScheduleHeaderBar({
       {/* Its own full-width row inside the bar: the pills need the width, and
           putting them beside the title is what forced the old design to choose
           between showing a title and showing a switcher. */}
-      {switchable && (
+      {scopeControl ? (
+        <div className="basis-full min-w-0">{scopeControl}</div>
+      ) : switchable && (
         <ScheduleScopeSwitcher
           scopes={scopeOptions!}
           activeId={activeScopeId ?? scopeOptions![0].id}

@@ -8,7 +8,8 @@ import type { ExpandedSession, SessionTag } from "@/types/schedule.types";
  * product, the hero runs the real public widget components — header, view
  * toggle, filters, every view, the session popup and the floorplan. Only the
  * data is invented, and it lives here: seven spaces a visitor can switch
- * between, each a weekly pattern expanded into `ExpandedSession`s for whatever
+ * between (plus narrower schedules cut from them, see SLICES), each a weekly
+ * pattern expanded into `ExpandedSession`s for whatever
  * week is on screen, so the demo is always "this week" and the week arrows work.
  *
  * The pattern agrees with the other samples on the page: the swim club holds
@@ -36,6 +37,12 @@ export interface DemoScope {
   facilityName: string;
   departmentName: string;
   map: FacilityMapPayload;
+  /**
+   * Set on a schedule carved out of a department's full week (see SLICES):
+   * the parent's id. It shares the parent's facility, department, floor map
+   * and sessions, and shows only the slots SLICE_KEEP picks.
+   */
+  sliceOf?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -233,7 +240,8 @@ function mapPayload(
   };
 }
 
-export const DEMO_SCOPES: DemoScope[] = [
+/** One schedule per department: everything that department runs. */
+const DEPARTMENT_SCOPES: DemoScope[] = [
   {
     id: "pool",
     label: "Pool",
@@ -303,6 +311,43 @@ export const DEMO_SCOPES: DemoScope[] = [
     map: mapPayload("demo-community-centre-fitness", 36, 24, STUDIO_SPACES),
   },
 ];
+
+/**
+ * The narrower schedules a department publishes beside its full one — the
+ * way a centre posts "Lane swim" and "Swim lessons" as well as the whole pool.
+ * Each is a cut of its department's week (SLICE_KEEP picks the slots), not a
+ * second set of sessions, so the two can never disagree about what is on.
+ */
+const SLICES: { of: string; id: string; label: string }[] = [
+  { of: "pool", id: "pool-lanes", label: "Lane swim" },
+  { of: "pool", id: "pool-leisure", label: "Leisure pool" },
+  { of: "pool", id: "pool-lessons", label: "Swim lessons" },
+  { of: "gym", id: "gym-pickleball", label: "Pickleball" },
+  { of: "gym", id: "gym-basketball", label: "Basketball" },
+  { of: "gym", id: "gym-volleyball", label: "Volleyball" },
+  { of: "sport-court", id: "sport-court-pickleball", label: "Pickleball" },
+  { of: "sport-court", id: "sport-court-hockey", label: "Ball hockey" },
+  { of: "arena", id: "arena-skating", label: "Public skating" },
+  { of: "arena", id: "arena-hockey", label: "Drop-in hockey" },
+  { of: "field", id: "field-soccer", label: "Drop-in soccer" },
+  { of: "field", id: "field-ultimate", label: "Ultimate" },
+  { of: "racquets", id: "racquets-tennis", label: "Tennis" },
+  { of: "racquets", id: "racquets-pickleball", label: "Pickleball" },
+  { of: "studios", id: "studios-spin", label: "Spin" },
+  { of: "studios", id: "studios-yoga", label: "Yoga and stretch" },
+  { of: "studios", id: "studios-classes", label: "Group fitness" },
+];
+
+/** Every schedule, each department's full one first and its slices after. */
+export const DEMO_SCOPES: DemoScope[] = DEPARTMENT_SCOPES.flatMap((parent) => [
+  parent,
+  ...SLICES.filter((s) => s.of === parent.id).map((s) => ({
+    ...parent,
+    id: s.id,
+    label: s.label,
+    sliceOf: parent.id,
+  })),
+]);
 
 // ---------------------------------------------------------------------------
 // The weekly pattern
@@ -1306,6 +1351,40 @@ const PATTERNS: Record<DemoScope["id"], Slot[]> = {
   ],
 };
 
+const doing =
+  (...activities: Activity[]) =>
+  (slot: Slot) =>
+    activities.includes(slot.activity);
+const on =
+  (...spaceIds: string[]) =>
+  (slot: Slot) =>
+    slot.spaces.some((id) => spaceIds.includes(id));
+
+/**
+ * Which of the department's slots each slice shows. Activity slices leave
+ * rentals out (a "Lane swim" schedule lists lane swim); space slices keep
+ * them, because a court's schedule should say when it is taken.
+ */
+const SLICE_KEEP: Record<string, (slot: Slot) => boolean> = {
+  "pool-lanes": doing(A.laneSwim),
+  "pool-leisure": on("leisure"),
+  "pool-lessons": doing(A.lessons),
+  "gym-pickleball": doing(A.pickleball),
+  "gym-basketball": doing(A.youthBasketball, A.adultBasketball),
+  "gym-volleyball": doing(A.volleyball),
+  "sport-court-pickleball": doing(A.pickleball),
+  "sport-court-hockey": doing(A.ballHockey),
+  "arena-skating": doing(A.publicSkate, A.parentTotSkate),
+  "arena-hockey": doing(A.shinny, A.stickPuck),
+  "field-soccer": doing(A.dropInSoccer, A.walkingSoccer),
+  "field-ultimate": doing(A.ultimate),
+  "racquets-tennis": on(...tennis(1, 2)),
+  "racquets-pickleball": on(...pickle(1, 2, 3, 4)),
+  "studios-spin": doing(A.spin),
+  "studios-yoga": doing(A.yoga, A.stretch),
+  "studios-classes": doing(A.zumba, A.seniorsFit),
+};
+
 // ---------------------------------------------------------------------------
 // Expansion
 // ---------------------------------------------------------------------------
@@ -1321,6 +1400,9 @@ export function demoSessionsForWeek(
   weekStart: Date,
 ): ExpandedSession[] {
   const scope = DEMO_SCOPES.find((s) => s.id === scopeId) ?? DEMO_SCOPES[0];
+  // A slice expands its department's week, so ids match across schedules.
+  const base = scope.sliceOf ?? scope.id;
+  const keep = SLICE_KEEP[scope.id];
   const out: ExpandedSession[] = [];
 
   for (let offset = 0; offset < 7; offset++) {
@@ -1332,8 +1414,8 @@ export function demoSessionsForWeek(
     const weekday = day.getDay();
     const dateKey = `${day.getFullYear()}-${String(day.getMonth() + 1).padStart(2, "0")}-${String(day.getDate()).padStart(2, "0")}`;
 
-    PATTERNS[scope.id].forEach((slot, index) => {
-      if (!slot.days.includes(weekday)) return;
+    PATTERNS[base].forEach((slot, index) => {
+      if (!slot.days.includes(weekday) || (keep && !keep(slot))) return;
       const at = (hhmm: string) => {
         const [h, m] = hhmm.split(":").map(Number);
         return new Date(
@@ -1343,7 +1425,7 @@ export function demoSessionsForWeek(
       const spaces = slot.spaces.map((id) => SPACES_BY_ID.get(id)!);
       const a = slot.activity;
       const isReserved = a === RESERVED;
-      const sessionId = `${scope.id}-${index}`;
+      const sessionId = `${base}-${index}`;
 
       out.push({
         key: `${sessionId}_${dateKey}`,
@@ -1351,7 +1433,7 @@ export function demoSessionsForWeek(
         orgId: DEMO_ORG_ID,
         start: at(slot.start),
         end: at(slot.end),
-        scheduleGroupId: `${scope.id}-${a.sport}`,
+        scheduleGroupId: `${base}-${a.sport}`,
         scheduleGroupName: a.name,
         sportCategory: a.sport,
         activityType: "drop_in",
@@ -1362,13 +1444,13 @@ export function demoSessionsForWeek(
         maxParticipants: null,
         facilityId: scope.facilityId,
         facilityName: scope.facilityName,
-        departmentId: `${scope.id}-department`,
+        departmentId: `${base}-department`,
         departmentName: scope.departmentName,
         spaceIds: spaces.map((s) => s.id),
         spaceNames: spaces.map((s) => s.name),
         spaceZones: spaces.map((s) => s.zone),
         spaceOrders: spaces.map((s) => s.order),
-        templateId: isReserved ? null : `${scope.id}-${a.name}`,
+        templateId: isReserved ? null : `${base}-${a.name}`,
         templateName: isReserved ? null : a.name,
         templateColor: a.color,
         templateDescription: a.description,
