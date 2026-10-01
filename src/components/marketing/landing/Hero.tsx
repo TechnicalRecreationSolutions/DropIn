@@ -36,8 +36,8 @@ export default function Hero() {
           Start free trial
           <ArrowRight />
         </Link>
-        <Link href="#features" className={btnLine}>
-          See it for every space
+        <Link href="#how-it-works" className={btnLine}>
+          See how it works
         </Link>
       </div>
       <p className="mt-4 text-center text-[13px] text-[#5d5d63]">

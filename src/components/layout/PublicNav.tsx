@@ -19,7 +19,7 @@ export default function PublicNav() {
   const navLinks = [
     { href: "/find", label: "Find a centre" },
     { href: "/#how-it-works", label: "How it works" },
-    { href: "/#features", label: "Features" },
+    { href: "/#product", label: "Features" },
     { href: "/#pricing", label: "Pricing" },
     { href: "/#faq", label: "FAQ" },
   ];

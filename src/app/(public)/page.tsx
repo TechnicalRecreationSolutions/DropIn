@@ -6,7 +6,6 @@ import PricingGrid from "@/components/marketing/PricingGrid";
 import Hero from "@/components/marketing/landing/Hero";
 import RentalSection from "@/components/marketing/landing/RentalSection";
 import OneScheduleSection from "@/components/marketing/landing/OneScheduleSection";
-import SharedSpacesSection from "@/components/marketing/landing/SharedSpacesSection";
 import EverywhereSection from "@/components/marketing/landing/EverywhereSection";
 import TeamSection from "@/components/marketing/landing/TeamSection";
 import { Hand, btnDark, h2Class, leadClass } from "@/components/marketing/landing/ui";
@@ -27,10 +26,11 @@ export const metadata: Metadata = {
  * avoids: "open", "available", "integrates with", set-up times).
  *
  * The page leads with the one thing a buyer can't get from their booking
- * system — a picture of how each space is shared — then shows the rental that
- * reshapes lane swim by itself, the four hand-kept copies it replaces, that it
- * works for every department (not just aquatics), and where the schedule ends
- * up: the website widget and the printouts. Copy stays honest about the cost:
+ * system — a picture of how each space is shared, as the live widget, whose
+ * sample spaces also make the "every department, not just aquatics" point —
+ * then shows the rental that reshapes lane swim by itself, the four hand-kept
+ * copies it replaces, and where the schedule ends up: the website widget and
+ * the printouts. Copy stays honest about the cost:
  * staff enter the schedule; Dropin sits beside ActiveNet or Xplor rather than
  * syncing with them.
  */
@@ -40,7 +40,6 @@ export default function HomePage() {
       <Hero />
       <RentalSection />
       <OneScheduleSection />
-      <SharedSpacesSection />
       <EverywhereSection />
       <TeamSection />
 
