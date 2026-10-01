@@ -24,6 +24,28 @@ const DEFAULT_CONFIG = {
   allow_print: false,
 };
 
+/**
+ * Columns added by migrations that may not be applied yet, with the value a
+ * never-customised org gets: 065 (multi_select_levels) and 066
+ * (filters_collapsed). Migrations here are applied by hand, and the studio
+ * decides whether to send a setting from whether the config it loads *has*
+ * the key — so a default config must only carry one when the column is really
+ * there, or the studio's next publish names a missing column and fails outright.
+ */
+const OPTIONAL_COLUMN_DEFAULTS = {
+  multi_select_levels: [] as ("facility" | "department" | "schedule")[],
+  filters_collapsed: false,
+};
+type OptionalColumn = keyof typeof OPTIONAL_COLUMN_DEFAULTS;
+
+async function presentOptionalColumns(supabase: Awaited<ReturnType<typeof createClient>>): Promise<OptionalColumn[]> {
+  const columns = Object.keys(OPTIONAL_COLUMN_DEFAULTS) as OptionalColumn[];
+  const checks = await Promise.all(
+    columns.map((c) => supabase.from("widget_configs").select(c).limit(0))
+  );
+  return columns.filter((_, i) => !checks[i].error);
+}
+
 const UpdateConfigSchema = z.object({
   allowedTemplates: z.array(z.enum(["grid", "list", "map", "floorplan", "board"])).min(1).optional(),
   // Unlike allowedTemplates, an empty array is meaningful here: it's "no
@@ -32,6 +54,13 @@ const UpdateConfigSchema = z.object({
   // nothing is exactly the kind of thing nobody notices for a month.
   enabledFilters: z.array(z.enum(SESSION_FILTER_KEYS)).optional(),
   allowPrint: z.boolean().optional(),
+  // Switcher levels where visitors may tick several (migration 065). Only
+  // sent by a studio that saw the column, so a save before 065 is applied
+  // does not fail on it.
+  multiSelectLevels: z.array(z.enum(["facility", "department", "schedule"])).max(3).optional(),
+  // Whether the filter section starts collapsed (migration 066). Same
+  // only-sent-when-the-column-exists rule as multiSelectLevels.
+  filtersCollapsed: z.boolean().optional(),
   primaryColor: z.string().min(1).optional(),
   secondaryColor: z.string().min(1).optional(),
   customTitle: z.string().nullable().optional(),
@@ -94,6 +123,9 @@ export async function GET(request: Request) {
       facility_id: null,
       department_id: null,
       ...DEFAULT_CONFIG,
+      ...Object.fromEntries(
+        (await presentOptionalColumns(supabase)).map((c) => [c, OPTIONAL_COLUMN_DEFAULTS[c]])
+      ),
     },
     scopes,
   });
@@ -104,7 +136,7 @@ export async function GET(request: Request) {
  *
  * Saves the authenticated org's one set of widget settings (migration 045 —
  * there is no longer a row per facility+department to address).
- * Scoped to allowed_templates/enabled_filters/allow_print/primary_color/
+ * Scoped to allowed_templates/enabled_filters/allow_print/multi_select_levels/filters_collapsed/primary_color/
  * secondary_color/custom_title for now — font_family, show_cost,
  * show_location, show_age_group, time_range_start, time_range_end, and
  * program_ids remain unwired. org_id is always derived server-side, never
@@ -131,7 +163,17 @@ export async function PATCH(request: Request) {
   const parsed = UpdateConfigSchema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid input" }, { status: 400 });
 
-  const { allowedTemplates, primaryColor, secondaryColor, customTitle, enabledFilters, allowPrint, scopes } = parsed.data;
+  const {
+    allowedTemplates,
+    primaryColor,
+    secondaryColor,
+    customTitle,
+    enabledFilters,
+    allowPrint,
+    multiSelectLevels,
+    filtersCollapsed,
+    scopes,
+  } = parsed.data;
 
   // Verify every scope entry's facility/department/schedule actually belongs
   // to the caller's org and that department/schedule sit under the facility
@@ -211,22 +253,43 @@ export async function PATCH(request: Request) {
   if (customTitle !== undefined) fields.custom_title = customTitle;
   if (enabledFilters !== undefined) fields.enabled_filters = enabledFilters;
   if (allowPrint !== undefined) fields.allow_print = allowPrint;
+  if (multiSelectLevels !== undefined) fields.multi_select_levels = [...new Set(multiSelectLevels)];
+  if (filtersCollapsed !== undefined) fields.filters_collapsed = filtersCollapsed;
+  // The studio's "Published Sep 29, 4:12 PM" line reads this. Nothing in the
+  // schema bumps updated_at on its own (see migration 060's note), so before
+  // 2026-10-01 it stayed at the row's first save.
+  fields.updated_at = new Date().toISOString();
 
-  const { data, error } = await supabase
-    .from("widget_configs")
-    .upsert(
-      {
-        org_id: membership.org_id,
-        // One row per org (migration 045) — always the org-wide one, so a
-        // stale client can't recreate the per-facility split this collapsed.
-        facility_id: null,
-        department_id: null,
-        ...fields,
-      },
-      { onConflict: "org_id,facility_id,department_id" }
-    )
-    .select("*")
-    .single();
+  const save = (row: typeof fields) =>
+    supabase
+      .from("widget_configs")
+      .upsert(
+        {
+          org_id: membership.org_id,
+          // One row per org (migration 045) — always the org-wide one, so a
+          // stale client can't recreate the per-facility split this collapsed.
+          facility_id: null,
+          department_id: null,
+          ...row,
+        },
+        { onConflict: "org_id,facility_id,department_id" }
+      )
+      .select("*")
+      .single();
+
+  let { data, error } = await save(fields);
+  // Before migrations 065/066 their columns do not exist. One optional setting
+  // must not sink the colours, views and filters published with it, so the
+  // missing ones are dropped and the rest saved. PostgREST refuses an unknown
+  // column itself (PGRST204, "not in the schema cache") before Postgres would
+  // say 42703, so both are checked.
+  const sentOptional = (Object.keys(OPTIONAL_COLUMN_DEFAULTS) as OptionalColumn[]).filter((c) => c in fields);
+  if ((error?.code === "PGRST204" || error?.code === "42703") && sentOptional.length > 0) {
+    const present = await presentOptionalColumns(supabase);
+    const rest = { ...fields };
+    for (const c of sentOptional) if (!present.includes(c)) delete rest[c];
+    ({ data, error } = await save(rest));
+  }
 
   if (error || !data) {
     return NextResponse.json({ error: "Could not save widget config" }, { status: 500 });

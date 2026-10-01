@@ -1,9 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import { Check, Lock, Star } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { mapHref } from "@/lib/schedule/commandCentreHref";
+import { Switch } from "@/components/ui/switch";
 import LayoutThumbnail from "./LayoutThumbnail";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -13,9 +13,9 @@ interface LayoutPickerProps {
   onChange: (next: ScheduleTemplate[]) => void;
   /** Which buildings the floorplan would draw, and whether each has a map to draw. */
   floorplan: FloorplanState;
-  /** Adds one step 1 switcher entry per building. */
+  /** Adds one Schedules entry per building. */
   onAddBuildings: () => void;
-  /** Takes the admin to step 4's building picker. */
+  /** Opens Install at its building picker. */
   onPickFacility: () => void;
   disabled?: boolean;
 }
@@ -23,18 +23,18 @@ interface LayoutPickerProps {
 export type MapStatus = "checking" | "none" | "draft" | "published";
 
 /**
- * What the Floorplan card knows. A map is drawn per building, so the embed
- * needs a building: the step 4 snippet scope, the org's only building, or —
- * the usual case — the step 1 switcher, whose every entry names one and whose
- * selected entry the floorplan follows. Each building's map status is listed
- * so the card can say exactly which ones still need drawing or publishing and
- * link to each.
+ * What the Floorplan row knows. A map is drawn per building, so the embed
+ * needs a building: the Install section's snippet scope, the org's only
+ * building, or — the usual case — the Schedules switcher, whose every entry
+ * names one and whose selected entry the floorplan follows. Each building's
+ * map status is listed so the row can say exactly which ones still need
+ * drawing or publishing and link to each.
  */
 export type FloorplanState =
   | { kind: "pick-facility" }
   | {
       kind: "buildings";
-      /** True when the floorplan follows the step 1 switcher. */
+      /** True when the floorplan follows the Schedules switcher. */
       followsSwitcher: boolean;
       buildings: { id: string; name: string; map: MapStatus }[];
     };
@@ -44,22 +44,33 @@ export function floorplanLocked(state: FloorplanState): boolean {
   return state.kind === "pick-facility" || !state.buildings.some((b) => b.map === "published");
 }
 
-const LAYOUTS: { value: ScheduleTemplate; label: string; blurb: string }[] = [
-  { value: "grid", label: "Week grid", blurb: "The whole week, one column per day." },
-  { value: "list", label: "List", blurb: "Day by day — easiest to read on a phone." },
-  { value: "map", label: "By space", blurb: "Grouped by pool, gym, studio, court." },
-  { value: "board", label: "Timetable", blurb: "Times down the side, days across." },
-  { value: "floorplan", label: "Floorplan", blurb: "A picture of your facility, tap a space." },
+/** Visitor-facing view names, in the order the picker lists them. */
+export const VIEW_LABELS: Record<ScheduleTemplate, string> = {
+  grid: "Week grid",
+  list: "List",
+  map: "By space",
+  board: "Timetable",
+  floorplan: "Floorplan",
+};
+
+const LAYOUTS: { value: ScheduleTemplate; blurb: string }[] = [
+  { value: "grid", blurb: "The whole week, one column per day." },
+  { value: "list", blurb: "Day by day. Easiest to read on a phone." },
+  { value: "map", blurb: "Grouped by pool, gym, studio, court." },
+  { value: "board", blurb: "Times down the side, days across." },
+  { value: "floorplan", blurb: "A picture of your building. Tap a space." },
 ];
 
 /**
  * The "which views can visitors use" picker.
  *
  * Two things are being chosen at once and the UI has to keep them apart: which
- * views are *available* (the set), and which one *loads first* (the order —
- * `allowed_templates[0]`, which is what `WidgetScheduleClient` boots into). The
- * order already round-trips through the API as an array, so the default view is
- * a free feature; it just needed to be sayable.
+ * views are *available* (the set, one switch per row), and which one *loads
+ * first* (the order — `allowed_templates[0]`, which is what
+ * `WidgetScheduleClient` boots into). The order already round-trips through the
+ * API as an array, so the default view is a free feature; it just needed to be
+ * sayable, which is the "Loads first" pill and the "Load first" action on the
+ * other enabled rows.
  */
 export default function LayoutPicker({
   value,
@@ -85,137 +96,101 @@ export default function LayoutPicker({
   }
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-      {LAYOUTS.map(({ value: template, label, blurb }) => {
+    <ul className="rounded-card border border-border divide-y divide-border">
+      {LAYOUTS.map(({ value: template, blurb }) => {
+        const label = VIEW_LABELS[template];
         const checked = value.includes(template);
         const isDefault = checked && value[0] === template;
         const isFloorplan = template === "floorplan";
         const locked = isFloorplan && floorplanLocked(floorplan);
-        const isDisabled = disabled || locked;
+        const isLast = checked && value.length === 1;
+        const labelId = `widget-view-${template}`;
 
         return (
-          <div
-            key={template}
-            className={cn(
-              "relative flex flex-col rounded-card border transition-colors duration-150",
-              checked ? "border-brand bg-brand-subtle" : "border-border bg-card",
-              // A locked card keeps its explanation and its links at full
-              // strength (they are how it gets unlocked); only the picture dims.
-              disabled && "opacity-55"
-            )}
-          >
-            {/* Full-card hit target sits *under* the artwork, so the whole tile
-                toggles while the "Loads first" control above it stays clickable. */}
-            <button
-              type="button"
-              onClick={() => toggle(template)}
-              disabled={isDisabled}
-              aria-pressed={checked}
-              className="absolute inset-0 z-0 rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:cursor-not-allowed"
+          <li key={template} className="flex items-start gap-3 px-3 py-3">
+            <div
+              className={cn(
+                "w-14 shrink-0 rounded-control border border-border bg-muted p-1",
+                (locked || !checked) && "opacity-60"
+              )}
             >
-              <span className="sr-only">
-                {label}
-                {locked ? ` — ${floorplanSummary(floorplan)}` : ""}
-              </span>
-            </button>
+              <LayoutThumbnail template={template} />
+            </div>
 
-            <div className="relative z-[1] flex-1 pointer-events-none p-2.5">
-              <div
-                className={cn(
-                  "rounded-control overflow-hidden border border-border p-1.5",
-                  checked ? "bg-card text-brand" : "bg-muted text-muted-foreground",
-                  locked && "opacity-55"
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                <span id={labelId} className={cn("text-body font-medium", locked ? "text-muted-foreground" : "text-foreground")}>
+                  {label}
+                </span>
+                {isDefault && (
+                  <span className="inline-flex items-center rounded-full bg-brand-subtle px-2 py-0.5 text-label text-brand-strong">
+                    Loads first
+                  </span>
                 )}
-              >
-                <LayoutThumbnail template={template} />
               </div>
-              <p
-                className={cn(
-                  "mt-2 text-body font-medium flex items-center gap-1.5",
-                  locked ? "text-muted-foreground" : "text-foreground"
-                )}
-              >
-                {label}
-                {locked && <Lock className="size-3 text-muted-foreground" />}
-              </p>
-              <p className="text-label font-normal text-muted-foreground mt-0.5">
+              <p className="text-caption text-muted-foreground">
                 {isFloorplan ? floorplanSummary(floorplan) ?? blurb : blurb}
               </p>
               {isFloorplan && (
-                <FloorplanActions
-                  state={floorplan}
-                  onAddBuildings={onAddBuildings}
-                  onPickFacility={onPickFacility}
-                />
+                <FloorplanActions state={floorplan} onAddBuildings={onAddBuildings} onPickFacility={onPickFacility} />
               )}
-            </div>
-
-            {/* In flow, not floated over the blurb — overlapping the copy made
-                "Load first" read as the end of the description. */}
-            {checked && !isDefault && (
-              <div className="relative z-[2] px-2.5 pb-2.5">
+              {checked && !isDefault && (
                 <button
                   type="button"
                   onClick={() => makeDefault(template)}
+                  disabled={disabled}
                   aria-label={`Make ${label} load first`}
-                  className="w-full h-7 rounded-full border border-input bg-card text-label text-foreground hover:bg-muted transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                  className={actionClass}
                 >
                   Load first
                 </button>
-              </div>
-            )}
+              )}
+            </div>
 
-            {checked && (
-              <span className="absolute top-2 right-2 z-[2] inline-flex items-center justify-center size-5 rounded-full bg-brand text-brand-foreground pointer-events-none">
-                <Check className="size-3" />
-              </span>
-            )}
-
-            {isDefault && (
-              <span className="absolute -top-2.5 left-2.5 z-[2] inline-flex items-center gap-1 px-2 py-0.5 rounded-full border border-brand bg-card text-label text-brand-strong pointer-events-none">
-                <Star className="size-2.5 fill-current" />
-                Loads first
-              </span>
-            )}
-
-          </div>
+            <Switch
+              checked={checked}
+              onCheckedChange={() => toggle(template)}
+              // A locked floorplan can still be switched *off*; only turning it
+              // on waits for a map. The last view on can't be switched off.
+              disabled={disabled || (locked && !checked) || isLast}
+              aria-labelledby={labelId}
+              title={isLast ? "At least one view stays on" : undefined}
+              className="mt-0.5"
+            />
+          </li>
         );
       })}
-    </div>
+    </ul>
   );
 }
 
 /**
- * The card's one-line state, or null for the plain blurb (one building, map
+ * The row's one-line state, or null for the plain blurb (one building, map
  * published — nothing to explain).
  */
 function floorplanSummary(state: FloorplanState): string | null {
   if (state.kind === "pick-facility") {
-    return "Draws one building — add your buildings to the switcher in step 1, or pick one in step 4.";
+    return "Needs one building with a published floor map. Add your buildings under Schedules, or pick one under Install.";
   }
   const { buildings, followsSwitcher } = state;
   if (buildings.some((b) => b.map === "checking")) return "Checking maps…";
   if (buildings.length === 1 && !followsSwitcher) {
     const [b] = buildings;
-    if (b.map === "none") return `${b.name} has no map yet.`;
-    if (b.map === "draft") return `${b.name}'s map is still a draft.`;
+    if (b.map === "none") return `Needs a published floor map. ${b.name} has none yet.`;
+    if (b.map === "draft") return `Needs a published floor map. ${b.name}'s is still a draft.`;
     return null;
   }
   const ready = buildings.filter((b) => b.map === "published").length;
   if (ready === buildings.length) {
-    return `Follows the switcher — ${buildings.length === 1 ? "its building's" : `all ${buildings.length}`} map${buildings.length === 1 ? "" : "s"} ready.`;
+    return `Follows the switcher. ${buildings.length === 1 ? "Its building's" : `All ${buildings.length}`} map${buildings.length === 1 ? " is" : "s are"} ready.`;
   }
-  return `Follows the switcher — ${ready} of ${buildings.length} building maps ready.`;
+  return `Follows the switcher. ${ready} of ${buildings.length} building maps are ready.`;
 }
 
 const actionClass =
-  "pointer-events-auto inline-flex rounded-sm text-left text-label font-semibold text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring";
+  "touch-target mt-1 inline-flex rounded-sm text-left text-caption font-medium text-brand underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-50";
 
-/**
- * The fixes, as controls on the card. The card's text layer is
- * pointer-events-none (the whole tile is one toggle button underneath, which
- * is disabled while locked), so each control takes its events back.
- */
+/** The fixes, as links on the row. */
 function FloorplanActions({
   state,
   onAddBuildings,
@@ -227,12 +202,12 @@ function FloorplanActions({
 }) {
   if (state.kind === "pick-facility") {
     return (
-      <div className="mt-1.5 flex flex-col items-start gap-1">
+      <div className="flex flex-wrap gap-x-4">
         <button type="button" onClick={onAddBuildings} className={actionClass}>
-          Add each building to the switcher →
+          Add each building
         </button>
         <button type="button" onClick={onPickFacility} className={actionClass}>
-          Or pick one in step 4 →
+          Pick one under Install
         </button>
       </div>
     );
@@ -243,16 +218,16 @@ function FloorplanActions({
   const single = state.buildings.length === 1 && !state.followsSwitcher;
 
   return (
-    <ul className="mt-1.5 space-y-1">
+    <ul className="space-y-0.5">
       {missing.map((b) => (
-        <li key={b.id} className="text-label font-normal text-muted-foreground">
+        <li key={b.id} className="text-caption text-muted-foreground">
           {!single && (
             <span>
               {b.name}: {b.map === "none" ? "no map" : "draft"} ·{" "}
             </span>
           )}
           <Link href={mapHref(b.id)} className={actionClass}>
-            {b.map === "none" ? "Draw its map →" : "Publish its map →"}
+            {b.map === "none" ? "Draw it on the Map page" : "Publish it on the Map page"}
           </Link>
         </li>
       ))}

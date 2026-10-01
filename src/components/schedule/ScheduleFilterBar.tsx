@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
-import { Check, ChevronDown, Search } from "lucide-react";
+import { useId, useRef, useState } from "react";
+import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { localDateString, parseDate } from "@/lib/utils/dates";
 import {
@@ -15,6 +15,7 @@ import {
   EMPTY_FILTER_STATE,
 } from "@/lib/schedule/sessionFilters";
 import type { ExpandedSession } from "@/types/schedule.types";
+import TickBoxList, { summarizeTicks, useDismissable } from "./TickBoxList";
 
 interface ScheduleFilterBarProps {
   /** The week's sessions *before* filtering — the option lists come from these. */
@@ -34,6 +35,18 @@ interface ScheduleFilterBarProps {
    * not exist and every neutral token would resolve to its light value.
    */
   dark?: boolean;
+  /**
+   * Whether the controls start folded away behind the "Filters" toggle —
+   * `widget_configs.filters_collapsed` (migration 066). Visitors can open or
+   * close the section either way; this only picks how it starts.
+   */
+  defaultCollapsed?: boolean;
+  /** Controlled open state, for a caller that decides it after mount (the
+   *  landing hero folds it on a phone). Omit both to let the bar own it. */
+  open?: boolean;
+  onOpenChange?: (open: boolean) => void;
+  /** Drawn on the toggle row after the label — the landing hero's handwritten note. */
+  toggleNote?: React.ReactNode;
 }
 
 /**
@@ -49,6 +62,11 @@ interface ScheduleFilterBarProps {
  * AND across them — see `filterSessions`). The list is drawn in place under
  * its button rather than in a portal, which is what breaks inside a themed
  * iframe.
+ *
+ * The whole section folds behind a "Filters" toggle, which carries the active
+ * count so a folded section never hides that something is filtering. The
+ * result count and "Clear filters" sit outside the fold for the same reason.
+ * Whether it starts folded is the org's choice (`defaultCollapsed`).
  */
 export default function ScheduleFilterBar({
   sessions,
@@ -59,8 +77,18 @@ export default function ScheduleFilterBar({
   weekStart,
   onWeekChange,
   dark = false,
+  defaultCollapsed = false,
+  open: openProp,
+  onOpenChange,
+  toggleNote,
 }: ScheduleFilterBarProps) {
   const idPrefix = useId();
+  const [openState, setOpenState] = useState(!defaultCollapsed);
+  const open = openProp ?? openState;
+  const setOpen = (next: boolean) => {
+    if (openProp === undefined) setOpenState(next);
+    onOpenChange?.(next);
+  };
   const options = deriveFilterOptions(sessions);
 
   const has = (key: SessionFilterKey) => enabled.includes(key);
@@ -81,8 +109,39 @@ export default function ScheduleFilterBar({
   const theme = themeClasses(dark);
 
   return (
-    <div className={cn("border-b px-4 py-3.5", dark ? "border-white/10 bg-gray-900" : "border-gray-200 bg-white")}>
-      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4">
+    <div className={cn("border-b px-4 py-3", dark ? "border-white/10 bg-gray-900" : "border-gray-200 bg-white")}>
+      <button
+        type="button"
+        onClick={() => setOpen(!open)}
+        aria-expanded={open}
+        aria-controls={`${idPrefix}-controls`}
+        className={cn(
+          "-mx-1 flex w-[calc(100%+0.5rem)] items-center gap-2 rounded-md px-1 py-1 text-left text-[13px] font-medium outline-none",
+          "focus-visible:ring-2",
+          dark ? "text-gray-100" : "text-[#111113]"
+        )}
+        style={RING_STYLE}
+      >
+        <SlidersHorizontal aria-hidden className={cn("size-4 shrink-0", theme.icon)} />
+        Filters
+        {count > 0 && (
+          <span
+            className="inline-flex min-w-5 items-center justify-center rounded-full px-1.5 text-[11px] leading-5 font-semibold text-white"
+            style={{ backgroundColor: "var(--org-primary, #0066CC)" }}
+          >
+            {count}
+            <span className="sr-only"> active</span>
+          </span>
+        )}
+        {toggleNote}
+        <span className={cn("ml-auto text-xs font-normal", theme.muted)}>{open ? "Hide" : "Show"}</span>
+        <ChevronDown aria-hidden className={cn("size-4 shrink-0 transition-transform", open && "rotate-180", theme.icon)} />
+      </button>
+
+      <div
+        id={`${idPrefix}-controls`}
+        className={cn("mt-3 grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-4", open ? "grid" : "hidden")}
+      >
         {showSearch && (
           <div className="flex min-w-0 flex-col gap-1.5">
             <label htmlFor={`${idPrefix}-search`} className={theme.label}>
@@ -237,14 +296,6 @@ function themeClasses(dark: boolean) {
   };
 }
 
-/** What the closed button says: "All …", the one choice, or a short list. */
-function summarize(items: { value: string; label: string }[], selected: string[], allLabel: string) {
-  const picked = items.filter((i) => selected.includes(i.value)).map((i) => i.label);
-  if (picked.length === 0) return allLabel;
-  if (picked.length <= 2) return picked.join(", ");
-  return `${picked.length} selected`;
-}
-
 /**
  * One filter: a field-shaped button that opens a list of checkboxes beneath
  * it. Real checkboxes inside real labels, so each row is keyboard- and
@@ -273,28 +324,7 @@ function CheckboxDropdown({
   const buttonRef = useRef<HTMLButtonElement | null>(null);
   const theme = themeClasses(dark);
 
-  useEffect(() => {
-    if (!open) return;
-    function onPointerDown(event: PointerEvent) {
-      if (!rootRef.current?.contains(event.target as Node)) setOpen(false);
-    }
-    function onKeyDown(event: KeyboardEvent) {
-      if (event.key === "Escape") {
-        setOpen(false);
-        buttonRef.current?.focus();
-      }
-    }
-    document.addEventListener("pointerdown", onPointerDown);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("pointerdown", onPointerDown);
-      document.removeEventListener("keydown", onKeyDown);
-    };
-  }, [open]);
-
-  function toggle(value: string) {
-    onChange(selected.includes(value) ? selected.filter((v) => v !== value) : [...selected, value]);
-  }
+  useDismissable(open, () => setOpen(false), rootRef, buttonRef);
 
   const panelId = `${id}-options`;
 
@@ -314,7 +344,7 @@ function CheckboxDropdown({
         style={RING_STYLE}
       >
         <span id={`${id}-value`} className={cn("truncate", selected.length > 0 && "font-semibold")}>
-          {summarize(items, selected, allLabel)}
+          {summarizeTicks(items, selected, allLabel)}
         </span>
         <ChevronDown
           aria-hidden
@@ -323,60 +353,7 @@ function CheckboxDropdown({
       </button>
 
       {open && (
-        <div
-          id={panelId}
-          role="group"
-          aria-label={label}
-          className={cn(
-            "absolute top-full left-0 z-30 mt-1 w-full min-w-[12rem] rounded-xl border p-1.5 shadow-[0_4px_12px_rgba(17,17,19,0.12)]",
-            theme.panel
-          )}
-        >
-          <div className="max-h-64 overflow-y-auto">
-            {items.map((item) => {
-              const checked = selected.includes(item.value);
-              return (
-                <label
-                  key={item.value}
-                  className={cn("flex cursor-pointer items-center gap-2.5 rounded-lg px-2.5 py-2 text-sm", theme.row)}
-                >
-                  <input
-                    type="checkbox"
-                    checked={checked}
-                    onChange={() => toggle(item.value)}
-                    className="peer sr-only"
-                  />
-                  {/* Drawn box so it matches the field in both themes; the
-                      real checkbox above is what focus and screen readers use. */}
-                  <span
-                    aria-hidden
-                    className={cn(
-                      "flex size-4 shrink-0 items-center justify-center rounded border transition-colors",
-                      "peer-focus-visible:ring-2 peer-focus-visible:ring-offset-1",
-                      checked ? "border-transparent" : dark ? "border-gray-400" : "border-[#86868d]"
-                    )}
-                    style={{ ...RING_STYLE, ...(checked ? { backgroundColor: "var(--org-primary, #0066CC)" } : {}) }}
-                  >
-                    {checked && <Check className="size-3 text-white" strokeWidth={3} />}
-                  </span>
-                  <span className="min-w-0 flex-1 truncate">{item.label}</span>
-                  {item.detail && <span className={cn("shrink-0 text-xs", theme.muted)}>{item.detail}</span>}
-                </label>
-              );
-            })}
-          </div>
-          {selected.length > 0 && (
-            <div className={cn("mt-1 border-t px-2.5 pt-1.5 pb-1", dark ? "border-gray-600" : "border-[#efeff1]")}>
-              <button
-                type="button"
-                onClick={() => onChange([])}
-                className={cn("text-xs font-medium underline underline-offset-2", theme.muted)}
-              >
-                Clear {label.toLowerCase()}
-              </button>
-            </div>
-          )}
-        </div>
+        <TickBoxList id={panelId} label={label} items={items} selected={selected} onChange={onChange} dark={dark} />
       )}
     </div>
   );

@@ -7,10 +7,10 @@
  *
  *   1. One building, no map      → "has no map yet" + a link to draw it
  *   2. One building, draft map   → "still a draft" + a link to publish it
- *   3. One building, published   → the card unlocks with no step 4 choice, and
+ *   3. One building, published   → the card unlocks with no Install choice, and
  *                                  the unscoped embed actually renders the map
- *   4. Two buildings             → "choose which in step 4"; the card's button
- *                                  lands focus on step 4's picker; picking the
+ *   4. Two buildings             → "choose which in Install"; the card's button
+ *                                  lands focus on Install's picker; picking the
  *                                  mapped building unlocks it
  *   5. Negative control: a two-building org's unscoped embed with no
  *      switcher still does NOT offer Floorplan (there is no one map to show).
@@ -143,7 +143,11 @@ async function studio(browser, signIn, expectText = null) {
   await context.addCookies(cookieParts(signIn.session).map((c) => ({ ...c, domain: "localhost", path: "/" })));
   const page = await context.newPage();
   await page.goto(`${APP}/dashboard/widget`, { waitUntil: "load" });
-  const card = page.locator("div.relative.flex.flex-col", { has: page.getByText("Floorplan", { exact: true }) }).first();
+  // Views live under the Appearance tile; the Floorplan row is the <li> that
+  // holds its label.
+  await page.locator("#widget-tab-appearance").waitFor({ timeout: 30000 });
+  await page.locator("#widget-tab-appearance").click();
+  const card = page.locator("li", { has: page.locator("#widget-view-floorplan") });
   await card.waitFor({ timeout: 30000 });
   // The map lookup is async: wait until the card stops saying "Checking".
   // The map lookups and the saved switcher list both load after the page, so
@@ -153,7 +157,7 @@ async function studio(browser, signIn, expectText = null) {
     expectText,
     { timeout: 20000 }
   ).catch(() => {});
-  const toggle = card.locator("button[aria-pressed]");
+  const toggle = card.getByRole("switch");
   return { context, page, card, toggle };
 }
 
@@ -166,11 +170,11 @@ async function main() {
 
     console.log("\n1. One building, no map");
     {
-      const { context, card, toggle } = await studio(browser, one.signIn, "has no map yet");
+      const { context, card, toggle } = await studio(browser, one.signIn, "has none yet");
       const text = await card.innerText();
-      check("says the building has no map", text.includes(`${only.name} has no map yet`), text);
-      check("no longer points at a step 4 picker that isn't there", !/step 4/i.test(text), text);
-      const href = await card.getByRole("link", { name: /Draw its map/ }).getAttribute("href");
+      check("says the building has no map", text.includes(`Needs a published floor map. ${only.name} has none yet.`), text);
+      check("no longer points at an Install picker that isn't there", !/under Install/i.test(text), text);
+      const href = await card.getByRole("link", { name: /Draw it on the Map page/ }).getAttribute("href");
       check("links to that building's map editor", href === `/dashboard/map?facility=${only.id}`, href);
       check("card stays locked", await toggle.isDisabled());
       await context.close();
@@ -179,10 +183,10 @@ async function main() {
     console.log("\n2. One building, draft map");
     const { map, space: gym } = await addMap(one.org, only, false);
     {
-      const { context, card, toggle } = await studio(browser, one.signIn, "still a draft");
+      const { context, card, toggle } = await studio(browser, one.signIn, "is still a draft");
       const text = await card.innerText();
-      check("says the map is a draft", text.includes(`${only.name}'s map is still a draft`), text);
-      check("offers to publish it", (await card.getByRole("link", { name: /Publish its map/ }).count()) === 1);
+      check("says the map is a draft", text.includes(`${only.name}'s is still a draft`), text);
+      check("offers to publish it", (await card.getByRole("link", { name: /Publish it on the Map page/ }).count()) === 1);
       check("card stays locked", await toggle.isDisabled());
       await context.close();
     }
@@ -190,10 +194,10 @@ async function main() {
     console.log("\n3. One building, published map");
     await admin.from("facility_maps").update({ is_published: true }).eq("id", map.id);
     {
-      const { context, page, card, toggle } = await studio(browser, one.signIn, "A picture of your facility");
-      check("card unlocks without any step 4 choice", await toggle.isEnabled(), await card.innerText());
+      const { context, page, card, toggle } = await studio(browser, one.signIn, "A picture of your building");
+      check("card unlocks without any Install choice", await toggle.isEnabled(), await card.innerText());
       await toggle.click();
-      check("Floorplan can be switched on", (await toggle.getAttribute("aria-pressed")) === "true");
+      check("Floorplan can be switched on", (await toggle.getAttribute("aria-checked")) === "true");
       await page.screenshot({ path: path.join(OUT, "verify-ao-single.png") });
       await context.close();
     }
@@ -218,14 +222,15 @@ async function main() {
     {
       const { context, page, card, toggle } = await studio(browser, two.signIn);
       const text = await card.innerText();
-      check("asks for buildings: switcher or step 4", text.includes("add your buildings to the switcher in step 1, or pick one in step 4"), text);
-      check("offers to add every building to the switcher", (await card.getByRole("button", { name: /Add each building to the switcher/ }).count()) === 1);
+      check("asks for buildings: Schedules or Install", text.includes("Add your buildings under Schedules, or pick one under Install"), text);
+      check("offers to add every building to the switcher", (await card.getByRole("button", { name: "Add each building" }).count()) === 1);
       check("card is locked until a building is known", await toggle.isDisabled());
-      await card.getByRole("button", { name: /Or pick one in step 4/ }).click();
+      await card.getByRole("button", { name: "Pick one under Install" }).click();
       await page.waitForTimeout(600);
       const focused = await page.evaluate(() => document.activeElement?.id);
-      check("'Choose a building' lands on step 4's picker", focused === "widget-scope-facility", focused);
+      check("'Pick one under Install' opens Install on its building picker", focused === "widget-scope-facility", focused);
       await page.selectOption("#widget-scope-facility", second.id);
+      await page.locator("#widget-tab-appearance").click();
       await page.waitForFunction(() => !document.body.innerText.includes("Checking maps"), null, { timeout: 15000 }).catch(() => {});
       await page.waitForTimeout(300);
       check("picking the mapped building unlocks the card", await toggle.isEnabled(), await card.innerText());
@@ -263,10 +268,10 @@ async function main() {
 
       const { context, page, card, toggle } = await studio(browser, two.signIn, "Follows the switcher");
       const text = await card.innerText();
-      check("card says it follows the switcher, 1 of 2 ready", text.includes("Follows the switcher — 1 of 2 building maps ready"), text);
-      check("card is unlocked with no step 4 choice", await toggle.isEnabled());
-      check("step 4 is still on everything", (await page.locator("#widget-scope-facility").inputValue()) === "");
-      const publishLink = card.getByRole("link", { name: /Publish its map/ });
+      check("card says it follows the switcher, 1 of 2 ready", text.includes("Follows the switcher. 1 of 2 building maps are ready."), text);
+      check("card is unlocked with no Install choice", await toggle.isEnabled());
+      check("Install is still on everything", (await page.locator("#widget-scope-facility").inputValue()) === "");
+      const publishLink = card.getByRole("link", { name: /Publish it on the Map page/ });
       check("the draft building gets a Publish link",
         (await publishLink.count()) === 1 && (await publishLink.getAttribute("href")) === `/dashboard/map?facility=${first.id}`,
         await publishLink.getAttribute("href").catch(() => "none"));

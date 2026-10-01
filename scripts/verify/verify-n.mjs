@@ -87,33 +87,28 @@ function rendersAsText(html, label) {
   return html.includes(`>${label}<`);
 }
 
-// The header's schedule switcher (ScheduleScopeSwitcher, given
-// ScheduleHeaderBar's scopeOptions) renders as a pill row up to four scopes and
-// a Radix Select beyond that. Either shape is wrapped in this labelled group,
-// so its presence is the "there is a switcher" signal at whatever size.
+// The header's schedule switcher (ScheduleScopeFilters, given
+// ScheduleHeaderBar's scopeOptions) is three Radix Selects — Facility,
+// Department, Schedule — wrapped in this labelled group, so its presence is the
+// "there is a switcher" signal.
 //
-// It replaced a Select-at-every-size design, whose closed-state SSR rendered
-// only the trigger — every non-active label lived in an unmounted portal. The
-// pill row puts all of them in the HTML, so a plain fetch can now check the
-// whole option list, not just the active one. Picking one still needs a real
-// browser: see verify-p.
+// Closed, a Select server-renders only its trigger: every non-active option
+// lives in an unmounted portal. So over plain HTTP this suite can check what
+// each trigger says (the active scope) but not the option list. Opening one and
+// picking needs a real browser: see verify-p.
 function hasScopeSwitcher(html) {
   return html.includes('aria-label="Choose a schedule"');
 }
 
-// The pill carrying `label` is the selected one.
-//
-// Written as "walk back to this label's own opening tag" rather than a regex
-// spanning from an aria-pressed to a label, because that shape reports the
-// *next* pill as active too whenever it happens to sit within the window — it
-// passed the positive case and quietly failed the negative one, which is the
-// half that makes the assertion mean anything.
-function isActivePill(html, label) {
-  const textAt = html.indexOf(`>${label}<`);
-  if (textAt < 0) return false;
-  const tagAt = html.lastIndexOf("<button", textAt);
-  if (tagAt < 0) return false;
-  return html.slice(tagAt, textAt).includes('aria-pressed="true"');
+// The visible text of the trigger whose aria-label is `picker` ("Facility",
+// "Department", "Schedule"), tags stripped — what that dropdown says is chosen.
+// Bounded by the trigger's own closing tag, so a label in the next trigger
+// can't leak into this one's text.
+function triggerText(html, picker) {
+  const at = html.indexOf(`aria-label="${picker}"`);
+  if (at < 0) return "";
+  const end = html.indexOf("</button>", at);
+  return html.slice(at, end < 0 ? undefined : end).replace(/<[^>]*>/g, "").replace(/&#x27;|&#39;/g, "'");
 }
 
 async function api(path, cookie, init = {}) {
@@ -216,16 +211,16 @@ const stamp = Date.now();
 const ids = { users: [], orgs: [] };
 
 try {
-  const org1Admin = await makeOrgWithUser("verify-n", stamp, "admin");
+  const org1Admin = await makeOrgWithUser("verify-n", stamp, "owner");
   ids.orgs.push(org1Admin.orgId);
   ids.users.push(org1Admin.userId);
 
-  const org1Member = await makeOrgWithUser("verify-n", stamp, "member");
+  const org1Member = await makeOrgWithUser("verify-n", stamp, "aux");
   await admin.from("org_memberships").update({ org_id: org1Admin.orgId }).eq("user_id", org1Member.userId);
   await admin.from("organizations").delete().eq("id", org1Member.orgId);
   ids.users.push(org1Member.userId);
 
-  const org2Admin = await makeOrgWithUser("verify-n2", stamp, "admin");
+  const org2Admin = await makeOrgWithUser("verify-n2", stamp, "owner");
   ids.orgs.push(org2Admin.orgId);
   ids.users.push(org2Admin.userId);
 
@@ -235,6 +230,11 @@ try {
   const poolSchedule = await makeScheduleGroup(org1Admin.orgId, pool.id, poolDept.id, "Lane Swim", stamp, "published");
 
   const gym = await makeFacility(org1Admin.orgId, "Gym", stamp, true);
+  // The switcher lists buildings through their live schedules (a building with
+  // none has nothing to show — lib/schedule/scopeSelection.ts), so the gym gets
+  // one; without it the embed has a single schedule and no switcher at all.
+  const gymDept = await makeDepartment(org1Admin.orgId, gym.id, "Courts", stamp, true);
+  await makeScheduleGroup(org1Admin.orgId, gym.id, gymDept.id, "Pickleball", stamp, "published");
 
   const otherFacility = await makeFacility(org1Admin.orgId, "OtherFacility", stamp, true);
   const otherDept = await makeDepartment(org1Admin.orgId, otherFacility.id, "OtherDept", stamp, true);
@@ -385,27 +385,30 @@ try {
   const widgetHtml = await widgetPage.text();
   check("200", widgetPage.status === 200, `status=${widgetPage.status}`);
   check("header renders a schedule switcher (2+ scopes)", hasScopeSwitcher(widgetHtml));
+  // The first scope (sort_order default) is facility-wide, so it opens on the
+  // whole building rather than on its typed label.
   check(
-    "the first scope's label (sort_order default) is rendered",
-    rendersAsText(widgetHtml, "ZZ Verify-N Gym Pill")
+    "the Schedule dropdown opens on the first scope's whole building",
+    triggerText(widgetHtml, "Schedule").includes("All schedules"),
+    triggerText(widgetHtml, "Schedule")
   );
   check(
-    "…and so is the other published scope — every option is in the HTML, not just the active one",
-    rendersAsText(widgetHtml, "ZZ Verify-N Lane Swim Pill")
+    "…and not the second — 'the right one is on' needs 'the wrong one is off'",
+    !triggerText(widgetHtml, "Schedule").includes("ZZ Verify-N Lane Swim Pill")
   );
   check(
-    "the first scope is the *active* pill, not merely present",
-    isActivePill(widgetHtml, "ZZ Verify-N Gym Pill"),
-    "no pressed pill carrying the first scope's label"
+    "the Facility dropdown names the building behind the active scope, which the label alone can't",
+    triggerText(widgetHtml, "Facility").includes(gym.name),
+    triggerText(widgetHtml, "Facility")
   );
   check(
-    "…and the second scope is present but not active — 'the right one is on' needs 'the wrong one is off'",
-    !isActivePill(widgetHtml, "ZZ Verify-N Lane Swim Pill")
+    "…and not the other scope's building",
+    !triggerText(widgetHtml, "Facility").includes(pool.name)
   );
   check(
-    "the switcher names the building behind the active scope, which the label alone can't",
-    widgetHtml.includes("Showing") && widgetHtml.includes(gym.name),
-    "no context line naming the facility"
+    "a facility-wide scope (no department) reads 'All departments', not a blank",
+    triggerText(widgetHtml, "Department").includes("All departments"),
+    triggerText(widgetHtml, "Department")
   );
   check(
     "does NOT show the unpublished-facility scope's label anywhere",

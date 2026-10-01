@@ -6,17 +6,123 @@ import { DEFAULT_ENABLED_FILTERS, parseEnabledFilters } from "@/lib/schedule/ses
 import NoticeBanner from "@/components/status/NoticeBanner";
 import { getPublicNotices } from "@/lib/status/public-notices";
 import FacilityConditions from "@/components/conditions/FacilityConditions";
+import { parseScopeLevels, type ScopeSchedule } from "@/lib/schedule/scopeSelection";
 import WidgetScheduleClient from "./WidgetScheduleClient";
 
+type Scope = {
+  id: string;
+  label: string;
+  facilityId: string;
+  departmentId: string | null;
+  scheduleGroupId: string | null;
+  facilityName: string;
+  departmentName: string;
+};
+
 /**
- * "Aquatic Centre › Aquatics › Lane Swim" for a scope, dropping any level the
- * label already says (an admin who names a filter after its schedule shouldn't
- * get that word twice) and any level that is missing or unreadable.
+ * Every schedule the visitor's Facility / Department / Schedule switcher can
+ * reach, in display order — the tree lib/schedule/scopeSelection.ts derives
+ * the three menus from, and resolves picks against.
+ *
+ * A saved filter is a *region* — a whole facility, one department, or one
+ * schedule — and the switcher lets a visitor narrow inside it, the way the
+ * landing hero does. A facility-wide filter contributes every live schedule in
+ * the building (those with no department first, then each published
+ * department's in order); a department-wide one, that department's; a
+ * schedule-level one, just itself. The menus come from these, so "All
+ * departments" and "All schedules" are what an empty menu means rather than
+ * rows of their own.
+ *
+ * Publish state is filtered here for the same reason as the filter list
+ * itself (see below): the dashboard preview carries the admin's session, so
+ * RLS alone would show staff draft departments no visitor gets. A department
+ * with no live schedule never appears — every session belongs to a schedule,
+ * so picking it would only ever show an empty week. Duplicates collapse: two
+ * filters on the same building still list each schedule once.
  */
-function scopeContext(label: string, levels: (string | null | undefined)[]): string | null {
-  const normalized = label.trim().toLowerCase();
-  const parts = levels.filter((n): n is string => !!n && n.trim().toLowerCase() !== normalized);
-  return parts.length > 0 ? parts.join(" › ") : null;
+async function buildScopeTree(
+  supabase: Awaited<ReturnType<typeof createClient>>,
+  scopes: Scope[]
+): Promise<ScopeSchedule[]> {
+  const facilityIds = [...new Set(scopes.filter((s) => !s.scheduleGroupId).map((s) => s.facilityId))];
+  const leafIds = [...new Set(scopes.flatMap((s) => (s.scheduleGroupId ? [s.scheduleGroupId] : [])))];
+  if (facilityIds.length === 0 && leafIds.length === 0) return [];
+
+  type GroupRow = {
+    id: string;
+    name: string;
+    facility_id: string;
+    department_id: string | null;
+    ends_on: string | null;
+    departments: { name: string; is_published: boolean } | null;
+  };
+  const groupSelect = "id, name, facility_id, department_id, ends_on, departments(name, is_published)";
+  const today = new Date().toISOString().slice(0, 10);
+  const [{ data: departments }, { data: groups }, { data: leaves }] = await Promise.all([
+    facilityIds.length > 0
+      ? supabase
+          .from("departments")
+          .select("id, name, facility_id, display_order")
+          .in("facility_id", facilityIds)
+          .eq("is_published", true)
+          .order("display_order")
+          .order("name")
+      : Promise.resolve({ data: [] as { id: string; name: string; facility_id: string }[] }),
+    facilityIds.length > 0
+      ? supabase
+          .from("schedule_groups")
+          .select(groupSelect)
+          .in("facility_id", facilityIds)
+          .eq("status", "published")
+          .order("display_order")
+          .order("name")
+          .overrideTypes<GroupRow[]>()
+      : Promise.resolve({ data: [] as GroupRow[] }),
+    leafIds.length > 0
+      ? supabase.from("schedule_groups").select(groupSelect).in("id", leafIds).overrideTypes<GroupRow[]>()
+      : Promise.resolve({ data: [] as GroupRow[] }),
+  ]);
+  const live = (groups ?? []).filter((g) => !g.ends_on || g.ends_on >= today);
+
+  const tree: ScopeSchedule[] = [];
+  const seen = new Set<string>();
+  const add = (g: GroupRow, facilityName: string, departmentName: string | null, name = g.name) => {
+    if (seen.has(g.id)) return;
+    seen.add(g.id);
+    tree.push({
+      id: g.id,
+      name,
+      facilityId: g.facility_id,
+      facilityName,
+      departmentId: g.department_id,
+      departmentName,
+    });
+  };
+
+  for (const scope of scopes) {
+    if (scope.scheduleGroupId) {
+      // Publish state of the schedule itself was checked with the filter row.
+      const leaf = (leaves ?? []).find((g) => g.id === scope.scheduleGroupId);
+      if (leaf && (!leaf.department_id || leaf.departments?.is_published)) {
+        // Under the name the org gave the entry, as the switcher always showed it.
+        add(leaf, scope.facilityName, leaf.departments?.name ?? null, scope.label || leaf.name);
+      }
+      continue;
+    }
+    if (!scope.departmentId) {
+      // A schedule with no department has nowhere else to be picked from.
+      for (const g of live.filter((g) => g.facility_id === scope.facilityId && !g.department_id)) {
+        add(g, scope.facilityName, null);
+      }
+    }
+    const depts = scope.departmentId
+      ? [{ id: scope.departmentId, name: scope.departmentName }]
+      : (departments ?? []).filter((d) => d.facility_id === scope.facilityId);
+    for (const dept of depts) {
+      for (const g of live.filter((g) => g.department_id === dept.id)) add(g, scope.facilityName, dept.name);
+    }
+  }
+  return tree;
 }
 
 interface WidgetPageProps {
@@ -35,6 +141,10 @@ interface WidgetPageProps {
     filters?: string;
     /** Preview-only: unsaved allow_print, "1" or "0". */
     print?: string;
+    /** Preview-only: unsaved multi_select_levels, comma-separated. */
+    multi?: string;
+    /** Preview-only: unsaved filters_collapsed, "1" or "0". */
+    collapsed?: string;
   }>;
 }
 
@@ -59,6 +169,8 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     title: previewTitle,
     filters: previewFilters,
     print: previewPrint,
+    multi: previewMulti,
+    collapsed: previewCollapsed,
   } = await searchParams;
 
   const supabase = await createClient();
@@ -180,14 +292,7 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     departments: { name: string; is_published: boolean } | null;
     schedule_groups: { name: string; status: string } | null;
   };
-  let scopes: {
-    id: string;
-    label: string;
-    facilityId: string;
-    departmentId: string | null;
-    scheduleGroupId: string | null;
-    context: string | null;
-  }[] = [];
+  let scopes: Scope[] = [];
   if (widgetConfig?.id) {
     const { data: scopeRows } = await supabase
       .from("widget_config_scopes")
@@ -217,11 +322,10 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
         facilityId: s.facility_id,
         departmentId: s.department_id,
         scheduleGroupId: s.schedule_group_id,
-        context: scopeContext(s.label, [
-          s.facilities?.name,
-          s.departments?.name,
-          s.schedule_groups?.name,
-        ]),
+        // The publish filter above guarantees the facility row, and a
+        // department row whenever department_id is set.
+        facilityName: s.facilities!.name,
+        departmentName: s.departments?.name ?? "",
       }));
   }
 
@@ -229,6 +333,16 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
   // the only place that scope's name can appear — better than the generic
   // default. An org that set its own title still wins over both.
   const headerTitle = configuredTitle ?? (scopes.length === 1 ? scopes[0].label : "Schedule");
+
+  const scopeTree = await buildScopeTree(supabase, scopes);
+
+  // Switcher levels where visitors may tick several (migration 065). Same
+  // preview-only override as the filters; a database without 065 has no key,
+  // which parses to "one at a time everywhere".
+  const multiSelectLevels =
+    isPreview && previewMulti !== undefined
+      ? parseScopeLevels(previewMulti)
+      : parseScopeLevels(widgetConfig?.multi_select_levels);
 
   // Which general filters (activity, day, time…) the visitor gets. Preview-only
   // override so the dashboard can show a toggle's effect before publishing it;
@@ -244,6 +358,14 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
     isPreview && (previewPrint === "1" || previewPrint === "0")
       ? previewPrint === "1"
       : widgetConfig?.allow_print === true;
+
+  // Whether the filter section starts collapsed (migration 066). Same
+  // preview-only override; `=== true` because a database without 066 has no
+  // such key, and open is how every embed rendered before it.
+  const filtersCollapsed =
+    isPreview && (previewCollapsed === "1" || previewCollapsed === "0")
+      ? previewCollapsed === "1"
+      : widgetConfig?.filters_collapsed === true;
 
   const validTemplates = ["grid", "list", "map", "floorplan", "board"] as const;
   function parseTemplateList(value: string | undefined): ("grid" | "list" | "map" | "floorplan" | "board")[] {
@@ -346,9 +468,12 @@ export default async function WidgetPage({ params, searchParams }: WidgetPagePro
           departmentId={department?.id}
           theme={theme === "dark" ? "dark" : "light"}
           allowedTemplates={allowedTemplates}
-          scopes={scopes}
+          scopeTree={scopeTree}
+          firstScope={scopes[0]}
+          multiSelectLevels={multiSelectLevels}
           title={headerTitle}
           enabledFilters={enabledFilters}
+          filtersCollapsed={filtersCollapsed}
           allowPrint={allowPrint}
           printSubtitle={[org.name, facility?.name, department?.name].filter(Boolean).join(" · ")}
         />

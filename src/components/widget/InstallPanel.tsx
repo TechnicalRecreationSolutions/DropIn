@@ -1,20 +1,25 @@
 "use client";
 
 import { useState } from "react";
-import { Check, Code2, Copy, ExternalLink, Frame, Link2, RefreshCw } from "lucide-react";
+import { Geist_Mono } from "next/font/google";
+import { Check, Copy, ExternalLink, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
-import { Badge } from "@/components/ui/badge";
+import { InfoTip } from "@/components/ui/info-tip";
+import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { NativeSelect } from "@/components/ui/native-select";
-import { SCOPE_FACILITY_SELECT_ID, type EmbedMethod, type WidgetFacility } from "./types";
+import { Segmented } from "@/components/ui/segmented";
+import { SCOPE_FACILITY_SELECT_ID, type EmbedMethod, type WidgetFacility, type WidgetTheme } from "./types";
 
 interface InstallPanelProps {
   /** The snippet for the current method — HTML for script/iframe, the URL itself for link. */
   embedCode: string;
   method: EmbedMethod;
   onMethodChange: (value: EmbedMethod) => void;
+  /** The snippet's theme. Not the preview's Light/Dark, which only changes the preview. */
+  theme: WidgetTheme;
+  onThemeChange: (value: WidgetTheme) => void;
   height: string;
   onHeightChange: (value: string) => void;
   facilities: WidgetFacility[];
@@ -30,35 +35,15 @@ interface InstallPanelProps {
   onCopyCode: () => void;
 }
 
-const METHODS: {
-  id: EmbedMethod;
-  name: string;
-  Icon: typeof Code2;
-  tagline: string;
-  /** The one-line honest trade-off, shown under the code. */
-  note: string;
-}[] = [
-  {
-    id: "script",
-    name: "Script",
-    Icon: Code2,
-    tagline: "Recommended",
-    note: "Grows and shrinks with the schedule, so there's never a scrollbar inside your page. Needs a site that allows a <script> tag.",
-  },
-  {
-    id: "iframe",
-    name: "iFrame",
-    Icon: Frame,
-    tagline: "No scripts needed",
-    note: "Works anywhere an embed or HTML block is allowed, including CMSes that strip scripts out. The box stays the height you set below and scrolls inside if the schedule is taller.",
-  },
-  {
-    id: "link",
-    name: "Link",
-    Icon: Link2,
-    tagline: "Nothing to embed",
-    note: "Send people to the schedule instead of putting it on your page — the same views, filters and colours, hosted for you. Good for a menu item, a button, a newsletter or a QR code.",
-  },
+// The code block is the one place the dashboard sets type in mono, so Geist
+// Mono is loaded here rather than app-wide (`--font-mono` stays the system
+// stack for everything else).
+const geistMono = Geist_Mono({ subsets: ["latin"], display: "swap" });
+
+const METHODS: { id: EmbedMethod; name: string; blurb: string }[] = [
+  { id: "script", name: "Script", blurb: "Grows to fit. Best." },
+  { id: "iframe", name: "iFrame", blurb: "When scripts are blocked." },
+  { id: "link", name: "Link", blurb: "Menus, emails, QR codes." },
 ];
 
 const CMS_GUIDES: { id: string; name: string; steps: Record<"script" | "iframe", string[]> }[] = [
@@ -135,7 +120,13 @@ const LINK_PLACES = [
 ];
 
 /**
- * Step 4 — the payoff.
+ * The Install section: every snippet option, and the snippet.
+ *
+ * Nothing here is published. Method, theme, height and the one-building
+ * narrowing exist only inside the code on the customer's site, so a change
+ * does nothing until the code is copied again — which is why the code block
+ * flags itself as stale after one, and why theme lives here and not beside
+ * the brand colour (it used to, and read as a published setting).
  *
  * Two audiences read this section: the staff member who copies the code, and
  * the (often external) web person who pastes it. It has to be portable enough
@@ -143,14 +134,16 @@ const LINK_PLACES = [
  * municipal CMSes that block `<script>` outright — hence the iframe and link
  * methods sitting alongside the script one rather than buried under it.
  *
- * The method lives in `WidgetStudio` rather than here, because the header's
- * "Copy" button copies the same snippet and the stale-code badge compares
- * against it.
+ * The method and theme live in `WidgetStudio` rather than here, because the
+ * header's "Copy embed code" button copies the same snippet and the stale
+ * check compares against it.
  */
 export default function InstallPanel({
   embedCode,
   method,
   onMethodChange,
+  theme,
+  onThemeChange,
   height,
   onHeightChange,
   facilities,
@@ -172,217 +165,213 @@ export default function InstallPanel({
     });
   }
 
-  const activeMethod = METHODS.find((m) => m.id === method) ?? METHODS[0];
   const activeGuide = CMS_GUIDES.find((g) => g.id === guide) ?? CMS_GUIDES[0];
   const isLink = method === "link";
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-6">
       {/* Method first: everything below reads differently depending on it. */}
-      <div>
-        <span className="block text-body font-medium text-foreground mb-2">
-          How do you want to add it?
-        </span>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
-          {METHODS.map(({ id, name, Icon, tagline }) => (
-            <button
-              key={id}
-              type="button"
-              onClick={() => onMethodChange(id)}
-              aria-pressed={method === id}
-              className={cn(
-                "flex items-center gap-2.5 px-3 py-2.5 rounded-card border text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                method === id
-                  ? "border-brand bg-brand-subtle"
-                  : "border-border bg-card hover:bg-muted"
-              )}
-            >
-              <Icon
+      <section className="space-y-2">
+        <SectionHeading>How it goes on your site</SectionHeading>
+        <div role="radiogroup" aria-label="How it goes on your site" className="grid grid-cols-1 gap-2 sm:grid-cols-3">
+          {METHODS.map(({ id, name, blurb }) => {
+            const active = method === id;
+            return (
+              <button
+                key={id}
+                type="button"
+                role="radio"
+                aria-checked={active}
+                onClick={() => onMethodChange(id)}
                 className={cn(
-                  "size-4 shrink-0",
-                  method === id ? "text-brand-strong" : "text-muted-foreground"
+                  "min-h-11 rounded-banner border px-3 py-2.5 text-left transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
+                  active ? "border-brand bg-brand-subtle" : "border-border bg-card hover:bg-muted"
                 )}
-              />
-              <span className="min-w-0 flex-1">
-                <span className="block text-body font-medium text-foreground">{name}</span>
-                <span className="block text-caption text-muted-foreground truncate">{tagline}</span>
-              </span>
-              {method === id && <Check aria-hidden className="size-4 shrink-0 text-brand" />}
-            </button>
-          ))}
+              >
+                <span className={cn("block text-body font-semibold", active ? "text-brand-strong" : "text-foreground")}>
+                  {name}
+                </span>
+                <span className={cn("block text-caption", active ? "text-brand-strong" : "text-muted-foreground")}>
+                  {blurb}
+                </span>
+              </button>
+            );
+          })}
         </div>
-      </div>
+      </section>
 
-      <div className="space-y-2">
-        <div className="flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <span className="text-label text-muted-foreground">
-              {isLink ? "Schedule link" : "Embed code"}
-            </span>
-            {snippetStale && (
-              <Badge variant="warning">
-                <RefreshCw />
-                Updated — copy again
-              </Badge>
-            )}
+      <section className="space-y-2">
+        <SectionHeading note="The page your site puts it on">Theme</SectionHeading>
+        <Segmented
+          label="Theme"
+          value={theme}
+          onChange={onThemeChange}
+          options={[
+            { value: "light", label: "Light", icon: Sun },
+            { value: "dark", label: "Dark", icon: Moon },
+          ]}
+          className="w-full sm:w-64"
+        />
+      </section>
+
+      {/* Per-page scoping — a property of *this copy of the code*, not of the
+          saved settings. One organisation's look and one schedule list, but the
+          arena's page can still carry an arena-only embed: the facility rides
+          in the snippet (data-facility-id / the URL), and the widget narrows
+          its switcher to that facility's entries. */}
+      {facilities.length > 1 && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor={SCOPE_FACILITY_SELECT_ID} className="text-body font-semibold text-foreground">
+              Only show one building
+            </label>
+            <InfoTip>
+              Only needed if your website has a separate page per building. Pick it here and this copy of the code
+              shows just that building.
+            </InfoTip>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
+          <NativeSelect
+            id={SCOPE_FACILITY_SELECT_ID}
+            value={scopeFacilityId}
+            onChange={(e) => onScopeFacilityChange(e.target.value)}
+          >
+            <option value="">No, show everything under Schedules</option>
+            {facilities.map((f) => (
+              <option key={f.id} value={f.id}>
+                {f.name} only
+                {f.isPublished ? "" : " (draft)"}
+              </option>
+            ))}
+          </NativeSelect>
+          {scopeFacilityId && (
+            <p className="text-caption text-muted-foreground">
+              {switcherCount > 1
+                ? "This code shows only that facility, and its switcher only lists that facility's schedules."
+                : "This code shows only that facility."}
+            </p>
+          )}
+        </section>
+      )}
+
+      {/* The loader sizes itself to the schedule, so only a hand-written
+          iframe has a height worth asking about. */}
+      {method === "iframe" && (
+        <section className="space-y-2">
+          <div className="flex items-center gap-1.5">
+            <label htmlFor="widget-embed-height" className="text-body font-semibold text-foreground">
+              Height
+            </label>
+            <InfoTip>The box stays this tall and scrolls inside. A week grid usually needs 700–900px.</InfoTip>
+          </div>
+          <div className="relative w-40">
+            <Input
+              id="widget-embed-height"
+              type="number"
+              value={height}
+              onChange={(e) => onHeightChange(e.target.value)}
+              min={300}
+              max={1200}
+              className="pr-9"
+            />
+            <span className="absolute right-3 top-1/2 -translate-y-1/2 text-caption text-muted-foreground">px</span>
+          </div>
+        </section>
+      )}
+
+      {snippetStale && (
+        <Banner variant="warning">
+          You changed an option above since you last copied this. Copy the code again and replace the old one on your
+          site.
+        </Banner>
+      )}
+
+      <section className="overflow-hidden rounded-banner bg-muted">
+        <div className="flex items-center justify-between gap-3 px-4 pb-2 pt-3">
+          <span className="text-caption font-medium text-muted-foreground">
+            {isLink ? "Schedule link" : "Embed code"}
+          </span>
+          <div className="flex items-center gap-1">
             {isLink && (
-              <Button asChild variant="ghost" size="sm">
+              <Button asChild variant="ghost" size="sm" className="touch-target">
                 <a href={shareUrl} target="_blank" rel="noopener noreferrer">
                   <ExternalLink />
                   Open
                 </a>
               </Button>
             )}
-            <Button type="button" variant="outline" size="sm" onClick={copy}>
+            <Button type="button" size="sm" onClick={copy} className="touch-target">
               {copied ? <Check /> : <Copy />}
-              {copied ? "Copied" : isLink ? "Copy link" : "Copy code"}
+              {copied ? "Copied" : "Copy"}
             </Button>
           </div>
         </div>
         {isLink ? (
           // Selectable input rather than a <pre>: this one gets dragged into an
           // address bar or a menu-item field, not pasted into an HTML block.
-          <Input
-            readOnly
-            value={embedCode}
-            onFocus={(e) => e.currentTarget.select()}
-            aria-label="Public schedule link"
-            className="h-12 border-transparent bg-muted px-4 font-mono text-caption md:text-caption"
-          />
+          <div className="px-4 pb-4">
+            <Input
+              readOnly
+              value={embedCode}
+              onFocus={(e) => e.currentTarget.select()}
+              aria-label="Public schedule link"
+              className={cn(geistMono.className, "text-xs md:text-xs")}
+            />
+          </div>
         ) : (
-          <pre className="p-4 overflow-x-auto rounded-control bg-muted text-caption font-mono text-foreground whitespace-pre">
+          <pre className={cn(geistMono.className, "overflow-x-auto whitespace-pre px-4 pb-4 text-xs leading-5 text-foreground")}>
             {embedCode}
           </pre>
         )}
-      </div>
-
-      <p className="text-caption text-muted-foreground -mt-2">{activeMethod.note}</p>
-
-      {/* Per-page scoping — a property of *this copy of the code*, not of the
-          saved settings. One organisation's look and one schedule list, but the
-          arena's page can still carry an arena-only embed: the facility rides
-          in the snippet (data-facility-id / the URL), and the widget narrows
-          its switcher to that facility's entries. Deliberately here and not in
-          step 1: it changes nothing until the code is copied and pasted. */}
-      {facilities.length > 1 && (
-        <div>
-          <LabelWithInfo
-            htmlFor={SCOPE_FACILITY_SELECT_ID}
-            className="block text-caption font-medium text-foreground"
-            info="Only needed if your website has a separate page per building. Pick it here and this copy of the code shows just that building. Re-copy the code after changing."
-          >
-            Building page
-          </LabelWithInfo>
-          <NativeSelect
-            id={SCOPE_FACILITY_SELECT_ID}
-            value={scopeFacilityId}
-            onChange={(e) => onScopeFacilityChange(e.target.value)}
-            wrapperClassName="sm:max-w-sm"
-          >
-            <option value="">No — show everything from step 1</option>
-            {facilities.map((f) => (
-              <option key={f.id} value={f.id}>
-                {f.name}’s page only
-                {f.isPublished ? "" : " — draft"}
-              </option>
-            ))}
-          </NativeSelect>
-          {scopeFacilityId && (
-            <span className="block text-caption text-muted-foreground mt-1.5">
-              {switcherCount > 1
-                ? "This code shows only that facility, and its switcher only lists that facility's schedules."
-                : "This code shows only that facility."}
-            </span>
-          )}
-        </div>
-      )}
-
-      {!isLink && (
-        <div className="grid grid-cols-1 sm:grid-cols-[10rem_1fr] gap-3 sm:items-start">
-          <label className="block">
-            <span className="flex items-center gap-1.5 text-caption font-medium text-foreground mb-1.5">
-              {method === "iframe" ? "Height" : "Starting height"}
-              <InfoTip>
-                {method === "iframe"
-                  ? "The box stays this tall. A week grid usually needs 700–900px."
-                  : "Only used until the schedule loads. After that, the widget sizes itself."}
-              </InfoTip>
-            </span>
-            <div className="relative">
-              <Input
-                type="number"
-                value={height}
-                onChange={(e) => onHeightChange(e.target.value)}
-                min={300}
-                max={1200}
-                className="pr-9"
-              />
-              <span className="absolute right-3 top-1/2 -translate-y-1/2 text-caption text-muted-foreground">
-                px
-              </span>
-            </div>
-          </label>
-        </div>
-      )}
+      </section>
 
       {isLink ? (
-        <div className="rounded-card border border-border p-4 sm:p-5">
-          <p className="text-card-title text-foreground">Where do I put this?</p>
-          <ol className="mt-3 space-y-2">
-            {LINK_PLACES.map((place, i) => (
-              <li key={i} className="flex gap-2.5 text-body text-muted-foreground">
-                <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-muted text-label font-semibold text-foreground tabular-nums">
-                  {i + 1}
-                </span>
-                {place}
-              </li>
-            ))}
-          </ol>
-          <p className="mt-3 text-caption text-muted-foreground">
-            The link stays the same when you publish changes.
-          </p>
-        </div>
+        <section className="space-y-2">
+          <SectionHeading note="The link stays the same when you publish">Where do I put this?</SectionHeading>
+          <NumberedSteps steps={LINK_PLACES} />
+        </section>
       ) : (
-        <div className="rounded-card border border-border p-4 sm:p-5">
-          <p className="text-card-title text-foreground">Where do I paste this?</p>
-          <div className="mt-3 space-y-3">
-            <div className="grid grid-cols-2 gap-1 rounded-card bg-muted p-1 sm:inline-flex sm:rounded-full">
-              {CMS_GUIDES.map((g) => (
-                <button
-                  key={g.id}
-                  type="button"
-                  onClick={() => setGuide(g.id)}
-                  aria-pressed={guide === g.id}
-                  className={cn(
-                    "h-8 px-3.5 rounded-full text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    guide === g.id
-                      ? "bg-raised text-foreground shadow-card"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  {g.name}
-                </button>
-              ))}
-            </div>
-            <ol className="space-y-2">
-              {activeGuide.steps[method].map((step, i) => (
-                <li key={i} className="flex gap-2.5 text-body text-muted-foreground">
-                  <span className="shrink-0 inline-flex items-center justify-center size-5 rounded-full bg-muted text-label font-semibold text-foreground tabular-nums">
-                    {i + 1}
-                  </span>
-                  {step}
-                </li>
-              ))}
-            </ol>
-            <p className="text-caption text-muted-foreground">
-              Blocked from adding code? Switch to <span className="font-medium text-foreground">Link</span>{" "}
-              above and point a menu item at the schedule instead.
-            </p>
-          </div>
-        </div>
+        <section className="space-y-3">
+          <SectionHeading>Where do I paste this?</SectionHeading>
+          <Segmented
+            label="Your website builder"
+            value={guide}
+            onChange={setGuide}
+            options={CMS_GUIDES.map((g) => ({ value: g.id, label: g.name }))}
+            className="grid h-auto w-full grid-cols-2 sm:flex"
+          />
+          <NumberedSteps steps={activeGuide.steps[method]} />
+          <p className="text-caption text-muted-foreground">
+            Blocked from adding code? Pick <span className="font-medium text-foreground">Link</span> above and point a
+            menu item at the schedule instead.
+          </p>
+        </section>
       )}
     </div>
   );
 }
+
+/** A section heading with an optional short note on the right. */
+export function SectionHeading({ children, note }: { children: React.ReactNode; note?: React.ReactNode }) {
+  return (
+    <div className="flex items-baseline justify-between gap-3">
+      <h3 className="text-body font-semibold text-foreground">{children}</h3>
+      {note && <span className="text-right text-caption text-muted-foreground">{note}</span>}
+    </div>
+  );
+}
+
+function NumberedSteps({ steps }: { steps: string[] }) {
+  return (
+    <ol className="space-y-2">
+      {steps.map((step, i) => (
+        <li key={i} className="flex gap-2.5 text-body text-muted-foreground">
+          <span className="inline-flex size-5 shrink-0 items-center justify-center rounded-full bg-muted text-label font-semibold tabular-nums text-foreground">
+            {i + 1}
+          </span>
+          {step}
+        </li>
+      ))}
+    </ol>
+  );
+}
+

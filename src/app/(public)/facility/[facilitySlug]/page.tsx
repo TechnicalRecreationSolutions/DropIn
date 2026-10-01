@@ -143,6 +143,8 @@ export default async function FacilityDetailPage({ params }: PageProps) {
   const enabledFilters = parseEnabledFilters(widgetConfig?.enabled_filters ?? DEFAULT_ENABLED_FILTERS);
   // Likewise the Print button (migration 051). `=== true`: absent before 051 lands.
   const allowPrint = widgetConfig?.allow_print === true;
+  // And whether the filters start collapsed (migration 066), absent before it lands.
+  const filtersCollapsed = widgetConfig?.filters_collapsed === true;
 
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 print:p-0">
@@ -212,6 +214,7 @@ export default async function FacilityDetailPage({ params }: PageProps) {
               facilityId={facility.id}
               allowedTemplates={allowedTemplates}
               enabledFilters={enabledFilters}
+              filtersCollapsed={filtersCollapsed}
               allowPrint={allowPrint}
               printSubtitle={[org?.name, facility.name].filter(Boolean).join(" · ")}
             />

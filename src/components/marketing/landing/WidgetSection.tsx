@@ -70,6 +70,8 @@ const METHODS: {
 
 const LAYOUTS = ["Grid", "List", "Map", "Floor plan", "Board"];
 const SCHEDULES = ["Aquatics", "Arena", "Fitness"];
+/** Labels from MultiSelectToggles — the studio's "Let visitors pick several". */
+const PICK_SEVERAL = ["Facilities", "Departments", "Schedules"];
 /** Labels from VisitorFilterToggles; the first four are DEFAULT_ENABLED_FILTERS. */
 const FILTERS = [
   "Search",
@@ -81,6 +83,8 @@ const FILTERS = [
   "Jump to a week",
 ];
 const DEFAULT_FILTERS = FILTERS.slice(0, 4);
+/** Labels from FiltersStartToggle — the studio's "Filter section starts". */
+const FILTER_START = ["Open", "Collapsed"] as const;
 
 const focusRing =
   "focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#0066cc]";
@@ -201,6 +205,9 @@ function SettingsStep() {
   const [theme, setTheme] = useState<"Light" | "Dark">("Light");
   const [filters, setFilters] = useState<string[]>(DEFAULT_FILTERS);
   const [print, setPrint] = useState(true);
+  const [filterStart, setFilterStart] =
+    useState<(typeof FILTER_START)[number]>("Open");
+  const [pickSeveral, setPickSeveral] = useState<string[]>(["Schedules"]);
   const colorName = BRAND_PRESETS.find((p) => p.hex === color)?.name;
   const initials =
     title
@@ -356,7 +363,7 @@ function SettingsStep() {
       <SettingGroup
         n={3}
         title="Filters and printing"
-        hint="Optional. Let visitors narrow the schedule and print what they see."
+        hint="Optional. Let visitors narrow the schedule, pick several at once, and print what they see. Filters fold away behind one tap."
       >
         <div className="flex flex-col gap-2.5">
           <FieldLabel>Filters visitors get</FieldLabel>
@@ -368,6 +375,34 @@ function SettingsStep() {
                 onClick={() => toggle(filters, setFilters, f)}
               >
                 {f}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          <FieldLabel>Filter section starts</FieldLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {FILTER_START.map((option) => (
+              <Chip
+                key={option}
+                on={filterStart === option}
+                onClick={() => setFilterStart(option)}
+              >
+                {option}
+              </Chip>
+            ))}
+          </div>
+        </div>
+        <div className="flex flex-col gap-2.5">
+          <FieldLabel>Let visitors pick several</FieldLabel>
+          <div className="flex flex-wrap gap-1.5">
+            {PICK_SEVERAL.map((level) => (
+              <Chip
+                key={level}
+                on={pickSeveral.includes(level)}
+                onClick={() => toggle(pickSeveral, setPickSeveral, level)}
+              >
+                {level}
               </Chip>
             ))}
           </div>

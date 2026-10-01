@@ -22,6 +22,8 @@ interface FacilityScheduleClientProps {
   allowedTemplates: ScheduleTemplate[];
   /** Same `widget_configs.enabled_filters` the embed uses — one setting, both surfaces. */
   enabledFilters: SessionFilterKey[];
+  /** Same `widget_configs.filters_collapsed` the embed uses (migration 066). */
+  filtersCollapsed?: boolean;
   /** Same `widget_configs.allow_print` the embed uses. */
   allowPrint?: boolean;
   printSubtitle?: string;
@@ -36,6 +38,7 @@ export default function FacilityScheduleClient({
   facilityId,
   allowedTemplates,
   enabledFilters,
+  filtersCollapsed = false,
   allowPrint = false,
   printSubtitle,
 }: FacilityScheduleClientProps) {
@@ -78,6 +81,7 @@ export default function FacilityScheduleClient({
             onChange={setFilters}
             weekStart={weekStart}
             onWeekChange={setWeekStart}
+            defaultCollapsed={filtersCollapsed}
           />
         )}
 

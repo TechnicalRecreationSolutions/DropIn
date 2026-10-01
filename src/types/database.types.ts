@@ -1073,6 +1073,10 @@ export type Database = {
           enabled_filters: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
           /** 051: whether visitors get a Print button. */
           allow_print: boolean;
+          /** 065: switcher levels where visitors may tick several. */
+          multi_select_levels: ("facility" | "department" | "schedule")[];
+          /** 066: whether the visitor filter section starts collapsed. */
+          filters_collapsed: boolean;
           facility_id: string | null;
           department_id: string | null;
           updated_at: string;
@@ -1093,6 +1097,8 @@ export type Database = {
           | "allowed_templates"
           | "enabled_filters"
           | "allow_print"
+          | "multi_select_levels"
+          | "filters_collapsed"
           | "facility_id"
           | "department_id"
           | "updated_at"
@@ -1110,6 +1116,8 @@ export type Database = {
           allowed_templates?: ("grid" | "list" | "map" | "floorplan" | "board")[];
           enabled_filters?: ("search" | "activity" | "day" | "time" | "space" | "age" | "week")[];
           allow_print?: boolean;
+          multi_select_levels?: ("facility" | "department" | "schedule")[];
+          filters_collapsed?: boolean;
           facility_id?: string | null;
           department_id?: string | null;
           updated_at?: string;

@@ -85,7 +85,7 @@ of them is a plan:
 | Floorplan view | `components/schedule/FloorplanView.tsx` + legend | Complete | **Data** — `LayoutPicker` locks it behind `floorplanAvailable` |
 | Board view | `WeeklyScheduleBoard.tsx`, migration 040 | Complete | `allowed_templates` |
 | Brand colour + logo | `BrandColorField.tsx`, `OrgThemeProvider.tsx`, migration 030 | Complete | Role |
-| Visitor schedule switcher (scopes) | migration 043, `ScheduleScopeSwitcher.tsx` | Complete | Data (scope rows exist) |
+| Visitor schedule switcher (scopes) | migration 043, `ScheduleScopeFilters.tsx` | Complete | Data (scope rows exist) |
 | Visitor filters (search/activity/day/time) | migration 044, `VisitorFilterToggles.tsx` | Complete | Config array |
 | Print button + PrintableSchedule | migration 051, `PrintToggle.tsx`, `PrintableSchedule.tsx` | Complete | Config (`allow_print`) |
 | Resident directory `/find` | migration 052, `/api/public/v1/directory` | Complete | Data (opt-in `listed_in_directory`) |

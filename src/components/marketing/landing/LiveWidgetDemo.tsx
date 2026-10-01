@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { ChevronDown, Pause, Play, SlidersHorizontal } from "lucide-react";
+import { Pause, Play } from "lucide-react";
 import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import FloorplanView from "@/components/schedule/FloorplanView";
@@ -11,7 +11,6 @@ import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import { SessionTrackingContext } from "@/components/schedule/SessionModal";
 import {
   EMPTY_FILTER_STATE,
-  activeFilterCount,
   filterSessions,
   type SessionFilterKey,
   type SessionFilterState,
@@ -19,8 +18,19 @@ import {
 import { cn } from "@/lib/utils/cn";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 import { Hand } from "./ui";
-import DemoScopeFilters from "./DemoScopeFilters";
-import { DEMO_SCOPES, demoSessionsForWeek } from "./heroWidgetSample";
+import ScheduleScopeFilters from "@/components/schedule/ScheduleScopeFilters";
+import {
+  DEMO_DEPARTMENTS,
+  DEMO_TREE,
+  demoSessionsForWeek,
+} from "./heroWidgetSample";
+import {
+  initialSelection,
+  resolveSchedules,
+  singleFacilityId,
+  type ScopeLevel,
+  type ScopeSelection,
+} from "@/lib/schedule/scopeSelection";
 
 const VIEWS: ScheduleTemplate[] = ["grid", "list", "map", "board", "floorplan"];
 const VIEW_LABELS: Record<ScheduleTemplate, string> = {
@@ -32,8 +42,24 @@ const VIEW_LABELS: Record<ScheduleTemplate, string> = {
 };
 const FILTERS: SessionFilterKey[] = ["search", "activity", "day", "time"];
 
-/** The schedules the auto-tour visits: each department's full one. */
-const TOUR_SCOPES = DEMO_SCOPES.filter((s) => !s.sliceOf);
+/** The hero shows the switcher with every level set to pick several — an
+ *  org's choice in step 3 of the studio (widget_configs.multi_select_levels). */
+const MULTI: ScopeLevel[] = ["facility", "department", "schedule"];
+
+/** The tour's stop for a department: its building, that department, all of
+ *  its schedules. */
+function selectionFor(departmentId: string): ScopeSelection {
+  const node = DEMO_TREE.find((s) => s.departmentId === departmentId)!;
+  return { facilities: [node.facilityId], departments: [departmentId], schedules: [] };
+}
+
+/** Where it opens — the first building, as a real widget opens on the org's
+ *  first entry (initialSelection). */
+const OPENING = initialSelection(DEMO_TREE, {
+  facilityId: DEMO_TREE[0].facilityId,
+  departmentId: null,
+  scheduleGroupId: null,
+});
 
 /** How long each view stays up before the next one. */
 const DWELL_MS = 6000;
@@ -74,9 +100,8 @@ function captionFor(view: ScheduleTemplate, scopeId: string): string {
  * patron sees. What differs: the data comes from the sample instead of
  * /api/sessions/expand, session clicks are not counted (SessionTrackingContext),
  * the floorplan is handed its map instead of fetching one, there is no
- * print button (it would print this page), and the switcher row is three
- * Facility / Department / Schedule dropdowns (DemoScopeFilters) rather than
- * the embed's single schedule picker.
+ * print button (it would print this page), and the switcher row — the
+ * embed's own ScheduleScopeFilters — carries a handwritten note after it.
  *
  * It cycles through the five views on its own, then moves to the next space in
  * the switcher and goes round again — the dropdowns hide the other choices,
@@ -98,20 +123,33 @@ export default function LiveWidgetDemo({
 }) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>("grid");
-  const [scopeId, setScopeId] = useState(DEMO_SCOPES[0].id);
+  const [selection, setSelection] = useState<ScopeSelection>(OPENING);
   const [filters, setFilters] =
     useState<SessionFilterState>(EMPTY_FILTER_STATE);
-  // Phones only: the filters stack one per row there, and in a card of fixed
-  // height four of them left the schedule a sliver. From sm up they are one
-  // row and always shown.
-  const [filtersOpen, setFiltersOpen] = useState(false);
-  const filterCount = activeFilterCount(filters);
-
-  const scope = DEMO_SCOPES.find((s) => s.id === scopeId) ?? DEMO_SCOPES[0];
-  const allSessions = useMemo(
-    () => demoSessionsForWeek(scope.id, weekStart),
-    [scope.id, weekStart],
+  // The filter section folds behind its "Filters" toggle, as on a real widget
+  // (an org picks how it starts — widget_configs.filters_collapsed). Open from
+  // sm up, so the hero shows the filters; folded on a phone, where they stack
+  // one per row and in a card of fixed height left the schedule a sliver.
+  // Read at first render: HeroWidget never prerenders this (see `playing`).
+  const [filtersOpen, setFiltersOpen] = useState(
+    () => window.matchMedia("(min-width: 640px)").matches,
   );
+
+  // The same resolution a real widget does: picks → the schedules they cover.
+  const scheduleKey = resolveSchedules(DEMO_TREE, selection)
+    .map((s) => s.id)
+    .join(",");
+  const allSessions = useMemo(
+    () => demoSessionsForWeek(scheduleKey.split(","), weekStart),
+    [scheduleKey, weekStart],
+  );
+  // The first department on screen names the map caption and the floor map;
+  // the floorplan is only drawn inside one building (singleFacilityId).
+  const focus =
+    DEMO_DEPARTMENTS.find((d) =>
+      resolveSchedules(DEMO_TREE, selection).some((s) => s.departmentId === d.id),
+    ) ?? DEMO_DEPARTMENTS[0];
+  const oneBuilding = singleFacilityId(DEMO_TREE, selection) !== null;
   const visibleSessions = useMemo(
     () => filterSessions(allSessions, filters),
     [allSessions, filters],
@@ -119,8 +157,8 @@ export default function LiveWidgetDemo({
 
   // Filters are named after one schedule's activities and spaces; carried to
   // another schedule they would match nothing and read as an empty week.
-  function changeScope(id: string) {
-    setScopeId(id);
+  function changeSelection(next: ScopeSelection) {
+    setSelection(next);
     setFilters(EMPTY_FILTER_STATE);
   }
 
@@ -155,13 +193,13 @@ export default function LiveWidgetDemo({
   const advance = () => {
     const next = (VIEWS.indexOf(view) + 1) % VIEWS.length;
     if (next === 0) {
-      // Department to department only: through all 24 schedules a tour
-      // would run twelve minutes. From a slice the visitor picked,
-      // it carries on after that slice's department.
-      const i = TOUR_SCOPES.findIndex(
-        (s) => s.id === (scope.sliceOf ?? scope.id),
+      // Department to department only: through all 17 schedules a tour
+      // would run eight minutes. From wherever the visitor left it, it
+      // carries on after the first department on screen.
+      const i = DEMO_DEPARTMENTS.indexOf(focus);
+      changeSelection(
+        selectionFor(DEMO_DEPARTMENTS[(i + 1) % DEMO_DEPARTMENTS.length].id),
       );
-      changeScope(TOUR_SCOPES[(i + 1) % TOUR_SCOPES.length].id);
     }
     setView(VIEWS[next]);
   };
@@ -169,7 +207,7 @@ export default function LiveWidgetDemo({
   // Each view starts at its top, not wherever the last one was scrolled to.
   useEffect(() => {
     scrollRef.current?.scrollTo({ top: 0 });
-  }, [view, scope.id]);
+  }, [view, scheduleKey]);
 
   // Anything the visitor does inside the widget ends the tour. `click` rather
   // than `pointerdown`, so a thumb scrolling the page past it on a phone does
@@ -179,10 +217,10 @@ export default function LiveWidgetDemo({
   return (
     <div ref={rootRef} className="relative">
       <Hand
-        key={`${view}-${scope.id}`}
+        key={`${view}-${focus.id}`}
         className="absolute -top-12 right-6 hidden -rotate-[3deg] text-[26px] animate-in fade-in duration-500 lg:block"
       >
-        {captionFor(view, scope.sliceOf ?? scope.id)} ↓
+        {captionFor(view, focus.id)} ↓
       </Hand>
 
       {/* The Facility / Department / Schedule dropdowns are easy to read
@@ -214,10 +252,11 @@ export default function LiveWidgetDemo({
               onChange={setView}
               allowedViews={VIEWS}
               scopeControl={
-                <DemoScopeFilters
-                  scopes={DEMO_SCOPES}
-                  active={scope}
-                  onChange={changeScope}
+                <ScheduleScopeFilters
+                  tree={DEMO_TREE}
+                  selection={selection}
+                  onChange={changeSelection}
+                  multi={MULTI}
                   after={
                     <Hand
                       tone="teal"
@@ -229,33 +268,25 @@ export default function LiveWidgetDemo({
                 />
               }
             />
-            <button
-              type="button"
-              onClick={() => setFiltersOpen((o) => !o)}
-              aria-expanded={filtersOpen}
-              className="flex items-center gap-2 border-b border-gray-200 px-4 py-2.5 text-[13px] font-medium text-gray-700 sm:hidden"
-            >
-              <SlidersHorizontal aria-hidden className="size-4 text-gray-500" />
-              Filters{filterCount > 0 ? ` · ${filterCount}` : ""}
-              <ChevronDown
-                aria-hidden
-                className={cn(
-                  "ml-auto size-4 text-gray-500 transition-transform",
-                  filtersOpen && "rotate-180",
-                )}
-              />
-            </button>
-            <div className={cn(!filtersOpen && "hidden", "sm:block")}>
-              <ScheduleFilterBar
-                sessions={allSessions}
-                matchCount={visibleSessions.length}
-                enabled={FILTERS}
-                state={filters}
-                onChange={setFilters}
-                weekStart={weekStart}
-                onWeekChange={setWeekStart}
-              />
-            </div>
+            <ScheduleFilterBar
+              sessions={allSessions}
+              matchCount={visibleSessions.length}
+              enabled={FILTERS}
+              state={filters}
+              onChange={setFilters}
+              weekStart={weekStart}
+              onWeekChange={setWeekStart}
+              open={filtersOpen}
+              onOpenChange={setFiltersOpen}
+              toggleNote={
+                <Hand
+                  tone="teal"
+                  className="pointer-events-none ml-2 hidden -rotate-2 text-[24px] leading-none whitespace-nowrap lg:block"
+                >
+                  {filtersOpen ? "← fold them away" : "← tap to open"}
+                </Hand>
+              }
+            />
 
             <div
               ref={scrollRef}
@@ -275,12 +306,18 @@ export default function LiveWidgetDemo({
                     Clear filters
                   </button>
                 </div>
+              ) : view === "floorplan" && !oneBuilding ? (
+                // Same message as the real widget (WidgetScheduleClient).
+                <div className="py-12 text-center text-sm text-gray-400">
+                  The floorplan shows one building at a time. Pick one
+                  facility above to see its map.
+                </div>
               ) : view === "floorplan" ? (
                 <FloorplanView
-                  key={scope.id}
-                  facilityId={scope.facilityId}
+                  key={focus.id}
+                  facilityId={focus.facilityId}
                   sessions={visibleSessions}
-                  map={scope.map}
+                  map={focus.map}
                 />
               ) : (
                 <ScheduleView
@@ -333,7 +370,7 @@ export default function LiveWidgetDemo({
                   {active && (
                     <span
                       // Restarts with each view; frozen while the tour is paused.
-                      key={`${v}-${scope.id}`}
+                      key={`${v}-${scheduleKey}`}
                       className={cn(
                         "absolute inset-y-0 left-0 rounded-full bg-[#0066cc]",
                         playing ? "hero-dwell" : "w-full",

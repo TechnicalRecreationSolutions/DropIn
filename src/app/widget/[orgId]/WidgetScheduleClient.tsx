@@ -7,6 +7,16 @@ import { useScheduleAnchor } from "@/hooks/useScheduleAnchor";
 import { useScheduleAnalytics } from "@/hooks/useScheduleAnalytics";
 import ScheduleView from "@/components/schedule/ScheduleView";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
+import ScheduleScopeFilters from "@/components/schedule/ScheduleScopeFilters";
+import {
+  describeSelection,
+  initialSelection,
+  resolveSchedules,
+  singleFacilityId,
+  type ScopeLevel,
+  type ScopeSchedule,
+  type ScopeSelection,
+} from "@/lib/schedule/scopeSelection";
 import ScheduleFilterBar from "@/components/schedule/ScheduleFilterBar";
 import PrintableSchedule, { PrintScheduleButton } from "@/components/schedule/PrintableSchedule";
 import {
@@ -19,15 +29,11 @@ import type { ScheduleTemplate } from "@/types/schedule.types";
 
 const queryClient = new QueryClient();
 
-/** One entry in a multi-schedule widget's visitor-facing filter. */
-export interface WidgetScope {
-  id: string;
-  label: string;
+/** The org's first configured filter entry — where the switcher opens. */
+export interface WidgetFirstScope {
   facilityId: string;
   departmentId: string | null;
   scheduleGroupId: string | null;
-  /** "Aquatic Centre › Aquatics › Lane Swim" — what the label alone can't say. */
-  context?: string | null;
 }
 
 interface WidgetScheduleClientProps {
@@ -36,13 +42,22 @@ interface WidgetScheduleClientProps {
   departmentId?: string;
   theme: "light" | "dark";
   allowedTemplates: ScheduleTemplate[];
-  /** When 2+ entries, the widget shows a facility/department/schedule filter and this list
-   *  drives the data scope instead of the fixed facilityId/departmentId props above. */
-  scopes?: WidgetScope[];
+  /** Every schedule the org's filter entries reach (page.tsx's buildScopeTree).
+   *  Non-empty, it drives the data instead of the facilityId/departmentId props
+   *  above; with two or more, visitors get the Facility / Department /
+   *  Schedule switcher. */
+  scopeTree?: ScopeSchedule[];
+  /** Where the switcher opens — the first configured entry. Also the data
+   *  scope when the entries reach no live schedule at all. */
+  firstScope?: WidgetFirstScope;
+  /** Switcher levels where visitors may tick several (migration 065). */
+  multiSelectLevels?: ScopeLevel[];
   /** Heading in the coloured bar — the org's widget_configs.custom_title, or "Schedule". */
   title?: string;
   /** Which general filters the org offers visitors (widget_configs.enabled_filters). */
   enabledFilters?: SessionFilterKey[];
+  /** Whether the filter section starts collapsed (widget_configs.filters_collapsed, migration 066). */
+  filtersCollapsed?: boolean;
   /** Whether visitors get a Print button (widget_configs.allow_print, migration 051). */
   allowPrint?: boolean;
   /** Printed above the title — whose schedule this is, once it's off the website. */
@@ -55,33 +70,41 @@ function ScheduleInner({
   departmentId,
   theme,
   allowedTemplates,
-  scopes = [],
+  scopeTree = [],
+  firstScope,
+  multiSelectLevels = [],
   title = "Schedule",
   enabledFilters = [],
+  filtersCollapsed = false,
   allowPrint = false,
   printSubtitle,
 }: WidgetScheduleClientProps) {
   const { weekStart, month, setWeekStart, setMonth } = useScheduleAnchor();
   const [view, setView] = useState<ScheduleTemplate>(allowedTemplates[0] ?? "grid");
-  // A lone configured scope still has to drive the data — it's only the
-  // *picker UI* that needs 2+ options to mean anything. Falling back to the
-  // plain facilityId/departmentId props whenever there's exactly one scope
-  // would silently un-scope the embed instead of applying the org's one
-  // configured filter.
-  const filterable = scopes.length > 1;
-  const [selectedScopeId, setSelectedScopeId] = useState<string>(scopes[0]?.id ?? "");
-  const activeScope = scopes.length > 0 ? (scopes.find((s) => s.id === selectedScopeId) ?? scopes[0]) : undefined;
+  // The visitor's picks, resolved to the exact schedules they cover and asked
+  // for by id — so a pick can never reach outside the region the org
+  // configured (see lib/schedule/scopeSelection.ts). A lone schedule still
+  // drives the data; it is only the switcher that needs two to mean anything.
+  const switchable = scopeTree.length > 1;
+  const [selection, setSelection] = useState(() => initialSelection(scopeTree, firstScope));
+  const scheduleIds = useMemo(
+    () => resolveSchedules(scopeTree, selection).map((s) => s.id).sort().join(","),
+    [scopeTree, selection]
+  );
 
-  const scopedFacilityId = activeScope ? activeScope.facilityId : facilityId;
-  const scopedDepartmentId = activeScope ? (activeScope.departmentId ?? undefined) : departmentId;
-  const scopedScheduleGroupId = activeScope?.scheduleGroupId ?? undefined;
+  const treeDriven = scopeTree.length > 0;
+  // Entries that reach no live schedule fall back to the first one's own
+  // scope, which is what the embed did before there was a tree.
+  const scopedFacilityId = treeDriven
+    ? (singleFacilityId(scopeTree, selection) ?? undefined)
+    : (firstScope?.facilityId ?? facilityId);
 
   const { data: sessions, isLoading, isError } = useTemplateSchedule({
     template: view,
     orgId,
-    facilityId: scopedFacilityId,
-    departmentId: scopedDepartmentId,
-    scheduleGroupId: scopedScheduleGroupId,
+    facilityId: treeDriven ? undefined : scopedFacilityId,
+    departmentId: treeDriven ? undefined : firstScope ? (firstScope.departmentId ?? undefined) : departmentId,
+    scheduleGroupId: treeDriven ? scheduleIds : (firstScope?.scheduleGroupId ?? undefined),
     weekStart,
     month,
   });
@@ -90,6 +113,14 @@ function ScheduleInner({
   // loaded, rather than re-querying: `sessions` is one week of expanded
   // occurrences, and the filter bar's own options are derived from it.
   const [filters, setFilters] = useState<SessionFilterState>(EMPTY_FILTER_STATE);
+
+  // Filters are named after one schedule's activities and spaces; carried to
+  // another they would match nothing and read as an empty week. Same as the
+  // landing hero.
+  function changeSelection(next: ScopeSelection) {
+    setSelection(next);
+    setFilters(EMPTY_FILTER_STATE);
+  }
   const allSessions = useMemo(() => sessions ?? [], [sessions]);
   const visibleSessions = useMemo(
     () => filterSessions(allSessions, filters),
@@ -131,13 +162,17 @@ function ScheduleInner({
           view={view}
           onChange={setView}
           allowedViews={allowedTemplates}
-          scopeOptions={
-            filterable
-              ? scopes.map((s) => ({ id: s.id, label: s.label, context: s.context ?? undefined }))
-              : undefined
+          scopeControl={
+            switchable ? (
+              <ScheduleScopeFilters
+                tree={scopeTree}
+                selection={selection}
+                onChange={changeSelection}
+                multi={multiSelectLevels}
+                dark={isDark}
+              />
+            ) : undefined
           }
-          activeScopeId={activeScope?.id}
-          onScopeChange={setSelectedScopeId}
           actions={canPrint ? <PrintScheduleButton onTint={isDark} /> : undefined}
           dark={isDark}
         />
@@ -152,6 +187,7 @@ function ScheduleInner({
             weekStart={weekStart}
             onWeekChange={setWeekStart}
             dark={isDark}
+            defaultCollapsed={filtersCollapsed}
           />
         )}
 
@@ -184,6 +220,12 @@ function ScheduleInner({
               Clear filters
             </button>
           </div>
+        ) : view === "floorplan" && !scopedFacilityId ? (
+          // A floor map is one building's. With several ticked, ScheduleView
+          // would quietly draw the grid instead, under a "Floorplan" toggle.
+          <div className={`text-center py-12 text-sm ${mutedClass}`}>
+            The floorplan shows one building at a time. Pick one facility above to see its map.
+          </div>
         ) : (
           // A landmark around the schedule itself, so a screen reader can jump
           // past the header and filters to the sessions.
@@ -208,7 +250,9 @@ function ScheduleInner({
           sessions={visibleSessions}
           totalCount={allSessions.length}
           filters={filters}
-          scopeLabel={filterable ? activeScope?.label : null}
+          // The whole path, minus the "All …" levels: an entry's own label
+          // can be just "All schedules", which says nothing on paper.
+          scopeLabel={switchable ? describeSelection(scopeTree, selection) || null : null}
         />
       )}
     </>

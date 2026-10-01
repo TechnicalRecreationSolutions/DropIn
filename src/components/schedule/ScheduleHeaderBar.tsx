@@ -3,11 +3,7 @@
 import type { ReactNode } from "react";
 import { LayoutGrid, List, Columns3, Image as ImageIcon, Table2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
-import ScheduleScopeSwitcher, { type ScheduleScope } from "./ScheduleScopeSwitcher";
 import type { ScheduleTemplate } from "@/types/schedule.types";
-
-/** One entry in the header's schedule switcher — see scopeOptions below. */
-export type ScheduleHeaderScope = ScheduleScope;
 
 interface ScheduleHeaderBarProps {
   title: string;
@@ -15,14 +11,9 @@ interface ScheduleHeaderBarProps {
   onChange: (view: ScheduleTemplate) => void;
   /** Which views the org has enabled (widget_configs.allowed_templates) — the toggle only offers these. */
   allowedViews: ScheduleTemplate[];
-  /** 2+ entries adds a schedule switcher on its own row under the title (the widget's
-   *  multi-schedule filter) — omit for a bar with nothing but the title and view toggle. */
-  scopeOptions?: ScheduleHeaderScope[];
-  activeScopeId?: string;
-  onScopeChange?: (id: string) => void;
-  /** Replaces the schedule switcher row with custom controls — the landing
-   *  hero's Facility / Department / Schedule dropdowns. Takes precedence over
-   *  scopeOptions. */
+  /** The schedule switcher (ScheduleScopeFilters), on its own row under the
+   *  title — the embed's and the landing hero's, built the same way. Omit for
+   *  a bar with nothing but the title and view toggle. */
   scopeControl?: ReactNode;
   /** Extra controls after the view toggle — the visitor Print button, when the org allows it. */
   actions?: ReactNode;
@@ -63,8 +54,8 @@ const MOBILE_COLUMNS: Record<number, string> = {
  * allowed one without staff involvement. If the org only enabled one view,
  * there's nothing to toggle, so the picker is omitted entirely.
  *
- * With `scopeOptions`, a second row carries the schedule switcher
- * (`ScheduleScopeSwitcher`) — the widget's multi-schedule filter. The three
+ * With `scopeControl`, a second row carries the schedule switcher
+ * (`ScheduleScopeFilters`) — the widget's multi-schedule filter. The three
  * non-widget callers (public facility page, schedule command centre) pass none
  * and render exactly the title + view toggle they always have.
  */
@@ -73,15 +64,11 @@ export default function ScheduleHeaderBar({
   view,
   onChange,
   allowedViews,
-  scopeOptions,
-  activeScopeId,
-  onScopeChange,
   scopeControl,
   actions,
   dark = false,
 }: ScheduleHeaderBarProps) {
   const options = OPTIONS.filter((o) => allowedViews.includes(o.value));
-  const switchable = (scopeOptions?.length ?? 0) > 1;
 
   return (
     <div
@@ -153,17 +140,7 @@ export default function ScheduleHeaderBar({
       {/* Its own full-width row inside the bar: the pills need the width, and
           putting them beside the title is what forced the old design to choose
           between showing a title and showing a switcher. */}
-      {scopeControl ? (
-        <div className="basis-full min-w-0">{scopeControl}</div>
-      ) : switchable && (
-        <ScheduleScopeSwitcher
-          scopes={scopeOptions!}
-          activeId={activeScopeId ?? scopeOptions![0].id}
-          onChange={(id) => onScopeChange?.(id)}
-          onTint={dark}
-          className="basis-full"
-        />
-      )}
+      {scopeControl && <div className="basis-full min-w-0">{scopeControl}</div>}
     </div>
   );
 }

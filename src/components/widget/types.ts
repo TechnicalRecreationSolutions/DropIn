@@ -1,3 +1,4 @@
+import type { ScopeLevel } from "@/lib/schedule/scopeSelection";
 import type { SessionFilterKey } from "@/lib/schedule/sessionFilters";
 import type { ScheduleTemplate } from "@/types/schedule.types";
 
@@ -82,30 +83,69 @@ export interface PublishedSettings {
   enabledFilters: SessionFilterKey[];
   /** Visitor Print button — `widget_configs.allow_print` (migration 051). */
   allowPrint: boolean;
+  /** Switcher levels where visitors may tick several — `widget_configs.multi_select_levels` (migration 065). */
+  multiSelectLevels: ScopeLevel[];
+  /** Whether the visitor filter section starts collapsed — `widget_configs.filters_collapsed` (migration 066). */
+  filtersCollapsed: boolean;
   scopes: LocalScope[];
+}
+
+/** Each persisted setting in the form that decides whether it changed. */
+function normalized(s: PublishedSettings): Record<keyof PublishedSettings, string> {
+  return {
+    allowedTemplates: JSON.stringify(s.allowedTemplates),
+    primaryColor: s.primaryColor.toUpperCase(),
+    customTitle: s.customTitle.trim(),
+    // Order is not meaningful here (unlike allowed_templates, whose first
+    // entry is the default view), so a re-ordered but identical set must not
+    // read as an unsaved change.
+    enabledFilters: JSON.stringify([...s.enabledFilters].sort()),
+    allowPrint: String(s.allowPrint),
+    multiSelectLevels: JSON.stringify([...s.multiSelectLevels].sort()),
+    filtersCollapsed: String(s.filtersCollapsed),
+    // Rows without a facility are dropped on save, so they must not count as
+    // an unsaved change either — otherwise clicking "Add a filter" and walking
+    // away leaves a publish bar that never goes away.
+    scopes: JSON.stringify(
+      s.scopes
+        .filter((r) => !!r.facilityId)
+        .map((r) => [r.label.trim(), r.facilityId, r.departmentId, r.scheduleGroupId])
+    ),
+  };
 }
 
 /** Stable string form of the persisted settings, for dirty-checking against the last save. */
 export function publishedSignature(s: PublishedSettings): string {
-  return JSON.stringify({
-    templates: s.allowedTemplates,
-    primary: s.primaryColor.toUpperCase(),
-    title: s.customTitle.trim(),
-    // Order is not meaningful here (unlike allowed_templates, whose first
-    // entry is the default view), so a re-ordered but identical set must not
-    // read as an unsaved change.
-    filters: [...s.enabledFilters].sort(),
-    print: s.allowPrint,
-    // Rows without a facility are dropped on save, so they must not count as
-    // an unsaved change either — otherwise clicking "Add a filter" and walking
-    // away leaves a publish bar that never goes away.
-    scopes: s.scopes
-      .filter((r) => !!r.facilityId)
-      .map((r) => [r.label.trim(), r.facilityId, r.departmentId, r.scheduleGroupId]),
-  });
+  return JSON.stringify(normalized(s));
 }
+
+/**
+ * Which settings differ between two states — the count in the studio's
+ * "N unpublished changes" pill and the amber dot on each section tile. Built
+ * on the same normal form as `publishedSignature`, so "dirty" and "these
+ * changed" can never disagree.
+ */
+export function changedSettings(current: PublishedSettings, saved: PublishedSettings): (keyof PublishedSettings)[] {
+  const a = normalized(current);
+  const b = normalized(saved);
+  return (Object.keys(a) as (keyof PublishedSettings)[]).filter((k) => a[k] !== b[k]);
+}
+
+/**
+ * The studio's four sections. Three hold published settings and one holds
+ * snippet options; `SECTION_SETTINGS` is the line between them.
+ */
+export type StudioSection = "schedules" | "appearance" | "tools" | "install";
+
+/** Which published settings each section edits. Install edits none: it is all snippet. */
+export const SECTION_SETTINGS: Record<StudioSection, (keyof PublishedSettings)[]> = {
+  schedules: ["scopes"],
+  appearance: ["allowedTemplates", "primaryColor", "customTitle"],
+  tools: ["enabledFilters", "filtersCollapsed", "multiSelectLevels", "allowPrint"],
+  install: [],
+};
 
 export type { ScheduleTemplate };
 
-/** Step 4's building select — the locked Floorplan card in step 2 scrolls to it. */
+/** Install's building select — the locked Floorplan row in Appearance opens Install and focuses it. */
 export const SCOPE_FACILITY_SELECT_ID = "widget-scope-facility";

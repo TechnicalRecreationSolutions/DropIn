@@ -32,21 +32,18 @@ const DEVICES = [
 ];
 
 /**
- * The widget as visitors will see it, at the size it will actually be.
+ * The widget full screen, opened from the preview panel's expand button.
  *
- * This started life as a 420px column pinned beside the controls, which put the
- * page's most important artifact in its smallest box and squeezed the four
- * steps into a form column narrower than the content it holds. As a window it
- * gets the whole screen, and the steps get the whole page.
+ * The studio's everyday preview is `PreviewPanel`, always beside the settings.
+ * This window is for seeing it at full size: its own device framing, reload
+ * and open-in-a-new-tab, and a strip of quick tweaks along the bottom.
  *
- * The tradeoff of a popup is that it breaks "change it and watch it change", so
- * the two most visual decisions — brand colour and light/dark — are repeated on
- * a strip along the bottom. They write to the same state the steps do, so a
- * tweak made here is a tweak made there, and it is still unpublished until the
- * publish bar says otherwise.
+ * The brand colour swatches write to the same published state as Appearance,
+ * so a tweak made here is unpublished until the header's Publish says
+ * otherwise. Light/Dark here is the *preview's* theme, shared with the panel —
+ * never the snippet's theme, which is an Install option.
  *
- * The iframe is only mounted while the window is open: a hidden one cost every
- * visit to this page a full widget render nobody was looking at.
+ * The iframe is only mounted while the window is open, beside the panel's own.
  */
 export default function PreviewWindow({
   open,

@@ -1,6 +1,6 @@
 "use client";
 
-import { AlertTriangle, Check, Pipette } from "lucide-react";
+import { AlertTriangle } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { relativeLuminance } from "@/lib/utils/color";
 import { FieldError } from "@/components/ui/field";
@@ -40,6 +40,9 @@ function contrastWithWhite(hex: string): number {
  * a brand guide actually specifies, and no warning when the chosen colour makes
  * the header's white text unreadable. All three are the difference between a
  * widget that looks designed and one that looks broken on someone's site.
+ *
+ * The swatches and the chip are the org's own colours, so they are drawn with
+ * inline styles — the one place on this page a hex reaches the dashboard.
  */
 export default function BrandColorField({ value, onChange, disabled }: BrandColorFieldProps) {
   const valid = HEX_RE.test(value);
@@ -47,7 +50,9 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
 
   return (
     <div className="space-y-3">
-      <div className="flex flex-wrap gap-2">
+      {/* 32px swatches with a 44px tap area. The chosen one gets a white gap
+          then an ink ring, which reads on every preset, Charcoal included. */}
+      <div className="flex flex-wrap gap-3" role="group" aria-label="Preset colours">
         {BRAND_PRESETS.map(({ hex, name }) => {
           const active = value.toUpperCase() === hex.toUpperCase();
           return (
@@ -60,42 +65,45 @@ export default function BrandColorField({ value, onChange, disabled }: BrandColo
               aria-label={name}
               aria-pressed={active}
               className={cn(
-                "size-9 rounded-full border-2 ring-1 ring-foreground/20 transition-transform flex items-center justify-center focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 focus-visible:ring-offset-background disabled:opacity-50",
-                active ? "border-foreground scale-105" : "border-transparent hover:scale-105"
+                "touch-target size-8 rounded-full transition-shadow duration-150 focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-ring disabled:opacity-50",
+                active
+                  ? "ring-2 ring-foreground ring-offset-2 ring-offset-card"
+                  : "ring-1 ring-inset ring-foreground/15"
               )}
               style={{ backgroundColor: hex }}
-            >
-              {active && <Check className="w-4 h-4 text-white drop-shadow" />}
-            </button>
+            />
           );
         })}
       </div>
 
-      <div className="flex items-center gap-2">
-        <label className="relative size-10 shrink-0 rounded-control border border-input overflow-hidden cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring has-[:focus-visible]:ring-offset-2 has-[:focus-visible]:ring-offset-background">
-          <input
-            type="color"
-            value={valid ? value : "#0066CC"}
-            onChange={(e) => onChange(e.target.value.toUpperCase())}
+      <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+        <div className="relative w-36">
+          {/* The chip is the native picker: tap it for a colour wheel. */}
+          <label className="touch-target absolute left-2.5 top-1/2 z-[1] size-5 -translate-y-1/2 overflow-hidden rounded-full ring-1 ring-inset ring-foreground/15 cursor-pointer has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-ring">
+            <span aria-hidden className="absolute inset-0" style={{ backgroundColor: valid ? value : "transparent" }} />
+            <input
+              type="color"
+              value={valid ? value : "#0066CC"}
+              onChange={(e) => onChange(e.target.value.toUpperCase())}
+              disabled={disabled}
+              className="absolute inset-0 size-full cursor-pointer opacity-0"
+              aria-label="Pick a custom colour"
+            />
+          </label>
+          <Input
+            type="text"
+            value={value}
+            onChange={(e) => {
+              const next = e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`;
+              onChange(next.toUpperCase().slice(0, 7));
+            }}
             disabled={disabled}
-            className="absolute -inset-2 w-[calc(100%+1rem)] h-[calc(100%+1rem)] cursor-pointer"
-            aria-label="Pick a custom colour"
+            spellCheck={false}
+            aria-label="Brand colour hex code"
+            aria-invalid={!valid}
+            className="pl-10 font-mono uppercase"
           />
-          <Pipette className="absolute bottom-0.5 right-0.5 w-3 h-3 text-white mix-blend-difference pointer-events-none" />
-        </label>
-        <Input
-          type="text"
-          value={value}
-          onChange={(e) => {
-            const next = e.target.value.startsWith("#") ? e.target.value : `#${e.target.value}`;
-            onChange(next.toUpperCase().slice(0, 7));
-          }}
-          disabled={disabled}
-          spellCheck={false}
-          aria-label="Brand colour hex code"
-          aria-invalid={!valid}
-          className="w-32 font-mono uppercase"
-        />
+        </div>
         <span className="text-caption text-muted-foreground">Or paste your brand hex.</span>
       </div>
 

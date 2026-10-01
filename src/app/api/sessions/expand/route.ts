@@ -10,6 +10,10 @@ import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import { subtractExclusiveClaims } from "@/lib/schedule/residual";
 import { fetchOperatingHours } from "@/lib/schedule/operating-hours-query";
 
+/** Most schedule groups one request may name — see `scheduleGroupId`. */
+// 250 ids is ~9 KB of query string — inside Vercel's 14 KB URL limit.
+const MAX_SCHEDULE_GROUPS = 250;
+
 const QuerySchema = z.object({
   rangeStart: z.string().datetime({ offset: true }).optional(),
   rangeEnd: z.string().datetime({ offset: true }).optional(),
@@ -18,7 +22,18 @@ const QuerySchema = z.object({
   orgId: z.string().uuid().optional(),
   facilityId: z.string().uuid().optional(),
   departmentId: z.string().uuid().optional(),
-  scheduleGroupId: z.string().uuid().optional(),
+  /**
+   * One schedule group, or several comma-separated — the widget's switcher
+   * resolves a visitor's picks to the exact schedules they cover (see
+   * lib/schedule/scopeSelection.ts). Capped, and every id must be a UUID, so a
+   * list is never a way to smuggle a filter or an unbounded query in. It only
+   * narrows: each id still goes through RLS and the publish passes below.
+   */
+  scheduleGroupId: z
+    .string()
+    .transform((v) => [...new Set(v.split(","))].sort())
+    .pipe(z.array(z.string().uuid()).min(1).max(MAX_SCHEDULE_GROUPS))
+    .optional(),
   /**
    * `audience=public` makes a signed-in staff caller be treated as an outsider:
    * withheld names redacted, internal sessions dropped, unapproved weeks hidden.
@@ -90,7 +105,7 @@ const SESSION_SELECT = `
  *   orgId             Filter to one organization
  *   facilityId        Filter to one facility
  *   departmentId      Filter to one department
- *   scheduleGroupId   Filter to one schedule group
+ *   scheduleGroupId   Filter to one schedule group, or several comma-separated
  *   audience          `public` to be treated as an outsider (narrows only)
  *
  * At least one of orgId, facilityId, or scheduleGroupId is required to
@@ -213,7 +228,12 @@ export async function GET(request: Request) {
   if (orgId) query = query.eq("org_id", orgId);
   if (facilityId) query = query.eq("schedule_groups.facility_id", facilityId);
   if (departmentId) query = query.eq("schedule_groups.department_id", departmentId);
-  if (scheduleGroupId) query = query.eq("schedule_group_id", scheduleGroupId);
+  if (scheduleGroupId) {
+    query =
+      scheduleGroupId.length === 1
+        ? query.eq("schedule_group_id", scheduleGroupId[0])
+        : query.in("schedule_group_id", scheduleGroupId);
+  }
 
   const { data, error: sessionsError } = await query;
   // Relational select — cast needed until Supabase CLI generates types with FK relations
@@ -266,7 +286,7 @@ export async function GET(request: Request) {
       orgId,
       facilityId,
       departmentId,
-      scheduleGroupId,
+      scheduleGroupId: scheduleGroupId?.join(","),
     },
     operatingHours
   );

@@ -4,13 +4,14 @@
  * The redesign moved four things from "displayed" to "load-bearing", and every
  * one of them fails silently:
  *
- *   - **The preview window reflects unsaved state.** It works by handing the
+ *   - **The preview reflects unsaved state.** It works by handing the
  *     real /widget/[orgId] route preview-only `primary` and `title` params. If
  *     the iframe src stops carrying them the preview quietly shows the *saved*
  *     widget instead, which looks like a working preview that simply ignores
  *     you. Asserted from the iframe's actual src, with a before/after control,
- *     plus that the iframe exists only while the window is open (a hidden one
- *     costs every visit a widget render nobody sees).
+ *     plus (2026-10-01 layout) that it is mounted beside the settings from the
+ *     start, never remounts on a tile switch, and that its Light/Dark changes
+ *     only the preview, never the snippet theme.
  *   - **Those params must never apply outside preview mode.** They land in a
  *     style attribute and a heading, so a real embed that could be given
  *     `?primary=…&title=…` by anyone linking to it would be defaceable.
@@ -27,10 +28,10 @@
  *
  * Plus the studio's own safety net: one publish action whose dirty bar appears
  * and clears, and per-page narrowing that stays in the snippet — a facility
- * chosen in step 4 rides in data-facility-id and narrows the switcher, without
+ * chosen under Install rides in data-facility-id and narrows the switcher, without
  * creating the second saved row that 045 just removed.
  *
- * And step 1 — which is now *only* the schedule list (migration 045), with
+ * And the Schedules section — which is now *only* the schedule list (migration 045), with
  * four failure modes of its own:
  *
  *   - **One configuration per org.** Settings used to be keyed by
@@ -309,63 +310,62 @@ try {
     const page = await context.newPage();
 
     // ---------------------------------------------------------------
-    console.log("\n1. The studio loads with its four steps and a live preview alongside");
+    console.log("\n1. A never-published org gets the first-run checklist, and the preview is already there");
     // ---------------------------------------------------------------
     await page.goto(`${APP}/dashboard/widget`, { waitUntil: "networkidle" });
-    await page.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
+    /** The section tiles are the tabs; their ids are stable, their names carry live summaries. */
+    const tile = (section) => page.locator(`#widget-tab-${section}`);
+    const openTile = (section) => tile(section).click();
+    await tile("schedules").waitFor({ timeout: 30000 });
+    await page.getByText(/Not published yet|Published /).first().waitFor({ timeout: 20000 });
 
-    for (const heading of [
-      "What to show",
-      "Look and feel",
-      "Filters and printing",
-      "Add to your website",
-    ]) {
-      check(`step visible: ${heading}`, await page.getByRole("heading", { name: heading }).isVisible());
-    }
-
-    const previewFrame = page.locator('iframe[title="Widget preview"]');
-    /** Dismiss the preview window and wait for its iframe to go away. */
-    const closePreview = async () => {
-      await page.getByRole("button", { name: "Close" }).click();
-      await previewFrame.waitFor({ state: "detached", timeout: 10000 });
-    };
+    check("the status line says it has never been published", await page.getByText("Not published yet").first().isVisible());
+    check("…and makes no claim about where the code is embedded", !(await page.getByText(/embedded on|is live on/i).count()));
+    const tabNames = await page.getByRole("tab").allTextContents();
     check(
-      "no preview iframe is mounted until it is asked for (the page doesn't render a widget nobody is looking at)",
-      (await previewFrame.count()) === 0
+      "the tiles are a three-step checklist (plus Visitor tools, which must stay reachable)",
+      ["Pick what to show", "Choose a look", "Copy the code", "Visitor tools"].every((t) => tabNames.some((n) => n.includes(t))) &&
+        tabNames.length === 4,
+      JSON.stringify(tabNames)
     );
+    check("…inside one tablist", (await page.getByRole("tablist").count()) === 1);
+    check("Schedules is the open tile", (await tile("schedules").getAttribute("aria-selected")) === "true");
     check(
-      "step 1 opens on the empty list, which states the default rather than showing a blank row",
-      await page.getByRole("heading", { name: "Showing everything you run" }).isVisible()
+      "Publish is live with nothing changed: publishing the defaults is a real first publish",
+      await page.getByRole("button", { name: "Publish", exact: true }).isEnabled()
     );
 
+    const previewFrame = page.locator('#widget-preview-frame iframe');
+    const windowFrame = page.getByRole("dialog").locator("iframe");
+    check("the preview iframe is mounted on load, beside the settings", (await previewFrame.count()) === 1 && (await previewFrame.isVisible()));
+    check(
+      "the empty list states the default rather than showing a blank row",
+      await page.getByText("Showing everything you run").isVisible()
+    );
+
+    // Arrow keys move between tiles, as in a tab strip.
+    await tile("schedules").focus();
+    await page.keyboard.press("ArrowRight");
+    check("ArrowRight moves to the next tile and opens it", (await tile("appearance").getAttribute("aria-selected")) === "true");
+    await page.keyboard.press("ArrowLeft");
+    check("…and ArrowLeft back", (await tile("schedules").getAttribute("aria-selected")) === "true");
+
     // ---------------------------------------------------------------
-    console.log("\n2. The preview window: opens on demand, carries unsaved edits, unmounts on close");
+    console.log("\n2. The preview carries unsaved edits, survives tab switches, and keeps its theme to itself");
     // ---------------------------------------------------------------
-    await page.getByRole("button", { name: "Preview" }).first().click();
-    await previewFrame.waitFor({ state: "attached", timeout: 20000 });
     const srcBefore = await previewFrame.getAttribute("src");
     check(
       "control: with nothing edited the preview src carries no title override",
       !!srcBefore && srcBefore.includes("preview=1") && !srcBefore.includes("title="),
       srcBefore ?? "no src"
     );
+    // Tag the element: if a tab switch remounted it, the tag is gone.
+    await previewFrame.evaluate((el) => { el.dataset.zzMarker = "kept"; });
 
-    // The window's own quick-tweak strip writes to the same state the steps do,
-    // so a colour picked here is the colour the publish bar will publish.
-    await page.getByRole("group", { name: "Brand colour" }).getByRole("button", { name: "Teal" }).click();
-    // Escape only reaches the dialog while focus is in *this* document, which
-    // the swatch click just guaranteed. Once the preview iframe reloads it
-    // takes focus and the keystroke goes to the embedded page instead, so
-    // every later close in this file goes through the Close button.
-    await page.keyboard.press("Escape");
-    await previewFrame.waitFor({ state: "detached", timeout: 10000 });
-    check("closing the window unmounts the iframe", (await previewFrame.count()) === 0);
-
+    await openTile("appearance");
+    await page.getByRole("group", { name: "Preset colours" }).getByRole("button", { name: "Teal" }).click();
     const widgetTitle = `ZZ Pool Times ${stamp}`;
-    await page.getByLabel("Widget heading").fill(widgetTitle);
-
-    await page.getByRole("button", { name: "Preview" }).first().click();
-    await previewFrame.waitFor({ state: "attached", timeout: 20000 });
+    await page.getByLabel("Heading", { exact: true }).fill(widgetTitle);
     // The iframe src is debounced so typing doesn't reload it per keystroke.
     await page.waitForTimeout(1200);
 
@@ -373,22 +373,72 @@ try {
     // URLSearchParams encodes spaces as "+", which decodeURIComponent leaves alone.
     const decodedSrc = decodeURIComponent((srcAfter ?? "").replace(/\+/g, "%20"));
     check("the preview src now carries the unsaved heading", decodedSrc.includes(widgetTitle), srcAfter ?? "no src");
+    check("…and the unsaved brand colour", decodedSrc.includes("#0F766E"), srcAfter ?? "no src");
+
+    await openTile("tools");
+    await openTile("schedules");
     check(
-      "…and the brand colour chosen inside the window itself",
-      decodedSrc.includes("#0F766E"),
-      srcAfter ?? "no src"
+      "switching tiles never remounts the preview",
+      (await previewFrame.evaluate((el) => el.dataset.zzMarker)) === "kept"
     );
-    await closePreview();
+
+    // The rule the layout protects: the preview's Light/Dark is the preview's.
+    await openTile("install");
+    const snippetText = async () => (await page.locator("#widget-panel-install pre").textContent()) ?? "";
+    const installTheme = page.getByRole("radiogroup", { name: "Theme", exact: true });
+    const previewTheme = page.getByRole("radiogroup", { name: "Preview theme" });
+    await previewTheme.getByRole("radio", { name: "Dark" }).click();
+    await page.waitForTimeout(800);
+    check("the preview's Dark darkens the preview", ((await previewFrame.getAttribute("src")) ?? "").includes("theme=dark"));
+    check(
+      "…without touching the theme setting",
+      (await installTheme.getByRole("radio", { name: "Light" }).getAttribute("aria-checked")) === "true" &&
+        !(await snippetText()).includes("data-theme")
+    );
+    check("…so the code is not marked stale", !(await tile("install").textContent()).includes("Copy the code again"));
+    await previewTheme.getByRole("radio", { name: "Light" }).click();
+    await installTheme.getByRole("radio", { name: "Dark" }).click();
+    await page.waitForTimeout(800);
+    check("Install's Dark goes into the code", (await snippetText()).includes('data-theme="dark"'), await snippetText());
+    check("…and the preview follows it", ((await previewFrame.getAttribute("src")) ?? "").includes("theme=dark"));
+    await installTheme.getByRole("radio", { name: "Light" }).click();
+    await page.waitForTimeout(800);
+
+    // The full-screen window is still there, as a second, temporary iframe.
+    await page.getByRole("button", { name: "Open the preview full screen" }).click();
+    await windowFrame.waitFor({ state: "attached", timeout: 20000 });
+    check("the full-screen button opens the preview window", (await windowFrame.count()) === 1);
+    await page.getByRole("button", { name: "Close" }).click();
+    await windowFrame.waitFor({ state: "detached", timeout: 10000 });
+    check("…closing it leaves the panel's own preview in place", (await previewFrame.count()) === 1);
 
     // ---------------------------------------------------------------
     console.log("\n3. One publish action, with a dirty state that appears and clears");
     // ---------------------------------------------------------------
-    const publishBar = page.getByText("Not live yet");
-    check("editing raises the publish bar", await publishBar.isVisible());
+    const publishBar = page.getByText(/^\d+ unpublished changes?$/).first();
+    check("editing shows the change count", (await publishBar.textContent()) === "2 unpublished changes", await publishBar.textContent());
+    check("…and marks the Appearance tile", ((await tile("appearance").textContent()) ?? "").includes("needs attention"));
+    check("…and not the Schedules tile", !((await tile("schedules").textContent()) ?? "").includes("needs attention"));
+    check("the preview says it is showing unpublished changes", await page.getByText("Showing unpublished changes").isVisible());
 
-    await page.getByRole("button", { name: "Publish changes" }).click();
+    await page.getByRole("button", { name: "Publish", exact: true }).click();
     await publishBar.waitFor({ state: "hidden", timeout: 20000 });
     check("publishing clears it", !(await publishBar.isVisible().catch(() => false)));
+    // Fixed pattern, viewer-local time: "Oct 1, 3:12 PM" (date-fns, like lib/utils/dates.ts).
+    const statusLine = page.locator("h1").locator("xpath=../following-sibling::p");
+    await page.waitForFunction(() => /^Published /.test(document.querySelector("h1")?.parentElement?.nextElementSibling?.textContent ?? ""), null, { timeout: 5000 }).catch(() => {});
+    check(
+      "…the status line gives the publish time",
+      /^Published [A-Z][a-z]{2} \d{1,2}, \d{1,2}:\d{2} (AM|PM)/.test((await statusLine.textContent()) ?? ""),
+      await statusLine.textContent()
+    );
+    check("…the button rests at Published", await page.getByRole("button", { name: "Published" }).isDisabled());
+    check(
+      "…and the checklist has become the summary tiles for good",
+      ((await tile("schedules").textContent()) ?? "").includes("Everything you run") &&
+        ((await tile("appearance").textContent()) ?? "").includes("Week grid first"),
+      JSON.stringify(await page.getByRole("tab").allTextContents())
+    );
 
     const saved = await apiJson(`${APP}/api/widget-config?orgId=${org.id}`, cookieHeader);
     check("the colour reached widget_configs", saved.body?.config?.primary_color === "#0F766E", JSON.stringify(saved.body?.config));
@@ -412,21 +462,23 @@ try {
     // Asserted in a browser, against what is actually rendered: the raw HTML
     // of a dev build echoes the request's search params inside the RSC payload,
     // so a substring check on the response body reports a defacement that
-    // isn't there. What matters is the heading element and the header bar's
-    // computed background.
+    // isn't there. What matters is the heading element and the brand colour as
+    // rendered — since the redesign (docs/DESIGN.md) the bar is neutral and the
+    // colour shows only on the active view pill, so that is where to read it.
     const attacked = await context.newPage();
     await attacked.goto(`${APP}/widget/${org.id}?primary=%23FF0000&title=ZZ%20INJECTED%20${stamp}`, {
       waitUntil: "networkidle",
     });
     const headerBar = attacked.locator("h2").first();
     const headerText = (await headerBar.textContent()) ?? "";
-    const barColor = await headerBar.evaluate(
-      (el) => getComputedStyle(el.parentElement).backgroundColor
-    );
+    const barColor = await attacked
+      .getByRole("group", { name: "Choose a view" })
+      .locator('button[aria-pressed="true"]')
+      .evaluate((el) => getComputedStyle(el).color);
     check("a real embed ignores an injected title", !headerText.includes("ZZ INJECTED"), headerText);
     check("…and still renders the org's saved heading", headerText.includes(widgetTitle), headerText);
     check(
-      "a real embed ignores an injected colour — the bar stays the saved teal",
+      "a real embed ignores an injected colour — the active view stays the saved teal",
       barColor === "rgb(15, 118, 110)",
       barColor
     );
@@ -436,11 +488,12 @@ try {
     console.log("\n6. 'Loads first' is a real reorder of allowed_templates");
     // ---------------------------------------------------------------
     // Grid ships first by default; promote List and confirm the widget boots into it.
-    const listToggleTile = page.getByRole("button", { name: "List", exact: true });
-    if ((await listToggleTile.getAttribute("aria-pressed")) !== "true") await listToggleTile.click();
+    await openTile("appearance");
+    const listSwitch = page.getByRole("switch", { name: "List", exact: true });
+    if ((await listSwitch.getAttribute("aria-checked")) !== "true") await listSwitch.click();
     await page.getByRole("button", { name: "Make List load first" }).click();
     await page.getByRole("button", { name: "Publish changes" }).click();
-    await page.getByText("Not live yet").waitFor({ state: "hidden", timeout: 20000 });
+    await publishBar.waitFor({ state: "hidden", timeout: 20000 });
 
     const reordered = await apiJson(`${APP}/api/widget-config?orgId=${org.id}`, cookieHeader);
     check(
@@ -462,18 +515,19 @@ try {
     // ---------------------------------------------------------------
     console.log("\n7. Step 1 is one list: empty means everything, and one click fills it per facility");
     // ---------------------------------------------------------------
-    const filtersSection = page.locator("section").filter({ hasText: "What to show" });
+    await openTile("schedules");
+    const filtersSection = page.locator("#widget-panel-schedules");
     check(
       "the empty list says what the embed does rather than drawing a widget inside the editor",
       (await filtersSection.getByRole("group", { name: "Choose a schedule" }).count()) === 0 &&
-        (await filtersSection.getByRole("heading", { name: "Showing everything you run" }).isVisible())
+        (await filtersSection.getByText("Showing everything you run").isVisible())
     );
     check(
       "…and step 1 carries no second facility control beside it",
       (await filtersSection.getByRole("group", { name: "Which schedule this embed shows" }).count()) === 0
     );
 
-    await page.getByRole("button", { name: /One per facility/ }).click();
+    await page.getByRole("button", { name: "Add one per building" }).click();
     check("…and one click seeds a row per facility", (await page.getByLabel(/^Label for schedule \d+$/).count()) === 2);
     check(
       "each row is one line naming where it points",
@@ -487,7 +541,7 @@ try {
     );
 
     await page.getByRole("button", { name: "Publish changes" }).click();
-    await page.getByText("Not live yet").waitFor({ state: "hidden", timeout: 20000 });
+    await publishBar.waitFor({ state: "hidden", timeout: 20000 });
     const seeded = await apiJson(`${APP}/api/widget-config?orgId=${org.id}`, cookieHeader);
     check("both rows saved", seeded.body?.scopes?.length === 2, JSON.stringify(seeded.body?.scopes));
 
@@ -530,7 +584,7 @@ try {
     );
 
     await page.getByRole("button", { name: "Publish changes" }).click();
-    await page.getByText("Not live yet").waitFor({ state: "hidden", timeout: 20000 });
+    await publishBar.waitFor({ state: "hidden", timeout: 20000 });
 
     const deptVisitor = await browser.newContext({ viewport: { width: 900, height: 900 } });
     const deptPage = await deptVisitor.newPage();
@@ -545,7 +599,9 @@ try {
       !(await deepSession.isVisible().catch(() => false))
     );
 
-    await deptPage.getByRole("button", { name: deepLabel }).click();
+    // Same building, two departments: the Department dropdown is the switch.
+    await deptPage.getByRole("button", { name: "Department", exact: true }).click();
+    await deptPage.getByRole("checkbox", { name: poolDeep.department.name, exact: true }).locator("..").click();
     await deepSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
     check("picking the second department swaps the sessions", await deepSession.isVisible());
     check(
@@ -586,7 +642,7 @@ try {
     );
 
     await page.getByRole("button", { name: "Publish changes" }).click();
-    await page.getByText("Not live yet").waitFor({ state: "hidden", timeout: 20000 });
+    await publishBar.waitFor({ state: "hidden", timeout: 20000 });
     const withDraft = await apiJson(`${APP}/api/widget-config?orgId=${org.id}`, cookieHeader);
     check(
       "control: it really was saved — this is a visibility gate, not a rejected write",
@@ -595,20 +651,29 @@ try {
     );
 
     const anonHtml = await (await fetch(`${APP}/widget/${org.id}`)).text();
-    check("a visitor never sees the draft filter", !anonHtml.includes(draftLabel));
-    check("…while the published ones are there", anonHtml.includes(laneLabel));
+    check(
+      "a visitor never sees the draft filter, nor its schedule's name",
+      !anonHtml.includes(draftLabel) && !anonHtml.includes(arenaDraft.scheduleName)
+    );
+    // Department-wide filters show their department, not the typed label — and
+    // the whole option list travels in the page's RSC payload, so a plain
+    // fetch sees every entry, not just the active one.
+    check(
+      "…while the published ones are there",
+      anonHtml.includes(pool.department.name) && anonHtml.includes(poolDeep.department.name)
+    );
 
     // Same list, signed in. The preview iframe is same-origin and carries the
     // admin's session, so before the route filtered publish state explicitly
     // this showed staff a switcher entry no visitor would ever get.
-    await page.getByRole("button", { name: "Preview" }).first().click();
-    await previewFrame.waitFor({ state: "attached", timeout: 20000 });
-    const previewBody = page.frameLocator('iframe[title="Widget preview"]').locator("body");
+    // The panel's preview reloaded after the publish (previewVersion).
+    await page.waitForTimeout(1000);
+    const previewBody = page.frameLocator("#widget-preview-frame iframe").locator("body");
     // The studio builds the preview src from NEXT_PUBLIC_APP_URL, not from the
     // origin it is being served on, so under `--app=<another port>` this iframe
     // points at whatever is (or isn't) running on the configured one. Say so
     // rather than spending 20s timing out on an empty document.
-    const previewOrigin = new URL((await previewFrame.getAttribute("src")) ?? APP).origin;
+    const previewOrigin = new URL((await previewFrame.getAttribute("src")) ?? APP, APP).origin;
     if (previewOrigin !== new URL(APP).origin) {
       console.log(
         `  SKIP  signed-in preview checks — its iframe points at ${previewOrigin} (NEXT_PUBLIC_APP_URL), not ${APP}`
@@ -617,6 +682,9 @@ try {
       await previewBody.getByRole("group", { name: "Choose a schedule" }).waitFor({ timeout: 20000 });
       const previewSwitcherText =
         (await previewBody.getByRole("group", { name: "Choose a schedule" }).textContent()) ?? "";
+      // Weaker than it reads since the switcher became closed dropdowns: only
+      // the active scope's label is in the DOM, so this holds whenever the draft
+      // isn't the active one. The opened-list version is verify-p section 3.
       check(
         "the signed-in preview hides it too — the preview shows the visitor's filter list",
         !previewSwitcherText.includes(draftLabel),
@@ -624,11 +692,10 @@ try {
       );
       check(
         "…and still shows the published ones (so this isn't an empty-switcher false pass)",
-        previewSwitcherText.includes(laneLabel),
+        previewSwitcherText.includes(pool.department.name),
         previewSwitcherText
       );
     }
-    await closePreview();
 
     // ---------------------------------------------------------------
     console.log("\n10. One configuration per org — every public surface inherits it");
@@ -642,11 +709,14 @@ try {
     for (const building of [poolBuilding, arenaBuilding]) {
       const publicPage = await context.newPage();
       await publicPage.goto(`${APP}/facility/${building.slug}`, { waitUntil: "domcontentloaded" });
-      // The page's own coloured bar, by its fixed heading — not `h2` by
-      // position, which would also match the "Information" panel below it.
-      const bar = publicPage.getByRole("heading", { name: "Weekly Schedule" });
-      await bar.waitFor({ timeout: 20000 });
-      const barColor = await bar.evaluate((el) => getComputedStyle(el.parentElement).backgroundColor);
+      // The bar is neutral since the redesign (docs/DESIGN.md); the colour is
+      // on the active view pill. Wait on the bar's fixed heading first — not
+      // `h2` by position, which would also match the "Information" panel.
+      await publicPage.getByRole("heading", { name: "Weekly Schedule" }).waitFor({ timeout: 20000 });
+      const barColor = await publicPage
+        .getByRole("group", { name: "Choose a view" })
+        .locator('button[aria-pressed="true"]')
+        .evaluate((el) => getComputedStyle(el).color);
       check(
         `${building.name.replace(` ${stamp}`, "")}'s public page renders the org's own colour`,
         barColor === savedColorRgb,
@@ -658,8 +728,9 @@ try {
     // ---------------------------------------------------------------
     console.log("\n11. Per-page narrowing is a property of the snippet, not a second saved config");
     // ---------------------------------------------------------------
-    await page.getByLabel("Building page").selectOption(poolBuilding.id);
-    const snippet = (await page.locator("pre").first().textContent()) ?? "";
+    await openTile("install");
+    await page.getByLabel("Only show one building").selectOption(poolBuilding.id);
+    const snippet = (await page.locator("#widget-panel-install pre").textContent()) ?? "";
     check(
       "choosing a facility puts it in the code rather than changing what is saved",
       snippet.includes(`data-facility-id="${poolBuilding.id}"`),
@@ -678,54 +749,56 @@ try {
     const arenaScoped = await (await fetch(`${APP}/widget/${org.id}?facilityId=${arenaBuilding.id}`)).text();
     check(
       "a facility-scoped embed keeps that facility's entries",
-      poolScoped.includes(laneLabel) && poolScoped.includes(deepLabel)
+      poolScoped.includes(pool.department.name) && poolScoped.includes(poolDeep.department.name)
     );
     check(
       "…and drops the others entirely",
-      !arenaScoped.includes(laneLabel) && !arenaScoped.includes(deepLabel)
+      !arenaScoped.includes(pool.department.name) && !arenaScoped.includes(poolDeep.department.name)
     );
     check(
       "control: the unscoped embed still carries them",
-      (await (await fetch(`${APP}/widget/${org.id}`)).text()).includes(laneLabel)
+      (await (await fetch(`${APP}/widget/${org.id}`)).text()).includes(pool.department.name)
     );
     // Leave the snippet unscoped again so the screenshots below are the default.
-    await page.getByLabel("Building page").selectOption("");
+    await page.getByLabel("Only show one building").selectOption("");
 
     if (SHOTS) {
       fs.mkdirSync(SHOTS, { recursive: true });
       await page.reload({ waitUntil: "networkidle" });
-      await page.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
+      await tile("schedules").waitFor({ timeout: 30000 });
       await page.waitForTimeout(2500);
       await page.screenshot({ path: path.join(SHOTS, "studio-desktop.png"), fullPage: true });
 
-      // Step 1 on its own, list closed and open: the two states it has.
+      // The Schedules section on its own, list closed and open: the two states it has.
       await filtersSection.scrollIntoViewIfNeeded();
       await page.waitForTimeout(400);
-      await filtersSection.screenshot({ path: path.join(SHOTS, "step1-schedules.png") });
+      await filtersSection.screenshot({ path: path.join(SHOTS, "schedules-section.png") });
       await filtersSection.getByRole("button", { name: /^Edit / }).first().click();
       await page.waitForTimeout(400);
-      await filtersSection.screenshot({ path: path.join(SHOTS, "step1-schedules-open.png") });
+      await filtersSection.screenshot({ path: path.join(SHOTS, "schedules-section-open.png") });
 
-      // The preview at the size it exists to be seen at.
-      await page.getByRole("button", { name: "Preview" }).first().click();
+      // The preview at full screen.
+      await page.getByRole("button", { name: "Open the preview full screen" }).click();
       await page.waitForTimeout(3000);
       await page.screenshot({ path: path.join(SHOTS, "preview-window.png") });
-      await closePreview();
+      await page.getByRole("button", { name: "Close" }).click();
+      await windowFrame.waitFor({ state: "detached", timeout: 10000 });
       await page.waitForTimeout(500);
 
       // The unsaved state, which is a designed state rather than an error one.
-      await page.getByLabel("Widget heading").fill(`${widgetTitle} (edited)`);
+      await openTile("appearance");
+      await page.getByLabel("Heading", { exact: true }).fill(`${widgetTitle} (edited)`);
       await page.waitForTimeout(400);
       await page.screenshot({ path: path.join(SHOTS, "studio-desktop-dirty.png") });
 
       const phone = await context.newPage();
       await phone.setViewportSize({ width: 390, height: 844 });
       await phone.goto(`${APP}/dashboard/widget`, { waitUntil: "networkidle" });
-      await phone.getByRole("heading", { name: "What to show" }).waitFor({ timeout: 30000 });
+      await phone.locator("#widget-tab-schedules").waitFor({ timeout: 30000 });
       await phone.waitForTimeout(2000);
       await phone.screenshot({ path: path.join(SHOTS, "studio-phone.png"), fullPage: true });
 
-      await phone.getByRole("button", { name: "Preview" }).first().click();
+      await phone.getByRole("button", { name: "Show" }).click();
       await phone.waitForTimeout(3000);
       await phone.screenshot({ path: path.join(SHOTS, "studio-phone-preview.png") });
       await phone.close();

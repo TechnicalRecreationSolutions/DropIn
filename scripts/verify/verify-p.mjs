@@ -174,15 +174,15 @@ try {
 
   await admin
     .from("org_memberships")
-    .insert({ org_id: org.id, user_id: userData.user.id, role: "admin" });
+    .insert({ org_id: org.id, user_id: userData.user.id, role: "owner" });
 
   const { data: signIn, error: signInErr } = await anon.auth.signInWithPassword({ email, password });
   if (signInErr) throw new Error(`signIn: ${signInErr.message}`);
   const cookie = sessionCookies(signIn.session);
 
   /** A published facility → department → schedule group → space → session. */
-  async function makeChain(label, published = true) {
-    const { data: facility } = await admin
+  async function makeChain(label, published = true, inFacility = null) {
+    const { data: facility } = inFacility ? { data: inFacility } : await admin
       .from("facilities")
       .insert({
         org_id: org.id,
@@ -276,7 +276,7 @@ try {
       });
     }
 
-    return { facility, department, scheduleGroup, scheduleName };
+    return { facility, department, scheduleGroup, scheduleName, departmentName: `ZZ ${label} Dept ${stamp}` };
   }
 
   const gym = await makeChain("Gym");
@@ -284,6 +284,45 @@ try {
   const draft = await makeChain("Draft", false); // unpublished facility
 
   check("two published chains and one unpublished chain built", !!gym && !!pool && !!draft);
+
+  // The gym scope is facility-wide, so the visitor's Department and Schedule
+  // dropdowns are built from what that building really has (expandScopes in
+  // /widget/[orgId]). A second live department to narrow between, and three
+  // things that must never be offered: a draft department (with a published
+  // schedule, so "no schedules" isn't what hides it), a draft schedule and an
+  // ended one in the gym's own department.
+  const courts = await makeChain("Courts", true, gym.facility);
+  const hiddenDeptName = `ZZ Hidden Dept ${stamp}`;
+  const { data: hiddenDept } = await admin
+    .from("departments")
+    .insert({ org_id: org.id, facility_id: gym.facility.id, name: hiddenDeptName, slug: `zz-verify-p-hidden-dept-${stamp}`, is_published: false })
+    .select("id")
+    .single();
+  const hiddenNames = {
+    inHiddenDept: `ZZ Hidden Dept Schedule ${stamp}`,
+    draft: `ZZ Draft Schedule ${stamp}`,
+    ended: `ZZ Ended Schedule ${stamp}`,
+  };
+  const yesterday = isoDate(new Date(Date.now() - 86400000));
+  for (const [key, departmentId, status, ends_on] of [
+    ["inHiddenDept", hiddenDept.id, "published", null],
+    ["draft", gym.department.id, "draft", null],
+    ["ended", gym.department.id, "published", yesterday],
+  ]) {
+    await admin.from("schedule_groups").insert({
+      org_id: org.id,
+      facility_id: gym.facility.id,
+      department_id: departmentId,
+      name: hiddenNames[key],
+      slug: `zz-verify-p-${key.toLowerCase()}-${stamp}`,
+      sport_category: "swimming",
+      activity_type: "drop_in",
+      status,
+      ends_on,
+      source: "manual",
+    });
+  }
+  check("facility-wide fixture: a second department plus three hidden ones built", !!courts && !!hiddenDept);
 
   // ---------------------------------------------------------------
   console.log("\n1. Save three scopes; the list view so each session shows its schedule name");
@@ -343,41 +382,68 @@ try {
     // ---------------------------------------------------------------
     console.log("\n3. The switcher itself, in a real browser");
     // ---------------------------------------------------------------
-    // Three scopes render as a pill row (five or more falls back to a Select);
-    // either shape is wrapped in this labelled group.
+    // ScheduleScopeFilters: Facility / Department / Schedule Radix Selects in
+    // this labelled group. The gym and pool scopes are on different
+    // facilities, so switching between them is the Facility dropdown.
     const switcher = page.getByRole("group", { name: "Choose a schedule" });
     check("the header bar renders a schedule switcher", await switcher.isVisible());
 
-    const gymPill = switcher.getByRole("button", { name: gymLabel });
-    const poolPill = switcher.getByRole("button", { name: poolLabel });
+    const facilityPicker = switcher.getByRole("button", { name: "Facility", exact: true });
+    const schedulePicker = switcher.getByRole("button", { name: "Schedule", exact: true });
     check(
-      "the active scope's pill is the pressed one",
-      (await gymPill.getAttribute("aria-pressed")) === "true",
-      await gymPill.getAttribute("aria-pressed")
-    );
-    check("both published scopes are offered without opening anything", await poolPill.isVisible());
-    check(
-      "the scope on an unpublished facility is not offered",
-      (await switcher.getByRole("button", { name: draftLabel }).count()) === 0
+      "a facility-wide scope starts on the whole building: All schedules",
+      ((await schedulePicker.textContent()) ?? "").includes("All schedules"),
+      await schedulePicker.textContent()
     );
     check(
-      "the switcher names the building behind the active scope, not just its label",
-      ((await switcher.textContent()) ?? "").includes(gym.facility.name),
-      await switcher.textContent()
+      "the Facility dropdown names the building behind it, not just its label",
+      ((await facilityPicker.textContent()) ?? "").includes(gym.facility.name),
+      await facilityPicker.textContent()
     );
+
+    // Each menu opens a tick-box list (TickBoxList) labelled after it.
+    const listOf = (name) => page.getByRole("group", { name, exact: true }).locator("label");
+    await facilityPicker.click();
+    const facilityOptions = listOf("Facility");
+    await facilityOptions.first().waitFor({ timeout: 10000 });
+    const offered = await facilityOptions.allTextContents();
+    check(
+      "opening it offers both published facilities",
+      offered.includes(gym.facility.name) && offered.includes(pool.facility.name),
+      JSON.stringify(offered)
+    );
+    check(
+      "…and never the unpublished one",
+      !offered.includes(draft.facility.name),
+      JSON.stringify(offered)
+    );
+    // One at a time (the default): ticking a facility replaces the tick.
+    const pickFacility = async (name) => {
+      if (!(await listOf("Facility").first().isVisible().catch(() => false))) await facilityPicker.click();
+      await page.getByRole("checkbox", { name, exact: true }).locator("..").click();
+    };
 
     // ---------------------------------------------------------------
     console.log("\n4. Picking the second scope actually re-scopes the data");
     // ---------------------------------------------------------------
     expandRequests.length = 0;
-    await poolPill.click();
+    await pickFacility(pool.facility.name);
 
     await poolSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
 
-    check("the selection follows the click", (await poolPill.getAttribute("aria-pressed")) === "true");
     check(
-      "…and the previously active pill is released",
-      (await gymPill.getAttribute("aria-pressed")) === "false"
+      "the Facility menu follows the pick, and Schedule re-fits to All schedules",
+      ((await facilityPicker.textContent()) ?? "").includes(pool.facility.name) &&
+        ((await schedulePicker.textContent()) ?? "").includes("All schedules"),
+      `${await facilityPicker.textContent()} | ${await schedulePicker.textContent()}`
+    );
+    await schedulePicker.click();
+    const poolSchedules = await listOf("Schedule").allTextContents();
+    await page.keyboard.press("Escape");
+    check(
+      "a schedule-level entry is listed under the name the org gave it",
+      poolSchedules.length === 1 && poolSchedules[0] === poolLabel,
+      JSON.stringify(poolSchedules)
     );
     check("the second scope's sessions are now on screen", await poolSession.isVisible());
     check(
@@ -393,7 +459,7 @@ try {
     // ---------------------------------------------------------------
     console.log("\n5. Switching back — a filter, not a one-way latch");
     // ---------------------------------------------------------------
-    await gymPill.click();
+    await pickFacility(gym.facility.name);
     await gymSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
 
     check("the first scope's sessions come back", await gymSession.isVisible());
@@ -401,9 +467,130 @@ try {
       "…and the second scope's are hidden again",
       !(await poolSession.isVisible().catch(() => false))
     );
+
+    // ---------------------------------------------------------------
+    console.log("\n6. A facility-wide scope offers that building's real departments and schedules");
+    // ---------------------------------------------------------------
+    const departmentPicker = switcher.getByRole("button", { name: "Department", exact: true });
+    const optionsOf = async (picker, name) => {
+      await picker.click();
+      await listOf(name).first().waitFor({ timeout: 10000 });
+      const texts = await listOf(name).allTextContents();
+      await page.keyboard.press("Escape");
+      return texts;
+    };
+    const pick = async (picker, name) => {
+      await picker.click();
+      await page.getByRole("checkbox", { name, exact: true }).locator("..").click();
+    };
+    const courtsSession = page.getByText(courts.scheduleName).first();
+
+    const deptOptions = await optionsOf(departmentPicker, "Department");
+    check(
+      "Department lists both live departments, and reads All departments with neither ticked",
+      deptOptions.length === 2 &&
+        deptOptions.includes(gym.departmentName) &&
+        deptOptions.includes(courts.departmentName) &&
+        ((await departmentPicker.textContent()) ?? "").includes("All departments"),
+      `${JSON.stringify(deptOptions)} | ${await departmentPicker.textContent()}`
+    );
+    check("…never the draft department", !deptOptions.includes(hiddenDeptName), JSON.stringify(deptOptions));
+    await courtsSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+    check(
+      "All departments shows both departments' sessions",
+      (await gymSession.isVisible()) && (await courtsSession.isVisible())
+    );
+
+    expandRequests.length = 0;
+    await pick(departmentPicker, gym.departmentName);
+    // "Courts hidden" alone is satisfied by the loading state, where nothing
+    // is on screen at all — wait for the gym's sessions to come back too.
+    await courtsSession.waitFor({ state: "hidden", timeout: 20000 }).catch(() => {});
+    await gymSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+    // Picks are asked for as the exact schedules they cover (scopeSelection.ts).
+    check(
+      "picking a department narrows the query to its schedules",
+      expandRequests.some((u) => u.includes(gym.scheduleGroup.id) && !u.includes(courts.scheduleGroup.id)),
+      JSON.stringify(expandRequests)
+    );
+    check(
+      "…and the other department's sessions leave the screen",
+      (await gymSession.isVisible()) && !(await courtsSession.isVisible().catch(() => false)),
+      `gym=${await gymSession.isVisible()} courts=${await courtsSession.isVisible().catch(() => false)}`
+    );
+
+    const schedOptions = await optionsOf(schedulePicker, "Schedule");
+    check(
+      "Schedule lists just the department's live schedule",
+      schedOptions.length === 1 && schedOptions[0] === gym.scheduleName,
+      JSON.stringify(schedOptions)
+    );
+    check(
+      "…never its draft or ended schedules, nor the draft department's",
+      !Object.values(hiddenNames).some((n) => schedOptions.includes(n)),
+      JSON.stringify(schedOptions)
+    );
+
+    expandRequests.length = 0;
+    await pick(schedulePicker, gym.scheduleName);
+    await page.waitForLoadState("networkidle");
+    // The department has one live schedule, so ticking it covers exactly what
+    // the department pick already loaded — the same query, served from cache.
+    // A request here would mean the selection is not what keys the data.
+    check(
+      "ticking the department's only schedule names it and re-uses the loaded week",
+      ((await schedulePicker.textContent()) ?? "").includes(gym.scheduleName) &&
+        (await gymSession.isVisible()) &&
+        expandRequests.length === 0,
+      `${await schedulePicker.textContent()} | ${JSON.stringify(expandRequests)}`
+    );
+
+    await pick(departmentPicker, courts.departmentName);
+    await courtsSession.waitFor({ state: "visible", timeout: 20000 }).catch(() => {});
+    check(
+      "switching department lands on its All schedules and swaps the sessions",
+      ((await schedulePicker.textContent()) ?? "").includes("All schedules") &&
+        (await courtsSession.isVisible()) &&
+        !(await gymSession.isVisible().catch(() => false)),
+      await schedulePicker.textContent()
+    );
+
+    // ---------------------------------------------------------------
+    console.log("\n7. The signed-in preview offers what a visitor gets, not what staff can read");
+    // ---------------------------------------------------------------
+    // Signed out, RLS already hides a draft department, so section 6 passes
+    // with or without expandScopes' own publish filter. The dashboard's preview
+    // iframe carries the admin's session, where RLS lets drafts through — the
+    // filter in the route is the only thing between staff and a preview that
+    // lists a department no visitor will ever see.
+    const staff = await browser.newContext({ viewport: { width: 900, height: 900 } });
+    await staff.addCookies(
+      cookie.split("; ").map((pair) => {
+        const at = pair.indexOf("=");
+        return { name: pair.slice(0, at), value: pair.slice(at + 1), domain: new URL(APP).hostname, path: "/" };
+      })
+    );
+    const staffPage = await staff.newPage();
+    await staffPage.goto(`${APP}/widget/${org.id}?preview=1`, { waitUntil: "networkidle" });
+    const staffDept = staffPage
+      .getByRole("group", { name: "Choose a schedule" })
+      .getByRole("button", { name: "Department", exact: true });
+    await staffDept.click();
+    const staffList = staffPage.getByRole("group", { name: "Department", exact: true }).locator("label");
+    await staffList.first().waitFor({ timeout: 10000 });
+    const staffOptions = await staffList.allTextContents();
+    check(
+      "the preview lists the live departments",
+      staffOptions.includes(gym.departmentName) && staffOptions.includes(courts.departmentName),
+      JSON.stringify(staffOptions)
+    );
+    check("…and still not the draft one", !staffOptions.includes(hiddenDeptName), JSON.stringify(staffOptions));
+    await staff.close();
   } finally {
     await browser.close();
   }
+} catch (err) {
+  check("the run completed without throwing", false, err?.stack ?? String(err));
 } finally {
   for (const id of ids.orgs) await admin.from("organizations").delete().eq("id", id);
   for (const id of ids.users) await admin.auth.admin.deleteUser(id).catch(() => {});

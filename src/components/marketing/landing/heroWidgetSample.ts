@@ -1,5 +1,6 @@
 import type { FacilityMapPayload } from "@/hooks/useFacilityMap";
 import type { ExpandedSession, SessionTag } from "@/types/schedule.types";
+import type { ScopeSchedule } from "@/lib/schedule/scopeSelection";
 
 /**
  * The sample centre behind the hero's live widget.
@@ -37,12 +38,6 @@ export interface DemoScope {
   facilityName: string;
   departmentName: string;
   map: FacilityMapPayload;
-  /**
-   * Set on a schedule carved out of a department's full week (see SLICES):
-   * the parent's id. It shares the parent's facility, department, floor map
-   * and sessions, and shows only the slots SLICE_KEEP picks.
-   */
-  sliceOf?: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -338,16 +333,34 @@ const SLICES: { of: string; id: string; label: string }[] = [
   { of: "studios", id: "studios-classes", label: "Group fitness" },
 ];
 
-/** Every schedule, each department's full one first and its slices after. */
-export const DEMO_SCOPES: DemoScope[] = DEPARTMENT_SCOPES.flatMap((parent) => [
-  parent,
-  ...SLICES.filter((s) => s.of === parent.id).map((s) => ({
-    ...parent,
+/** The sample departments — each with its own floor map. */
+export const DEMO_DEPARTMENTS: DemoScope[] = DEPARTMENT_SCOPES;
+
+/**
+ * The building a department is in, for the switcher. The community centre's
+ * three departments each carry their own sample map, and so their own
+ * `facilityId` (which the floorplan reads), but they are one building.
+ */
+const buildingId = (d: DemoScope) =>
+  `demo-${d.facilityName.toLowerCase().replace(/[^a-z]+/g, "-")}`;
+
+/**
+ * The switcher's tree — every sample schedule with its building and
+ * department, in the shape the real embed builds from an org's filters (see
+ * lib/schedule/scopeSelection.ts). The hero's menus come from the same
+ * functions as a real widget's, so the two cannot list things differently.
+ */
+export const DEMO_TREE: ScopeSchedule[] = SLICES.map((s) => {
+  const d = DEPARTMENT_SCOPES.find((x) => x.id === s.of)!;
+  return {
     id: s.id,
-    label: s.label,
-    sliceOf: parent.id,
-  })),
-]);
+    name: s.label,
+    facilityId: buildingId(d),
+    facilityName: d.facilityName,
+    departmentId: d.id,
+    departmentName: d.departmentName,
+  };
+});
 
 // ---------------------------------------------------------------------------
 // The weekly pattern
@@ -1390,19 +1403,39 @@ const SLICE_KEEP: Record<string, (slot: Slot) => boolean> = {
 // ---------------------------------------------------------------------------
 
 /**
- * One scope's sessions for the week starting `weekStart` (a local Sunday, as
+ * The sessions of the given schedules (DEMO_TREE ids — what the switcher
+ * resolves to) for the week starting `weekStart` (a local Sunday, as
  * `getWeekStart` returns). Starts and ends follow the session-Date convention
  * — the building's wall clock written as UTC digits — so the views' own
  * formatters read them the way they read a real API response.
  */
 export function demoSessionsForWeek(
-  scopeId: string,
+  scheduleIds: string[],
   weekStart: Date,
 ): ExpandedSession[] {
-  const scope = DEMO_SCOPES.find((s) => s.id === scopeId) ?? DEMO_SCOPES[0];
-  // A slice expands its department's week, so ids match across schedules.
-  const base = scope.sliceOf ?? scope.id;
-  const keep = SLICE_KEEP[scope.id];
+  const out: ExpandedSession[] = [];
+  for (const dept of DEPARTMENT_SCOPES) {
+    const slices = SLICES.filter((s) => s.of === dept.id);
+    const picked = slices.filter((s) => scheduleIds.includes(s.id));
+    if (picked.length === 0) continue;
+    // The slices are cuts of the department's week and don't each claim
+    // every slot, so all of them picked — which is what "All schedules"
+    // resolves to — is the whole week, as it is for a real department.
+    const keep =
+      picked.length === slices.length
+        ? undefined
+        : (slot: Slot) => picked.some((s) => SLICE_KEEP[s.id](slot));
+    out.push(...departmentWeek(dept, keep, weekStart));
+  }
+  return out.sort((x, y) => x.start.getTime() - y.start.getTime());
+}
+
+function departmentWeek(
+  scope: DemoScope,
+  keep: ((slot: Slot) => boolean) | undefined,
+  weekStart: Date,
+): ExpandedSession[] {
+  const base = scope.id;
   const out: ExpandedSession[] = [];
 
   for (let offset = 0; offset < 7; offset++) {

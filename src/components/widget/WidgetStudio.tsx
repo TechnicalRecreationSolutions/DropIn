@@ -2,34 +2,40 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { useQueries, useQuery } from "@tanstack/react-query";
-import { Check, Copy, Eye, Loader2, Moon, Sun, TriangleAlert } from "lucide-react";
+import { format } from "date-fns";
+import { Check, Copy, Loader2 } from "lucide-react";
 import {
   DEFAULT_ENABLED_FILTERS,
   parseEnabledFilters,
   type SessionFilterKey,
 } from "@/lib/schedule/sessionFilters";
 import { cn } from "@/lib/utils/cn";
+import { parseScopeLevels, type ScopeLevel } from "@/lib/schedule/scopeSelection";
 import BrandColorField from "./BrandColorField";
 import FilterEditor from "./FilterEditor";
-import InstallPanel from "./InstallPanel";
-import LayoutPicker, { type FloorplanState, type MapStatus } from "./LayoutPicker";
+import InstallPanel, { SectionHeading } from "./InstallPanel";
+import LayoutPicker, { VIEW_LABELS, type FloorplanState, type MapStatus } from "./LayoutPicker";
+import PreviewPanel from "./PreviewPanel";
 import PreviewWindow from "./PreviewWindow";
+import SectionTiles, { panelId, tabId, type SectionTile } from "./SectionTiles";
 import VisitorFilterToggles from "./VisitorFilterToggles";
+import MultiSelectToggles from "./MultiSelectToggles";
 import PrintToggle from "./PrintToggle";
-import StepCard from "@/components/ui/step-card";
-import { InfoTip, LabelWithInfo } from "@/components/ui/info-tip";
-import { Badge } from "@/components/ui/badge";
+import FiltersStartToggle from "./FiltersStartToggle";
+import { InfoTip } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
   SCOPE_FACILITY_SELECT_ID,
-  publishedSignature,
+  SECTION_SETTINGS,
+  changedSettings,
   savedScopeToLocal,
   type EmbedMethod,
   type LocalScope,
   type PublishedSettings,
   type SavedScope,
   type ScheduleTemplate,
+  type StudioSection,
   type WidgetFacility,
   type WidgetTheme,
 } from "./types";
@@ -37,17 +43,20 @@ import {
 interface WidgetStudioProps {
   orgId: string;
   facilities: WidgetFacility[];
+  /** Whether the org has any schedule at all — the Schedules section's empty state. */
+  hasSchedules: boolean;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
 
-const TEMPLATE_NAMES: Record<ScheduleTemplate, string> = {
-  grid: "Week grid",
-  list: "List",
-  map: "By space",
-  board: "Timetable",
-  floorplan: "Floorplan",
+const METHOD_NAMES: Record<EmbedMethod, string> = {
+  script: "Script embed",
+  iframe: "iFrame",
+  link: "Link",
 };
+
+/** "Sep 29, 4:12 PM", in the viewer's own time — the same fixed patterns as `lib/utils/dates.ts`. */
+const formatPublishedAt = (iso: string) => format(new Date(iso), "MMM d, h:mm a");
 
 let scopeKeySeq = 0;
 function newScopeKey() {
@@ -55,43 +64,48 @@ function newScopeKey() {
   return `new-${scopeKeySeq}`;
 }
 
+/** "Pool", "Pool and Gym", "Pool, Arena and Gym", "Pool, Arena, Gym and 2 more". */
+function joinNames(names: string[]): string {
+  if (names.length <= 1) return names[0] ?? "";
+  if (names.length > 3) return `${names.slice(0, 3).join(", ")} and ${names.length - 3} more`;
+  return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+}
+
 /**
  * `/dashboard/widget` — the publishing studio.
  *
- * Structure follows the job rather than the schema: pick what to show, design
- * it, optionally let visitors filter, then take the code. The steps get the
- * full page width; the preview opens as a near-fullscreen window (see
- * `PreviewWindow`) from the header, the floating pill, or the publish bar,
- * because at 420px in a side column it was both cramped and expensive.
- *
- * Step 1 carries *both* facility-shaped controls — the scope tiles and the
- * visitor-facing switcher list — because they answer the same question and the
- * list wins: with entries in it, `WidgetScheduleClient` renders the selected
- * entry's facility and department rather than the config's. Splitting them
- * (tiles in step 1, list in step 3) hid that override behind a page of
- * scrolling, so an admin could set the embed to one facility and, without any
- * warning, publish another. They now sit together, the first entry is seeded
- * from the tiles, and the tiles say what they still decide.
+ * A dashboard rather than a form: four section tiles that summarise what the
+ * widget does now and open its settings, a 520px settings card for the open
+ * one, and the live preview beside it. See README.md in this folder.
  *
  * The one distinction the layout is built to protect: **published settings vs
- * snippet options.** Layouts, colour, title and filters are written to
+ * snippet options.** Schedules, Appearance and Visitor tools edit
  * `widget_configs`/`widget_config_scopes` and change the live embed *and* the
- * public schedule page — they publish together, from the one bar at the bottom.
- * Theme and height only exist inside the `<script>` tag on the customer's own
- * site, so changing them does nothing until the code is re-copied and re-pasted;
- * the code panel says so when it happens. Mixing those two sets in one card is
- * what made the old page's "I changed it and nothing happened" reports.
+ * public schedule page the moment the header's Publish button is pressed.
+ * Install holds what only exists inside the code on the customer's own site
+ * (method, theme, height, one-building narrowing), so changing one does
+ * nothing until the code is copied again; its tile and its code block say so.
+ * Mixing those two sets is what made the old page's "I changed it and nothing
+ * happened" reports. `SECTION_SETTINGS` in types.ts is that line, in code.
+ *
+ * The preview's own Light/Dark is a third thing: it only changes the preview.
+ * It starts from the snippet's theme and follows it when Install changes it,
+ * but never writes back.
  */
-export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
+export default function WidgetStudio({ orgId, facilities, hasSchedules }: WidgetStudioProps) {
   // Published settings.
   const [allowedTemplates, setAllowedTemplates] = useState<ScheduleTemplate[]>(["grid", "list", "map"]);
   const [primaryColor, setPrimaryColor] = useState("#0066CC");
   const [customTitle, setCustomTitle] = useState("");
   const [enabledFilters, setEnabledFilters] = useState<SessionFilterKey[]>(DEFAULT_ENABLED_FILTERS);
   const [allowPrint, setAllowPrint] = useState(false);
+  const [multiSelectLevels, setMultiSelectLevels] = useState<ScopeLevel[]>([]);
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [scopeRows, setScopeRows] = useState<LocalScope[]>([]);
   /** The last state the server confirmed — the baseline for "unsaved changes" and for Discard. */
   const [savedState, setSavedState] = useState<PublishedSettings | null>(null);
+  /** When the saved row was last written, or null if the org has never published. */
+  const [publishedAt, setPublishedAt] = useState<string | null>(null);
 
   // Snippet options — these never touch the database.
   const [theme, setTheme] = useState<WidgetTheme>("light");
@@ -100,19 +114,37 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   /** Narrows this copy of the snippet to one facility; "" = the whole schedule. */
   const [scopeFacilityId, setScopeFacilityId] = useState("");
 
+  /** The preview's own Light/Dark. Never the snippet's theme. */
+  const [previewTheme, setPreviewTheme] = useState<WidgetTheme>("light");
+
+  const [section, setSection] = useState<StudioSection>("schedules");
+  /** Sections opened and then left — what ticks the first-run checklist's first two items. */
+  const [visited, setVisited] = useState<Set<StudioSection>>(() => new Set());
+
   const [saving, setSaving] = useState(false);
   const [saveError, setSaveError] = useState<string | null>(null);
-  const [justPublished, setJustPublished] = useState(false);
   const [copiedHeader, setCopiedHeader] = useState(false);
   const [previewVersion, setPreviewVersion] = useState(0);
   const [previewOpen, setPreviewOpen] = useState(false);
   /** The snippet text as it stood the last time it was copied, or null if never. */
   const [lastCopiedCode, setLastCopiedCode] = useState<string | null>(null);
 
+  function selectSection(next: StudioSection) {
+    if (next === section) return;
+    setVisited((prev) => new Set(prev).add(section));
+    setSection(next);
+  }
+
+  /** Install's theme is the real one; the preview follows it, but not the other way round. */
+  function changeTheme(next: WidgetTheme) {
+    setTheme(next);
+    setPreviewTheme(next);
+  }
+
   // Floorplan is drawn per building, so the embed needs one — in the same
   // order of precedence the widget itself uses: the snippet's own scope
-  // (step 4), else the step 1 switcher (the map follows the visitor's pick, so
-  // every entry's building counts), else the org's only building.
+  // (Install), else the Schedules switcher (the map follows the visitor's
+  // pick, so every entry's building counts), else the org's only building.
   // /widget/[orgId] applies the same rule when deciding to offer Floorplan.
   const floorplanFacilityIds = useMemo(() => {
     if (scopeFacilityId) return [scopeFacilityId];
@@ -152,11 +184,15 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
           }),
         };
 
-  /** "Choose a building" on the locked Floorplan card — step 4 is a page away. */
+  /** "Pick one under Install" on the locked Floorplan row. */
   function goToFacilityPicker() {
-    const select = document.getElementById(SCOPE_FACILITY_SELECT_ID);
-    select?.scrollIntoView({ behavior: "smooth", block: "center" });
-    select?.focus({ preventScroll: true });
+    selectSection("install");
+    // The panel is `hidden` until this render commits.
+    requestAnimationFrame(() => {
+      const select = document.getElementById(SCOPE_FACILITY_SELECT_ID);
+      select?.scrollIntoView({ behavior: "smooth", block: "center" });
+      select?.focus({ preventScroll: true });
+    });
   }
 
   const { data: widgetConfigData, isLoading: loading } = useQuery({
@@ -166,11 +202,16 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       if (!res.ok) throw new Error(`Failed to load widget config (${res.status})`);
       return res.json() as Promise<{
         config: {
+          /** Absent when the org has never published: the route hands back defaults. */
+          id?: string;
+          updated_at?: string;
           allowed_templates?: ScheduleTemplate[];
           primary_color?: string;
           custom_title?: string | null;
           enabled_filters?: string[];
           allow_print?: boolean;
+          multi_select_levels?: string[];
+          filters_collapsed?: boolean;
         };
         scopes?: SavedScope[];
       }>;
@@ -184,6 +225,8 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     setCustomTitle(next.customTitle);
     setEnabledFilters(next.enabledFilters);
     setAllowPrint(next.allowPrint);
+    setMultiSelectLevels(next.multiSelectLevels);
+    setFiltersCollapsed(next.filtersCollapsed);
     setScopeRows(next.scopes);
     setSavedState(next);
   }, []);
@@ -199,22 +242,43 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       customTitle: widgetConfigData.config.custom_title ?? "",
       enabledFilters: parseEnabledFilters(widgetConfigData.config.enabled_filters ?? DEFAULT_ENABLED_FILTERS),
       allowPrint: widgetConfigData.config.allow_print === true,
+      multiSelectLevels: parseScopeLevels(widgetConfigData.config.multi_select_levels),
+      filtersCollapsed: widgetConfigData.config.filters_collapsed === true,
       scopes: (widgetConfigData.scopes ?? []).map(savedScopeToLocal),
     });
+    setPublishedAt(widgetConfigData.config.id ? widgetConfigData.config.updated_at ?? null : null);
   }, [widgetConfigData, adoptSaved]);
 
   /** Throw away local edits and go back to what is actually live. */
   function discardEdits() {
     if (savedState) adoptSaved(savedState);
+    setSaveError(null);
   }
 
   // Migrations are applied by hand, so the column can lag the code. The row is
   // read with `*`, so a missing key means 051 hasn't landed — and sending
   // allowPrint then would fail the whole publish, not just this toggle.
   const printSupported = !!widgetConfigData && "allow_print" in widgetConfigData.config;
+  // Same for the switcher's pick-several setting (migration 065).
+  const multiSelectSupported = !!widgetConfigData && "multi_select_levels" in widgetConfigData.config;
+  // And whether the filters start collapsed (migration 066).
+  const collapsedSupported = !!widgetConfigData && "filters_collapsed" in widgetConfigData.config;
 
-  const currentSignature = publishedSignature({ allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, scopes: scopeRows });
-  const dirty = savedState !== null && currentSignature !== publishedSignature(savedState);
+  const current: PublishedSettings = {
+    allowedTemplates,
+    primaryColor,
+    customTitle,
+    enabledFilters,
+    allowPrint,
+    multiSelectLevels,
+    filtersCollapsed,
+    scopes: scopeRows,
+  };
+  const changed = savedState ? changedSettings(current, savedState) : [];
+  const dirty = changed.length > 0;
+  /** Never published: the server has no row, and the tiles are a first-run checklist. */
+  const firstRun = !loading && !!widgetConfigData && !widgetConfigData.config.id && publishedAt === null;
+  const sectionDirty = (s: StudioSection) => SECTION_SETTINGS[s].some((k) => changed.includes(k));
 
   const scopeFacility = facilities.find((f) => f.id === scopeFacilityId);
 
@@ -258,6 +322,18 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       return next;
     });
   }
+  /** Drag-and-drop: the dragged row takes the drop target's place. */
+  function moveScopeRowTo(key: string, toKey: string) {
+    setScopeRows((prev) => {
+      const from = prev.findIndex((s) => s.key === key);
+      const to = prev.findIndex((s) => s.key === toKey);
+      if (from < 0 || to < 0 || from === to) return prev;
+      const next = [...prev];
+      const [moved] = next.splice(from, 1);
+      next.splice(to, 0, moved);
+      return next;
+    });
+  }
 
   const publish = useCallback(async (): Promise<boolean> => {
     setSaving(true);
@@ -284,6 +360,8 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
         customTitle: customTitle.trim() || null,
         enabledFilters,
         ...(printSupported ? { allowPrint } : {}),
+        ...(multiSelectSupported ? { multiSelectLevels } : {}),
+        ...(collapsedSupported ? { filtersCollapsed } : {}),
         scopes,
       }),
     });
@@ -306,13 +384,16 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
       customTitle: body?.config?.custom_title ?? "",
       enabledFilters: parseEnabledFilters(body?.config?.enabled_filters ?? enabledFilters),
       allowPrint: body?.config?.allow_print ?? allowPrint,
+      multiSelectLevels: body?.config?.multi_select_levels
+        ? parseScopeLevels(body.config.multi_select_levels)
+        : multiSelectLevels,
+      filtersCollapsed: body?.config?.filters_collapsed ?? filtersCollapsed,
       scopes: savedRows,
     });
+    setPublishedAt(body?.config?.updated_at ?? new Date().toISOString());
     setPreviewVersion((v) => v + 1);
-    setJustPublished(true);
-    setTimeout(() => setJustPublished(false), 2500);
     return true;
-  }, [allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, printSupported, scopeRows, facilities, adoptSaved]);
+  }, [allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, printSupported, multiSelectLevels, multiSelectSupported, filtersCollapsed, collapsedSupported, scopeRows, facilities, adoptSaved]);
 
   /* ------------------------------------------------------------- derivations */
 
@@ -369,7 +450,8 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   }, [embedMethod, shareUrl, widgetUrl, orgId, scopeFacilityId, theme, heightPx]);
 
   // Preview reflects *unsaved* choices through the widget route's preview-only
-  // params, which a real embed never sends.
+  // params, which a real embed never sends. The theme is the preview's own
+  // Light/Dark, not the snippet's.
   //
   // Relative, unlike the snippets above: the dashboard's CSP is
   // `frame-src 'self'`, so a preview pointed at BASE_URL is blocked outright
@@ -379,7 +461,7 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
   const previewSrc = useMemo(() => {
     const url = new URL(`/widget/${orgId}`, "http://preview.invalid");
     if (scopeFacilityId) url.searchParams.set("facilityId", scopeFacilityId);
-    if (theme !== "light") url.searchParams.set("theme", theme);
+    if (previewTheme !== "light") url.searchParams.set("theme", previewTheme);
     url.searchParams.set("templates", allowedTemplates.join(","));
     if (/^#[0-9A-Fa-f]{6}$/.test(primaryColor)) url.searchParams.set("primary", primaryColor);
     if (customTitle.trim()) url.searchParams.set("title", customTitle.trim().slice(0, 80));
@@ -387,9 +469,12 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     // absent param would fall back to the saved value instead of showing it.
     url.searchParams.set("filters", enabledFilters.join(","));
     url.searchParams.set("print", allowPrint ? "1" : "0");
+    // Always set, like filters: "one at a time everywhere" is a real choice.
+    url.searchParams.set("multi", multiSelectLevels.join(","));
+    url.searchParams.set("collapsed", filtersCollapsed ? "1" : "0");
     url.searchParams.set("preview", "1");
     return `${url.pathname}${url.search}`;
-  }, [orgId, scopeFacilityId, theme, allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint]);
+  }, [orgId, scopeFacilityId, previewTheme, allowedTemplates, primaryColor, customTitle, enabledFilters, allowPrint, multiSelectLevels, filtersCollapsed]);
 
   // Typing in the colour or title field would otherwise reload the iframe on
   // every keystroke.
@@ -399,22 +484,13 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     return () => clearTimeout(timer);
   }, [previewSrc]);
 
-  const viewSummary = allowedTemplates.map((t) => TEMPLATE_NAMES[t]).join(", ");
   /** Entries in the visitor-facing switcher — two or more is what renders one. */
   const filledRows = scopeRows.filter((r) => !!r.facilityId);
   const switcherCount = filledRows.length;
+  const rowNames = filledRows.map(
+    (r) => r.label.trim() || facilities.find((f) => f.id === r.facilityId)?.name || "Schedule"
+  );
 
-  /** What the embed shows, said the way the list says it. */
-  const scopeSummary =
-    switcherCount === 0
-      ? "Everything you run"
-      : switcherCount === 1
-        ? filledRows[0].label.trim() ||
-          facilities.find((f) => f.id === filledRows[0].facilityId)?.name ||
-          "One schedule"
-        : `${switcherCount} schedules, with a switcher`;
-  /** …and, on top of that, what this particular copy of the code narrows to. */
-  const snippetSummary = scopeFacility ? `${scopeFacility.name} only` : null;
   const snippetStale = lastCopiedCode !== null && lastCopiedCode !== embedCode;
 
   function copyFromHeader() {
@@ -425,233 +501,363 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
     });
   }
 
+  const viewSummary = allowedTemplates.map((t) => VIEW_LABELS[t]).join(", ");
+  const scopeSummary =
+    switcherCount === 0 ? "Everything you run" : switcherCount === 1 ? rowNames[0] : `${switcherCount} schedules, with a switcher`;
   const previewSummary = `${scopeSummary} · ${viewSummary || "no views selected"}`;
+
+  /** Where to send someone to see the hosted page: the first facility with a published one. */
+  const facilityPage = facilities.find((f) => f.isPublished && f.slug);
+
+  /* ------------------------------------------------------------------ tiles */
+
+  const [firstView, ...otherViews] = allowedTemplates;
+  const swatch = /^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : null;
+  const filterCount = enabledFilters.length;
+
+  const summaryTiles: SectionTile[] = [
+    {
+      section: "schedules",
+      label: "Schedules",
+      value:
+        switcherCount === 0 ? "Everything you run" : `${switcherCount} schedule${switcherCount === 1 ? "" : "s"}`,
+      note:
+        switcherCount === 0
+          ? "Add one to narrow it down"
+          : switcherCount === 1
+            ? `${rowNames[0]}, no switcher`
+            : `${joinNames(rowNames)}, with a switcher`,
+      attention: sectionDirty("schedules"),
+    },
+    {
+      section: "appearance",
+      label: "Appearance",
+      value: (
+        <>
+          {swatch && (
+            // The org's own colour, so an inline style: it is data, not chrome.
+            <span aria-hidden className="size-4 shrink-0 rounded-full ring-1 ring-inset ring-foreground/15" style={{ backgroundColor: swatch }} />
+          )}
+          {firstView ? `${VIEW_LABELS[firstView]} first` : "No views"}
+        </>
+      ),
+      note: otherViews.length ? `Also ${joinNames(otherViews.map((t) => VIEW_LABELS[t]))}` : "No other views",
+      attention: sectionDirty("appearance"),
+    },
+    {
+      section: "tools",
+      label: "Visitor tools",
+      value: filterCount === 0 ? "No filters" : `${filterCount} filter${filterCount === 1 ? "" : "s"}`,
+      note: `Print button ${allowPrint ? "on" : "off"}`,
+      attention: sectionDirty("tools"),
+    },
+    {
+      section: "install",
+      label: "Install",
+      value: METHOD_NAMES[embedMethod],
+      // Only a copy made on this visit can be compared, so before one the tile
+      // says the code is ready rather than claiming it matches the site.
+      note: snippetStale ? "Copy the code again" : lastCopiedCode ? "Code is up to date" : "Ready to copy",
+      noteTone: snippetStale ? "warning" : "muted",
+      attention: snippetStale,
+    },
+  ];
+
+  const scheduleStepDone = visited.has("schedules") || switcherCount > 0;
+  const lookStepDone = visited.has("appearance") || sectionDirty("appearance");
+  const copyStepDone = lastCopiedCode !== null;
+  const firstRunTiles: SectionTile[] = [
+    {
+      section: "schedules",
+      step: 1,
+      label: "Step 1",
+      value: "Pick what to show",
+      note: scheduleStepDone ? "Done" : "Not done yet",
+      noteTone: scheduleStepDone ? "success" : "muted",
+      attention: sectionDirty("schedules"),
+    },
+    {
+      section: "appearance",
+      step: 2,
+      label: "Step 2",
+      value: "Choose a look",
+      note: lookStepDone ? "Done" : "Not done yet",
+      noteTone: lookStepDone ? "success" : "muted",
+      attention: sectionDirty("appearance"),
+    },
+    {
+      section: "install",
+      step: 3,
+      label: "Step 3",
+      value: "Copy the code",
+      note: copyStepDone ? "Done" : "Not done yet",
+      noteTone: copyStepDone ? "success" : "muted",
+      attention: snippetStale,
+    },
+    // Not a step, but it has to stay reachable before the first publish.
+    {
+      section: "tools",
+      label: "Optional",
+      value: "Visitor tools",
+      note: `${filterCount === 0 ? "No filters" : `${filterCount} filter${filterCount === 1 ? "" : "s"}`}, print ${allowPrint ? "on" : "off"}`,
+      attention: sectionDirty("tools"),
+    },
+  ];
 
   /* ------------------------------------------------------------------ render */
 
+  const busy = loading || saving;
+  const publishLabel = saving ? "Publishing…" : firstRun ? "Publish" : dirty ? "Publish changes" : "Published";
+  // Never published: publishing the defaults is a real first publish, so the
+  // button stays live with nothing changed.
+  const canPublish = !busy && (dirty || firstRun);
+
+  const statusPill = saveError ? (
+    <span role="alert" className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-destructive-subtle px-3 text-caption font-medium text-destructive">
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-destructive" />
+      {saveError}
+    </span>
+  ) : dirty ? (
+    <span className="inline-flex min-h-8 items-center gap-1.5 rounded-full bg-warning-subtle px-3 text-caption font-medium text-warning">
+      <span aria-hidden className="size-1.5 shrink-0 rounded-full bg-warning" />
+      {changed.length} unpublished change{changed.length === 1 ? "" : "s"}
+    </span>
+  ) : null;
+
+  const publishButton = (
+    <Button type="button" onClick={publish} disabled={!canPublish}>
+      {saving ? <Loader2 className="animate-spin" /> : !dirty && !firstRun ? <Check /> : null}
+      {publishLabel}
+    </Button>
+  );
+
+  const publishedNote = (
+    <div className="flex items-center gap-2 rounded-control bg-muted px-3 py-2 text-label font-normal text-muted-foreground">
+      Changes here reach every page the widget is on as soon as you publish.
+    </div>
+  );
+
   return (
-    <div className="space-y-5">
-      {/* Headline CTA — what this embed is, whether it's live, and the code. */}
-      <div className="rounded-panel bg-muted p-5 sm:p-6">
-        <div className="flex flex-col lg:flex-row lg:items-center gap-4">
-          <div className="min-w-0 flex-1">
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-label text-muted-foreground">Your embed</span>
-              <StatusChip dirty={dirty} justPublished={justPublished} loading={loading} />
-            </div>
-            <p className="mt-2 text-heading text-foreground">{scopeSummary}</p>
-            <p className="text-caption text-muted-foreground mt-0.5">
-              {viewSummary || "No views selected"}
-              {snippetSummary ? ` · this code: ${snippetSummary}` : ""}
-            </p>
+    <div className="space-y-6">
+      {/* Header: title, what the app knows about publishing, and the actions. */}
+      <div className="flex flex-wrap items-start justify-between gap-x-4 gap-y-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2">
+            <h1 className="text-title text-foreground">Website widget</h1>
+            <InfoTip label="About this page">
+              Design the schedule your visitors see, then copy the code that puts it on your site.
+            </InfoTip>
           </div>
-          <div className="flex gap-2 shrink-0">
-            {/* While the publish bar is up, its button is the ink one. */}
-            <Button type="button" variant={dirty || saveError ? "outline" : "default"} onClick={copyFromHeader}>
-              {copiedHeader ? <Check /> : <Copy />}
-              {copiedHeader ? "Copied!" : embedMethod === "link" ? "Copy link" : "Copy embed code"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setPreviewOpen(true)}>
-              <Eye />
-              Preview
-            </Button>
+          <p className="mt-1 text-caption text-muted-foreground">
+            {loading
+              ? "Loading…"
+              : publishedAt
+                ? `Published ${formatPublishedAt(publishedAt)}`
+                : "Not published yet"}
+            {facilityPage && (
+              <>
+                {" · "}
+                <a
+                  href={`/facility/${facilityPage.slug}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-brand underline-offset-4 hover:underline"
+                >
+                  View your facility page
+                </a>
+              </>
+            )}
+          </p>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Below 640px the status and publish actions move to the bottom bar. */}
+          <div className="hidden items-center gap-2 sm:flex">
+            {statusPill}
+            {dirty && (
+              <Button type="button" variant="ghost" onClick={discardEdits} disabled={saving}>
+                Discard
+              </Button>
+            )}
           </div>
+          <Button type="button" variant="outline" onClick={copyFromHeader}>
+            {copiedHeader ? <Check /> : <Copy />}
+            {copiedHeader ? "Copied" : embedMethod === "link" ? "Copy link" : "Copy embed code"}
+          </Button>
+          <div className="hidden sm:block">{publishButton}</div>
         </div>
       </div>
 
-      <StepCard
-        step={1}
-        title="What to show"
-        description="Leave it empty to show everything you run. Add one schedule to show just that, or several to give visitors a switcher."
-        meta={<SavedBadge />}
-      >
-        <FilterEditor
-          rows={scopeRows}
-          facilities={facilities}
-          primaryColor={/^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#0066CC"}
-          disabled={loading || saving}
-          onAdd={addScopeRow}
-          onAddPerFacility={addRowPerFacility}
-          onChange={updateScopeRow}
-          onRemove={removeScopeRow}
-          onMove={moveScopeRow}
-        />
-      </StepCard>
+      <SectionTiles
+        label={firstRun ? "Set up your widget" : "Widget settings"}
+        tiles={firstRun ? firstRunTiles : summaryTiles}
+        active={section}
+        onSelect={selectSection}
+      />
 
-      <StepCard
-        step={2}
-        title="Look and feel"
-        description="Choose the views visitors can use and match your brand."
-        meta={<SavedBadge />}
-      >
-        <div className="space-y-2">
-          <div className="flex items-center gap-1.5">
-            <h3 className="text-sm font-medium text-foreground">Views</h3>
-            <InfoTip>
-              The views visitors can switch between. The one marked{" "}
-              <span className="font-medium">Loads first</span> is what they see on arrival.
-            </InfoTip>
+      <div className="grid grid-cols-1 items-start gap-6 studio:grid-cols-[520px_minmax(0,1fr)]">
+        {/* Settings for the open tile. Every panel stays mounted (`hidden`
+            when closed) so an open schedule row or a picked CMS guide survives
+            a trip to another tile. */}
+        <div className="min-w-0 rounded-card border border-border bg-card p-5">
+          <div role="tabpanel" id={panelId("schedules")} aria-labelledby={tabId("schedules")} hidden={section !== "schedules"} className="space-y-6">
+            {publishedNote}
+            <section className="space-y-3">
+              <SectionHeading note="In switcher order">What visitors see</SectionHeading>
+              <FilterEditor
+                rows={scopeRows}
+                facilities={facilities}
+                hasSchedules={hasSchedules}
+                disabled={busy}
+                onAdd={addScopeRow}
+                onAddPerFacility={addRowPerFacility}
+                onChange={updateScopeRow}
+                onRemove={removeScopeRow}
+                onMove={moveScopeRow}
+                onMoveTo={moveScopeRowTo}
+              />
+            </section>
           </div>
-          <LayoutPicker
-            value={allowedTemplates}
-            onChange={setAllowedTemplates}
-            floorplan={floorplanState}
-            onAddBuildings={addRowPerFacility}
-            onPickFacility={goToFacilityPicker}
-            disabled={loading || saving}
-          />
-        </div>
 
-        <div className="space-y-2">
-          <h3 className="text-sm font-medium text-foreground">Brand colour</h3>
-          <BrandColorField value={primaryColor} onChange={setPrimaryColor} disabled={loading || saving} />
-        </div>
+          <div role="tabpanel" id={panelId("appearance")} aria-labelledby={tabId("appearance")} hidden={section !== "appearance"} className="space-y-6">
+            {publishedNote}
+            <section className="space-y-3">
+              <SectionHeading note="The first one on loads first">Views</SectionHeading>
+              <LayoutPicker
+                value={allowedTemplates}
+                onChange={setAllowedTemplates}
+                floorplan={floorplanState}
+                onAddBuildings={addRowPerFacility}
+                onPickFacility={goToFacilityPicker}
+                disabled={busy}
+              />
+            </section>
 
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-          <div>
-            <LabelWithInfo htmlFor="widget-heading" className="block text-caption font-medium text-foreground" info="Shown in the coloured bar. Defaults to “Schedule”.">
-              Heading
-            </LabelWithInfo>
-            <Input
-              type="text"
-              value={customTitle}
-              onChange={(e) => setCustomTitle(e.target.value)}
-              disabled={loading || saving}
-              id="widget-heading"
-              placeholder="Schedule"
-              aria-label="Widget heading"
+            <section className="space-y-3">
+              <SectionHeading note="The bar along the top">Brand colour</SectionHeading>
+              <BrandColorField value={primaryColor} onChange={setPrimaryColor} disabled={busy} />
+            </section>
+
+            <section className="space-y-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <label htmlFor="widget-heading" className="text-body font-semibold text-foreground">
+                  Heading
+                </label>
+                <span className="text-caption text-muted-foreground">Defaults to &ldquo;Schedule&rdquo;</span>
+              </div>
+              <Input
+                type="text"
+                value={customTitle}
+                onChange={(e) => setCustomTitle(e.target.value)}
+                disabled={busy}
+                id="widget-heading"
+                placeholder="Schedule"
+              />
+            </section>
+          </div>
+
+          <div role="tabpanel" id={panelId("tools")} aria-labelledby={tabId("tools")} hidden={section !== "tools"} className="space-y-6">
+            {publishedNote}
+            <section className="space-y-3">
+              <SectionHeading note="Optional">Filters</SectionHeading>
+              <VisitorFilterToggles value={enabledFilters} onChange={setEnabledFilters} disabled={busy} />
+              <FiltersStartToggle
+                value={filtersCollapsed}
+                onChange={setFiltersCollapsed}
+                disabled={busy || !collapsedSupported || enabledFilters.length === 0}
+                unavailable={!loading && !collapsedSupported}
+                noFilters={enabledFilters.length === 0}
+              />
+            </section>
+
+            <section className="space-y-3">
+              <SectionHeading>Switcher</SectionHeading>
+              <MultiSelectToggles
+                value={multiSelectLevels}
+                onChange={setMultiSelectLevels}
+                disabled={busy || !multiSelectSupported}
+                unavailable={!loading && !multiSelectSupported}
+              />
+            </section>
+
+            <section className="space-y-3">
+              <SectionHeading>Printing</SectionHeading>
+              <PrintToggle
+                value={allowPrint}
+                onChange={setAllowPrint}
+                disabled={busy || !printSupported}
+                unavailable={!loading && !printSupported}
+              />
+            </section>
+          </div>
+
+          <div role="tabpanel" id={panelId("install")} aria-labelledby={tabId("install")} hidden={section !== "install"} className="space-y-6">
+            <div className="rounded-control bg-muted px-3 py-2 text-label font-normal text-muted-foreground">
+              These options live in the code on your site. After changing one, copy the code again.
+            </div>
+            <InstallPanel
+              embedCode={embedCode}
+              method={embedMethod}
+              onMethodChange={setEmbedMethod}
+              theme={theme}
+              onThemeChange={changeTheme}
+              height={height}
+              onHeightChange={setHeight}
+              facilities={facilities}
+              scopeFacilityId={scopeFacilityId}
+              onScopeFacilityChange={setScopeFacilityId}
+              switcherCount={switcherCount}
+              shareUrl={shareUrl}
+              snippetStale={snippetStale}
+              onCopyCode={() => setLastCopiedCode(embedCode)}
             />
           </div>
-
-          <div>
-            <div className="flex items-center gap-1.5 mb-1">
-              <span className="text-caption font-medium text-foreground">Theme</span>
-              <InfoTip>Part of the embed code. Re-copy it in step 4 after changing.</InfoTip>
-            </div>
-            <div className="flex h-10 gap-1 rounded-full bg-muted p-1">
-              {([
-                { value: "light" as const, label: "Light", Icon: Sun },
-                { value: "dark" as const, label: "Dark", Icon: Moon },
-              ]).map(({ value, label, Icon }) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setTheme(value)}
-                  aria-pressed={theme === value}
-                  className={cn(
-                    "flex-1 inline-flex items-center justify-center gap-1.5 text-sm font-medium rounded-full transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-                    theme === value
-                      ? "bg-raised text-foreground shadow-card"
-                      : "text-muted-foreground hover:text-foreground"
-                  )}
-                >
-                  <Icon className="w-4 h-4" />
-                  {label}
-                </button>
-              ))}
-            </div>
-          </div>
         </div>
-      </StepCard>
 
-      <StepCard
-        step={3}
-        title="Filters and printing"
-        description="Optional. Let visitors narrow the schedule by activity and time, and print what they see."
-        meta={<SavedBadge />}
-      >
-        <VisitorFilterToggles
-          value={enabledFilters}
-          onChange={setEnabledFilters}
-          disabled={loading || saving}
+        <PreviewPanel
+          src={debouncedSrc}
+          version={previewVersion}
+          dirty={dirty}
+          theme={previewTheme}
+          onThemeChange={setPreviewTheme}
+          onOpenFullScreen={() => setPreviewOpen(true)}
         />
+      </div>
 
-        <PrintToggle
-          value={allowPrint}
-          onChange={setAllowPrint}
-          disabled={loading || saving || !printSupported}
-          unavailable={!loading && !printSupported}
-        />
-      </StepCard>
-
-      <StepCard
-        step={4}
-        title="Add to your website"
-        description="Pick whichever option your site allows, then copy it in or send it to whoever manages the site."
-      >
-        <InstallPanel
-          embedCode={embedCode}
-          method={embedMethod}
-          onMethodChange={setEmbedMethod}
-          height={height}
-          onHeightChange={setHeight}
-          facilities={facilities}
-          scopeFacilityId={scopeFacilityId}
-          onScopeFacilityChange={setScopeFacilityId}
-          switcherCount={switcherCount}
-          shareUrl={shareUrl}
-          snippetStale={snippetStale}
-          onCopyCode={() => setLastCopiedCode(embedCode)}
-        />
-      </StepCard>
-
-      {/* Publish bar — the single home for everything the database keeps.
-          Sticky as the last flow child so it rides the bottom of the
-          viewport instead of hiding at the end of a long page. On mobile it
-          sits on --tabbar-clearance (published by DashboardBottomNav): the tab
-          bar is z-50 and would otherwise cover this. */}
-      {(dirty || saveError) && (
-        <div className="sticky bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] lg:bottom-3 z-20 transition-[bottom] duration-300 ease-out motion-reduce:transition-none">
+      {/* Below 640px only: the header's publish actions, on a bar that rides
+          the bottom of the viewport while there is something to publish. It
+          sits on --tabbar-clearance (published by DashboardBottomNav), since
+          the tab bar is z-50 and would otherwise cover it. */}
+      {(dirty || saveError || firstRun) && (
+        <div className="sticky bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] z-20 transition-[bottom] duration-300 ease-out motion-reduce:transition-none sm:hidden">
           <div
             className={cn(
-              "rounded-banner px-4 py-3 shadow-lg flex items-center justify-between gap-3 flex-wrap",
-              saveError ? "bg-destructive-subtle" : "bg-warning-subtle"
+              "flex flex-wrap items-center justify-between gap-2 rounded-banner px-3 py-2 shadow-lg",
+              saveError ? "bg-destructive-subtle" : dirty ? "bg-warning-subtle" : "bg-card border border-border"
             )}
           >
-            <div className={cn("min-w-0 flex items-start gap-2", saveError ? "text-destructive" : "text-warning")}>
-              <TriangleAlert aria-hidden className="mt-0.5 size-4 shrink-0" />
-              <div className="min-w-0">
-                <p className="text-body font-medium">
-                  {saveError ?? "Not live yet"}
-                </p>
-                {!saveError && (
-                  <p className="text-caption">
-                    Visitors see your changes once you publish.
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex items-center gap-2 shrink-0 ml-auto">
-              {/* The floating Preview pill hides while this bar is up, so
-                  it moves in here rather than disappearing. */}
-              <Button type="button" variant="ghost" size="sm" onClick={() => setPreviewOpen(true)}>
-                <Eye />
-                Preview
-              </Button>
-              <Button type="button" variant="ghost" size="sm" onClick={discardEdits} disabled={saving}>
-                Discard
-              </Button>
-              <Button type="button" size="sm" onClick={publish} disabled={saving}>
-                {saving ? <Loader2 className="animate-spin" /> : null}
-                {saving ? "Publishing…" : "Publish changes"}
-              </Button>
+            <p
+              role={saveError ? "alert" : undefined}
+              className={cn(
+                "min-w-0 flex-1 text-caption font-medium",
+                saveError ? "text-destructive" : dirty ? "text-warning" : "text-muted-foreground"
+              )}
+            >
+              {saveError ??
+                (dirty
+                  ? `${changed.length} unpublished change${changed.length === 1 ? "" : "s"}`
+                  : "Not published yet")}
+            </p>
+            <div className="flex items-center gap-1">
+              {dirty && (
+                <Button type="button" variant="ghost" onClick={discardEdits} disabled={saving}>
+                  Discard
+                </Button>
+              )}
+              {publishButton}
             </div>
           </div>
         </div>
-      )}
-
-      {/* Reachable from anywhere on a long page, without stealing a column from
-          the steps. Steps aside for the publish bar, which carries its own. */}
-      {!dirty && !saveError && (
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setPreviewOpen(true)}
-          className="fixed bottom-[calc(var(--tabbar-clearance,86px)+0.75rem)] right-4 lg:bottom-6 lg:right-6 z-30 transition-[bottom,background-color] duration-300 ease-out motion-reduce:transition-none shadow-lg"
-        >
-          <Eye />
-          Preview
-        </Button>
       )}
 
       <PreviewWindow
@@ -664,50 +870,9 @@ export default function WidgetStudio({ orgId, facilities }: WidgetStudioProps) {
         dirty={dirty}
         primaryColor={primaryColor}
         onPrimaryColorChange={setPrimaryColor}
-        theme={theme}
-        onThemeChange={setTheme}
+        theme={previewTheme}
+        onThemeChange={setPreviewTheme}
       />
-
     </div>
-  );
-}
-
-function StatusChip({
-  dirty,
-  justPublished,
-  loading,
-}: {
-  dirty: boolean;
-  justPublished: boolean;
-  loading: boolean;
-}) {
-  if (loading) {
-    return (
-      <Badge variant="outline">
-        <Loader2 className="animate-spin" />
-        Loading
-      </Badge>
-    );
-  }
-  if (justPublished) {
-    return (
-      <Badge variant="success">
-        <Check />
-        Published
-      </Badge>
-    );
-  }
-  return (
-    <Badge variant={dirty ? "warning" : "success"}>
-      <span className={cn("size-1.5 rounded-full", dirty ? "bg-warning" : "bg-success")} />
-      {dirty ? "Unsaved changes" : "Live"}
-    </Badge>
-  );
-}
-
-/** Marks the sections whose settings are stored, not baked into the snippet. */
-function SavedBadge() {
-  return (
-    <Badge className="text-muted-foreground">Published with the widget</Badge>
   );
 }

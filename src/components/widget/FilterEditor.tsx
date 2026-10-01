@@ -1,15 +1,20 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import Link from "next/link";
 import { useQueries } from "@tanstack/react-query";
 import {
-  AlertTriangle,
-  ChevronDown,
-  ChevronUp,
-  Pencil,
-  Plus,
-  Trash2,
-} from "lucide-react";
+  DndContext,
+  PointerSensor,
+  TouchSensor,
+  pointerWithin,
+  useDraggable,
+  useDroppable,
+  useSensor,
+  useSensors,
+  type DragEndEvent,
+} from "@dnd-kit/core";
+import { AlertTriangle, ChevronDown, GripVertical, Plus, Trash2 } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
@@ -20,14 +25,18 @@ import type { LocalScope, WidgetFacility } from "./types";
 interface FilterEditorProps {
   rows: LocalScope[];
   facilities: WidgetFacility[];
-  primaryColor: string;
+  /** False when the org has no schedules at all — the list has nothing to point at yet. */
+  hasSchedules: boolean;
   disabled?: boolean;
   onAdd: () => void;
   /** Seeds one row per facility — the two-to-four-facility case this feature exists for. */
   onAddPerFacility: () => void;
   onChange: (key: string, patch: Partial<LocalScope>) => void;
   onRemove: (key: string) => void;
+  /** One step up or down — the keyboard path, from the grip's arrow keys. */
   onMove: (key: string, direction: -1 | 1) => void;
+  /** Drop a row where another one is — the pointer path, from dragging the grip. */
+  onMoveTo: (key: string, toKey: string) => void;
 }
 
 interface DepartmentOption {
@@ -53,7 +62,7 @@ interface RowResolution {
 }
 
 /**
- * Step 1, whole: the list of schedules the embed publishes.
+ * The Schedules section, whole: the list of schedules the embed publishes.
  *
  * There used to be two controls here — a row of facility/department tiles that
  * addressed a `widget_configs` row, and this list — and they answered the same
@@ -63,7 +72,7 @@ interface RowResolution {
  * row per org, which leaves this list as the only thing saying what an embed
  * shows: empty is everything the org runs, one entry is that schedule, two or
  * more give visitors a switcher. Narrowing a single copy of the code to one
- * facility is a snippet option in step 4, not a second saved configuration.
+ * facility is a snippet option under Install, not a second saved configuration.
  *
  * The list is the editor. Each row collapses to one line — its label, where it
  * points, and whether visitors can actually see it — and opens to the three
@@ -72,11 +81,9 @@ interface RowResolution {
  * keys, i.e. added since the last publish) and rows with no facility yet open
  * themselves, because those are the ones with something left to fill in.
  *
- * There is deliberately no mock of the widget here. This card used to open
- * with a rendered `ScheduleScopeSwitcher` in the brand colour, which cost a
- * screenful before the first control and duplicated the real preview window
- * one click away in the header — the switcher it drew was also the *only*
- * thing it could draw, so it went stale against every other setting.
+ * Order is the switcher's order. The grip drags (dnd-kit, the same core-only
+ * pattern as `SpaceSections`) and is also a focusable button whose arrow keys
+ * step the row, so one handle serves pointer, touch and keyboard.
  *
  * The other half of the job is telling the truth about visibility: migration
  * 043's public read policy hides any scope whose facility, department or
@@ -92,16 +99,25 @@ interface RowResolution {
 export default function FilterEditor({
   rows,
   facilities,
-  primaryColor,
+  hasSchedules,
   disabled,
   onAdd,
   onAddPerFacility,
   onChange,
   onRemove,
   onMove,
+  onMoveTo,
 }: FilterEditorProps) {
   /** Explicit open/closed, per row — overrides the default below when set. */
   const [openOverrides, setOpenOverrides] = useState<Record<string, boolean>>({});
+  const [draggingKey, setDraggingKey] = useState<string | null>(null);
+
+  // A short distance/delay before a drag starts, so a tap on the grip is
+  // still a tap and a touch drag elsewhere still scrolls the page.
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 4 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 180, tolerance: 6 } })
+  );
 
   const facilityIds = useMemo(
     () => [...new Set(rows.map((r) => r.facilityId).filter(Boolean))],
@@ -180,27 +196,47 @@ export default function FilterEditor({
   const setOpen = (key: string, open: boolean) =>
     setOpenOverrides((prev) => ({ ...prev, [key]: open }));
 
-  const accent = /^#[0-9A-Fa-f]{6}$/.test(primaryColor) ? primaryColor : "#0066CC";
+  function handleDragEnd(event: DragEndEvent) {
+    setDraggingKey(null);
+    const overKey = event.over?.id;
+    if (typeof overKey !== "string" || overKey === event.active.id) return;
+    onMoveTo(String(event.active.id), overKey);
+  }
+
+  if (!hasSchedules && rows.length === 0) {
+    const createHref =
+      facilities.length > 0
+        ? `/dashboard/facilities/${facilities[0].id}/schedule-groups/new`
+        : "/dashboard/facilities/new";
+    return (
+      <p className="text-body text-foreground">
+        You have no schedules yet, so the widget has nothing to show.{" "}
+        <Link href={createHref} className="font-medium text-brand underline-offset-4 hover:underline">
+          {facilities.length > 0 ? "Create a schedule" : "Add a facility first"}
+        </Link>
+      </p>
+    );
+  }
+
+  const perBuilding = facilities.length > 1 && (
+    <Button type="button" variant="link" onClick={onAddPerFacility} disabled={disabled} className="touch-target">
+      Add one per building
+    </Button>
+  );
 
   if (rows.length === 0) {
     return (
-      <div className="rounded-card border border-dashed border-border px-6 py-10 text-center">
-        <h3 className="text-body font-medium text-foreground">
-          Showing everything you run
-        </h3>
-        <p className="mt-1 text-caption text-muted-foreground max-w-md mx-auto">
-          Add a facility or department to narrow it, or several to give visitors a switcher.
+      <div className="rounded-banner border border-dashed border-border px-5 py-8 text-center">
+        <p className="text-body font-medium text-foreground">Showing everything you run</p>
+        <p className="mt-1 text-caption text-muted-foreground">
+          Add one to narrow it down, or several to give visitors a switcher.
         </p>
-        <div className="mt-4 flex flex-wrap items-center justify-center gap-2">
+        <div className="mt-4 flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
           <Button type="button" variant="outline" onClick={onAdd} disabled={disabled}>
             <Plus />
             Add a schedule
           </Button>
-          {facilities.length > 1 && (
-            <Button type="button" variant="ghost" onClick={onAddPerFacility} disabled={disabled}>
-              One per facility ({facilities.length})
-            </Button>
-          )}
+          {perBuilding}
         </div>
       </div>
     );
@@ -208,39 +244,43 @@ export default function FilterEditor({
 
   return (
     <div className="space-y-3">
-      <ul className="rounded-card border border-border overflow-hidden divide-y divide-border">
-        {resolved.map(({ row, resolution }, index) => (
-          <FilterRow
-            key={row.key}
-            row={row}
-            index={index}
-            total={rows.length}
-            accent={accent}
-            resolution={resolution}
-            label={labelFor(row, resolution)}
-            open={isOpen(row)}
-            onToggle={() => setOpen(row.key, !isOpen(row))}
-            facilities={facilities}
-            departments={departmentsFor(row.facilityId)}
-            schedules={schedulesFor(row.facilityId, row.departmentId)}
-            disabled={disabled}
-            onChange={(patch) => onChange(row.key, patch)}
-            onRemove={() => onRemove(row.key)}
-            onMove={(dir) => onMove(row.key, dir)}
-          />
-        ))}
-      </ul>
+      <DndContext
+        sensors={sensors}
+        collisionDetection={pointerWithin}
+        onDragStart={(e) => setDraggingKey(String(e.active.id))}
+        onDragCancel={() => setDraggingKey(null)}
+        onDragEnd={handleDragEnd}
+      >
+        <ul className="space-y-2">
+          {resolved.map(({ row, resolution }, index) => (
+            <FilterRow
+              key={row.key}
+              row={row}
+              index={index}
+              total={rows.length}
+              resolution={resolution}
+              label={labelFor(row, resolution)}
+              open={isOpen(row)}
+              dragging={draggingKey === row.key}
+              onToggle={() => setOpen(row.key, !isOpen(row))}
+              facilities={facilities}
+              departments={departmentsFor(row.facilityId)}
+              schedules={schedulesFor(row.facilityId, row.departmentId)}
+              disabled={disabled}
+              onChange={(patch) => onChange(row.key, patch)}
+              onRemove={() => onRemove(row.key)}
+              onMove={(dir) => onMove(row.key, dir)}
+            />
+          ))}
+        </ul>
+      </DndContext>
 
-      <div className="flex flex-wrap items-center gap-2">
-        <Button type="button" variant="outline" size="sm" onClick={onAdd} disabled={disabled}>
+      <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
+        <Button type="button" variant="outline" onClick={onAdd} disabled={disabled}>
           <Plus />
           Add a schedule
         </Button>
-        {facilities.length > 1 && (
-          <Button type="button" variant="ghost" size="sm" onClick={onAddPerFacility} disabled={disabled}>
-            One per facility ({facilities.length})
-          </Button>
-        )}
+        {perBuilding}
       </div>
 
       <p className="text-caption text-muted-foreground">
@@ -252,7 +292,8 @@ export default function FilterEditor({
         {hiddenCount > 0 &&
           ` ${hiddenCount === 1 ? "One is" : `${hiddenCount} are`} hidden until what ${
             hiddenCount === 1 ? "it points" : "they point"
-          } at is published.`}
+          } at is published.`}{" "}
+        Remove them all to show everything you run.
       </p>
     </div>
   );
@@ -262,10 +303,10 @@ function FilterRow({
   row,
   index,
   total,
-  accent,
   resolution,
   label,
   open,
+  dragging,
   onToggle,
   facilities,
   departments,
@@ -278,10 +319,10 @@ function FilterRow({
   row: LocalScope;
   index: number;
   total: number;
-  accent: string;
   resolution: RowResolution;
   label: string;
   open: boolean;
+  dragging: boolean;
   onToggle: () => void;
   facilities: WidgetFacility[];
   departments: DepartmentOption[];
@@ -294,45 +335,49 @@ function FilterRow({
   const hidden = resolution.unpublished.length > 0;
   const incomplete = !row.facilityId;
 
+  // `attributes` is not spread onto the grip, for the reason SpaceSections
+  // gives: its aria-describedby id comes from a counter that restarts on the
+  // client and breaks hydration. The grip carries its own label and keys.
+  const { setNodeRef: setDragRef, setActivatorNodeRef, listeners } = useDraggable({
+    id: row.key,
+    disabled,
+  });
+  const { setNodeRef: setDropRef, isOver } = useDroppable({ id: row.key });
+  const ref = (node: HTMLElement | null) => {
+    setDragRef(node);
+    setDropRef(node);
+  };
+
   return (
     <li
+      ref={ref}
       className={cn(
-        "relative bg-card transition-colors",
-        open ? "bg-muted/50" : "hover:bg-muted"
+        "rounded-banner border bg-card transition-colors duration-150",
+        isOver && !dragging ? "border-brand bg-brand-subtle" : "border-border",
+        dragging && "opacity-40"
       )}
     >
-      {/* Brand-coloured edge: the one visual tie between a row and the pill it
-          becomes in the widget, without drawing a fake widget. */}
-      <span
-        aria-hidden
-        className="absolute inset-y-0 left-0 w-1"
-        style={{ backgroundColor: incomplete ? "transparent" : accent }}
-      />
-
-      <div className="flex items-center gap-1 pl-3 pr-1.5 py-2">
-        {/* Order controls double as the row number. */}
-        <div className="flex flex-col shrink-0 -my-1">
-          <button
-            type="button"
-            onClick={() => onMove(-1)}
-            disabled={disabled || index === 0}
-            title="Move up"
-            aria-label={`Move ${label} up`}
-            className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent"
-          >
-            <ChevronUp className="w-3.5 h-3.5" />
-          </button>
-          <button
-            type="button"
-            onClick={() => onMove(1)}
-            disabled={disabled || index === total - 1}
-            title="Move down"
-            aria-label={`Move ${label} down`}
-            className="p-0.5 rounded-full text-muted-foreground hover:text-foreground hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-25 disabled:hover:bg-transparent"
-          >
-            <ChevronDown className="w-3.5 h-3.5" />
-          </button>
-        </div>
+      <div className="flex items-center gap-1 py-1.5 pl-1 pr-1.5">
+        <button
+          type="button"
+          ref={setActivatorNodeRef}
+          {...listeners}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowUp" && index > 0) {
+              e.preventDefault();
+              onMove(-1);
+            } else if (e.key === "ArrowDown" && index < total - 1) {
+              e.preventDefault();
+              onMove(1);
+            }
+          }}
+          disabled={disabled || total < 2}
+          aria-label={`Reorder ${incomplete ? `entry ${index + 1}` : label}: drag, or use the up and down arrow keys`}
+          title="Drag to reorder"
+          className="flex h-11 w-8 shrink-0 cursor-grab touch-none items-center justify-center rounded-control text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring active:cursor-grabbing disabled:cursor-default disabled:opacity-40"
+        >
+          <GripVertical className="size-4" />
+        </button>
 
         <button
           type="button"
@@ -341,14 +386,14 @@ function FilterRow({
           aria-label={incomplete ? `Edit unfinished entry ${index + 1}` : `Edit ${label}`}
           // focus-visible, not focus: a mouse click on a row would otherwise
           // leave a ring around it that reads as a text field.
-          className="flex-1 min-w-0 flex items-center gap-2 px-2 py-1.5 text-left rounded-control focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex min-h-11 min-w-0 flex-1 items-center gap-2 rounded-control px-1 text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-ring"
         >
           <span className="min-w-0 flex-1">
-            <span className="flex items-center gap-1.5 flex-wrap">
+            <span className="flex flex-wrap items-center gap-1.5">
               <span
                 className={cn(
-                  "text-sm font-medium truncate",
-                  incomplete ? "text-muted-foreground italic" : "text-foreground"
+                  "truncate text-body font-semibold",
+                  incomplete ? "font-medium italic text-muted-foreground" : "text-foreground"
                 )}
               >
                 {incomplete ? "Unfinished entry" : label}
@@ -360,27 +405,25 @@ function FilterRow({
                 </Badge>
               )}
             </span>
-            <span className="block text-label font-normal text-muted-foreground truncate">
-              {incomplete ? "Pick a facility — this is dropped when you publish" : resolution.breadcrumb}
+            <span className="block truncate text-caption text-muted-foreground">
+              {incomplete ? "Pick a facility. Until then this is dropped when you publish." : resolution.breadcrumb}
             </span>
           </span>
-          <Pencil
-            className={cn(
-              "w-3.5 h-3.5 shrink-0 transition-colors",
-              open ? "text-brand" : "text-muted-foreground"
-            )}
+          <ChevronDown
+            aria-hidden
+            className={cn("size-4 shrink-0 text-muted-foreground transition-transform duration-150", open && "rotate-180")}
           />
         </button>
 
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon"
           onClick={onRemove}
           disabled={disabled}
           title="Remove"
-          aria-label={`Remove ${label}`}
-          className="text-muted-foreground hover:text-destructive"
+          aria-label={`Remove ${incomplete ? `entry ${index + 1}` : label}`}
+          className="touch-target text-muted-foreground hover:text-destructive"
         >
           <Trash2 />
         </Button>
@@ -389,9 +432,9 @@ function FilterRow({
       {open && (
         // Indented to the row's own title, so an open row reads as that row's
         // detail rather than as a panel the whole list dropped down.
-        <div className="pl-4 sm:pl-10 pr-3 pb-3 space-y-2.5">
+        <div className="space-y-2.5 border-t border-border px-3 pb-3 pt-3 sm:pl-10">
           <label className="block">
-            <span className="block text-label text-muted-foreground mb-1">
+            <span className="mb-1 block text-label text-muted-foreground">
               What visitors see on the button
             </span>
             <Input
@@ -406,11 +449,9 @@ function FilterRow({
             />
           </label>
 
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+          <div className="grid grid-cols-1 gap-2 sm:grid-cols-3">
             <label className="block">
-              <span className="block text-label text-muted-foreground mb-1">
-                Facility
-              </span>
+              <span className="mb-1 block text-label text-muted-foreground">Facility</span>
               <NativeSelect
                 value={row.facilityId}
                 onChange={(e) =>
@@ -422,15 +463,13 @@ function FilterRow({
                 {facilities.map((f) => (
                   <option key={f.id} value={f.id}>
                     {f.name}
-                    {f.isPublished ? "" : " — draft"}
+                    {f.isPublished ? "" : " (draft)"}
                   </option>
                 ))}
               </NativeSelect>
             </label>
             <label className="block">
-              <span className="block text-label text-muted-foreground mb-1">
-                Department
-              </span>
+              <span className="mb-1 block text-label text-muted-foreground">Department</span>
               <NativeSelect
                 value={row.departmentId}
                 onChange={(e) => onChange({ departmentId: e.target.value, scheduleGroupId: "" })}
@@ -440,15 +479,13 @@ function FilterRow({
                 {departments.map((d) => (
                   <option key={d.id} value={d.id}>
                     {d.name}
-                    {d.is_published ? "" : " — draft"}
+                    {d.is_published ? "" : " (draft)"}
                   </option>
                 ))}
               </NativeSelect>
             </label>
             <label className="block">
-              <span className="block text-label text-muted-foreground mb-1">
-                Schedule
-              </span>
+              <span className="mb-1 block text-label text-muted-foreground">Schedule</span>
               <NativeSelect
                 value={row.scheduleGroupId}
                 onChange={(e) => onChange({ scheduleGroupId: e.target.value })}
@@ -458,7 +495,7 @@ function FilterRow({
                 {schedules.map((sg) => (
                   <option key={sg.id} value={sg.id}>
                     {sg.name}
-                    {sg.status === "published" ? "" : " — draft"}
+                    {sg.status === "published" ? "" : " (draft)"}
                   </option>
                 ))}
               </NativeSelect>
@@ -466,8 +503,8 @@ function FilterRow({
           </div>
 
           {hidden && (
-            <p className="text-label font-normal text-warning flex items-start gap-1.5">
-              <AlertTriangle className="size-3 shrink-0 mt-0.5" />
+            <p className="flex items-start gap-1.5 text-caption text-warning">
+              <AlertTriangle className="mt-0.5 size-3.5 shrink-0" />
               Visitors won&apos;t see this until you publish {resolution.unpublished.join(" and ")}.
             </p>
           )}

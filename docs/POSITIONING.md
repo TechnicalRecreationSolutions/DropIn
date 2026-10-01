@@ -153,6 +153,7 @@ two hours, and all eight afterwards. Nobody retypes the lane swim.
 | Staff-only holder name and set-up notes | |
 | Deck sheet | One day. Staff only, enforced on the server. |
 | Public print button | Prints the week the visitor filtered to, with the print date and a "subject to change" note. **Does not print tags.** Printing from inside an embed on iOS Safari is unchecked. |
+| Widget Facility / Department / Schedule menus | Leaving a menu empty shows everything in it. The org chooses, per menu, whether visitors pick one or several (migration 065; off until turned on). The floor map needs exactly one building. A visitor's picks can cover at most 250 schedules at once. |
 | Tags | On screen only. |
 | Registration links | Up to three per session, labelled, typed in by staff. |
 | Repeating sessions and single-date changes | One date can be cancelled or have its **time** changed. Moving one date to a different lane is not possible. |
