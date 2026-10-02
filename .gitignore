@@ -85,3 +85,6 @@ Pool Layout Map with depths.pdf
 
 # Pictures and the kept fixture from scripts/verify/design-shots.mjs.
 /.design-shots/
+
+# Copied from node_modules by scripts/copy-mapbox-worker.mjs (predev/prebuild)
+/public/mapbox-gl-csp-worker.js

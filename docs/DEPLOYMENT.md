@@ -158,11 +158,30 @@ keep.** Setting them is the whole of turning it on; no code change is needed.
 | `NEXT_PUBLIC_APP_URL` | **Confirmation emails link nowhere.** See section 2. Also the origin of every `sitemap.xml` URL, the `robots.txt` Sitemap line and canonical tags (`src/lib/seo/siteUrl.ts`); a wrong value points search engines at localhost or the wrong domain. |
 | `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Client-side Stripe references |
 
-`NEXT_PUBLIC_MAPBOX_TOKEN` is **no longer used and should be removed** from any
-environment that still sets it. Mapbox left the stack with the cross-org search
-page: nothing plots facilities geographically any more, and addresses are stored
-as typed rather than geocoded. It was the app's only third-party browser origin,
-so the CSP no longer allows any.
+`NEXT_PUBLIC_MAPBOX_TOKEN` — **optional**, and back since 2026-10-02 for one
+page: the map on `/dashboard/facilities`. Unset, that page is the card grid it
+was before; nothing else reads it. Mapbox draws tiles only — addresses are
+geocoded server-side by Nominatim (`src/lib/geo/geocode.ts`), so no address is
+ever sent to Mapbox and no Mapbox result is stored.
+
+It is a **public** token (it ships to the browser), so its protection is a URL
+restriction, set in Mapbox → Account → Tokens → the token → URL restrictions:
+
+| Environment | Allowed URL |
+|---|---|
+| Production | `https://<production domain>/*` |
+| Vercel previews | the preview origins you use — **check Mapbox's URL-restriction rules for whether a wildcard like `https://<project>-*.vercel.app/*` is accepted** (not verified when this was written). A preview that is not covered still works, without the map. |
+| Local development | `http://localhost:3000/*` |
+
+**Mint a new token for this; do not reuse the old one** — see the post-deploy
+checklist. Keep the default public scopes only. A preview origin missing from
+the list makes Mapbox answer 401: the page then shows the list with "The map
+couldn't load here" rather than a grey box, and the reason is on the
+`data-reason` attribute of that message.
+
+Billing is per map load (one per visit to the page). Set a billing alert in the
+Mapbox account; at one organization's staff traffic it stays inside the free
+tier.
 
 ### Two traps
 
@@ -292,11 +311,12 @@ removal takes months.
 Infrastructure items from `SECURITY.md` → Owner-only actions that only become
 possible once deployed:
 
-- [ ] **Delete the Mapbox token at source**, in the Mapbox console — do not
-      restrict it. Nothing reads it any more, but it shipped to every browser
-      that loaded the site while it existed and was never domain-restricted, so
-      it remains billable by anyone holding it until it is revoked. Removing it
-      from Vercel is tidiness; revoking it at Mapbox is the actual fix.
+- [ ] **Delete the OLD Mapbox token at source**, in the Mapbox console — do
+      not restrict it. It shipped to every browser that loaded the site before
+      ef0a035 and was never domain-restricted, so it remains billable by anyone
+      holding it until it is revoked. The facilities map (2026-10-02) uses a
+      NEW, URL-restricted token — see "Also needed" above.
+- [ ] Mapbox billing alert on the account that owns the new token.
 - [ ] Spend caps and budget alerts: Vercel, Supabase, Stripe.
 - [ ] Login rate limiting: Supabase → Authentication → Rate Limits. Cannot be
       done in app code — `LoginForm` calls `signInWithPassword()` straight from
@@ -326,11 +346,16 @@ Dropin stopped being a consumer marketplace and became a tool a single
 recreation centre uses to publish its own schedule. Two entries in the launch
 checklists above are affected:
 
-- **Mapbox is gone.** `NEXT_PUBLIC_MAPBOX_TOKEN`, `mapbox-gl` and address
+- **Mapbox is gone** *(superseded 2026-10-02: `mapbox-gl` is back for the
+  map on `/dashboard/facilities` only, with a new URL-restricted token;
+  geocoding stays on Nominatim — see "Also needed" above)*. `NEXT_PUBLIC_MAPBOX_TOKEN`, `mapbox-gl` and address
   geocoding were removed with the cross-org search page. Any checklist item
   about restricting the Mapbox token or setting a Mapbox spend cap is void —
   delete the token from the environment rather than restricting it.
-- **The CSP no longer allows any third-party origin.** Mapbox was the only one.
+- **The CSP no longer allows any third-party origin** *(superseded 2026-10-02:
+  three Mapbox origins are back in `connect-src`, each explained in
+  `src/lib/security/csp.ts`; `blob:` is still out — the page loads
+  mapbox-gl's CSP build, whose worker is served from this origin)*. Mapbox was the only one.
   `blob:` also went from `img-src`/`worker-src`/`child-src`: mapbox-gl compiling
   its tile worker from a blob URL was its only user, and nothing else in the app
   creates a worker or an object URL. Re-verify the policy against `/`, a

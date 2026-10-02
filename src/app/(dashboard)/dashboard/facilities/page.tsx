@@ -1,12 +1,14 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { can, canReadFacility, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { Skeleton } from "@/components/ui/skeleton";
 import FacilityGridCard from "@/components/facilities/FacilityGridCard";
+import FacilitiesMapView from "@/components/facilities/map/FacilitiesMapView";
+import type { FacilityMapItem } from "@/components/facilities/map/types";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
 import { Button } from "@/components/ui/button";
@@ -36,37 +38,70 @@ type FacilityRow = {
   province: string;
   is_published: boolean;
   photo_urls: string[];
+  lat: number | null;
+  lng: number | null;
+  geocoded_at: string | null;
   departments: { id: string }[];
   schedule_groups: { id: string }[];
 };
 
+/**
+ * Map first when a Mapbox token is configured (FacilitiesMapView, README in
+ * components/facilities/map/), the card grid otherwise. Mapbox was removed in
+ * ef0a035 and came back for display only — tiles and the renderer; the
+ * address lookup stays on Nominatim, server-side (lib/geo/geocode.ts).
+ *
+ * The token is public by design (NEXT_PUBLIC_, URL-restricted at Mapbox — see
+ * docs/DEPLOYMENT.md). Without one the page is exactly the grid it was, rather
+ * than a grey box.
+ */
+const MAPBOX_TOKEN = process.env.NEXT_PUBLIC_MAPBOX_TOKEN ?? "";
+
 export default function FacilitiesPage() {
+  if (MAPBOX_TOKEN) {
+    return (
+      <Suspense fallback={<FacilitiesMapSkeleton />}>
+        <Streamed>
+          <FacilitiesContent token={MAPBOX_TOKEN} />
+        </Streamed>
+      </Suspense>
+    );
+  }
   return (
     <div className="max-w-6xl mx-auto space-y-6">
       {/* Static — part of the prerendered shell, so it paints immediately. */}
       <PageHeader
         title="Facilities"
         info="Physical locations where your schedules run."
-        actions={
-          <Button asChild>
-            <Link href="/dashboard/facilities/new">
-              <Plus className="w-4 h-4" />
-              Add facility
-            </Link>
-          </Button>
-        }
+        actions={<AddFacilityButton />}
       />
 
       <Suspense fallback={<FacilitiesGridSkeleton />}>
         <Streamed className="space-y-6">
-          <FacilitiesGrid />
+          <FacilitiesContent token="" />
         </Streamed>
       </Suspense>
     </div>
   );
 }
 
-async function FacilitiesGrid() {
+/**
+ * Shown in the static shell, before the viewer is known. A coordinator (no
+ * facility:create) sees it in the grid fallback and is refused on submit; the
+ * map view, which renders after the role is known, hides it from them.
+ */
+function AddFacilityButton() {
+  return (
+    <Button asChild>
+      <Link href="/dashboard/facilities/new">
+        <Plus className="w-4 h-4" />
+        Add facility
+      </Link>
+    </Button>
+  );
+}
+
+async function FacilitiesContent({ token }: { token: string }) {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
   // Read-only staff (aux) have nothing to do here, and the navigation not
@@ -80,7 +115,7 @@ async function FacilitiesGrid() {
     supabase
       .from("facilities")
       .select(
-        "id, slug, name, city, province, is_published, photo_urls, departments(id), schedule_groups(id)"
+        "id, slug, name, city, province, is_published, photo_urls, lat, lng, geocoded_at, departments(id), schedule_groups(id)"
       )
       .eq("org_id", orgContext.org.id)
       .order("created_at", { ascending: false }) as unknown as Promise<{ data: FacilityRow[] | null }>,
@@ -107,7 +142,13 @@ async function FacilitiesGrid() {
     }
   }
 
-  const gridFacilities = (facilities ?? []).map((f) => ({
+  // Coordinators see the buildings they work in, not the whole organization:
+  // RLS lets any member read every facility row (public pages need that), so
+  // the narrowing is here. A pin they could not open would be a dead end.
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const readable = (facilities ?? []).filter((f) => canReadFacility(actor, f.id));
+
+  const gridFacilities: FacilityMapItem[] = readable.map((f) => ({
     id: f.id,
     name: f.name,
     city: f.city,
@@ -118,10 +159,14 @@ async function FacilitiesGrid() {
     schedule_count: f.schedule_groups.length,
     live_notice_count: liveByFacility.get(f.id)?.count ?? 0,
     worst_notice_severity: liveByFacility.get(f.id)?.worst ?? null,
+    lat: f.lat,
+    lng: f.lng,
+    locationState: f.lat !== null && f.lng !== null ? "located" : f.geocoded_at ? "not_found" : "pending",
   }));
+  const canCreate = can(actor, "facility:create");
 
   if (gridFacilities.length === 0) {
-    return (
+    const empty = (
       <EmptyState
         title="No facilities yet"
         titleAs="h2"
@@ -136,20 +181,42 @@ async function FacilitiesGrid() {
         }
       />
     );
+    // The map layout carries its own title; with nothing to map, fall back
+    // to the ordinary page frame around the empty state.
+    if (!token) return empty;
+    return (
+      <div className="max-w-6xl mx-auto space-y-6">
+        <PageHeader title="Facilities" info="Physical locations where your schedules run." />
+        {empty}
+      </div>
+    );
   }
 
-  // Rendered here rather than in a client component. This used to be a
-  // grid/map toggle, and the map half plotted the org's own buildings with
-  // mapbox-gl — the same library the cross-org search page used. A centre with
-  // a handful of sites does not need them plotted geographically, and keeping
-  // that view meant keeping a paid dependency, its token, address geocoding on
-  // every save, and two extra origins in the CSP. With the toggle gone there is
-  // no client state left to hold: FacilityGridCard is a plain link.
+  if (token) {
+    return <FacilitiesMapView facilities={gridFacilities} canCreate={canCreate} token={token} />;
+  }
+
+  // No token: the grid, server-rendered. FacilityGridCard is a plain link.
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
       {gridFacilities.map((facility) => (
         <FacilityGridCard key={facility.id} facility={facility} />
       ))}
+    </div>
+  );
+}
+
+function FacilitiesMapSkeleton() {
+  return (
+    <div className="-mx-4 -mt-4 sm:-mx-6 sm:-mt-6 lg:-mb-6 lg:grid lg:h-[calc(100dvh-3.5rem)] lg:grid-cols-[minmax(0,1fr)_380px]" aria-busy="true">
+      <Skeleton className="h-[45dvh] rounded-none lg:h-full" />
+      <div className="space-y-3 p-5 lg:border-l lg:border-border">
+        <Skeleton className="h-8 w-40" />
+        <Skeleton className="h-10" />
+        {Array.from({ length: 4 }).map((_, i) => (
+          <Skeleton key={i} className="h-16" />
+        ))}
+      </div>
     </div>
   );
 }

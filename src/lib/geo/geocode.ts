@@ -18,7 +18,10 @@
  *    publicly, which is the /find page.
  *
  * The previous geocoder (Mapbox, deleted in ef0a035) accepted whatever came
- * back, and placed "123 Test St, Calgary" near the Saskatchewan border. This
+ * back, and placed "123 Test St, Calgary" near the Saskatchewan border.
+ * Mapbox is back since 2026-10-02 to DRAW the facilities map, never to look
+ * anything up: its standard geocoding results may not be stored, and storing
+ * lat/lng is what this module is for. Keep geocoding here. This
  * one tries the full structured address, then the postal code alone (≈200 m,
  * fine for "near me"), and otherwise reports not_found rather than guess from
  * the city.

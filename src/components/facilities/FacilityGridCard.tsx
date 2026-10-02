@@ -1,10 +1,11 @@
 import Link from "next/link";
 import { commandCentreHref } from "@/lib/schedule/commandCentreHref";
-import { Building2, Eye, EyeOff, Layers, Calendar, Pencil, AlertOctagon, AlertTriangle, Megaphone } from "lucide-react";
+import { Building2, Eye, EyeOff, Layers, Calendar, Pencil } from "lucide-react";
 import type { NoticeSeverity } from "@/types/app.types";
 import OrgImage from "@/components/media/OrgImage";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
+import FacilityStatusLink from "@/components/facilities/FacilityStatusLink";
 
 export interface FacilityGridItem {
   id: string;
@@ -82,29 +83,12 @@ export default function FacilityGridCard({ facility, highlighted }: FacilityGrid
       </Link>
       {/* Outside the big Link — a nested anchor is invalid HTML and the
           browser resolves it by dropping one of them, usually this one. */}
-      <Link
-        href={`/dashboard/facilities/${facility.id}/status`}
-        className={`flex items-center gap-2 border-t border-border px-5 py-2.5 text-xs font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-ring ${
-          facility.worst_notice_severity === "closure"
-            ? "bg-destructive-subtle text-destructive hover:underline"
-            : facility.worst_notice_severity
-              ? "bg-warning-subtle text-warning hover:underline"
-              : "text-muted-foreground hover:bg-muted"
-        }`}
-      >
-        {facility.worst_notice_severity === "closure" ? (
-          <AlertOctagon className="size-3.5 shrink-0" aria-hidden />
-        ) : facility.worst_notice_severity ? (
-          <AlertTriangle className="size-3.5 shrink-0" aria-hidden />
-        ) : (
-          <Megaphone className="size-3.5 shrink-0" aria-hidden />
-        )}
-        {facility.live_notice_count === 0
-          ? "Post a status"
-          : facility.live_notice_count === 1
-            ? "1 status is live"
-            : `${facility.live_notice_count} statuses are live`}
-      </Link>
+      <FacilityStatusLink
+        facilityId={facility.id}
+        liveCount={facility.live_notice_count}
+        worstSeverity={facility.worst_notice_severity}
+        className="border-t border-border px-5 py-2.5"
+      />
 
       <Button asChild variant="outline" size="icon-sm" className="absolute top-3 right-3 text-muted-foreground hover:text-foreground">
         <Link
