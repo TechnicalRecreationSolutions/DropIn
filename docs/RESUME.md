@@ -2,8 +2,16 @@
 
 Open this first; it points at everything else.
 
-**Most recent session: facility status rework + status library** (first box
-below) — 2026-09-29, **UNCOMMITTED** on `design/app-redesign`, **migration 064
+**Most recent session: one scope, set in one place** (first box below) —
+2026-10-01, UNCOMMITTED, no migration.
+
+Before it, same day: **facility status page redesign** (second box) —
+UNCOMMITTED, no migration.
+
+Before it, same day: **People here records session/space/time; history moved
+to Analytics** (second box) — UNCOMMITTED, migration 069 APPLIED.
+
+Before it: **facility status rework + status library** (second box) — 2026-09-29, **UNCOMMITTED** on `design/app-redesign`, **migration 064
 APPLIED**.
 
 Before it, same day: zones made on the Spaces page (second box), UNCOMMITTED,
@@ -34,6 +42,95 @@ multi-account staff roles, and a resident directory (`/find`).
 This file is the single entry point. The per-track `RESUME-*.md` files are
 historical records of finished work, not live handoffs — see
 [Related docs](#related-docs).
+
+---
+
+## One scope, set in one place — 2026-10-01, UNCOMMITTED, no migration
+
+Built from `docs/prompts/scope-navigation.md`; the review and plan are in
+`docs/scope-navigation-review.md`, and the rule is now DESIGN.md §7 "Scope and
+filters".
+
+- **Sidebar:** `FacilitySwitcher` replaces the org line and the three Radix
+  dropdowns (`SidebarFilters.tsx` deleted). It is hidden with one reachable
+  building. Collapsed, it is a building icon. It is also at the top of the
+  phone Menu sheet.
+- **Remembered building:** cookie `dropin-facility`
+  (`lib/dashboard/scope.ts` + `scope.server.ts`). Every facility-scoped page
+  resolves the building as URL, then cookie, then first *readable*. That also
+  fixes coordinators defaulting to a building they don't hold on Overview,
+  Sessions, Spaces, Map and Departments.
+- **Pickers removed:** `FacilityCardPicker` and `DepartmentPicker` are deleted,
+  and the facility menu is gone from `AnalyticsToolbar` (the switcher offers
+  "All facilities" there to owners and managers).
+- **Department filter** (`dashboard/DepartmentFilter.tsx`) on Schedules (All +
+  departments + "No department"), Sessions ("Facility-wide" + departments, no
+  All) and Spaces (filters rendering only; reorder still saves the whole
+  building).
+- **Breadcrumbs** on Schedules, Sessions, Spaces, Map and Departments.
+- **Shared primitive:** `schedule/TickBoxDropdown.tsx`, with a `theme` of
+  widget / widget-dark / app and a `mode` of multi / single / radio. The
+  widget's filter markup is byte-identical before and after
+  (`scripts/verify/out/bl/widget-{before,after}.html`).
+- **Not done, on purpose (see the review):** "All facilities" on the Overview,
+  which has no org-wide mode to show, and a department filter on Analytics,
+  which has no department-aware queries or export.
+
+Follow-up the same day: the dashboard lists use the widget's square tick boxes,
+and "All departments" / "All facilities" are now nothing-ticked, as in the
+widget. That leaves no All row and adds a "Clear" link.
+
+Verified: verify-bl 43/43, after the tick-box follow-up (falsified: dropping the cookie read turns "a bare
+/dashboard/schedule opens the remembered building" red). Also verify-n and
+verify-p, see the session summary for the others. tsc and eslint are clean.
+
+---
+
+## Facility status page redesign — 2026-10-01, UNCOMMITTED, no migration
+
+The user: the status page "needs an overhaul in design… easy to use but does
+not have settings or analytics on the page".
+
+- **Two columns on desktop** (`max-w-6xl`): the board (reports, Right now,
+  Not live yet) on the left, People here on the right, sticky. Phones stack
+  board then counter.
+- **The counter is one card**, number first: Where is a dropdown (spaces
+  grouped by department), then the stepper, then Session (dropdown, "On now"
+  / "Earlier today" groups) and When (Now / Earlier segmented + time). The
+  three rows of chips above the number are gone; with a dozen spaces they
+  pushed Record below the fold on a phone. Behaviour is unchanged.
+- **No settings on the page.** "What patrons see" (`PublicConditionsSettings`)
+  moved to the foot of the facility **Edit** page, above the danger zone,
+  still opened by `#public`. Settings › Public presence already linked there.
+  Analytics was already off the page (previous box).
+- Known, not mine: the Edit page logs "uncached data during prerendering"
+  (in the design-shots baseline before this change).
+
+Verified: verify-bk 31/31 (updated for the dropdowns, plus a "no settings"
+check), verify-be 69/69, verify-bg 51/51, verify-ba 70/70; design-shots at
+1440/390 light+dark, no overflow.
+
+## People here: session, space, time + history moved to Analytics — 2026-10-01, UNCOMMITTED, 069 APPLIED
+
+The user: People here "needs to record that information for what session,
+space or time. It's not letting the staff select those details", and the
+history section should go to Analytics.
+
+- **Space**: the counter only offered *published* spaces; Panorama has ten,
+  none published, so no picker appeared. Now every space is offered.
+- **Session**: new `facility_readings.session_id` (migration 069, applied by
+  the user), validated against the facility in the POST route; session chips
+  from today's schedule in `HeadCountTool`.
+- **Time**: Now / Earlier today. The API already took `recorded_at`.
+- **History**: the status page's notice "History" and the counter's "Recent
+  entries" are gone. New Analytics tab **Status history**
+  (`/dashboard/analytics/notices`, + CSV); Attendance gained **By session**
+  and a **Count log** with delete. Counter keeps Undo for your last entry.
+
+Verify: `verify-bk` 30/30 (falsified by restoring the published filter);
+`verify-ba` 70, `verify-bb` 64 (tab count 3→4 and the CSV header updated),
+`verify-be` 69, `verify-bg` 51. Details: `src/lib/conditions/README.md`,
+`src/lib/analytics/README.md`.
 
 ---
 

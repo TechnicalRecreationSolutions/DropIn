@@ -1,7 +1,7 @@
 "use client";
 
 import {
-  LayoutDashboard,
+  Inbox,
   Building2,
   CalendarDays,
   Clock,
@@ -15,6 +15,7 @@ import {
   CreditCard,
   Users,
   ClipboardList,
+  History,
   Mail,
   Globe,
   ShieldCheck,
@@ -26,12 +27,12 @@ import {
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import TreeNavNode from "./TreeNavNode";
-import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref, NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
-import type { SidebarSelection } from "./SidebarNav";
+import { commandCentreHref, spacesHref, mapHref, sessionsHref, departmentsHref, widgetHref } from "@/lib/schedule/commandCentreHref";
 import { can, isReadOnly } from "@/lib/auth/roles";
 import type { Permission } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
 import { SETTINGS_ROOT, visibleSettingsItems } from "@/lib/settings/nav";
+import { useNeedsYouCount } from "@/hooks/useNeedsYouCount";
 
 /**
  * An icon per settings destination, keyed by href.
@@ -55,7 +56,10 @@ const SETTINGS_ICONS: Record<string, LucideIcon> = {
 };
 
 interface SidebarMenuProps {
-  selection: SidebarSelection;
+  /** The building switcher's facility — never "all"; the links carry it. */
+  facilityId: string | null;
+  /** Analytics is showing "All facilities", so its links keep doing so. */
+  analyticsAll?: boolean;
   /** Org has at least one facility — menu items that need a facility scope render disabled otherwise. */
   hasFacility: boolean;
   onNavigate?: () => void;
@@ -107,99 +111,59 @@ interface MenuItem {
    * disagree.
    */
   children?: MenuItem[];
+  /** Carries the Overview's inbox count (things waiting on this person). */
+  inbox?: boolean;
 }
 
 /**
- * The flat Menu + Settings sections from the mockup. Replaces the old
- * accordion tree as the sidebar's navigation — hrefs for the scope-aware
- * items (Schedules, Spaces) are built from whatever SidebarFilters currently
- * has selected, so picking a facility/department/schedule there changes
- * where these links actually go.
+ * The sidebar's links, in three bands by how often they are used (see the
+ * note above `dailyItems`). Replaces the old
+ * accordion tree as the sidebar's navigation — the facility-scoped items
+ * carry the building switcher's facility, so every link opens in the building
+ * you are working in. Department is a filter on the page, not carried here.
  */
-export default function SidebarMenu({ selection, hasFacility, onNavigate, collapsed, role }: SidebarMenuProps) {
+export default function SidebarMenu({ facilityId, analyticsAll = false, hasFacility, onNavigate, collapsed, role }: SidebarMenuProps) {
   const pathname = usePathname();
   const needsFacility = "Add a facility first to use this.";
   // The sidebar only asks org-wide questions, so empty scope lists are the
   // right input — the per-row scope test belongs to each page.
   const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
+  // The inbox count on the Overview row: the length of the Overview's
+  // "Needs you" list for the building the switcher has selected.
+  const { data: needs } = useNeedsYouCount(facilityId, !isReadOnly(role) && hasFacility);
+  // Analytics keeps "All facilities" while you move between its pages.
+  const analyticsHref = (path: string) => (facilityId && !analyticsAll ? `${path}?facility=${facilityId}` : path);
 
-  const menuItems: MenuItem[] = [
+  // ── Grouped by how often people reach for them (2026-10-01) ────────────
+  //
+  // The menu was one flat list of ten rows in the order they were built. It is
+  // now three bands, by frequency, the same reasoning the Overview uses:
+  //
+  //   1. Daily, no caption: the inbox (Overview, with its count), the
+  //      schedule, and facility status. What an admin opens several times a
+  //      day and a coordinator lives in.
+  //   2. "Set up": the things you build once a season and then leave —
+  //      sessions, spaces, departments, buildings, the map, the widget.
+  //   3. Below the line: Analytics and Settings, both collapsible, both
+  //      visited on purpose rather than in passing.
+  const dailyItems: MenuItem[] = [
     // Not for read-only staff: /dashboard redirects them to the schedule, so
     // the row was a second "Schedules" that highlighted the wrong item.
     ...(isReadOnly(role)
       ? []
       : [
           {
-            href: selection.facilityId ? `/dashboard?facility=${selection.facilityId}` : "/dashboard",
+            href: facilityId ? `/dashboard?facility=${facilityId}` : "/dashboard",
             label: "Overview",
-            icon: LayoutDashboard,
+            icon: Inbox,
             exact: true,
+            inbox: true,
           },
         ]),
     {
-      href: "/dashboard/facilities",
-      label: "Facilities",
-      icon: Building2,
-      permission: "facility:create",
-      activeWhen: (path) => path.startsWith("/dashboard/facilities") && !path.endsWith("/status"),
-    },
-    {
-      href: departmentsHref(selection.facilityId),
-      label: "Departments",
-      icon: Layers,
-      permission: "department:create",
-      disabled: !hasFacility,
-      disabledReason: needsFacility,
-    },
-    {
-      href: commandCentreHref({
-        facilityId: selection.facilityId,
-        departmentId: selection.departmentId,
-        scheduleGroupId: selection.scheduleGroupId,
-      }),
+      href: commandCentreHref({ facilityId }),
       label: "Schedules",
       icon: CalendarDays,
-      disabled: !hasFacility,
-      disabledReason: needsFacility,
-    },
-    {
-      href: sessionsHref({
-        facilityId: selection.facilityId,
-        departmentId: selection.departmentId,
-        scheduleGroupId: selection.scheduleGroupId,
-      }),
-      label: "Sessions",
-      icon: Clock,
-      // The templates page. Coordinators build templates for their own
-      // departments, so this is asked as the org-wide "may you ever".
-      permission: "session-template:write",
-      disabled: !hasFacility,
-      disabledReason: needsFacility,
-    },
-    {
-      href: spacesHref(selection.facilityId),
-      label: "Spaces",
-      icon: DoorOpen,
-      permission: "space:write",
-      disabled: !hasFacility,
-      disabledReason: needsFacility,
-    },
-    {
-      href: widgetHref({
-        facilityId: selection.facilityId,
-        // The widget picker has no "no department" option — only carry
-        // over a real department id, never the NO_DEPARTMENT sentinel.
-        departmentId: selection.departmentId !== NO_DEPARTMENT ? selection.departmentId : null,
-      }),
-      label: "Widget",
-      icon: MonitorSmartphone,
-      permission: "widget:edit",
-    },
-    {
-      href: mapHref(selection.facilityId),
-      label: "Map",
-      icon: MapIcon,
-      permission: "map:edit",
       disabled: !hasFacility,
       disabledReason: needsFacility,
     },
@@ -213,35 +177,95 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     // Since 2026-09-29 it is also where people are counted: the separate
     // "Head counts" item was folded into it.
     {
-      href: selection.facilityId
-        ? `/dashboard/facilities/${selection.facilityId}/status`
+      href: facilityId
+        ? `/dashboard/facilities/${facilityId}/status`
         : "/dashboard/status",
       label: "Facility status",
       icon: Megaphone,
       activeWhen: (path) => path === "/dashboard/status" || path.endsWith("/status"),
     },
+  ];
+
+  const setupItems: MenuItem[] = [
+    {
+      href: sessionsHref({ facilityId }),
+      label: "Sessions",
+      icon: Clock,
+      // The templates page. Coordinators build templates for their own
+      // departments, so this is asked as the org-wide "may you ever".
+      permission: "session-template:write",
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
+    },
+    {
+      href: spacesHref(facilityId),
+      label: "Spaces",
+      icon: DoorOpen,
+      permission: "space:write",
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
+    },
+    {
+      href: departmentsHref(facilityId),
+      label: "Departments",
+      icon: Layers,
+      permission: "department:create",
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
+    },
+    {
+      href: "/dashboard/facilities",
+      label: "Facilities",
+      icon: Building2,
+      permission: "facility:create",
+      activeWhen: (path) => path.startsWith("/dashboard/facilities") && !path.endsWith("/status"),
+    },
+    {
+      href: mapHref(facilityId),
+      label: "Map",
+      icon: MapIcon,
+      permission: "map:edit",
+      disabled: !hasFacility,
+      disabledReason: needsFacility,
+    },
+    {
+      // Org-wide: the studio configures the one widget for every building.
+      href: widgetHref({}),
+      label: "Widget",
+      icon: MonitorSmartphone,
+      permission: "widget:edit",
+    },
+  ];
+
+  const insightItems: MenuItem[] = [
     {
       href: "/dashboard/analytics",
       label: "Analytics",
       icon: BarChart3,
       children: [
         {
-          href: "/dashboard/analytics",
+          href: analyticsHref("/dashboard/analytics"),
           label: "Engagement",
           icon: BarChart3,
           exact: true,
           permission: "analytics:view",
         },
         {
-          href: "/dashboard/analytics/utilization",
+          href: analyticsHref("/dashboard/analytics/utilization"),
           label: "Utilization",
           icon: CalendarDays,
           permission: "operations:view",
         },
         {
-          href: "/dashboard/analytics/attendance",
+          href: analyticsHref("/dashboard/analytics/attendance"),
           label: "Attendance",
           icon: ClipboardList,
+          permission: "operations:view",
+        },
+        {
+          href: analyticsHref("/dashboard/analytics/notices"),
+          label: "Status history",
+          icon: History,
           permission: "operations:view",
         },
       ],
@@ -291,76 +315,71 @@ export default function SidebarMenu({ selection, hasFacility, onNavigate, collap
     return item.exact ? pathname === path : pathname.startsWith(path);
   }
 
+  const renderItems = (items: MenuItem[]) =>
+    visible(items).map((item) =>
+      item.children ? (
+        <MenuGroup
+          key={item.label}
+          item={item}
+          collapsed={collapsed}
+          isActive={isActive}
+          // Open when you are already inside it — a group that collapsed out
+          // from under the page you are on has to be re-opened on every visit.
+          startOpen={item.children.some((child) => isActive(child))}
+        />
+      ) : (
+        <TreeNavNode
+          key={item.label}
+          href={item.href}
+          label={item.label}
+          icon={item.icon}
+          depth={0}
+          isActive={isActive(item)}
+          disabled={item.disabled}
+          disabledReason={item.disabledReason}
+          collapsed={collapsed}
+          {...(item.inbox && needs && needs.count > 0
+            ? {
+                badge: needs.count,
+                badgeTone: needs.urgent > 0 ? ("urgent" as const) : ("solid" as const),
+                badgeLabel: `${needs.count} ${needs.count === 1 ? "thing needs" : "things need"} you${
+                  needs.urgent > 0 ? `, ${needs.urgent} urgent` : ""
+                }`,
+              }
+            : {})}
+        />
+      )
+    );
+
+  const setup = visible(setupItems);
+  const lower = [...visible(insightItems), ...visible(settingsItems)];
+
   return (
     <nav
-      className="px-2 py-3 space-y-4"
+      aria-label="Main"
+      className="px-2 py-3 space-y-3"
       onClick={(e) => {
         if ((e.target as HTMLElement).closest("a")) onNavigate?.();
       }}
     >
-      <div>
-        {!collapsed && (
-          <p className="text-label text-muted-foreground px-3 pb-1.5">
-            Menu
-          </p>
-        )}
-        <div className="space-y-0.5">
-          {visible(menuItems).map((item) =>
-            item.children ? (
-              <MenuGroup
-                key={item.label}
-                item={item}
-                collapsed={collapsed}
-                isActive={isActive}
-                // Open when you are already inside it — a group that collapsed
-                // out from under the page you are on is a group you have to
-                // re-open on every navigation.
-                startOpen={item.children.some((child) => isActive(child))}
-              />
-            ) : (
-              <TreeNavNode
-                key={item.label}
-                href={item.href}
-                label={item.label}
-                icon={item.icon}
-                depth={0}
-                isActive={isActive(item)}
-                disabled={item.disabled}
-                disabledReason={item.disabledReason}
-                collapsed={collapsed}
-              />
-            )
-          )}
-        </div>
-      </div>
+      {/* Daily. No caption: these are the app, and a heading reading "Menu"
+          above them was the menu labelling itself. */}
+      <div className="space-y-0.5">{renderItems(dailyItems)}</div>
 
-      {/* No "SETTINGS" caption any more: the block is one row, and a heading
-          above a row of the same name is the heading repeating itself. The gap
-          and the separator carry the grouping instead. */}
-      {visible(settingsItems).length > 0 && (
+      {setup.length > 0 && (
+        <div className={collapsed ? "border-t border-border pt-3" : undefined}>
+          {!collapsed && <p className="text-label text-muted-foreground px-3 pt-1 pb-1.5">Set up</p>}
+          <div className="space-y-0.5">{renderItems(setupItems)}</div>
+        </div>
+      )}
+
+      {/* Analytics and Settings: visited on purpose, so below the line and
+          folded until you are inside one. */}
+      {lower.length > 0 && (
         <div className="border-t border-border pt-3">
           <div className="space-y-0.5">
-            {visible(settingsItems).map((item) =>
-              item.children ? (
-                <MenuGroup
-                  key={item.label}
-                  item={item}
-                  collapsed={collapsed}
-                  isActive={isActive}
-                  startOpen={item.children.some((child) => isActive(child))}
-                />
-              ) : (
-                <TreeNavNode
-                  key={item.label}
-                  href={item.href}
-                  label={item.label}
-                  icon={item.icon}
-                  depth={0}
-                  isActive={isActive(item)}
-                  collapsed={collapsed}
-                />
-              )
-            )}
+            {renderItems(insightItems)}
+            {renderItems(settingsItems)}
           </div>
         </div>
       )}

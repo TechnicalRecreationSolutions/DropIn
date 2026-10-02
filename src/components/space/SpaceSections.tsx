@@ -2,6 +2,7 @@
 
 import { useRef, useState } from "react";
 import Link from "next/link";
+import { NO_DEPARTMENT } from "@/lib/schedule/commandCentreHref";
 import { useRouter } from "next/navigation";
 import {
   DndContext,
@@ -59,6 +60,13 @@ interface SpaceSectionsProps {
   departments: { id: string; name: string }[];
   /** Every space in the facility, already in `display_order`. */
   spaces: CommandSpace[];
+  /**
+   * The page's department filter: a department id, NO_DEPARTMENT for the
+   * whole-building section, or null for all. Filters what is RENDERED only —
+   * `spaces` must stay the whole facility, because a reorder saves positions
+   * 1..N across it, and saving a filtered subset would collide with the rest.
+   */
+  departmentFilter?: string | null;
 }
 
 /**
@@ -76,7 +84,7 @@ interface SpaceSectionsProps {
  * Client-side because reordering is optimistic — the chip moves before the
  * write lands.
  */
-export default function SpaceSections({ facilityId, departments, spaces }: SpaceSectionsProps) {
+export default function SpaceSections({ facilityId, departments, spaces, departmentFilter = null }: SpaceSectionsProps) {
   const router = useRouter();
   const [order, setOrder] = useState<CommandSpace[]>(spaces);
   const [saving, setSaving] = useState(false);
@@ -128,6 +136,9 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
   }
 
   const sections = buildSpaceSections(order, departments);
+  const visibleSections = departmentFilter
+    ? sections.filter((s) => (s.departmentId ?? NO_DEPARTMENT) === departmentFilter)
+    : sections;
 
   // A short distance/delay before a drag starts, so a tap still reaches the
   // chip's edit link underneath and a touch drag still lets the page scroll.
@@ -276,7 +287,12 @@ export default function SpaceSections({ facilityId, departments, spaces }: Space
           </p>
         )}
 
-        {sections.map((section) => (
+        {visibleSections.length === 0 && (
+          <p className="rounded-card border border-dashed border-border bg-card px-4 py-10 text-center text-sm text-muted-foreground">
+            No spaces in this department yet.
+          </p>
+        )}
+        {visibleSections.map((section) => (
           <section
             key={section.departmentId ?? "none"}
             className="rounded-card border border-border bg-card p-5 shadow-card sm:p-6"

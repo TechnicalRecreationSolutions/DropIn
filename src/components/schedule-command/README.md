@@ -30,9 +30,11 @@ facility-scoped link into either just needs `?facility=`.
   ...
 ```
 
-Building/department/schedule scope is **not** state on this page at all — it lives entirely in
-the sidebar (`SidebarFilters.tsx`), read here straight off `?facility=`, `?department=`,
-`?schedule=`. This page used to also render a facility-box grid and department/schedule chip
+Building/department/schedule scope is **not** local state on this page — it is the URL. The
+building comes from the sidebar's switcher (`layout/FacilitySwitcher.tsx`), resolved by
+`page.tsx` through `lib/dashboard/scope.ts` and passed in as `activeFacilityId`; the
+department from this page's own filter (`dashboard/DepartmentFilter.tsx`, `?department=`); the
+schedule from the list (`?schedule=`). See docs/DESIGN.md "Scope and filters". This page used to also render a facility-box grid and department/schedule chip
 rows above a workspace tab strip (`FacilityBoxes`/`ScopePicker`/`WorkspaceTabs`, since
 removed); picking scope in two places, and switching jobs via tabs instead of navigation, were
 both things this and the later split-out rework got rid of.
@@ -43,7 +45,9 @@ requires a real schedule to be picked before it shows anything.
 
 ## Scope: building → department → schedule
 
-Picked entirely in the sidebar (`SidebarFilters.tsx` — three dropdowns), not on this page.
+The building is picked in the sidebar's switcher; the department in this page's filter (shown
+only on the list, and only when there is a choice); a schedule by opening it from the list. The
+breadcrumb above the list/editor shows all three and links back up.
 `NO_DEPARTMENT` is a sentinel, not an id: there's nothing to filter on server-side, so that one
 scope fetches the facility and drops departmented sessions client-side. This page only ever
 *reads* the resulting `?facility=&department=&schedule=`, validating it against what the org

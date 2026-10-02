@@ -2,7 +2,7 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { ArrowUpRight, ClipboardList, Clock, Thermometer, Users } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { can, canReadFacility } from "@/lib/auth/roles";
+import { can, canReadFacility, isScoped } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { countsHref } from "@/lib/schedule/commandCentreHref";
 import { Banner } from "@/components/ui/banner";
@@ -16,7 +16,8 @@ import { BreakdownBars } from "@/components/dashboard/analytics/BreakdownBars";
 import { AnalyticsToolbar } from "@/components/dashboard/analytics/AnalyticsToolbar";
 import { ATTENDANCE_DATASETS } from "@/lib/analytics/csv";
 import DailyBars from "@/components/dashboard/analytics/DailyBars";
-import { fetchReadings, summariseAttendance } from "@/lib/analytics/attendance";
+import { fetchReadings, fetchSessionLabels, summariseAttendance } from "@/lib/analytics/attendance";
+import ReadingLog, { type ReadingLogRow } from "@/components/dashboard/analytics/ReadingLog";
 import { formatRangeLabel, parseAnalyticsRange } from "@/lib/analytics/range";
 import { METRICS, formatReading } from "@/lib/conditions/readings";
 
@@ -83,24 +84,18 @@ export default function AttendancePage({ searchParams }: AttendancePageProps) {
   );
 }
 
+/**
+ * The period and export controls. The building is not chosen here — it is
+ * the sidebar's switcher ("All facilities" included, for owners and managers),
+ * read from the same `?facility` the body and the export use.
+ */
 async function ToolbarLoader() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
   const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
   if (!can(actor, "operations:view")) return null;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("facilities")
-    .select("id, name")
-    .eq("org_id", orgContext.org.id)
-    .order("name");
-
-  // A coordinator is offered only the buildings they hold. Offering one whose
-  // readings they cannot read would render an empty page that looks like "we
-  // never count there".
-  const visible = (data ?? []).filter((f) => canReadFacility(actor, f.id));
-  return <AnalyticsToolbar facilities={visible as { id: string; name: string }[]} datasets={ATTENDANCE_DATASETS} />;
+  return <AnalyticsToolbar datasets={ATTENDANCE_DATASETS} />;
 }
 
 async function AttendanceBody({ searchParams }: AttendancePageProps) {
@@ -125,9 +120,14 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
 
   const supabase = await createClient();
 
-  const [{ data: facilityRows }, { data: spaceRows }] = await Promise.all([
+  const [{ data: facilityRows }, { data: spaceRows }, { data: memberRows }] = await Promise.all([
     supabase.from("facilities").select("id, name").eq("org_id", orgContext.org.id),
     supabase.from("spaces").select("id, name").eq("org_id", orgContext.org.id),
+    // "Who" on the count log. auth.users is unreadable under RLS.
+    supabase
+      .from("org_memberships")
+      .select("user_id, email, display_name")
+      .eq("org_id", orgContext.org.id),
   ]);
 
   // Scoped roles are confined to their own buildings. RLS already refuses the
@@ -145,6 +145,37 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
   const summary = summariseAttendance(fetched, range);
 
   const spaceNames = new Map((spaceRows ?? []).map((s) => [s.id, s.name]));
+  const facilityNames = new Map((facilityRows ?? []).map((f) => [f.id, f.name]));
+  const memberNames = new Map(
+    (memberRows ?? []).map((m) => [m.user_id, m.display_name ?? m.email?.split("@")[0] ?? "a colleague"])
+  );
+  const sessionNames = await fetchSessionLabels(
+    supabase,
+    fetched.rows.map((r) => r.session_id).filter((id): id is string => !!id)
+  );
+
+  // The log is capped: it is for finding and fixing an entry, and the charts
+  // above are what read the whole period.
+  const LOG_CAP = 500;
+  const logRows: ReadingLogRow[] = fetched.rows.slice(0, LOG_CAP).map((r) => ({
+    id: r.id,
+    facilityId: r.facility_id,
+    metric: r.metric,
+    value: Number(r.value),
+    recordedAt: r.recorded_at,
+    recordedBy: r.recorded_by,
+    recordedByName: memberNames.get(r.recorded_by ?? "") ?? "a colleague",
+    facility: facilityNames.get(r.facility_id) ?? "A facility",
+    space: r.space_id ? (spaceNames.get(r.space_id) ?? "A space") : "Whole facility",
+    session: r.session_id ? (sessionNames.get(r.session_id) ?? "A removed session") : null,
+  }));
+
+  const sessionBreakdown = summary.bySession.map((s) => ({
+    key: s.sessionId,
+    label: sessionNames.get(s.sessionId) ?? "A removed session",
+    count: s.peak,
+    share: summary.peak ? s.peak / summary.peak.value : 0,
+  }));
   const periodLabel = formatRangeLabel(range).toLowerCase();
 
   if (summary.readingCount === 0) {
@@ -275,6 +306,19 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
         </section>
       )}
 
+      {/* ── By session (migration 069) ───────────────────────────────────── */}
+      {sessionBreakdown.length > 0 && (
+        <section className="space-y-3">
+          <SectionHeading
+            title="By session"
+            info="Peak count for each session staff named when counting. Counts filed without a session are not in this chart — they are still in every other figure on the page. A recurring session is one bar across all its weeks in the period."
+          />
+          <Card className="p-4">
+            <BreakdownBars data={sessionBreakdown} variant="single" />
+          </Card>
+        </section>
+      )}
+
       {/* ── Temperatures ────────────────────────────────────────────────── */}
       {summary.temperatures.length > 0 && (
         <section className="space-y-3">
@@ -296,6 +340,22 @@ async function AttendanceBody({ searchParams }: AttendancePageProps) {
           </div>
         </section>
       )}
+
+      {/* ── The log ─────────────────────────────────────────────────────── */}
+      <section className="space-y-3">
+        <SectionHeading
+          title="Count log"
+          info={`Every entry in the ${periodLabel}, newest first${fetched.rows.length > LOG_CAP ? ` (the latest ${LOG_CAP})` : ""}: where, during which session, when and by whom. Delete is for a typo — a count that was right at the time should stay, or it drops out of every figure above.`}
+        />
+        <ReadingLog
+          rows={logRows}
+          viewerId={orgContext.membership.user_id}
+          canWrite={can(actor, "reading:write")}
+          // The 061 delete policy: anyone's entry for an owner or manager.
+          canManage={!isScoped(orgContext.membership.role)}
+          showFacility={!facilityId && new Set(logRows.map((r) => r.facilityId)).size > 1}
+        />
+      </section>
     </>
   );
 }

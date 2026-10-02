@@ -8,6 +8,7 @@ import FacilityForm from "@/components/facility/FacilityForm";
 import FacilityDangerZone from "@/components/facility/FacilityDangerZone";
 import { getFacilityDeletionImpact } from "@/lib/facilities/deletionImpact";
 import { PageHeader } from "@/components/ui/info-tip";
+import PublicConditionsSettings from "@/components/conditions/PublicConditionsSettings";
 
 interface EditFacilityPageProps {
   params: Promise<{ facilityId: string }>;
@@ -23,12 +24,19 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
 
   const supabase = await createClient();
 
-  const { data: facility } = await supabase
-    .from("facilities")
-    .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published, listed_in_directory, lat, geocoded_at, photo_urls")
-    .eq("id", facilityId)
-    .eq("org_id", orgContext.org.id)
-    .single();
+  const [{ data: facility }, { count: readingCount }] = await Promise.all([
+    supabase
+      .from("facilities")
+      .select("id, name, address_line1, city, province, postal_code, phone, email, website_url, description, is_published, listed_in_directory, lat, geocoded_at, photo_urls, public_conditions, public_headcount, occupancy_capacity")
+      .eq("id", facilityId)
+      .eq("org_id", orgContext.org.id)
+      .single(),
+    // Only "has anything ever been recorded?", for the settings' empty-state note.
+    supabase
+      .from("facility_readings")
+      .select("id", { count: "exact", head: true })
+      .eq("facility_id", facilityId),
+  ]);
 
   if (!facility) notFound();
 
@@ -73,6 +81,23 @@ export default async function EditFacilityPage({ params }: EditFacilityPageProps
           facility.lat !== null ? "found" : facility.geocoded_at ? "not_found" : "pending"
         }
       />
+
+      {/* What patrons are shown from the counts and temperatures staff record.
+          Moved here from the status page (2026-10-01): it is configuration,
+          set once by a manager, and that page is for the shift. */}
+      <div className="mt-10 border-t border-border pt-6">
+        <PublicConditionsSettings
+          facilityId={facilityId}
+          statusHref={`/dashboard/facilities/${facilityId}/status#people`}
+          initial={{
+            publicConditions: facility.public_conditions,
+            publicHeadcount: facility.public_headcount,
+            occupancyCapacity: facility.occupancy_capacity,
+          }}
+          canEdit={can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "facility:edit")}
+          hasReadings={(readingCount ?? 0) > 0}
+        />
+      </div>
 
       <FacilityDangerZone
         facilityId={facilityId}

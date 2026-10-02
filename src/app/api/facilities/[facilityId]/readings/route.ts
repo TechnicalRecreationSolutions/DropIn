@@ -38,6 +38,9 @@ const CreateReadingSchema = z
     metric: z.enum(READING_METRICS),
     value: z.number().finite(),
     space_id: z.string().uuid().nullish(),
+    // Migration 069. Which session the count was taken during — optional,
+    // because plenty of counts are "the building at 3pm" and nothing more.
+    session_id: z.string().uuid().nullish(),
     recorded_at: z.string().datetime().optional(),
   })
   .superRefine((input, ctx) => {
@@ -174,6 +177,20 @@ export async function POST(
     }
   }
 
+  // Same guard for the session: it must be on a schedule at THIS facility,
+  // or a count could be filed against another building's program.
+  if (input.session_id) {
+    const { data: session } = await supabase
+      .from("sessions")
+      .select("id, schedule_groups!inner(facility_id)")
+      .eq("id", input.session_id)
+      .eq("schedule_groups.facility_id", facilityId)
+      .maybeSingle();
+    if (!session) {
+      return NextResponse.json({ error: "That session is not at this facility" }, { status: 400 });
+    }
+  }
+
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
@@ -183,6 +200,9 @@ export async function POST(
       facility_id: facilityId,
       org_id: membership.org_id,
       space_id: input.space_id ?? null,
+      // Only sent when named, so a database without 069 still takes the
+      // ordinary count instead of failing on an unknown column.
+      ...(input.session_id ? { session_id: input.session_id } : {}),
       metric: input.metric,
       value: input.value,
       recorded_at: input.recorded_at ?? new Date().toISOString(),

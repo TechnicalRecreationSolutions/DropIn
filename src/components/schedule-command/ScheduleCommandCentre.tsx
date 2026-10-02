@@ -22,6 +22,8 @@ import { cn } from "@/lib/utils/cn";
 import { Button } from "@/components/ui/button";
 import { RESERVED_PUBLIC_LABEL } from "@/lib/sessions/occupancy";
 import ScheduleListSection, { type ScheduleListRow } from "@/components/schedule-list/ScheduleListSection";
+import Breadcrumb from "@/components/layout/Breadcrumb";
+import DepartmentFilter from "@/components/dashboard/DepartmentFilter";
 import OrgThemeProvider from "@/components/schedule/OrgThemeProvider";
 import ScheduleHeaderBar from "@/components/schedule/ScheduleHeaderBar";
 import AudienceToggle from "./AudienceToggle";
@@ -69,6 +71,15 @@ interface ScheduleCommandCentreProps {
   /** Views the org has switched on for its widget/public page — the rest are still editable here, just flagged as off. */
   widgetTemplates: ScheduleTemplate[];
   facilities: CommandFacility[];
+  /**
+   * The building in use, resolved by the page (URL, else the switcher's
+   * remembered one, else the first — lib/dashboard/scope.ts). Not re-derived
+   * from the URL here: a bare /dashboard/schedule names no building, and
+   * guessing "the first" would disagree with the sidebar.
+   */
+  activeFacilityId: string;
+  /** A coordinator's departments — the only ones the filter offers. Null = unscoped. */
+  departmentScope?: string[] | null;
   /**
    * False for an aux staffer (lifeguard, instructor, front desk), who reads
    * the internal schedule and changes nothing.
@@ -119,23 +130,23 @@ export default function ScheduleCommandCentre({
   orgPrimaryColor,
   widgetTemplates,
   facilities,
+  activeFacilityId,
+  departmentScope = null,
   canEdit = true,
 }: ScheduleCommandCentreProps) {
   const queryClient = useQueryClient();
   const searchParams = useSearchParams();
 
-  // Scope is derived straight from the URL on every render — it can only
-  // change by navigating in from the sidebar (there's no picker on this page
-  // anymore to change it locally), so there's nothing to keep in sync. This
-  // replicates the same validation page.tsx does server-side: a stale or
-  // hand-edited URL falls back rather than showing an empty editor.
-  const facilityParam = searchParams.get("facility");
+  // Scope comes from the URL on every render: the building from the sidebar's
+  // switcher (resolved by the page), the department from this page's filter,
+  // and the schedule from the list. A stale or hand-edited id falls back
+  // rather than showing an empty editor.
   const departmentParam = searchParams.get("department");
   const scheduleParam = searchParams.get("schedule");
 
   const facility = useMemo(
-    () => facilities.find((f) => f.id === facilityParam) ?? facilities[0] ?? null,
-    [facilities, facilityParam]
+    () => facilities.find((f) => f.id === activeFacilityId) ?? facilities[0] ?? null,
+    [facilities, activeFacilityId]
   );
   const scheduleGroup = useMemo(
     () => facility?.scheduleGroups.find((g) => g.id === scheduleParam) ?? null,
@@ -187,6 +198,36 @@ export default function ScheduleCommandCentre({
       }),
     [manageableSchedules, facility, today]
   );
+
+  // The department filter's choices: this building's departments (a
+  // coordinator's own only), and "No department" when schedules sit outside
+  // every department — owner/manager territory, so unscoped viewers only.
+  const departmentOptions = useMemo(() => {
+    if (!facility) return [];
+    const own = facility.departments.filter((d) => !departmentScope || departmentScope.includes(d.id));
+    const orphans = !departmentScope && own.length > 0 && facility.scheduleGroups.some((g) => !g.departmentId);
+    return [...own, ...(orphans ? [{ id: NO_DEPARTMENT, name: "No department" }] : [])];
+  }, [facility, departmentScope]);
+
+  // Facility › Department › Schedule, as far as applies; each crumb links up.
+  const crumbDepartmentId = scheduleGroup ? (scheduleGroup.departmentId ?? null) : departmentParam;
+  const crumbs = facility
+    ? [
+        { label: facility.name, href: commandCentreHref({ facilityId: facility.id }) },
+        ...(crumbDepartmentId
+          ? [
+              {
+                label:
+                  crumbDepartmentId === NO_DEPARTMENT
+                    ? "No department"
+                    : (facility.departments.find((d) => d.id === crumbDepartmentId)?.name ?? "Department"),
+                href: commandCentreHref({ facilityId: facility.id, departmentId: crumbDepartmentId }),
+              },
+            ]
+          : []),
+        ...(scheduleGroup ? [{ label: scheduleGroup.name }] : []),
+      ]
+    : [];
 
   const newScheduleHref =
     facility && departmentParam && departmentParam !== NO_DEPARTMENT
@@ -664,6 +705,14 @@ export default function ScheduleCommandCentre({
   return (
     <OrgThemeProvider primaryColor={orgPrimaryColor} className="space-y-5">
       <>
+        {/* Scope, shown rather than re-asked: the building is the sidebar's,
+            and this page's only filter is the department. */}
+        <div className="space-y-4">
+          <Breadcrumb items={crumbs} className="mb-0" />
+          {!scheduleGroup && (
+            <DepartmentFilter options={departmentOptions} value={departmentParam} allLabel="All departments" />
+          )}
+        </div>
         {!scheduleGroup ? (
           <ScheduleListSection
             orgId={orgId}

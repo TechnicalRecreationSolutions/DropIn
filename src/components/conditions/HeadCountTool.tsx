@@ -1,8 +1,8 @@
 "use client";
 
-import { useState, useSyncExternalStore } from "react";
+import { useMemo, useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, Minus, Plus, Thermometer, Trash2, Users } from "lucide-react";
+import { CalendarClock, Check, ChevronDown, Clock, Minus, Plus, Thermometer, Undo2 } from "lucide-react";
 import {
   METRICS,
   formatReading,
@@ -10,10 +10,22 @@ import {
   isFresh,
 } from "@/lib/conditions/readings";
 import type { FacilityReading, ReadingMetric } from "@/types/app.types";
+import type { ExpandedSession } from "@/types/schedule.types";
+import { useWeeklySchedule } from "@/hooks/useScheduleRange";
+import {
+  formatSessionTime,
+  getWeekStart,
+  minutesOfDayIn,
+  nowAsSessionTime,
+  sessionDateString,
+} from "@/lib/utils/dates";
+import { sessionDisplayLabel } from "@/lib/sessions/occupancy";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import { Input } from "@/components/ui/input";
+import { NativeSelect } from "@/components/ui/native-select";
+import { Segmented } from "@/components/ui/segmented";
 
 /**
  * The tool a lifeguard uses on deck — and, since 2026-09-29, everyone else:
@@ -21,14 +33,30 @@ import { Input } from "@/components/ui/input";
  * its own, because "head counts" was lifeguard language and logging how many
  * people are in the building is a status question.
  *
- * ## Designed for one thumb, standing up, in a wet room
+ * ## Where, what and when (2026-10-01)
  *
- * Everything that matters is above the fold at 390px and reachable without a
- * second hand: the space is a row of chips, the count is a pair of 56px
- * steppers either side of a number you can also type into, and submitting is
- * one full-width button. There is no dropdown, no date picker and no "save
- * and continue" — a guard has about fifteen seconds of attention to spare and
- * the thing this replaces is a clipboard.
+ * A count says three things besides the number: the space (chips), the
+ * session it was taken during (migration 069), and the time. All three
+ * default to the common case — whole facility, no session, now — so the
+ * fifteen-second version is still: bump, Record.
+ *
+ * Since the second pass the same day, all three are dropdowns inside the one
+ * card, under the number, rather than three rows of chips above it: with a
+ * dozen spaces the chips pushed the stepper and Record below the fold on a
+ * phone.
+ *
+ * - **Every space is offered, published or not.** The picker used to show
+ *   published spaces only, so a facility whose spaces were all unpublished
+ *   (Panorama: ten, none published) had no picker at all. Publishing decides
+ *   what patrons see; staff count in the back rooms too.
+ * - **Sessions are today's, already started, in the chosen space**, from the
+ *   same schedule fetch the Overview's today strip uses. The ones on at the
+ *   chosen time come first; the rest of the morning folds behind a toggle.
+ *   Nothing is preselected — a count filed under the wrong program is worse
+ *   than one filed under none.
+ * - **Time is Now, or Earlier today** (a count taken on paper and typed in
+ *   at ten past). Picking a session that has already ended moves the time to
+ *   its start, so the pair always agrees.
  *
  * ## The stepper opens on the last count, not on zero
  *
@@ -39,54 +67,56 @@ import { Input } from "@/components/ui/input";
  *
  * ## Recording again is how you correct a mistake
  *
- * There is no edit. The newest count for a space is the one the public sees,
- * and the log below shows what was written so a guard can see their own entry
- * land. Delete is for the typo that would otherwise sit in the eight-week
- * average — 400 instead of 40 — and it is deliberately not time-limited.
+ * There is no edit. The log of past counts lives in Analytics › Attendance
+ * (the user's call, 2026-10-01: history belongs with the analysis, not on the
+ * page someone opens at 6am). What stays here is Undo on the entry you just
+ * made — the typo case, caught while the phone is still in your hand.
  */
 
 interface Space {
   id: string;
   name: string;
   capacity: number | null;
+  department_id?: string | null;
+}
+
+interface Department {
+  id: string;
+  name: string;
 }
 
 export interface HeadCountToolProps {
+  orgId: string;
   facilityId: string;
   spaces: Space[];
-  /** The recent log, newest first, from the server. */
+  /** For grouping the Where picker; spaces outside any listed department go first. */
+  departments?: Department[];
+  /** The newest readings, newest first, from the server — for "Last count". */
   readings: FacilityReading[];
-  /** Names for the `recorded_by` column, so the log says who. */
-  recorderNames: Record<string, string>;
-  /** The viewer's own id, so "you" reads as "you". */
-  viewerId: string;
   canWrite: boolean;
-  /**
-   * May delete OTHER people's entries — owner/manager (org_can_manage in the
-   * facility_readings delete policy). Everyone else may delete only their own
-   * row (recorded_by = auth.uid()), so the trash icon shows only on those.
-   * Defaults to false: the narrow answer, until the caller says otherwise.
-   */
-  canManage?: boolean;
 }
 
 /** "" = the whole building, which is also the default. */
 type SpaceChoice = string;
 
 export default function HeadCountTool({
+  orgId,
   facilityId,
   spaces,
+  departments = [],
   readings,
-  recorderNames,
-  viewerId,
   canWrite,
-  canManage = false,
 }: HeadCountToolProps) {
   const router = useRouter();
   const [space, setSpace] = useState<SpaceChoice>("");
+  const [sessionId, setSessionId] = useState<string>("");
+  /** "" = now. Otherwise "HH:MM" today, local. */
+  const [earlierAt, setEarlierAt] = useState<string | null>(null);
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [justSaved, setJustSaved] = useState<ReadingMetric | null>(null);
+  /** The entry this person just made, for Undo. Cleared once undone. */
+  const [lastSaved, setLastSaved] = useState<FacilityReading | null>(null);
 
   const now = new Date();
   // Times render in the BROWSER only. `formatRecordedAt` reads the runtime's
@@ -96,6 +126,76 @@ export default function HeadCountTool({
   // idiom as DepartmentEditorShell's hash.
   const hydrated = useSyncExternalStore(subscribeNever, () => true, () => false);
   const recordedAt = (iso: string) => (hydrated ? formatRecordedAt(iso, now) : "…");
+
+  // ── Today's sessions ────────────────────────────────────────────────────
+  // The whole week is fetched (that is the hook's unit, and the cache it
+  // shares with the Overview); "starts today" is the filter, as in TodayStrip.
+  const { weekStart, todayKey } = useMemo(
+    () => ({
+      weekStart: getWeekStart(new Date()),
+      todayKey: sessionDateString(nowAsSessionTime()),
+    }),
+    []
+  );
+  const { data: weekSessions, isPending: sessionsPending } = useWeeklySchedule({
+    orgId,
+    facilityId,
+    weekStart,
+  });
+
+  // The chosen time in minutes of the day, in the session convention.
+  const atMin = earlierAt ? hhmmToMinutes(earlierAt) : minutesOfDayIn(nowAsSessionTime());
+
+  const todaySessions = useMemo(() => {
+    const seen = new Set<string>();
+    const out: ExpandedSession[] = [];
+    for (const s of weekSessions ?? []) {
+      if (sessionDateString(s.start) !== todayKey) continue;
+      // residual.ts can split one block into bands with the same session id.
+      if (seen.has(s.sessionId)) continue;
+      seen.add(s.sessionId);
+      out.push(s);
+    }
+    return out.sort((a, b) => a.start.getTime() - b.start.getTime());
+  }, [weekSessions, todayKey]);
+
+  const nowMin = minutesOfDayIn(nowAsSessionTime());
+  const sessionChoices = todaySessions.filter(
+    (s) =>
+      // Not yet started: nobody can have counted it.
+      minutesOfDayIn(s.start) <= nowMin &&
+      // In the chosen space — a whole-facility count may name any session.
+      (!space || s.spaceIds.includes(space))
+  );
+  const onAtTime = (s: ExpandedSession) => {
+    const start = minutesOfDayIn(s.start);
+    const rawEnd = minutesOfDayIn(s.end);
+    const end = rawEnd < start ? 24 * 60 : rawEnd;
+    return start <= atMin && atMin < end;
+  };
+  const sessionsOn = sessionChoices.filter(onAtTime);
+  const sessionsOther = sessionChoices.filter((s) => !onAtTime(s));
+  const selectedSession = todaySessions.find((s) => s.sessionId === sessionId) ?? null;
+
+  // A session picked, then the space changed to one it does not use: the pair
+  // would contradict itself, so the session goes.
+  if (sessionId && space && selectedSession && !selectedSession.spaceIds.includes(space)) {
+    setSessionId("");
+  }
+
+  function pickSession(s: ExpandedSession | null) {
+    if (!s || s.sessionId === sessionId) {
+      setSessionId("");
+      return;
+    }
+    setSessionId(s.sessionId);
+    // A session that has already finished was counted while it ran, not now.
+    if (!onAtTime(s)) setEarlierAt(minutesToHhmm(minutesOfDayIn(s.start)));
+    // A one-space session names the space too; a multi-space one leaves it.
+    if (!space && s.spaceIds.length === 1 && spaces.some((sp) => sp.id === s.spaceIds[0])) {
+      setSpace(s.spaceIds[0]);
+    }
+  }
 
   const latestFor = (metric: ReadingMetric, spaceId: SpaceChoice) =>
     readings.find(
@@ -121,13 +221,24 @@ export default function HeadCountTool({
 
   const capacity = space ? (spaces.find((s) => s.id === space)?.capacity ?? null) : null;
 
+  // "Earlier" must be earlier: a time later than now is a typo, and the API
+  // refuses it anyway — better to say so before the tap.
+  const earlierInFuture = earlierAt != null && hhmmToMinutes(earlierAt) > nowMin;
+  const timeValid = earlierAt == null || (/^\d{2}:\d{2}$/.test(earlierAt) && !earlierInFuture);
+
   async function record(metric: ReadingMetric, value: number) {
     setBusy(metric);
     setError(null);
     const res = await fetch(`/api/facilities/${facilityId}/readings`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ metric, value, space_id: space || null }),
+      body: JSON.stringify({
+        metric,
+        value,
+        space_id: space || null,
+        ...(sessionId ? { session_id: sessionId } : {}),
+        ...(earlierAt ? { recorded_at: localTodayAt(earlierAt).toISOString() } : {}),
+      }),
     });
     setBusy(null);
     if (!res.ok) {
@@ -135,15 +246,20 @@ export default function HeadCountTool({
       setError(body.error ?? "Could not save that. Try again.");
       return;
     }
+    const body = await res.json().catch(() => ({}));
     // `cacheComponents` keeps this component mounted across navigations, so a
     // "Saving…" left in state comes back stuck — see components/facility/
     // FacilityForm.tsx. Clearing it here is not optional.
     setJustSaved(metric);
+    setLastSaved(body.reading ?? null);
     setTimeout(() => setJustSaved(null), 2500);
+    // Back to "now" for the next one; the space and session stay, because the
+    // next count is usually the same place half an hour later.
+    setEarlierAt(null);
     router.refresh();
   }
 
-  async function remove(reading: FacilityReading) {
+  async function undo(reading: FacilityReading) {
     setBusy(reading.id);
     setError(null);
     const res = await fetch(`/api/facilities/${facilityId}/readings/${reading.id}`, {
@@ -152,9 +268,10 @@ export default function HeadCountTool({
     setBusy(null);
     if (!res.ok) {
       const body = await res.json().catch(() => ({}));
-      setError(body.error ?? "Could not delete that.");
+      setError(body.error ?? "Could not undo that.");
       return;
     }
+    setLastSaved(null);
     router.refresh();
   }
 
@@ -163,46 +280,20 @@ export default function HeadCountTool({
 
   const spaceLabel = space ? (spaces.find((s) => s.id === space)?.name ?? "") : "the whole facility";
 
+  // Spaces grouped under their department, in the order they came (the Spaces
+  // page order). A facility with ten lanes and two courts is a dropdown, not
+  // two rows of chips that push the number off a phone screen.
+  const spaceGroups = groupSpaces(spaces, departments);
+
   return (
-    <div className="space-y-6">
-      {error && (
-        <Banner variant="error">
-          {error}
-        </Banner>
-      )}
+    <div className="space-y-4">
+      {error && <Banner variant="error">{error}</Banner>}
 
-      {/* ── Where ───────────────────────────────────────────────────────── */}
-      {spaces.length > 0 && (
-        <div>
-          <p className="mb-2 text-sm font-medium text-foreground">Where</p>
-          {/* Scrolls sideways rather than wrapping into a tall block — the
-              count field has to stay on screen with it. */}
-          <div className="-mx-4 flex gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:flex-wrap sm:px-0">
-            {[{ id: "", name: "Whole facility", capacity: null }, ...spaces].map((s) => (
-              <button
-                key={s.id || "facility"}
-                type="button"
-                onClick={() => setSpace(s.id)}
-                aria-pressed={space === s.id}
-                className={`min-h-11 shrink-0 rounded-full border px-4 py-2 text-sm font-medium transition-colors duration-150 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring ${
-                  space === s.id
-                    ? "border-brand bg-brand-subtle text-brand-strong"
-                    : "border-input bg-card text-foreground hover:bg-muted"
-                }`}
-              >
-                {s.name}
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {/* ── How many ────────────────────────────────────────────────────── */}
       <div className="rounded-card border border-border bg-card p-5 shadow-card">
-        <div className="mb-3 flex items-baseline justify-between gap-2">
-          <label htmlFor="count" className="flex items-center gap-2 text-card-title text-foreground">
-            <Users className="size-4 text-muted-foreground" aria-hidden />
-            People in {spaceLabel}
+        {/* ── Where ─────────────────────────────────────────────────────── */}
+        <div className="flex items-center justify-between gap-3">
+          <label htmlFor="count-where" className="text-card-title text-foreground">
+            Count people
           </label>
           {justSaved === "headcount" && (
             <span role="status" className="flex items-center gap-1 text-sm font-medium text-success">
@@ -211,7 +302,38 @@ export default function HeadCountTool({
           )}
         </div>
 
-        <div className="flex items-center gap-3">
+        {spaces.length > 0 && (
+          <NativeSelect
+            id="count-where"
+            aria-label="Where"
+            value={space}
+            onChange={(e) => setSpace(e.target.value)}
+            wrapperClassName="mt-3"
+            className="h-11 text-base md:text-base"
+          >
+            <option value="">Whole facility</option>
+            {spaceGroups.map((g) =>
+              g.label ? (
+                <optgroup key={g.key} label={g.label}>
+                  {g.spaces.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                    </option>
+                  ))}
+                </optgroup>
+              ) : (
+                g.spaces.map((s) => (
+                  <option key={s.id} value={s.id}>
+                    {s.name}
+                  </option>
+                ))
+              )
+            )}
+          </NativeSelect>
+        )}
+
+        {/* ── How many ──────────────────────────────────────────────────── */}
+        <div className="mt-4 flex items-center gap-3">
           {/* 56px targets. The 44px minimum is for a dry index finger; this is
               used with wet hands, often through a glove. */}
           <Button
@@ -228,6 +350,7 @@ export default function HeadCountTool({
 
           <Input
             id="count"
+            aria-label={`People in ${spaceLabel}`}
             // `inputMode` rather than `type="number"`: a numeric keypad with no
             // spinner, and no scroll-wheel changing the value by accident.
             type="text"
@@ -237,7 +360,7 @@ export default function HeadCountTool({
             disabled={!canWrite}
             onChange={(e) => setCountText(e.target.value.replace(/[^0-9]/g, ""))}
             onFocus={(e) => e.currentTarget.select()}
-            className="h-auto w-auto flex-1 rounded-card py-3 text-center text-4xl font-semibold tabular-nums md:text-4xl"
+            className="h-auto w-auto min-w-0 flex-1 rounded-card py-3 text-center text-4xl font-semibold tabular-nums md:text-4xl"
           />
 
           <Button
@@ -253,7 +376,7 @@ export default function HeadCountTool({
           </Button>
         </div>
 
-        <div className="mt-2 flex flex-wrap gap-2">
+        <div className="mt-2 flex flex-wrap items-center gap-2">
           {[5, 10, 25].map((by) => (
             <Button
               key={by}
@@ -267,27 +390,139 @@ export default function HeadCountTool({
             </Button>
           ))}
           {capacity != null && (
-            <span className="ml-auto self-center text-xs text-muted-foreground">
-              Capacity {capacity}
-            </span>
+            <span className="ml-auto text-xs text-muted-foreground">Capacity {capacity}</span>
           )}
+        </div>
+
+        {/* ── Session and time: optional, so quiet ──────────────────────── */}
+        <div className="mt-5 grid gap-3 border-t border-border pt-4 sm:grid-cols-2">
+          <div className="min-w-0">
+            <label
+              htmlFor="count-session"
+              className="mb-1.5 flex items-center gap-1.5 text-caption font-medium text-foreground"
+            >
+              <CalendarClock className="size-4 text-muted-foreground" aria-hidden />
+              Session
+            </label>
+            <NativeSelect
+              id="count-session"
+              value={sessionId}
+              disabled={!canWrite || sessionsPending || sessionChoices.length === 0}
+              onChange={(e) =>
+                pickSession(todaySessions.find((s) => s.sessionId === e.target.value) ?? null)
+              }
+              className="h-11"
+            >
+              <option value="">
+                {sessionsPending
+                  ? "Loading…"
+                  : sessionChoices.length === 0
+                    ? todaySessions.length === 0
+                      ? "Nothing scheduled today"
+                      : "Nothing has started yet"
+                    : "No session"}
+              </option>
+              {sessionsOn.length > 0 && (
+                <optgroup label="On now">
+                  {sessionsOn.map((s) => (
+                    <option key={s.sessionId} value={s.sessionId}>
+                      {sessionDisplayLabel(s)} · {formatSessionTime(s.start)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+              {sessionsOther.length > 0 && (
+                <optgroup label="Earlier today">
+                  {sessionsOther.map((s) => (
+                    <option key={s.sessionId} value={s.sessionId}>
+                      {sessionDisplayLabel(s)} · {formatSessionTime(s.start)}
+                    </option>
+                  ))}
+                </optgroup>
+              )}
+            </NativeSelect>
+          </div>
+
+          <div className="min-w-0">
+            <p className="mb-1.5 flex items-center gap-1.5 text-caption font-medium text-foreground">
+              <Clock className="size-4 text-muted-foreground" aria-hidden />
+              When
+            </p>
+            <div className="flex items-center gap-2">
+              <Segmented
+                label="When the count was taken"
+                value={earlierAt == null ? "now" : "earlier"}
+                disabled={!canWrite}
+                onChange={(v) =>
+                  setEarlierAt(
+                    v === "now" ? null : (earlierAt ?? minutesToHhmm(Math.max(0, nowMin - 30)))
+                  )
+                }
+                options={[
+                  { value: "now", label: "Now" },
+                  { value: "earlier", label: "Earlier" },
+                ]}
+              />
+              {earlierAt != null && (
+                <Input
+                  type="time"
+                  aria-label="Time of the count"
+                  value={earlierAt}
+                  max={minutesToHhmm(nowMin)}
+                  disabled={!canWrite}
+                  onChange={(e) => setEarlierAt(e.target.value)}
+                  className="h-11 w-auto min-w-0 flex-1 tabular-nums"
+                />
+              )}
+            </div>
+            {earlierInFuture && (
+              <p className="mt-1.5 text-sm text-destructive">That time hasn&rsquo;t happened yet.</p>
+            )}
+          </div>
         </div>
 
         <Button
           type="button"
           size="lg"
           onClick={() => record("headcount", count)}
-          disabled={!canWrite || !countValid || busy === "headcount"}
-          className="mt-4 h-13 w-full text-base"
+          disabled={!canWrite || !countValid || !timeValid || busy === "headcount"}
+          className="mt-5 h-13 w-full text-base"
         >
           {busy === "headcount" ? "Saving…" : "Record count"}
         </Button>
 
-        {lastCount && (
-          <p className="mt-2 text-center text-xs text-muted-foreground">
-            Last count {Math.round(lastCount.value)} at {recordedAt(lastCount.recorded_at)}
-            {hydrated && !isFresh("headcount", lastCount.recorded_at, now) && " — out of date"}
+        {/* What will be filed, in one line, so a wrong pick is caught before
+            the tap rather than in Analytics a month later. */}
+        <p className="mt-2 text-center text-xs text-muted-foreground">
+          {[
+            space ? spaceLabel : "Whole facility",
+            selectedSession ? sessionDisplayLabel(selectedSession) : null,
+            earlierAt ? `at ${formatHhmm(earlierAt)}` : "now",
+          ]
+            .filter(Boolean)
+            .join(" · ")}
+        </p>
+
+        {lastSaved && lastSaved.metric === "headcount" ? (
+          <p className="mt-1 flex items-center justify-center gap-2 text-center text-xs text-muted-foreground">
+            Recorded {Math.round(lastSaved.value)} at {recordedAt(lastSaved.recorded_at)}
+            <button
+              type="button"
+              onClick={() => undo(lastSaved)}
+              disabled={busy === lastSaved.id}
+              className="inline-flex min-h-8 items-center gap-1 rounded px-1.5 font-medium text-foreground underline-offset-4 hover:underline focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring disabled:opacity-40"
+            >
+              <Undo2 className="size-3.5" aria-hidden />
+              {busy === lastSaved.id ? "Undoing…" : "Undo"}
+            </button>
           </p>
+        ) : (
+          lastCount && (
+            <p className="mt-1 text-center text-xs text-muted-foreground">
+              Last count {Math.round(lastCount.value)} at {recordedAt(lastCount.recorded_at)}
+              {hydrated && !isFresh("headcount", lastCount.recorded_at, now) && " — out of date"}
+            </p>
+          )
         )}
       </div>
 
@@ -295,7 +530,8 @@ export default function HeadCountTool({
           Folded unless this facility has recorded one: water temperature is a
           pool thing, and since the tool moved onto the status page (which
           every department uses) a tennis coordinator should not meet it. A
-          building that takes temperatures gets it open, as before. */}
+          building that takes temperatures gets it open, as before. They are
+          filed with the same space, session and time as a count. */}
       <Collapsible defaultOpen={readings.some((r) => r.metric !== "headcount")}>
         <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
           <Thermometer className="size-4" aria-hidden />
@@ -307,7 +543,7 @@ export default function HeadCountTool({
         </CollapsibleTrigger>
         <CollapsibleContent className="mt-3">
       <TemperatureCard
-        disabled={!canWrite}
+        disabled={!canWrite || !timeValid}
         busy={busy}
         justSaved={justSaved}
         latest={{
@@ -319,56 +555,50 @@ export default function HeadCountTool({
       />
         </CollapsibleContent>
       </Collapsible>
-
-      {/* ── The log ─────────────────────────────────────────────────────── */}
-      {readings.length > 0 && (
-      <Collapsible>
-        <CollapsibleTrigger className="group flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-          Recent entries ({readings.length})
-          <ChevronDown
-            className="size-4 transition-transform duration-150 group-data-[state=open]:rotate-180"
-            aria-hidden
-          />
-        </CollapsibleTrigger>
-        <CollapsibleContent className="mt-3">
-          <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
-            {readings.map((r) => {
-              const mine = r.recorded_by === viewerId;
-              const who = mine ? "you" : (recorderNames[r.recorded_by ?? ""] ?? "a colleague");
-              const where = r.space_id
-                ? (spaces.find((s) => s.id === r.space_id)?.name ?? "a space")
-                : "whole facility";
-              return (
-                <li key={r.id} className="flex min-h-12 items-center gap-3 px-4 py-1.5 text-sm">
-                  <span className="w-20 shrink-0 font-semibold tabular-nums">
-                    {formatReading(r.metric, r.value)}
-                  </span>
-                  <span className="min-w-0 flex-1 text-muted-foreground sm:truncate">
-                    {METRICS[r.metric].label} · {where} · {recordedAt(r.recorded_at)} · {who}
-                  </span>
-                  {canWrite && (mine || canManage) && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => remove(r)}
-                      disabled={busy === r.id}
-                      aria-label="Delete this entry"
-                      title="For a typo. A count that was right at the time should stay — record a new one instead."
-                      className="-mr-2 size-11 text-muted-foreground hover:text-destructive disabled:opacity-40"
-                    >
-                      <Trash2 className="size-4" aria-hidden />
-                    </Button>
-                  )}
-                </li>
-              );
-            })}
-          </ul>
-        </CollapsibleContent>
-      </Collapsible>
-      )}
     </div>
   );
+}
+
+/** Spaces under their department's name, in the order given; unassigned first, unlabelled. */
+function groupSpaces(spaces: Space[], departments: Department[]) {
+  const loose = spaces.filter((s) => !departments.some((d) => d.id === s.department_id));
+  return [
+    { key: "loose", label: null as string | null, spaces: loose },
+    ...departments.map((d) => ({
+      key: d.id,
+      label: d.name as string | null,
+      spaces: spaces.filter((s) => s.department_id === d.id),
+    })),
+  ].filter((g) => g.spaces.length > 0);
+}
+
+/** "14:05" → 845. */
+function hhmmToMinutes(hhmm: string): number {
+  const [h, m] = hhmm.split(":").map(Number);
+  return (h || 0) * 60 + (m || 0);
+}
+
+/** 845 → "14:05", the value an `<input type="time">` takes. */
+function minutesToHhmm(min: number): string {
+  return `${String(Math.floor(min / 60)).padStart(2, "0")}:${String(min % 60).padStart(2, "0")}`;
+}
+
+/** "14:05" → "2:05 PM", through the session formatter so it matches the chips. */
+function formatHhmm(hhmm: string): string {
+  const min = hhmmToMinutes(hhmm);
+  return formatSessionTime(new Date(Date.UTC(2000, 0, 1, Math.floor(min / 60), min % 60)));
+}
+
+/**
+ * Today at a wall-clock time, as a real instant. Local getters on purpose:
+ * `recorded_at` is a true timestamp (unlike a session's UTC-labelled digits),
+ * and "14:05" means 14:05 where the phone is.
+ */
+function localTodayAt(hhmm: string): Date {
+  const d = new Date();
+  const min = hhmmToMinutes(hhmm);
+  d.setHours(Math.floor(min / 60), min % 60, 0, 0);
+  return d;
 }
 
 /**

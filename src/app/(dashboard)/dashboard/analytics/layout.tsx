@@ -56,6 +56,8 @@ export default async function AnalyticsLayout({ children }: { children: React.Re
   if (!actor || can(actor, "operations:view")) {
     tabs.push({ href: "/dashboard/analytics/utilization", label: "Utilization" });
     tabs.push({ href: "/dashboard/analytics/attendance", label: "Attendance" });
+    // Moved off the facility status page 2026-10-01. Same gate as Attendance.
+    tabs.push({ href: "/dashboard/analytics/notices", label: "Status history" });
   }
 
   return (

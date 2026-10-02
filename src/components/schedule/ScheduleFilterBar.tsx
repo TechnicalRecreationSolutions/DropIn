@@ -1,6 +1,6 @@
 "use client";
 
-import { useId, useRef, useState } from "react";
+import { useId, useState } from "react";
 import { ChevronDown, Search, SlidersHorizontal } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
 import { localDateString, parseDate } from "@/lib/utils/dates";
@@ -15,7 +15,7 @@ import {
   EMPTY_FILTER_STATE,
 } from "@/lib/schedule/sessionFilters";
 import type { ExpandedSession } from "@/types/schedule.types";
-import TickBoxList, { summarizeTicks, useDismissable } from "./TickBoxList";
+import TickBoxDropdown, { fieldTheme } from "./TickBoxDropdown";
 
 interface ScheduleFilterBarProps {
   /** The week's sessions *before* filtering — the option lists come from these. */
@@ -106,7 +106,8 @@ export default function ScheduleFilterBar({
   }
 
   const count = activeFilterCount(state);
-  const theme = themeClasses(dark);
+  const widgetTheme = dark ? "widget-dark" : "widget";
+  const theme = fieldTheme(widgetTheme);
 
   return (
     <div className={cn("border-b px-4 py-3", dark ? "border-white/10 bg-gray-900" : "border-gray-200 bg-white")}>
@@ -163,19 +164,19 @@ export default function ScheduleFilterBar({
         )}
 
         {showActivity && (
-          <CheckboxDropdown
+          <TickBoxDropdown
             id={`${idPrefix}-activity`}
             label="Activity"
             allLabel="All activities"
             items={options.activities.map((a) => ({ value: a, label: a }))}
             selected={state.activities}
             onChange={(activities) => onChange({ ...state, activities })}
-            dark={dark}
+            theme={widgetTheme}
           />
         )}
 
         {showDay && (
-          <CheckboxDropdown
+          <TickBoxDropdown
             id={`${idPrefix}-day`}
             label="Day"
             allLabel="Any day"
@@ -189,12 +190,12 @@ export default function ScheduleFilterBar({
             }))}
             selected={state.days.map(String)}
             onChange={(days) => onChange({ ...state, days: days.map(Number).sort((a, b) => a - b) })}
-            dark={dark}
+            theme={widgetTheme}
           />
         )}
 
         {showTime && (
-          <CheckboxDropdown
+          <TickBoxDropdown
             id={`${idPrefix}-time`}
             label="Time of day"
             allLabel="Any time"
@@ -204,31 +205,31 @@ export default function ScheduleFilterBar({
             })}
             selected={state.times}
             onChange={(times) => onChange({ ...state, times: times as TimeBand[] })}
-            dark={dark}
+            theme={widgetTheme}
           />
         )}
 
         {showSpace && (
-          <CheckboxDropdown
+          <TickBoxDropdown
             id={`${idPrefix}-space`}
             label="Where"
             allLabel="Everywhere"
             items={options.spaces.map((sp) => ({ value: sp, label: sp }))}
             selected={state.spaces}
             onChange={(spaces) => onChange({ ...state, spaces })}
-            dark={dark}
+            theme={widgetTheme}
           />
         )}
 
         {showAge && (
-          <CheckboxDropdown
+          <TickBoxDropdown
             id={`${idPrefix}-age`}
             label="Who it’s for"
             allLabel="Everyone"
             items={options.ages.map((a) => ({ value: a, label: a }))}
             selected={state.ages}
             onChange={(ages) => onChange({ ...state, ages })}
-            dark={dark}
+            theme={widgetTheme}
           />
         )}
 
@@ -274,87 +275,3 @@ export default function ScheduleFilterBar({
 
 /** The focus ring and ticks take the centre's colour. */
 const RING_STYLE = { "--tw-ring-color": "var(--org-primary, #0066CC)" } as React.CSSProperties;
-
-/**
- * Explicit colours, not tokens — see the `dark` prop. A field's border is what
- * shows it is a control, so it holds 3:1 against its ground in both themes.
- */
-function themeClasses(dark: boolean) {
-  return {
-    label: cn("text-xs font-medium", dark ? "text-gray-300" : "text-[#5d5d63]"),
-    muted: dark ? "text-gray-300" : "text-[#5d5d63]",
-    icon: dark ? "text-gray-400" : "text-[#5d5d63]",
-    field: cn(
-      "h-10 w-full rounded-[10px] border text-sm outline-none transition-colors",
-      "focus-visible:ring-2 focus-visible:ring-offset-1",
-      dark
-        ? "bg-gray-800 border-gray-500 text-gray-100 focus-visible:ring-offset-gray-900"
-        : "bg-white border-[#86868d] text-[#111113] focus-visible:ring-offset-white"
-    ),
-    panel: dark ? "bg-gray-800 border-gray-600 text-gray-100" : "bg-white border-[#e4e4e7] text-[#111113]",
-    row: dark ? "hover:bg-white/5" : "hover:bg-[#f4f4f5]",
-  };
-}
-
-/**
- * One filter: a field-shaped button that opens a list of checkboxes beneath
- * it. Real checkboxes inside real labels, so each row is keyboard- and
- * screen-reader-operable with no extra roles. Escape or a click outside closes
- * it; Escape hands focus back to the button.
- */
-function CheckboxDropdown({
-  id,
-  label,
-  allLabel,
-  items,
-  selected,
-  onChange,
-  dark,
-}: {
-  id: string;
-  label: string;
-  allLabel: string;
-  items: { value: string; label: string; detail?: string }[];
-  selected: string[];
-  onChange: (next: string[]) => void;
-  dark: boolean;
-}) {
-  const [open, setOpen] = useState(false);
-  const rootRef = useRef<HTMLDivElement | null>(null);
-  const buttonRef = useRef<HTMLButtonElement | null>(null);
-  const theme = themeClasses(dark);
-
-  useDismissable(open, () => setOpen(false), rootRef, buttonRef);
-
-  const panelId = `${id}-options`;
-
-  return (
-    <div ref={rootRef} className="relative flex min-w-0 flex-col gap-1.5">
-      <span id={`${id}-label`} className={theme.label}>
-        {label}
-      </span>
-      <button
-        ref={buttonRef}
-        type="button"
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        aria-labelledby={`${id}-label ${id}-value`}
-        className={cn(theme.field, "flex items-center justify-between gap-2 pl-3 pr-2.5 text-left")}
-        style={RING_STYLE}
-      >
-        <span id={`${id}-value`} className={cn("truncate", selected.length > 0 && "font-semibold")}>
-          {summarizeTicks(items, selected, allLabel)}
-        </span>
-        <ChevronDown
-          aria-hidden
-          className={cn("size-4 shrink-0 transition-transform", open && "rotate-180", theme.icon)}
-        />
-      </button>
-
-      {open && (
-        <TickBoxList id={panelId} label={label} items={items} selected={selected} onChange={onChange} dark={dark} />
-      )}
-    </div>
-  );
-}

@@ -4,12 +4,14 @@ import { occupancyKindLabel } from "@/lib/sessions/occupancy";
 import Link from "next/link";
 import { Pencil, Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { canReadFacility, isReadOnly, isScoped } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { NO_DEPARTMENT, sessionsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
-import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
-import DepartmentPicker from "@/components/department/DepartmentPicker";
+import { pickFacility } from "@/lib/dashboard/scope";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
+import Breadcrumb from "@/components/layout/Breadcrumb";
+import DepartmentFilter from "@/components/dashboard/DepartmentFilter";
 import DeleteSessionTemplateButton from "@/components/session-template/DeleteSessionTemplateButton";
 import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
@@ -110,9 +112,12 @@ async function SessionsBody({ searchParams }: SessionsPageProps) {
       .order("display_order", { ascending: true }) as unknown as Promise<{ data: SessionTemplateRow[] | null }>,
   ]);
 
-  if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
-
-  const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
+  // Only buildings this viewer can read — a coordinator's own — before the
+  // default is picked, or they land in one they do not hold.
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const readable = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
+  const facility = pickFacility(readable, facilityParam, await rememberedFacilityId());
+  if (!facility) return <NoFacilities />;
   const facilityDepartments = (departmentRows ?? []).filter((d) => d.facility_id === facility.id);
   const activeDepartmentId = departmentParam ?? NO_DEPARTMENT;
 
@@ -121,26 +126,29 @@ async function SessionsBody({ searchParams }: SessionsPageProps) {
     activeDepartmentId === NO_DEPARTMENT ? t.department_id === null : t.department_id === activeDepartmentId
   );
 
-  const facilityCards = facilityRows.map((f) => {
-    const count = (templateRows ?? []).filter((t) => t.facility_id === f.id).length;
-    return { ...f, meta: `${count} template${count !== 1 ? "s" : ""}` };
-  });
-
   const departmentName = facilityDepartments.find((d) => d.id === activeDepartmentId)?.name ?? null;
+
+  // A template belongs to one department or to the whole building, and "New
+  // template" creates into the bucket on screen — so this filter has no
+  // "All": there would be nowhere to create into. "Facility-wide" comes first.
+  const ownDepartments = isScoped(actor.role)
+    ? facilityDepartments.filter((d) => actor.scopes.departmentIds.includes(d.id))
+    : facilityDepartments;
+  const departmentOptions =
+    facilityDepartments.length > 0 ? [{ id: NO_DEPARTMENT, name: "Facility-wide" }, ...ownDepartments] : [];
 
   return (
     <>
-      <FacilityCardPicker
-        facilities={facilityCards}
-        activeFacilityId={facility.id}
-        hrefFor={(facilityId) => sessionsHref({ facilityId })}
-      />
-
-      <DepartmentPicker
-        departments={facilityDepartments}
-        activeDepartmentId={activeDepartmentId}
-        hrefFor={(departmentId) => sessionsHref({ facilityId: facility.id, departmentId })}
-      />
+      <div className="space-y-4">
+        <Breadcrumb
+          className="mb-0"
+          items={[
+            { label: facility.name, href: sessionsHref({ facilityId: facility.id }) },
+            ...(departmentName ? [{ label: departmentName }] : []),
+          ]}
+        />
+        <DepartmentFilter options={departmentOptions} value={activeDepartmentId} />
+      </div>
 
       <TemplateList
         facility={facility}

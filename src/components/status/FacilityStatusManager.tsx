@@ -2,9 +2,8 @@
 
 import { useState, useSyncExternalStore } from "react";
 import { useRouter } from "next/navigation";
-import { Check, ChevronDown, Clock, Plus, Trash2 } from "lucide-react";
+import { Check, Clock, Plus, Trash2 } from "lucide-react";
 import {
-  CATEGORY_LABEL,
   SEVERITY_LABEL,
   describeNoticeWindow,
   isNoticeFinished,
@@ -17,7 +16,6 @@ import type { FacilityNotice } from "@/types/app.types";
 import { Badge } from "@/components/ui/badge";
 import { Banner } from "@/components/ui/banner";
 import { Button } from "@/components/ui/button";
-import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible";
 import StatusComposer, { type ComposerDepartment, type ComposerSpace } from "./StatusComposer";
 import { SeverityDot } from "./SeverityDot";
 
@@ -40,7 +38,8 @@ import { SeverityDot } from "./SeverityDot";
  *
  * Posting happens in a side panel (`StatusComposer`), not a form that pushes
  * the board down. Drafts and scheduled notices only appear when there are
- * some. History is one collapsed row.
+ * some. Finished notices are not here at all: they are history, and history
+ * lives in Analytics › Status history (2026-10-01).
  *
  * ## Clearing is not deleting
  *
@@ -66,11 +65,6 @@ export interface FacilityStatusManagerProps {
   departmentColumn?: boolean;
   /** user id → email, for "Reported by" on a waiting report. */
   reporters?: Record<string, string>;
-  /**
-   * Rendered straight under the board — the "People here" counter. A slot
-   * rather than a prop list so the page owns the readings query.
-   */
-  afterBoard?: React.ReactNode;
 }
 
 export default function FacilityStatusManager({
@@ -85,7 +79,6 @@ export default function FacilityStatusManager({
   canManageLibrary = false,
   departmentColumn = true,
   reporters = {},
-  afterBoard,
 }: FacilityStatusManagerProps) {
   const reporting = !canWrite && canReport;
   const canCompose = canWrite || reporting;
@@ -117,7 +110,6 @@ export default function FacilityStatusManager({
       !isNoticeFinished(n, now) &&
       (!n.is_published || isNoticeScheduled(n, now))
   );
-  const past = sorted.filter((n) => isNoticeFinished(n, now));
 
   const spaceById = new Map(spaces.map((s) => [s.id, s]));
   const spaceName = (id: string | null | undefined) => (id ? (spaceById.get(id)?.name ?? null) : null);
@@ -348,8 +340,6 @@ export default function FacilityStatusManager({
         )}
       </section>
 
-      {afterBoard}
-
       {/* ── Not live yet: staff-only and scheduled, only when there are some ── */}
       {upcoming.length > 0 && (
         <section>
@@ -383,46 +373,6 @@ export default function FacilityStatusManager({
             ))}
           </ul>
         </section>
-      )}
-
-      {/* ── History, folded ─────────────────────────────────────────────── */}
-      {past.length > 0 && (
-        <Collapsible>
-          <CollapsibleTrigger className="group flex w-full items-center justify-between rounded-card px-1 py-1 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring">
-            <span className="text-heading text-foreground">History</span>
-            <span className="flex items-center gap-1 text-sm text-muted-foreground">
-              {past.length > 20 ? "Last 20" : past.length}
-              <ChevronDown
-                className="size-4 transition-transform duration-150 group-data-[state=open]:rotate-180"
-                aria-hidden
-              />
-            </span>
-          </CollapsibleTrigger>
-          <CollapsibleContent className="mt-3">
-            <ul className="divide-y divide-border overflow-hidden rounded-card border border-border bg-card">
-              {past.slice(0, 20).map((n) => (
-                <li key={n.id} className="flex items-center gap-3 px-4 py-3">
-                  <SeverityDot severity={n.severity} />
-                  <div className="min-w-0 flex-1">
-                    <p className="truncate text-sm font-medium text-foreground">{n.headline}</p>
-                    <p className="truncate text-xs text-muted-foreground">
-                      {[
-                        where(n) ?? "Whole facility",
-                        CATEGORY_LABEL[n.category],
-                        hydrated
-                          ? new Date(n.starts_at).toLocaleDateString(undefined, {
-                              month: "short",
-                              day: "numeric",
-                            })
-                          : "…",
-                      ].join(" · ")}
-                    </p>
-                  </div>
-                </li>
-              ))}
-            </ul>
-          </CollapsibleContent>
-        </Collapsible>
       )}
 
       {canCompose && (

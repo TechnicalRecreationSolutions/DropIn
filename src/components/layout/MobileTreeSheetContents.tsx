@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { SheetHeader, SheetTitle } from "@/components/ui/sheet";
-import OrgImage from "@/components/media/OrgImage";
 import SidebarNav from "./SidebarNav";
 import SidebarProfile from "./SidebarProfile";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
@@ -37,17 +36,10 @@ export default function MobileTreeSheetContents({
             Dropin
           </Link>
         </SheetTitle>
-        <div className="flex items-center gap-2 min-w-0">
-          {orgLogoUrl && (
-            <span className="relative size-5 rounded shrink-0 overflow-hidden bg-muted">
-              <OrgImage src={orgLogoUrl} alt="" sizes="20px" className="object-cover" />
-            </span>
-          )}
-          <p className="text-caption text-muted-foreground truncate">{orgName}</p>
-        </div>
       </SheetHeader>
 
-      <SidebarNav orgId={orgId} onNavigate={close} />
+      {/* Same as the desktop sidebar: the building switcher at the top. */}
+      <SidebarNav orgId={orgId} orgName={orgName} orgLogoUrl={orgLogoUrl} onNavigate={close} />
 
       <SidebarProfile userEmail={userEmail} role={role} onNavigate={close} />
     </>

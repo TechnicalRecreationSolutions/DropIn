@@ -114,19 +114,17 @@ export default function AnalyticsPage({ searchParams }: AnalyticsPageProps) {
   );
 }
 
+/**
+ * The period and export controls. The building is not chosen here — it is
+ * the sidebar's switcher ("All facilities" included, for owners and managers),
+ * read from the same `?facility` the body and the export use.
+ */
 async function ToolbarLoader() {
   const orgContext = await getOrgContext();
   if (!orgContext) return null;
   if (!can({ role: orgContext.membership.role, scopes: orgContext.scopes }, "analytics:view")) return null;
 
-  const supabase = await createClient();
-  const { data } = await supabase
-    .from("facilities")
-    .select("id, name")
-    .eq("org_id", orgContext.org.id)
-    .order("name");
-
-  return <AnalyticsToolbar facilities={(data ?? []) as { id: string; name: string }[]} />;
+  return <AnalyticsToolbar />;
 }
 
 async function AnalyticsBody({ searchParams }: AnalyticsPageProps) {

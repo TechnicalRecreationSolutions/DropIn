@@ -24,7 +24,7 @@ export const instant = true;
  * Every switch it reports belongs to a facility, and each one already has an
  * editor that knows the rest of that facility's context — publishing, the
  * directory opt-in and the head-count disclosure mode all live on the facility
- * edit and status pages, and moving them here would mean two places to change
+ * edit page, and moving them here would mean two places to change
  * one column.
  *
  * What did not exist anywhere was the ANSWER to "what can a patron see right

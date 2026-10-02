@@ -3,13 +3,15 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { canReadFacility, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { mapHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Button } from "@/components/ui/button";
 import MapEditorClient from "@/components/facility-maps/MapEditorClient";
-import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
+import Breadcrumb from "@/components/layout/Breadcrumb";
+import { pickFacility } from "@/lib/dashboard/scope";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
 
@@ -88,9 +90,12 @@ async function MapBody({ searchParams }: MapPageProps) {
         .order("display_order", { ascending: true }),
     ]);
 
-  if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
-
-  const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
+  // Only buildings this viewer can read, before the default is picked: the
+  // URL's, else the one the sidebar's switcher remembers, else the first.
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const readable = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
+  const facility = pickFacility(readable, facilityParam, await rememberedFacilityId());
+  if (!facility) return <NoFacilities />;
   const spaces = (spaceRows ?? [])
     .filter((s) => s.facility_id === facility.id)
     .map((s) => ({
@@ -104,17 +109,11 @@ async function MapBody({ searchParams }: MapPageProps) {
     .filter((d) => d.facility_id === facility.id)
     .map((d) => ({ id: d.id, name: d.name }));
 
-  // The same compact pill picker the Spaces page uses. It replaced a grid of
-  // floorplan thumbnails that pushed the editor below the fold on any org
-  // with more than one building.
-  const facilityCards = facilityRows.map((f) => {
-    const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
-    return { ...f, meta: `${count} space${count !== 1 ? "s" : ""}` };
-  });
-
   return (
     <>
-      <FacilityCardPicker facilities={facilityCards} activeFacilityId={facility.id} hrefFor={mapHref} />
+      {/* The building comes from the sidebar's switcher; a floorplan has no
+          department, so there is no filter here. */}
+      <Breadcrumb className="mb-0" items={[{ label: facility.name, href: mapHref(facility.id) }]} />
 
       {/* Keyed on the facility so switching buildings rebuilds the editor
           rather than leaving the previous building's shapes on canvas. */}

@@ -8,16 +8,12 @@ import {
   canReportNotice,
   canWriteNotice,
   isReadOnly,
-  isScoped,
   ROLE_LABELS,
 } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import Breadcrumb from "@/components/layout/Breadcrumb";
-import FacilityStatusManager from "@/components/status/FacilityStatusManager";
+import FacilityStatusSimple from "@/components/status/simple/FacilityStatusSimple";
 import { loadStatusTemplates } from "@/lib/status/load-templates";
-import PublicConditionsSettings from "@/components/conditions/PublicConditionsSettings";
-import { InfoTip, PageHeader } from "@/components/ui/info-tip";
-import HeadCountTool from "@/components/conditions/HeadCountTool";
 import { Banner } from "@/components/ui/banner";
 import { Skeleton } from "@/components/ui/skeleton";
 
@@ -29,6 +25,11 @@ import { Skeleton } from "@/components/ui/skeleton";
  * rarely, while this is operational and is opened at 6am by whoever is on
  * shift. Burying a contamination behind a form that also holds the postal code
  * would be the wrong page for the wrong person.
+ *
+ * Operational only. What patrons are shown (occupancy, temperatures) is set
+ * on the facility's Edit page, and the history and totals live in Analytics:
+ * the user's call (2026-10-01) was that this page holds neither settings nor
+ * analytics.
  *
  * Read by every role. Written by whoever `can_write_notice()` allows —
  * including aux staff, but only when their organization has opted in. That is
@@ -45,7 +46,7 @@ export default function FacilityStatusPage({ params }: StatusPageProps) {
   // boundary; without one Next reports "uncached data during prerendering"
   // on every navigation here (logged by design-shots before this rework).
   return (
-    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-3xl rounded-card" aria-busy="true" />}>
+    <Suspense fallback={<Skeleton className="mx-auto h-96 max-w-6xl rounded-card" aria-busy="true" />}>
       <StatusBody params={params} />
     </Suspense>
   );
@@ -89,16 +90,16 @@ async function StatusBody({ params }: StatusPageProps) {
       .select("*")
       .eq("facility_id", facilityId)
       .order("starts_at", { ascending: false }),
-    // The People here counter's recent log (migration 061) — 30 rows, not a
-    // dataset; anything needing totals pages with `.range()`. Also answers
-    // the settings panel's "has anything been recorded?".
+    // The newest readings (migration 061), for the counter's "Last count" and
+    // the settings panel's "has anything been recorded?". The full log lives
+    // in Analytics › Attendance, which pages with `.range()`.
     supabase
       .from("facility_readings")
       .select("*")
       .eq("facility_id", facilityId)
       .order("recorded_at", { ascending: false })
       .limit(30),
-    // "Reported by …" on a waiting report and "who" on a count. auth.users is
+    // "Reported by …" on a waiting report. auth.users is
     // unreadable under RLS, so this is the snapshot org_memberships keeps.
     supabase
       .from("org_memberships")
@@ -125,19 +126,15 @@ async function StatusBody({ params }: StatusPageProps) {
     facilityId
   );
   const canReport = !canWrite && canReportNotice(actor, facilityId);
-  const canEditFacility = can(actor, "facility:edit");
   // Counting is `reading:write`, never `!isReadOnly(role)` — that is true
   // for exactly the lifeguards this tool is mostly for.
   const canCount = can(actor, "reading:write") && canReadFacility(actor, facilityId);
-  const recorderNames = Object.fromEntries(
-    (members ?? []).map((m) => [m.user_id, m.display_name ?? m.email?.split("@")[0] ?? "a colleague"])
-  );
   const reporters = Object.fromEntries(
     (members ?? []).filter((m) => m.email).map((m) => [m.user_id, m.email as string])
   );
 
   return (
-    <div className="mx-auto max-w-3xl">
+    <div className="mx-auto max-w-xl">
       <Breadcrumb
         items={[
           // Read-only staff have no Facilities page — it is a management grid.
@@ -149,20 +146,6 @@ async function StatusBody({ params }: StatusPageProps) {
         ]}
       />
 
-      <div className="mb-6">
-        <PageHeader
-          title="Facility status"
-          info={
-            <>
-              What is true at {facility.name} right now: what is posted, one row per
-              department, and how many people are here. Anything posted appears above the schedule on the public facility page and in every
-              embedded schedule. Use a closure session for something planned weeks ahead; use a
-              status for something that just happened.
-            </>
-          }
-        />
-      </div>
-
       {!facility.is_published && (
         <Banner variant="warning" role={undefined} className="mb-6">
           This facility is not published, so nothing posted here reaches the public yet. Staff
@@ -170,64 +153,32 @@ async function StatusBody({ params }: StatusPageProps) {
         </Banner>
       )}
 
-      <FacilityStatusManager
-        facilityId={facilityId}
-        departments={departments ?? []}
-        spaces={spaces ?? []}
-        notices={notices ?? []}
-        templates={templates}
-        canManageLibrary={can(actor, "notice-template:manage") && fromLibrary}
-        departmentColumn={fromLibrary}
-        canWrite={canWrite}
-        canReport={canReport}
-        reporters={reporters}
-        readOnlyReason={canWrite || canReport ? undefined : explainReadOnly(orgContext, facilityId)}
-        afterBoard={
-          <section id="people" className="scroll-mt-20">
-            <div className="mb-3 flex items-center gap-1.5">
-              <h2 className="text-heading text-foreground">People here</h2>
-              <InfoTip label="About counts">
-                How many people are in the building, logged as you count them. The newest
-                count is what shows; to correct one, count again. Typed 400 instead of 40?
-                Delete it from Recent entries. Every entry is kept for Analytics.
-              </InfoTip>
-            </div>
-            <HeadCountTool
-              facilityId={facilityId}
-              spaces={(spaces ?? []).filter((s) => s.is_published)}
-              readings={readings ?? []}
-              recorderNames={recorderNames}
-              viewerId={orgContext.membership.user_id}
-              canWrite={canCount}
-              // The 061 delete policy: your own entries, or anyone's for an
-              // owner or manager.
-              canManage={!isScoped(orgContext.membership.role)}
-            />
-          </section>
-        }
+      {/* One narrow column, phone and laptop alike (design: "Facility status:
+          simple", 2026-10-01). FacilityStatusManager and HeadCountTool are the
+          fuller versions this replaced; they are no longer rendered here. */}
+      <FacilityStatusSimple
+        facilityName={facility.name}
+        board={{
+          facilityId,
+          departments: departments ?? [],
+          spaces: spaces ?? [],
+          notices: notices ?? [],
+          templates,
+          canManageLibrary: can(actor, "notice-template:manage") && fromLibrary,
+          departmentColumn: fromLibrary,
+          canWrite,
+          canReport,
+          reporters,
+          readOnlyReason: canWrite || canReport ? undefined : explainReadOnly(orgContext, facilityId),
+        }}
+        people={{
+          orgId: orgContext.org.id,
+          facilityId,
+          spaces: spaces ?? [],
+          readings: readings ?? [],
+          canWrite: canCount,
+        }}
       />
-
-      {/* Below the notices, and separated, because they are different jobs on
-          different clocks: a notice is written in the moment and cleared the
-          same day, these are set once and left. Opened directly by #public. Configuration rather than an operational
-          tool, so shown only to people who can change it — staff used to get
-          it as a greyed-out form. */}
-      {canEditFacility && (
-      <div className="mt-10 border-t border-border pt-6">
-        <PublicConditionsSettings
-          facilityId={facilityId}
-          initial={{
-            // `?? ` throughout: before 061 is applied these columns do not
-            // exist, and the page must still render.
-            publicConditions: facility.public_conditions ?? false,
-            publicHeadcount: facility.public_headcount ?? "hidden",
-            occupancyCapacity: facility.occupancy_capacity ?? null,
-          }}
-          canEdit={canEditFacility}
-          hasReadings={(readings ?? []).length > 0}
-        />
-      </div>
-      )}
     </div>
   );
 }

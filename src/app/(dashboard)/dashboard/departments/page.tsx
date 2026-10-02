@@ -3,11 +3,13 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { canReadFacility, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { departmentsHref } from "@/lib/schedule/commandCentreHref";
 import { Skeleton } from "@/components/ui/skeleton";
-import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
+import Breadcrumb from "@/components/layout/Breadcrumb";
+import { pickFacility } from "@/lib/dashboard/scope";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
 import DepartmentsPanel from "@/components/department/DepartmentsPanel";
 import UnassignedCallout from "@/components/department/UnassignedCallout";
 import Streamed from "@/components/ui/streamed";
@@ -115,9 +117,12 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
       .eq("role", "coordinator"),
   ]);
 
-  if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
-
-  const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
+  // Only buildings this viewer can read, before the default is picked: the
+  // URL's, else the one the sidebar's switcher remembers, else the first.
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const readable = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
+  const facility = pickFacility(readable, facilityParam, await rememberedFacilityId());
+  if (!facility) return <NoFacilities />;
 
   // One pass over the org's hours rows, then a lookup per card. `summarizeWeek`
   // is the same line the department edit page prints, so the two surfaces can
@@ -139,18 +144,9 @@ async function DepartmentsBody({ searchParams }: DepartmentsPageProps) {
       };
     });
 
-  const facilityCards = facilityRows.map((f) => {
-    const count = (departmentRows ?? []).filter((d) => d.facility_id === f.id).length;
-    return { ...f, meta: `${count} department${count !== 1 ? "s" : ""}` };
-  });
-
   return (
     <>
-      <FacilityCardPicker
-        facilities={facilityCards}
-        activeFacilityId={facility.id}
-        hrefFor={departmentsHref}
-      />
+      <Breadcrumb className="mb-0" items={[{ label: facility.name, href: departmentsHref(facility.id) }]} />
 
       <UnassignedCallout
         facilityId={facility.id}

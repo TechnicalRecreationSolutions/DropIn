@@ -49,12 +49,18 @@ type SupabaseServerClient = Awaited<ReturnType<typeof createClient>>;
 const PAGE_SIZE = 1000;
 const MAX_ROWS = 50_000;
 
-const READING_COLUMNS = "id, facility_id, space_id, metric, value, recorded_at, recorded_by";
+// `*` rather than a list since migration 069 added `session_id`: this project
+// applies migrations by hand, and naming a column the database does not have
+// yet fails the whole read — the page would say "nothing counted" instead of
+// showing every count without its session.
+const READING_COLUMNS = "*";
 
 export interface AttendanceReadingRow {
   id: string;
   facility_id: string;
   space_id: string | null;
+  /** Migration 069. Absent (undefined) on a database without it. */
+  session_id?: string | null;
   metric: ReadingMetric;
   value: number;
   recorded_at: string;
@@ -123,6 +129,8 @@ export interface AttendanceSummary {
   byDay: { day: string; peak: number; average: number | null; samples: number }[];
   /** weekday (0 = Sunday) × hour, averaged. `null` where nothing was counted. */
   heatmap: { dayIndex: number; hour: number; average: number; samples: number }[];
+  /** Per session named on the count (069), peak first. Unnamed counts are left out. */
+  bySession: { sessionId: string; peak: number; average: number; samples: number }[];
   /** Per-space, then the whole-facility rows as a single "Whole building". */
   bySpace: { spaceId: string | null; peak: number; average: number; samples: number }[];
   /** Latest reading per temperature metric, for the two small tiles. */
@@ -147,6 +155,7 @@ export function summariseAttendance(
   const byDayMap = new Map<string, number[]>();
   const byCell = new Map<string, number[]>();
   const bySpaceMap = new Map<string, number[]>();
+  const bySessionMap = new Map<string, number[]>();
   let peak: AttendanceSummary["peak"] = null;
 
   for (const row of counts) {
@@ -159,6 +168,7 @@ export function summariseAttendance(
     push(byDayMap, day, row.value);
     push(byCell, cell, row.value);
     push(bySpaceMap, spaceKey, row.value);
+    if (row.session_id) push(bySessionMap, row.session_id, row.value);
 
     if (!peak || row.value > peak.value) {
       peak = {
@@ -219,6 +229,15 @@ export function summariseAttendance(
     }))
     .sort((a, b) => b.peak - a.peak);
 
+  const bySession = [...bySessionMap.entries()]
+    .map(([sessionId, values]) => ({
+      sessionId,
+      peak: Math.max(...values),
+      average: mean(values),
+      samples: values.length,
+    }))
+    .sort((a, b) => b.peak - a.peak);
+
   const tempsByMetric = new Map<ReadingMetric, number[]>();
   for (const row of temps) push(tempsByMetric, row.metric, row.value);
 
@@ -230,6 +249,7 @@ export function summariseAttendance(
     busiestHour,
     byDay,
     heatmap,
+    bySession,
     bySpace,
     temperatures: [...tempsByMetric.entries()].map(([metric, values]) => ({
       metric,
@@ -250,4 +270,47 @@ function push<K>(map: Map<K, number[]>, key: K, value: number) {
 
 function mean(values: number[]): number {
   return values.reduce((a, b) => a + b, 0) / values.length;
+}
+
+/**
+ * Display names for the sessions counts were filed under (migration 069) —
+ * the template name, else the schedule's, the same fallback the schedule
+ * views use (`sessionDisplayLabel`). Three flat reads rather than an embedded
+ * select, because the generated types carry no relationships to embed by.
+ *
+ * A session deleted since keeps its counts (ON DELETE SET NULL), so an id
+ * missing from the result is not expected; callers still fall back.
+ */
+export async function fetchSessionLabels(
+  supabase: SupabaseServerClient,
+  sessionIds: string[]
+): Promise<Map<string, string>> {
+  const labels = new Map<string, string>();
+  const ids = [...new Set(sessionIds)];
+  if (ids.length === 0) return labels;
+
+  const { data: sessions } = await supabase
+    .from("sessions")
+    .select("id, schedule_group_id, template_id")
+    .in("id", ids);
+  if (!sessions || sessions.length === 0) return labels;
+
+  const groupIds = [...new Set(sessions.map((s) => s.schedule_group_id))];
+  const templateIds = [...new Set(sessions.map((s) => s.template_id).filter((t): t is string => !!t))];
+  const [{ data: groups }, { data: templates }] = await Promise.all([
+    supabase.from("schedule_groups").select("id, name").in("id", groupIds),
+    templateIds.length > 0
+      ? supabase.from("session_templates").select("id, name").in("id", templateIds)
+      : Promise.resolve({ data: [] as { id: string; name: string }[] }),
+  ]);
+  const groupName = new Map((groups ?? []).map((g) => [g.id, g.name]));
+  const templateName = new Map((templates ?? []).map((t) => [t.id, t.name]));
+
+  for (const s of sessions) {
+    const name =
+      (s.template_id ? templateName.get(s.template_id) : undefined) ??
+      groupName.get(s.schedule_group_id);
+    if (name) labels.set(s.id, name);
+  }
+  return labels;
 }

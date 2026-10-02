@@ -13,6 +13,15 @@ interface TreeNavNodeProps {
   isPublished?: boolean;
   /** Count shown at the end of the row, e.g. how many schedules a building has. */
   badge?: number;
+  /**
+   * How the badge reads. `muted` (default) is a quiet count, e.g. schedules
+   * in a building. `solid` and `urgent` are an inbox: a pill that says
+   * something is waiting (brand blue), or that something is urgent (destructive).
+   * In the collapsed sidebar those two become a dot on the icon.
+   */
+  badgeTone?: "muted" | "solid" | "urgent";
+  /** Screen-reader text for the badge, e.g. "3 things need you". */
+  badgeLabel?: string;
   /** Renders a chevron that toggles `expanded` without navigating. Used by the facility row. */
   expandable?: boolean;
   expanded?: boolean;
@@ -39,6 +48,8 @@ export default function TreeNavNode({
   isActive,
   isPublished,
   badge,
+  badgeTone = "muted",
+  badgeLabel,
   expandable,
   expanded,
   onToggleExpand,
@@ -46,9 +57,22 @@ export default function TreeNavNode({
   disabledReason,
   collapsed,
 }: TreeNavNodeProps) {
+  const showPill = badge !== undefined && badge > 0 && badgeTone !== "muted";
   const rowContent = (
     <>
-      <Icon className={cn("size-4 shrink-0", isActive && !disabled ? "text-foreground" : "text-muted-foreground")} />
+      <span className="relative inline-flex shrink-0">
+        <Icon className={cn("size-4", isActive && !disabled ? "text-foreground" : "text-muted-foreground")} />
+        {collapsed && showPill && (
+          <span
+            aria-hidden
+            className={cn(
+              "absolute -top-1 -right-1 size-2 rounded-full ring-2 ring-background",
+              badgeTone === "urgent" ? "bg-destructive" : "bg-brand"
+            )}
+          />
+        )}
+      </span>
+      {collapsed && showPill && badgeLabel && <span className="sr-only">{badgeLabel}</span>}
       {!collapsed && (
         <>
           <span className="truncate">{label}</span>
@@ -60,8 +84,21 @@ export default function TreeNavNode({
                 title="Draft — not published"
               />
             )}
-            {badge !== undefined && (
+            {badge !== undefined && badgeTone === "muted" && (
               <span className="text-label tabular-nums text-muted-foreground">{badge}</span>
+            )}
+            {showPill && (
+              <span
+                className={cn(
+                  "inline-flex h-5 min-w-5 items-center justify-center rounded-full px-1.5 text-label tabular-nums",
+                  badgeTone === "urgent"
+                    ? "bg-destructive text-destructive-foreground"
+                    : "bg-brand text-brand-foreground"
+                )}
+              >
+                <span aria-hidden>{badge}</span>
+                {badgeLabel && <span className="sr-only">{badgeLabel}</span>}
+              </span>
             )}
           </span>
         </>

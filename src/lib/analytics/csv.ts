@@ -49,7 +49,8 @@ export type ExportDataset =
   | "breakdowns"
   | "events"
   | "utilization"
-  | "attendance";
+  | "attendance"
+  | "notices";
 
 export const EXPORT_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
   { id: "summary", label: "Summary", description: "Every headline number, one row each" },
@@ -65,6 +66,10 @@ export const UTILIZATION_DATASETS: { id: ExportDataset; label: string; descripti
 
 export const ATTENDANCE_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
   { id: "attendance", label: "Readings", description: "Every head count and temperature" },
+];
+
+export const NOTICE_DATASETS: { id: ExportDataset; label: string; description: string }[] = [
+  { id: "notices", label: "Status notices", description: "Every notice in force in the period" },
 ];
 
 function pct(value: number | null): string {
@@ -309,12 +314,17 @@ export function attendanceCsv(
     value: number;
     facility_id: string;
     space_id: string | null;
+    session_id?: string | null;
     recorded_by: string | null;
   }[],
   range: AnalyticsRange,
   orgName: string,
   facilityName: string | null,
-  names: { facilityNames: Map<string, string>; spaceNames?: Map<string, string> }
+  names: {
+    facilityNames: Map<string, string>;
+    spaceNames?: Map<string, string>;
+    sessionNames?: Map<string, string>;
+  }
 ): string {
   const metricLabel: Record<string, string> = {
     headcount: "People",
@@ -327,15 +337,55 @@ export function attendanceCsv(
     ["Note", "Head counts are observations made by staff, not turnstile counts."],
     ["Note", "Do not sum the People column: someone present for two counts appears twice."],
     [],
-    ["Recorded at", "Facility", "Space", "Measure", "Value"],
+    ["Recorded at", "Facility", "Space", "Session", "Measure", "Value"],
     ...rows.map((r) => [
       r.recorded_at,
       names.facilityNames.get(r.facility_id) ?? "",
       r.space_id ? (names.spaceNames?.get(r.space_id) ?? "") : "Whole building",
+      r.session_id ? (names.sessionNames?.get(r.session_id) ?? "") : "",
       metricLabel[r.metric] ?? r.metric,
       r.value,
     ]),
   ];
 
+  return toCsv(out);
+}
+
+/**
+ * Status notices in force during the period (Analytics › Status history).
+ * Times are ISO instants, like the readings export, so a spreadsheet can do
+ * its own arithmetic; the minutes column is the same figure the page sums.
+ */
+export function noticesCsv(
+  rows: {
+    headline: string;
+    category: string;
+    severity: string;
+    facility: string;
+    where: string;
+    starts_at: string;
+    ends_at: string | null;
+    minutes: number;
+  }[],
+  range: AnalyticsRange,
+  orgName: string,
+  facilityName: string | null
+): string {
+  const out: (string | number | null)[][] = [
+    ...preamble(orgName, range, facilityName),
+    ["Note", "A notice is listed in every period it was in force. A blank 'Cleared at' means it is still up."],
+    [],
+    ["Started at", "Cleared at", "Minutes up", "Facility", "Where", "Category", "Severity", "Headline"],
+    ...rows.map((r) => [
+      r.starts_at,
+      r.ends_at ?? "",
+      r.minutes,
+      r.facility,
+      r.where,
+      r.category,
+      r.severity,
+      r.headline,
+    ]),
+  ];
   return toCsv(out);
 }

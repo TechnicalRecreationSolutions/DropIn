@@ -101,3 +101,28 @@ redirects (next.config.ts), keeping `?facility=`. The temperature card folds
 away unless the facility has recorded a temperature; the log is folded too.
 The phone bottom bar's raised centre action is now **Status** for every role
 (it was Count, plus an aux-only Status tab).
+
+## Where, which session, when (since 2026-10-01)
+
+A count now says which **session** it was taken during
+(`facility_readings.session_id`, migration 069 — the session row, not the
+occurrence; `recorded_at` says which week; `ON DELETE SET NULL` so deleting a
+session never deletes what was observed). The POST route refuses a session
+whose schedule group is at another facility, the same guard as `space_id`.
+
+Three things the counter now does that it did not:
+
+- **Every space is offered, published or not.** It used to filter to
+  published spaces, so Panorama (ten spaces, none published) had no Where
+  picker at all — the bug the user reported.
+- **Session chips** come from today's schedule (`useWeeklySchedule`, the
+  Overview strip's fetch): started already, in the chosen space, on-now first.
+  Nothing is preselected. Picking a one-space session selects its space;
+  picking one that has ended moves the time to its start.
+- **When: Now or Earlier today** (a time field). The API always accepted
+  `recorded_at`; nothing offered it.
+
+The "Recent entries" log is gone from the status page. The full log, with
+delete, is the **Count log** on Analytics › Attendance, next to a **By
+session** chart; the counter keeps an Undo for the entry just made.
+Verified by `scripts/verify/verify-bk.mjs`.

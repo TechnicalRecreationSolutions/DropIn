@@ -1,12 +1,12 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   Calendar,
   ClipboardList,
-  LayoutDashboard,
+  Inbox,
   Megaphone,
   Menu,
   type LucideIcon,
@@ -15,6 +15,8 @@ import { cn } from "@/lib/utils/cn";
 import { useMobileTreeSheet } from "./MobileTreeSheetProvider";
 import { can, isReadOnly } from "@/lib/auth/roles";
 import type { OrgRole } from "@/types/app.types";
+import { useNeedsYouCount } from "@/hooks/useNeedsYouCount";
+import { readRememberedFacility, subscribeRememberedFacility } from "@/lib/dashboard/scope";
 
 /**
  * Bottom navigation bar for the org dashboard on mobile devices.
@@ -52,7 +54,8 @@ import type { OrgRole } from "@/types/app.types";
  */
 type NavItem = { href: string; label: string; icon: LucideIcon; exact?: boolean };
 
-const todayLink: NavItem = { href: "/dashboard", label: "Today", icon: LayoutDashboard, exact: true };
+// "Overview", matching the sidebar row: it is the inbox, not a picture of today.
+const todayLink: NavItem = { href: "/dashboard", label: "Overview", icon: Inbox, exact: true };
 const scheduleLink: NavItem = { href: "/dashboard/schedule", label: "Schedule", icon: Calendar };
 const activityLink: NavItem = { href: "/dashboard/activity", label: "Activity", icon: ClipboardList };
 // /dashboard/status resolves to the staffer's facility (or a list of them).
@@ -123,11 +126,16 @@ function TabContent({
   label,
   isActive,
   raised = false,
+  count,
+  urgent = false,
 }: {
   icon: LucideIcon;
   label: string;
   isActive: boolean;
   raised?: boolean;
+  /** The Overview's inbox count; a pill on the icon when above zero. */
+  count?: number;
+  urgent?: boolean;
 }) {
   return (
     <>
@@ -142,7 +150,7 @@ function TabContent({
             "-mt-6 flex size-14 items-center justify-center rounded-full shadow-card ring-4 ring-background",
             "transition-transform duration-150 group-active:scale-90",
             "group-focus-visible:outline-2 group-focus-visible:outline-offset-2 group-focus-visible:outline-ring",
-            isActive ? "bg-brand-subtle text-brand-strong" : "bg-primary text-primary-foreground"
+            isActive ? "bg-brand-subtle text-brand-strong" : "bg-brand text-brand-foreground"
           )}
         >
           <Icon className="size-[26px]" strokeWidth={2.25} />
@@ -150,7 +158,7 @@ function TabContent({
       ) : (
         <span
           className={cn(
-            "flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200",
+            "relative flex h-8 w-14 items-center justify-center rounded-full transition-colors duration-200",
             "group-focus-visible:ring-2 group-focus-visible:ring-ring",
             isActive && "bg-brand-subtle"
           )}
@@ -159,6 +167,19 @@ function TabContent({
             className="size-[22px] transition-transform duration-150 group-active:scale-90"
             strokeWidth={isActive ? 2.5 : 1.75}
           />
+          {count !== undefined && count > 0 && (
+            <span
+              className={cn(
+                "absolute -top-0.5 right-1.5 inline-flex h-4 min-w-4 items-center justify-center rounded-full px-1 text-[10px] font-semibold tabular-nums ring-2 ring-background",
+                urgent ? "bg-destructive text-destructive-foreground" : "bg-brand text-brand-foreground"
+              )}
+            >
+              <span aria-hidden>{count > 99 ? "99+" : count}</span>
+              <span className="sr-only">
+                , {count} {count === 1 ? "thing needs" : "things need"} you
+              </span>
+            </span>
+          )}
         </span>
       )}
       <span className={cn("text-[11px] leading-none", isActive ? "font-semibold" : "font-medium")}>
@@ -188,6 +209,11 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
   // request AND a flash of the wrong navigation while it resolved.
   const actor = { role, scopes: { departmentIds: [], facilityIds: [] } };
   const canViewActivity = can(actor, "activity:view");
+  // The building the sidebar's switcher remembers (the sheet's switcher
+  // updates it), so the count follows a switch; null before hydration, when
+  // the API resolves the same cookie itself.
+  const remembered = useSyncExternalStore(subscribeRememberedFacility, readRememberedFacility, () => null);
+  const { data: needs } = useNeedsYouCount(remembered, !isReadOnly(role));
 
   function renderLink(item: NavItem, raised = false) {
     const isActive =
@@ -211,7 +237,14 @@ export default function DashboardBottomNav({ role }: { role: OrgRole }) {
         }}
         className={tabClass(isActive)}
       >
-        <TabContent icon={item.icon} label={item.label} isActive={isActive} raised={raised} />
+        <TabContent
+          icon={item.icon}
+          label={item.label}
+          isActive={isActive}
+          raised={raised}
+          count={item === todayLink ? needs?.count : undefined}
+          urgent={item === todayLink && (needs?.urgent ?? 0) > 0}
+        />
       </Link>
     );
   }

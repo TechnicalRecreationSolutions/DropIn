@@ -518,6 +518,8 @@ export type Database = {
           org_id: string;
           /** NULL = the whole building. */
           space_id: string | null;
+          /** The session it was taken during, if staff named one (migration 069). */
+          session_id: string | null;
           metric: ReadingMetric;
           /** People, or degrees Celsius. No unit column — see the migration. */
           value: number;
@@ -527,9 +529,10 @@ export type Database = {
         };
         Insert: Omit<
           Database["public"]["Tables"]["facility_readings"]["Row"],
-          "id" | "created_at" | "space_id" | "recorded_at"
+          "id" | "created_at" | "space_id" | "session_id" | "recorded_at"
         > & {
           space_id?: string | null;
+          session_id?: string | null;
           recorded_at?: string;
         };
         /** No UPDATE policy exists. Nothing may edit a recorded observation. */

@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { AlertOctagon, ArrowRight, Check, Clock, Megaphone } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
 import { canReadFacility } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -67,6 +68,13 @@ async function StatusIndexBody() {
   const facilities = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
 
   if (facilities.length === 1) redirect(`/dashboard/facilities/${facilities[0].id}/status`);
+
+  // Working in a building already (the sidebar's switcher remembers it):
+  // that is the one meant — the phone bar links here with no id.
+  const remembered = await rememberedFacilityId();
+  if (remembered && facilities.some((f) => f.id === remembered)) {
+    redirect(`/dashboard/facilities/${remembered}/status`);
+  }
 
   if (facilities.length === 0) {
     return (

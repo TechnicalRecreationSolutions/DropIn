@@ -202,6 +202,38 @@ left in 13 px `muted-foreground` with the current page in ink.
 line description under it, and the page's main action as a `default` button on
 the right of the title row.
 
+### Scope and filters (2026-10-01)
+
+Where someone is working is chosen once and shown everywhere else.
+
+- **Facility is a workspace.** One building switcher at the top of the sidebar
+  (`layout/FacilitySwitcher.tsx`) is the only facility picker in the dashboard.
+  It is hidden when the viewer can reach one building. "All facilities" is an
+  option only on Analytics, for owners and managers. Org-wide pages
+  (Facilities, Settings, Widget, Conflicts, Activity, Import) never read it,
+  and the switcher says so under its field.
+- **Department is a page filter** (`dashboard/DepartmentFilter.tsx`), in the
+  toolbar of a page that is department-aware, and only when there are at least
+  two choices. A page without departments shows no control. It is never a
+  control that is present and ignored.
+- **A schedule is not a filter.** It is opened from the Schedules list.
+- **Show scope, don't re-ask it.** Scoped pages carry a breadcrumb,
+  Facility › Department › Schedule as far as applies, each crumb a link up. No
+  page renders its own facility picker.
+- **The URL is the truth.** `?facility=&department=&schedule=`, built only by
+  `lib/schedule/commandCentreHref.ts`. A URL with no building resolves through
+  `lib/dashboard/scope.ts`: the remembered building (a cookie, read on the
+  server), then the first one the viewer can read. Switching on a detail page
+  goes to the same kind of page's list in the new building.
+- **One look.** Both controls are `TickBoxDropdown` with `theme="app"`. It is
+  the public widget's filter control (a label above, a 40 px field, a list
+  drawn in place under it) on tokens. The rows use the widget's square tick
+  boxes (`brand` fill, white tick), details in `muted-foreground`, 44 px tall
+  on phones. Where a filter has an "All …" choice it works as the widget does:
+  nothing ticked is All, with a "Clear" link. Where there is no All (the
+  building, Sessions' department) one row is always ticked. The widget renders the same component with `theme="widget"`, which
+  keeps its written-out hexes. Neither palette is used in the other.
+
 ## 8. Things we don't do
 
 These are what made the old design read as generic. Remove them when you find

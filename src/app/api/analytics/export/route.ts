@@ -6,13 +6,16 @@ import { fetchAnalyticsEvents, getAnalyticsSummary, getOrgEntityNames } from "@/
 import {
   attendanceCsv,
   breakdownsCsv,
+  noticesCsv,
   dailyCsv,
   eventsCsv,
   summaryCsv,
   utilizationCsv,
   type ExportDataset,
 } from "@/lib/analytics/csv";
-import { fetchReadings } from "@/lib/analytics/attendance";
+import { fetchReadings, fetchSessionLabels } from "@/lib/analytics/attendance";
+import { fetchNoticeHistory, noticeDurationMinutes } from "@/lib/analytics/notices";
+import { CATEGORY_LABEL, SEVERITY_LABEL } from "@/lib/status/notices";
 import { getUtilization } from "@/lib/analytics/utilization";
 import { occupancyKindLabel } from "@/lib/sessions/occupancy";
 import { parseAnalyticsRange } from "@/lib/analytics/range";
@@ -59,7 +62,8 @@ export async function GET(request: Request) {
   const dataset = (url.searchParams.get("dataset") ?? "summary") as ExportDataset;
 
   // The gate depends on which dataset was asked for — see the header.
-  const operations = dataset === "utilization" || dataset === "attendance";
+  const operations =
+    dataset === "utilization" || dataset === "attendance" || dataset === "notices";
   if (!can(actor, operations ? "operations:view" : "analytics:view")) {
     return NextResponse.json(
       {
@@ -114,10 +118,50 @@ export async function GET(request: Request) {
       fetchReadings(supabase, { orgId, range, facilityId, facilityIds }),
       supabase.from("spaces").select("id, name").eq("org_id", orgId),
     ]);
+    const sessionNames = await fetchSessionLabels(
+      supabase,
+      rows.map((r) => r.session_id).filter((id): id is string => !!id)
+    );
     body = attendanceCsv(rows, range, orgName, facilityName, {
       facilityNames: names.facilityNames,
       spaceNames: new Map((spaceRows ?? []).map((s) => [s.id, s.name])),
+      sessionNames,
     });
+  } else if (dataset === "notices") {
+    const { data: facilityRows } = await supabase
+      .from("facilities")
+      .select("id")
+      .eq("org_id", orgId);
+    const facilityIds = (facilityRows ?? [])
+      .map((f) => f.id)
+      .filter((id) => canReadFacility(actor, id));
+
+    const [{ notices }, { data: spaceRows }, { data: departmentRows }] = await Promise.all([
+      fetchNoticeHistory(supabase, { orgId, range, facilityId, facilityIds }),
+      supabase.from("spaces").select("id, name").eq("org_id", orgId),
+      supabase.from("departments").select("id, name").eq("org_id", orgId),
+    ]);
+    const spaceNames = new Map((spaceRows ?? []).map((s) => [s.id, s.name]));
+    const departmentNames = new Map((departmentRows ?? []).map((d) => [d.id, d.name]));
+    const now = new Date();
+    body = noticesCsv(
+      notices.map((n) => ({
+        headline: n.headline,
+        category: CATEGORY_LABEL[n.category] ?? n.category,
+        severity: SEVERITY_LABEL[n.severity] ?? n.severity,
+        facility: names.facilityNames.get(n.facility_id) ?? "",
+        where:
+          (n.space_id ? spaceNames.get(n.space_id) : undefined) ??
+          (n.department_id ? departmentNames.get(n.department_id) : undefined) ??
+          "Whole facility",
+        starts_at: n.starts_at,
+        ends_at: n.ends_at,
+        minutes: noticeDurationMinutes(n, now),
+      })),
+      range,
+      orgName,
+      facilityName
+    );
   } else if (dataset === "events") {
     const { rows } = await fetchAnalyticsEvents(supabase, { orgId, range, facilityId });
     body = eventsCsv(rows, range, orgName, facilityName, names);

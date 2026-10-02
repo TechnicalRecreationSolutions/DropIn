@@ -88,3 +88,6 @@ Pool Layout Map with depths.pdf
 
 # Copied from node_modules by scripts/copy-mapbox-worker.mjs (predev/prebuild)
 /public/mapbox-gl-csp-worker.js
+
+# Harness screenshots (verify-bk/bl/bm write here)
+/scripts/verify/out/

@@ -122,6 +122,16 @@ made by eye, not a turnstile, so summing them produces a number that looks like
 average is an average of *observations*, which moves when counting habits
 change and not only when attendance does. Every tile says so behind its (i).
 
+## Status history (since 2026-10-01)
+
+`/dashboard/analytics/notices` is the fourth tab, `operations:view` like
+Attendance. It replaced the folded "History" list at the bottom of each
+facility status page (the user's call: the status page is for now, history is
+analysis). A notice is in a period when its window **overlaps** it; drafts and
+unapproved staff reports are left out. Not `/analytics/status`, because the
+sidebar's Status item lights up for any path ending in `/status`. Read through
+`notices.ts`; exported as the `notices` dataset.
+
 ## Export
 
 `GET /api/analytics/export?range|from&to&facility&dataset` — `summary`,

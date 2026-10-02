@@ -3,11 +3,14 @@ import { Suspense } from "react";
 import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { canReadFacility, isReadOnly, isScoped } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
-import { spacesHref } from "@/lib/schedule/commandCentreHref";
+import { NO_DEPARTMENT, spacesHref } from "@/lib/schedule/commandCentreHref";
+import { pickFacility } from "@/lib/dashboard/scope";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
+import Breadcrumb from "@/components/layout/Breadcrumb";
+import DepartmentFilter from "@/components/dashboard/DepartmentFilter";
 import { Skeleton } from "@/components/ui/skeleton";
-import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import SpacesPanel from "@/components/space/SpacesPanel";
 import Streamed from "@/components/ui/streamed";
 import { PageHeader } from "@/components/ui/info-tip";
@@ -15,7 +18,7 @@ import { Button } from "@/components/ui/button";
 import { EmptyState } from "@/components/ui/empty-state";
 
 interface SpacesPageProps {
-  searchParams: Promise<{ facility?: string }>;
+  searchParams: Promise<{ facility?: string; department?: string }>;
 }
 
 /**
@@ -64,7 +67,7 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
 
   const orgId = orgContext.org.id;
   const supabase = await createClient();
-  const { facility: facilityParam } = await searchParams;
+  const { facility: facilityParam, department: departmentParam } = await searchParams;
 
   const [{ data: facilityRows }, { data: spaceRows }, { data: departmentRows }] =
     await Promise.all([
@@ -91,9 +94,11 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
         .order("display_order", { ascending: true }),
     ]);
 
-  if (!facilityRows || facilityRows.length === 0) return <NoFacilities />;
-
-  const facility = facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0];
+  // Only buildings this viewer can read, before the default is picked.
+  const actor = { role: orgContext.membership.role, scopes: orgContext.scopes };
+  const readable = (facilityRows ?? []).filter((f) => canReadFacility(actor, f.id));
+  const facility = pickFacility(readable, facilityParam, await rememberedFacilityId());
+  if (!facility) return <NoFacilities />;
 
   const spaces = (spaceRows ?? [])
     .filter((s) => s.facility_id === facility.id)
@@ -113,22 +118,37 @@ async function SpacesBody({ searchParams }: SpacesPageProps) {
     .filter((d) => d.facility_id === facility.id)
     .map((d) => ({ id: d.id, name: d.name }));
 
-  const facilityCards = facilityRows.map((f) => {
-    const count = (spaceRows ?? []).filter((s) => s.facility_id === f.id).length;
-    return { ...f, meta: `${count} space${count !== 1 ? "s" : ""}` };
-  });
+  // The department filter: a coordinator's own departments, plus the
+  // whole-building section when some spaces belong to no department.
+  const ownDepartments = isScoped(actor.role)
+    ? departments.filter((d) => actor.scopes.departmentIds.includes(d.id))
+    : departments;
+  const knownIds = new Set(departments.map((d) => d.id));
+  const hasShared = spaces.some((s) => !s.departmentId || !knownIds.has(s.departmentId));
+  const departmentOptions = [
+    ...ownDepartments,
+    ...(hasShared && departments.length > 0 ? [{ id: NO_DEPARTMENT, name: "Whole building" }] : []),
+  ];
+  const departmentFilter = departmentOptions.some((o) => o.id === departmentParam) ? departmentParam! : null;
+  const departmentName = departmentOptions.find((o) => o.id === departmentFilter)?.name;
 
   return (
     <>
-      <FacilityCardPicker
-        facilities={facilityCards}
-        activeFacilityId={facility.id}
-        hrefFor={spacesHref}
-      />
+      <div className="space-y-4">
+        <Breadcrumb
+          className="mb-0"
+          items={[
+            { label: facility.name, href: spacesHref(facility.id) },
+            ...(departmentName ? [{ label: departmentName }] : []),
+          ]}
+        />
+        <DepartmentFilter options={departmentOptions} value={departmentFilter} allLabel="All departments" />
+      </div>
 
       <SpacesPanel
         facility={{ id: facility.id, name: facility.name, spaces }}
         departments={departments}
+        departmentFilter={departmentFilter}
       />
     </>
   );

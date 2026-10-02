@@ -518,7 +518,7 @@ async function main() {
   const attendanceCsvBody = coordAttendance.body;
   check(
     "the attendance CSV names its columns",
-    /Recorded at,Facility,Space,Measure,Value/.test(attendanceCsvBody),
+    /Recorded at,Facility,Space,Session,Measure,Value/.test(attendanceCsvBody),
     attendanceCsvBody.split("\r\n").slice(0, 12).join(" | ")
   );
   check(
@@ -594,7 +594,7 @@ async function main() {
     const tabs = page.getByRole("navigation", { name: "Analytics views" });
 
     check("the owner lands on Engagement", await page.getByRole("heading", { name: "Engagement" }).first().isVisible());
-    check("all three tabs are offered", (await tabs.getByRole("link").count()) === 3);
+    check("all four tabs are offered (Status history since 2026-10-01)", (await tabs.getByRole("link").count()) === 4);
 
     // THE TAB CLAIM: the period travels. Landing on a default 30-day view
     // after choosing 7 days is the thing the strip exists not to do.
@@ -653,7 +653,7 @@ async function main() {
     const clockHours = await page.getByText("Space-hours", { exact: true }).first().isVisible().catch(() => false);
     check("space-hours is reported alongside clock hours", clockHours);
 
-    // A coordinator, in their own context, gets two tabs and not three.
+    // A coordinator, in their own context, gets the three operations tabs and not Engagement.
     const coordContext = await browser.newContext({ viewport: { width: 1440, height: 900 } });
     await coordContext.addCookies(
       coord.cookieParts.map((c) => ({ ...c, url: APP, httpOnly: false, secure: false }))
@@ -666,8 +666,8 @@ async function main() {
       (await coordTabs.getByRole("link", { name: "Engagement", exact: true }).count()) === 0
     );
     check(
-      "...but is offered the other two",
-      (await coordTabs.getByRole("link").count()) === 2,
+      "...but is offered the other three",
+      (await coordTabs.getByRole("link").count()) === 3,
       (await coordTabs.getByRole("link").allInnerTexts()).join(", ")
     );
 

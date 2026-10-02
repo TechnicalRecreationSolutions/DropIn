@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { ChevronRight } from "lucide-react";
+import { cn } from "@/lib/utils/cn";
 
 interface BreadcrumbItem {
   label: string;
@@ -8,15 +9,18 @@ interface BreadcrumbItem {
 
 interface BreadcrumbProps {
   items: BreadcrumbItem[];
+  className?: string;
 }
 
 /**
- * Breadcrumb trail for nested dashboard pages (e.g. Facilities > Downtown Pool > Aquatics).
+ * Breadcrumb trail for scoped dashboard pages — Facility › Department ›
+ * Schedule as far as applies (docs/DESIGN.md "Scope and filters").
  * The last item has no href and renders as the current page.
  */
-export default function Breadcrumb({ items }: BreadcrumbProps) {
+export default function Breadcrumb({ items, className }: BreadcrumbProps) {
+  if (items.length === 0) return null;
   return (
-    <nav className="flex items-center flex-wrap gap-1 text-caption text-muted-foreground mb-4" aria-label="Breadcrumb">
+    <nav className={cn("flex items-center flex-wrap gap-1 text-caption text-muted-foreground mb-4", className)} aria-label="Breadcrumb">
       {items.map((item, i) => {
         const isLast = i === items.length - 1;
         return (
@@ -27,7 +31,9 @@ export default function Breadcrumb({ items }: BreadcrumbProps) {
                 {item.label}
               </Link>
             ) : (
-              <span className={isLast ? "text-foreground font-medium" : ""}>{item.label}</span>
+              <span className={isLast ? "text-foreground font-medium" : ""} aria-current={isLast ? "page" : undefined}>
+                {item.label}
+              </span>
             )}
           </span>
         );

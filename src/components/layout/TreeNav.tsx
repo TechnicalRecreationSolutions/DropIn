@@ -3,7 +3,6 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { PanelLeftClose, PanelLeftOpen } from "lucide-react";
-import OrgImage from "@/components/media/OrgImage";
 import { Button } from "@/components/ui/button";
 import SidebarNav from "./SidebarNav";
 import SidebarProfile from "./SidebarProfile";
@@ -19,7 +18,7 @@ interface TreeNavProps {
 
 const COLLAPSED_STORAGE_KEY = "dropin-sidebar-collapsed";
 
-/** Desktop sidebar shell: logo, Filters + Menu, and the profile footer. */
+/** Desktop sidebar shell: logo, building switcher + Menu, and the profile footer. */
 export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }: TreeNavProps) {
   const [collapsed, setCollapsed] = useState(false);
 
@@ -45,7 +44,7 @@ export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }:
         // footer visible, instead of stretching to the full document height and
         // pushing the footer off the bottom. SidebarNav scrolls internally when
         // the menu itself is taller than the space left between header and footer.
-        "hidden lg:flex flex-col sticky top-0 h-screen bg-sidebar text-foreground shrink-0 border-r border-border transition-[width] duration-200",
+        "hidden lg:flex flex-col sticky top-0 z-20 h-screen bg-sidebar text-foreground shrink-0 border-r border-border transition-[width] duration-200",
         collapsed ? "w-16" : "w-62"
       )}
     >
@@ -81,19 +80,11 @@ export default function TreeNav({ orgId, orgName, orgLogoUrl, userEmail, role }:
             {collapsed ? <PanelLeftOpen className="size-4" /> : <PanelLeftClose className="size-4" />}
           </Button>
         </div>
-        {!collapsed && (
-          <div className="flex items-center gap-2 min-w-0">
-            {orgLogoUrl && (
-              <span className="relative size-5 rounded shrink-0 overflow-hidden bg-muted">
-                <OrgImage src={orgLogoUrl} alt="" sizes="20px" className="object-cover" />
-              </span>
-            )}
-            <p className="text-caption text-muted-foreground truncate">{orgName}</p>
-          </div>
-        )}
       </div>
 
-      <SidebarNav orgId={orgId} collapsed={collapsed} />
+      {/* The building switcher sits where the org line was (the org line
+          stays when there is only one building to be in). */}
+      <SidebarNav orgId={orgId} orgName={orgName} orgLogoUrl={orgLogoUrl} collapsed={collapsed} />
 
       <SidebarProfile userEmail={userEmail} role={role} collapsed={collapsed} />
     </aside>

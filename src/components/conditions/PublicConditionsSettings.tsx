@@ -11,7 +11,11 @@ import { Label, FieldHelp } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 
 /**
- * What this building publishes about itself, on the status page.
+ * What this building publishes about itself, on the facility Edit page.
+ *
+ * It lived at the foot of the status page until 2026-10-01, when the user
+ * asked for that page to hold no settings: the status page is opened mid-shift
+ * by whoever is on deck, and this is set once by a manager.
  *
  * ## Why the head count has three settings and not a checkbox
  *
@@ -37,6 +41,8 @@ import { Input } from "@/components/ui/input";
 
 export interface PublicConditionsSettingsProps {
   facilityId: string;
+  /** Where staff record counts and temperatures — the status page. */
+  statusHref: string;
   initial: {
     publicConditions: boolean;
     publicHeadcount: PublicHeadcountMode;
@@ -68,6 +74,7 @@ const HEADCOUNT_OPTIONS: { value: PublicHeadcountMode; label: string; hint: stri
 
 export default function PublicConditionsSettings({
   facilityId,
+  statusHref,
   initial,
   canEdit,
   hasReadings,
@@ -82,8 +89,8 @@ export default function PublicConditionsSettings({
   const [saved, setSaved] = useState(false);
   const [error, setError] = useState<string | null>(null);
   // Folded by default: this is set once and left, and it sat under the
-  // notices as a full form. Opened when someone arrives from the head count
-  // tool's link, which points at #public.
+  // notices as a full form. Opened when someone arrives on #public (the
+  // Settings › Public presence rows link here).
   const arrivedForThis = useSyncExternalStore(
     subscribeToHash,
     () => window.location.hash === "#public",
@@ -150,9 +157,9 @@ export default function PublicConditionsSettings({
 
       <CollapsibleContent className="space-y-4">
       <p className="text-sm text-muted-foreground">
-        From the numbers staff record under{" "}
-        <a href="#people" className="font-medium text-brand underline-offset-4 hover:underline">
-          People here
+        From the numbers staff record under People here on the{" "}
+        <a href={statusHref} className="font-medium text-brand underline-offset-4 hover:underline">
+          status page
         </a>
         . Nothing here is published until you turn it on, and a reading that has gone stale
         drops off the page on its own.
@@ -234,7 +241,7 @@ export default function PublicConditionsSettings({
         {!hasReadings && (conditions || headcount !== "hidden") && (
           <Banner variant="neutral" role={undefined}>
             Nothing has been recorded at this facility yet, so patrons will not see anything
-            until someone logs a count under People here.
+            until someone logs a count on the status page.
           </Banner>
         )}
 

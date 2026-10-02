@@ -11,6 +11,8 @@ interface SpacesPanelProps {
   facility: { id: string; name: string; spaces: CommandSpace[] };
   /** The building's departments, in display order. */
   departments: { id: string; name: string }[];
+  /** The page's department filter — see SpaceSections. */
+  departmentFilter?: string | null;
 }
 
 /**
@@ -27,7 +29,7 @@ interface SpacesPanelProps {
  * reordering needs optimistic state. Keeping the intro, the empty state and
  * the "Add space" link out here means they stay in the prerendered shell.
  */
-export default function SpacesPanel({ facility, departments }: SpacesPanelProps) {
+export default function SpacesPanel({ facility, departments, departmentFilter = null }: SpacesPanelProps) {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
@@ -54,6 +56,7 @@ export default function SpacesPanel({ facility, departments }: SpacesPanelProps)
           facilityId={facility.id}
           departments={departments}
           spaces={facility.spaces}
+          departmentFilter={departmentFilter}
         />
       )}
     </div>

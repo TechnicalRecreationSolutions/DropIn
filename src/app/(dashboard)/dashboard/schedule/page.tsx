@@ -3,9 +3,10 @@ import Link from "next/link";
 import { Plus } from "lucide-react";
 import { getOrgContext } from "@/lib/auth/session";
 import { createClient } from "@/lib/supabase/server";
-import { commandCentreHref, sessionsHref } from "@/lib/schedule/commandCentreHref";
+import { sessionsHref } from "@/lib/schedule/commandCentreHref";
+import { pickFacility } from "@/lib/dashboard/scope";
+import { rememberedFacilityId } from "@/lib/dashboard/scope.server";
 import { Skeleton } from "@/components/ui/skeleton";
-import FacilityCardPicker from "@/components/facilities/FacilityCardPicker";
 import ScheduleCommandCentre from "@/components/schedule-command/ScheduleCommandCentre";
 import { canReadFacility, canReportNotice, canWriteNotice, isReadOnly, isScoped } from "@/lib/auth/roles";
 import StatusShortcut from "@/components/status/StatusShortcut";
@@ -74,7 +75,7 @@ function ScheduleHeader({ title, canEdit = false }: { title: string; canEdit?: b
   return (
     <PageHeader
       title={title}
-      info="Pick a building, then a schedule, to place and edit sessions."
+      info="Pick a schedule to place and edit its sessions. The building is chosen in the sidebar."
       actions={
         canEdit && (
           <Button asChild>
@@ -291,15 +292,9 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
     "map",
   ];
 
-  const activeFacilityId = (facilityRows.find((f) => f.id === facilityParam) ?? facilityRows[0]).id;
-  const facilityCards = facilityRows.map((f) => {
-    const departmentCount = (departmentRows ?? []).filter((d) => d.facility_id === f.id).length;
-    const scheduleCount = (scheduleGroupRows ?? []).filter((g) => g.facility_id === f.id).length;
-    return {
-      ...f,
-      meta: `${departmentCount} department${departmentCount !== 1 ? "s" : ""} · ${scheduleCount} schedule${scheduleCount !== 1 ? "s" : ""}`,
-    };
-  });
+  // The URL's building, else the one the sidebar's switcher remembers, else
+  // the first readable one — the same order the switcher itself uses.
+  const activeFacilityId = pickFacility(facilityRows, facilityParam, await rememberedFacilityId())!.id;
 
   // What is wrong at this building right now. Read-only staff always get the
   // strip — this page is where they land, and it is their way to report a
@@ -321,11 +316,6 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
 
   return (
     <div className="space-y-6">
-      <FacilityCardPicker
-        facilities={facilityCards}
-        activeFacilityId={activeFacilityId}
-        hrefFor={(facilityId) => commandCentreHref({ facilityId })}
-      />
       {showStatus && (
         <StatusShortcut
           facilityId={activeFacilityId}
@@ -339,6 +329,9 @@ async function CommandCentreBody({ searchParams }: SchedulePageProps) {
         orgPrimaryColor={widgetConfig?.primary_color ?? "#0066CC"}
         widgetTemplates={widgetTemplates}
         facilities={facilities}
+        activeFacilityId={activeFacilityId}
+        // A coordinator filters by their own departments only; null = any.
+        departmentScope={isScoped(role) ? orgContext.scopes.departmentIds : null}
         // Aux staff read this page and change nothing. Asked as "is this role
         // read-only" rather than can(…, "session:write"), because that
         // permission is department-scoped and a coordinator's answer depends

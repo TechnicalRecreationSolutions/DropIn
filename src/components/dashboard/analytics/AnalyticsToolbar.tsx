@@ -3,7 +3,7 @@
 import { useState, useTransition } from "react";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Popover as PopoverPrimitive } from "radix-ui";
-import { CalendarRange, Check, ChevronDown, Download, Loader2, Building2 } from "lucide-react";
+import { CalendarRange, Check, ChevronDown, Download, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import {
@@ -25,9 +25,11 @@ import {
 import { cn } from "@/lib/utils/cn";
 
 /**
- * The analytics page's controls: period, facility, export.
+ * The analytics page's controls: period and export.
  *
- * All three are URL state (`?range` / `?from`+`?to` / `?facility`), which is
+ * Both are URL state (`?range` / `?from`+`?to`), as is the building
+ * (`?facility`, missing = all) — which is chosen in the sidebar's switcher,
+ * not here, since 2026-10-01 (docs/DESIGN.md "Scope and filters"). That is
  * what makes a particular view of the numbers something staff can bookmark
  * and paste into an email — and what lets the export route read exactly the
  * same inputs the page did, so the download always matches the screen.
@@ -40,7 +42,6 @@ import { cn } from "@/lib/utils/cn";
  */
 
 export interface AnalyticsToolbarProps {
-  facilities: { id: string; name: string }[];
   /**
    * Which CSVs this page offers. Defaults to Engagement's four.
    *
@@ -53,7 +54,6 @@ export interface AnalyticsToolbarProps {
 }
 
 export function AnalyticsToolbar({
-  facilities,
   datasets = EXPORT_DATASETS,
 }: AnalyticsToolbarProps) {
   const router = useRouter();
@@ -106,38 +106,6 @@ export function AnalyticsToolbar({
   return (
     <div className="flex flex-wrap items-center gap-2">
       <RangePicker range={range} onPreset={applyPreset} onCustom={applyCustom} />
-
-      {facilities.length > 1 && (
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button variant="outline">
-              <Building2 aria-hidden />
-              <span className="max-w-[10rem] truncate">
-                {facilities.find((f) => f.id === facilityId)?.name ?? "All facilities"}
-              </span>
-              <ChevronDown aria-hidden />
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="max-h-80 overflow-y-auto">
-            <DropdownMenuItem onSelect={() => navigate((p) => p.delete("facility"))}>
-              <Check className={cn("size-4", facilityId ? "opacity-0" : "opacity-100")} aria-hidden />
-              All facilities
-            </DropdownMenuItem>
-            {facilities.map((facility) => (
-              <DropdownMenuItem
-                key={facility.id}
-                onSelect={() => navigate((p) => p.set("facility", facility.id))}
-              >
-                <Check
-                  className={cn("size-4", facilityId === facility.id ? "opacity-100" : "opacity-0")}
-                  aria-hidden
-                />
-                {facility.name}
-              </DropdownMenuItem>
-            ))}
-          </DropdownMenuContent>
-        </DropdownMenu>
-      )}
 
       {isPending && (
         <span className="flex items-center gap-1.5 text-xs text-muted-foreground" role="status">
