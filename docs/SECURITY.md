@@ -215,7 +215,7 @@ injection (`base-uri 'self'`) and form exfiltration (`form-action 'self'`).
 Tightening further means experimental `sri` or giving up PPR.
 
 **Verified** against `next start`: the app group returns `frame-ancestors
-'self'`, `/widget/*` returns `frame-ancestors *`, HSTS appears on all three route
+'self'`, `/widget/*` returned `frame-ancestors *` (per-org since 2026-10-01, invariant 36), HSTS appears on all three route
 groups including `/embed`, and exactly **one** `Content-Security-Policy` header
 is emitted (two matching blocks would make browsers enforce the *intersection*
 of duplicates — a policy nobody wrote). Mapbox compatibility used to be the
@@ -824,6 +824,17 @@ violates one as a security regression.
     Each check's `reviewed` map is a list of claims someone checked on a date;
     re-read the entry when its file changes. `--falsify` must stay all-BITES:
     a check that cannot go red is not evidence of anything. *(L6)*
+36. **The widget is framed only by sites the organization trusts.** `/widget/*`
+    gets exactly one CSP, built in `proxy.ts` (not `next.config.ts`) with
+    `frame-ancestors 'self'` + `organizations.embed_allowed_hosts` (migration
+    067, Settings › Embedding). Hosts are validated three times — API
+    (`normalizeHost`), DB CHECK, and again when the header is built — because
+    the value lands in an HTTP header. Failure reading the list closes to
+    `'self'`; the ONLY open path is the RPC not existing (PGRST202, code
+    deployed ahead of 067). This governs framing, not data: the schedule stays
+    public via the facility page, the Link option and `/api/sessions/expand`.
+    Wix pastes run from `*.filesusr.com`, which every Wix site shares — an org
+    that trusts it trusts all of Wix. `verify-bj`.
 
 ---
 
@@ -974,3 +985,4 @@ results* the first time:
 | 2026-09-16 | **Trust boundary moved: the resident directory.** Migration `052` (opt-in `listed_in_directory`; `location` synced from lat/lng by trigger), `GET /api/public/v1/directory` (public, rate-limited, publicly cacheable), `/find` (browser geolocation, sorted on the device), server-side Nominatim geocoding on facility save, and `sitemap.xml`/`robots.txt`. No new RLS policy; the directory is a filter over rows that were already public. Invariants 29–34 added. **L5 found and closed**: `rate_limits` had stored raw client IPs, which `/privacy` says we don't; identifiers are now HMAC-hashed. `/privacy` corrected in three places: local storage is used (theme, starred centres), location use is described, and Nominatim is listed as a provider. Verified with `verify-ae`/`af`/`ag`/`ah`/`ai`; the CSP was checked in a browser against a local production build, including the widget framed on another origin. |
 | 2026-09-22 | **The front-end/database boundary re-audited from zero**, on the premise that no prior audit existed. Seven paths from a browser to a row were mapped (PostgREST direct, route handler, service role, RSC, cached anonymous read, Stripe webhook, Storage) and worked through sixteen weakness classes; the method is [`docs/prompts/frontend-database-security.md`](prompts/frontend-database-security.md) and `scripts/security/sweep.mjs` is the loop — 30 static checks, 16 anonymous PostgREST probes, 3 header probes, every static check falsified against poisoned evidence. **L6 found and closed** (`/api/facility-maps/public` was unthrottled; 60 requests pass, the 61st 429s, verified against the running app). The other eleven first-run reds were defects in the checks themselves, each triaged against the source and then narrowed or recorded as a reviewed exception with its reason. Invariant 5 extended, invariant 35 added. Tier gating was deliberately **not** built — §6 of the prompt records the properties it will have to satisfy when it is. |
 | 2026-09-27 | **Deliberate exception to M5: invitation signup** (invariant 15a). Invitees were sent to `/signup`, which dropped the token, asked for an organization name, and after confirmation put them on "Set up your organization" — where creating one left the invitation unreachable, since membership resolution picks the oldest. `/invite/[token]` now asks for a password only; `POST /api/invitations/[token]/signup` creates the confirmed user for the invited address, signs in, and runs `accept_invitation()`, rolling the user back if the accept fails. Staff onboarding no longer touches Supabase's mailer at all. Also closed: `LoginForm` passed `redirectTo` to `router.push()` unchecked (an open redirect after sign-in); it now shares `safeNext()` with the callback (`src/lib/auth/safe-redirect.ts`). `verify-bd` 27/27, falsified (15 red with the old page and no route); `verify-al` 41/41; sweep lists the route as public and as a service-role caller. |
+| 2026-10-01 | **Trust boundary narrowed: who may frame the widget.** `/widget/*` shipped `frame-ancestors *`, so anyone could put an organization's branded schedule on any site by copying its embed code. Migration `067` adds `organizations.embed_allowed_hosts` (Settings › Embedding, `org:edit-settings`) and `widget_frame_ancestors()` (SECURITY DEFINER, anon-executable, returns that column only); `proxy.ts` now sets the widget CSP per org, 60 s per-instance cache. Empty list = Dropin only; production had no external embeds. Invariant 36. `verify-bj`. |

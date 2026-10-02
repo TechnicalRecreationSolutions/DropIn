@@ -1,6 +1,5 @@
 import type { NextConfig } from "next";
-
-const isDev = process.env.NODE_ENV === "development";
+import { contentSecurityPolicy } from "./src/lib/security/csp";
 
 /**
  * HSTS lifetime, in seconds.
@@ -26,65 +25,8 @@ const isDev = process.env.NODE_ENV === "development";
  */
 const HSTS_MAX_AGE = 3600;
 
-/**
- * Content-Security-Policy.
- *
- * `script-src` carries 'unsafe-inline' rather than a nonce, and that is a
- * deliberate trade, not an oversight. Nonces must be minted per request, so
- * Next can only apply them to dynamically rendered pages — the framework's own
- * docs state that "Partial Prerendering (PPR) is incompatible with nonce-based
- * CSP since static shell scripts won't have access to the nonce". This app runs
- * `cacheComponents: true` (PPR) precisely so every route ships a prerendered
- * shell (see PERFORMANCE.md / commit aad5c3f). Adopting nonces would force every
- * page dynamic and undo that work.
- *
- * So the XSS ceiling here is set by 'unsafe-inline'. What the policy still buys:
- * scripts cannot be loaded from an origin we did not list, `object-src 'none'`
- * kills plugin embeds, `base-uri 'self'` blocks base-tag injection redirecting
- * relative script URLs, and `form-action 'self'` stops an injected form
- * exfiltrating to a third party. Tightening `script-src` further needs either
- * experimental `sri` (hash-based, keeps static rendering) or giving up PPR —
- * both are real options, neither is free.
- *
- * Origins are exactly what the app uses; anything added later must be added
- * here or it fails closed at runtime:
- *   - Supabase   — REST + realtime websocket, and Storage for org/facility images
- *   - fonts      — none external; next/font/google self-hosts at build time
- *   - Stripe     — none; checkout is a server-side redirect, no Stripe.js loads
- *
- * Mapbox and `blob:` were both removed when the cross-org search page went.
- * Mapbox was the only third-party origin the browser ever contacted, and
- * mapbox-gl compiling its tile worker from a blob URL was the only reason
- * worker-src/child-src allowed blob: at all. Nothing else in the app creates a
- * worker or an object URL — `ImageUpload` uploads first and previews from the
- * returned Supabase URL — so both allowances now have no user and the policy is
- * narrower than it was.
- */
-function contentSecurityPolicy(frameAncestors: string): string {
-  return [
-    "default-src 'self'",
-    `script-src 'self' 'unsafe-inline'${isDev ? " 'unsafe-eval'" : ""}`,
-    "style-src 'self' 'unsafe-inline'",
-    "img-src 'self' data: https://*.supabase.co",
-    "font-src 'self' data:",
-    // ws: in dev only — the HMR socket. Shipping it in prod would let an
-    // injected script open a plaintext socket to anywhere.
-    `connect-src 'self' https://*.supabase.co wss://*.supabase.co${isDev ? " ws: http://localhost:*" : ""}`,
-    "worker-src 'self'",
-    "child-src 'self'",
-    // The only iframe is the widget preview in /dashboard/widget, whose src is
-    // a relative path (WidgetStudio's previewSrc) so it is always 'self'. It
-    // used to be built from NEXT_PUBLIC_APP_URL and was blocked on every origin
-    // other than that one — keep it relative.
-    "frame-src 'self'",
-    "object-src 'none'",
-    "base-uri 'self'",
-    "form-action 'self'",
-    `frame-ancestors ${frameAncestors}`,
-    // Omitted in dev: it would rewrite http://localhost subresources to https.
-    ...(isDev ? [] : ["upgrade-insecure-requests"]),
-  ].join("; ");
-}
+// Content-Security-Policy is built in src/lib/security/csp.ts, shared with
+// proxy.ts, which sets the widget route’s per-organization frame-ancestors.
 
 const nextConfig: NextConfig = {
   // Normally `.next`. Overridable so a production build can be made and served
@@ -187,22 +129,22 @@ const nextConfig: NextConfig = {
         ],
       },
       // ---------------------------------------------------------------
-      // Widget iframe route — must allow framing from any origin so orgs
-      // can embed the widget on their own websites.
+      // Widget iframe route — framed by each organization's own website.
+      //
+      // Its Content-Security-Policy is NOT set here. Which sites may frame
+      // the widget is per organization (Settings › Embedding, migration 067),
+      // so proxy.ts builds the whole policy per request with that org's
+      // `frame-ancestors`. Setting a second CSP here as well would make the
+      // browser enforce both, and a static one cannot know the org.
       //
       // X-Frame-Options is deliberately absent rather than set to "ALLOWALL":
       // that is not a value in the spec (only DENY and SAMEORIGIN are), so
-      // browsers ignored it and it merely looked like a control. Omitting the
-      // header is what actually permits framing; `frame-ancestors *` below is
-      // the directive carrying the intent.
+      // browsers ignored it and it merely looked like a control. It also
+      // cannot list several sites; `frame-ancestors` is the control.
       // ---------------------------------------------------------------
       {
         source: "/widget/:path*",
         headers: [
-          {
-            key: "Content-Security-Policy",
-            value: contentSecurityPolicy("*"),
-          },
           {
             key: "X-Content-Type-Options",
             value: "nosniff",

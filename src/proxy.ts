@@ -1,6 +1,8 @@
 import { type NextRequest, NextResponse } from "next/server";
 import { updateSession } from "@/lib/supabase/proxy";
 import { perf } from "@/lib/perf";
+import { contentSecurityPolicy } from "@/lib/security/csp";
+import { frameAncestorSources, getTrustedHosts, widgetOrgIdFromPath } from "@/lib/embed/trustedSites";
 
 /**
  * Route protection rules:
@@ -18,7 +20,11 @@ import { perf } from "@/lib/perf";
  *                 depending on whoever adds it to remember. Don't read its
  *                 presence as evidence the panel exists.
  *
- * /widget/*     — public, no auth. CORS headers set in next.config.ts.
+ * /widget/*     — public, no auth. CORS headers set in next.config.ts; the
+ *                 Content-Security-Policy is set HERE, because its
+ *                 `frame-ancestors` is the organization's trusted-websites
+ *                 list (lib/embed/trustedSites.ts). That header is what stops
+ *                 the widget rendering inside someone else's site.
  *
  * All other routes — public. Session is refreshed silently if present.
  *
@@ -63,6 +69,19 @@ export async function proxy(request: NextRequest) {
     if (!isSuperAdmin) {
       return new NextResponse("Forbidden", { status: 403 });
     }
+  }
+
+  // ── Widget routes ───────────────────────────────────────────────────────────
+  // Every response gets exactly one CSP, with this org's trusted sites as
+  // frame-ancestors. A path with no recognisable org id still gets a policy
+  // ('self' only) rather than none, which would allow framing anywhere.
+  if (pathname.startsWith("/widget/")) {
+    const orgId = widgetOrgIdFromPath(pathname);
+    const hosts = orgId ? await getTrustedHosts(orgId) : [];
+    supabaseResponse.headers.set(
+      "Content-Security-Policy",
+      contentSecurityPolicy(hosts === "unrestricted" ? "*" : frameAncestorSources(hosts))
+    );
   }
 
   return supabaseResponse;

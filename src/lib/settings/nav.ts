@@ -80,6 +80,12 @@ export const SETTINGS_NAV: SettingsNavGroup[] = [
         permission: "facility:edit",
       },
       {
+        href: "/dashboard/settings/embedding",
+        label: "Embedding",
+        blurb: "Websites allowed to show your widget",
+        permission: "org:edit-settings",
+      },
+      {
         href: "/dashboard/settings/statuses",
         label: "Statuses",
         blurb: "What staff can post, by department",

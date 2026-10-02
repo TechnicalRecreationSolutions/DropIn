@@ -815,10 +815,16 @@ const STATIC = [
   },
   {
     id: "W15.1",
-    claim: "Exactly two blocks set a CSP header (browsers intersect duplicates)",
+    // Since 2026-10-01 (migration 067) the widget route's CSP is per
+    // organization and set in proxy.ts, so next.config.ts carries only the
+    // catch-all and the proxy exactly one set() — still one policy per route.
+    claim: "Exactly one CSP per route: the catch-all in next.config.ts, the widget's in proxy.ts",
     run: (f) => {
       const n = (f.nextConfig.match(/key:\s*"Content-Security-Policy"/g) ?? []).length;
-      return n === 2 ? ok("2: /widget/:path* and the catch-all") : bad(`${n} CSP header declaration(s) in next.config.ts`);
+      const m = (file(f, "src/proxy.ts").code.match(/headers\.(set|append)\(\s*"Content-Security-Policy"/g) ?? []).length;
+      return n === 1 && m === 1
+        ? ok("next.config.ts: catch-all; proxy.ts: /widget/*")
+        : bad(`${n} CSP declaration(s) in next.config.ts, ${m} in proxy.ts`);
     },
     poison: (f) => {
       f.nextConfig += '\n{ key: "Content-Security-Policy", value: "default-src *" }';
@@ -1024,11 +1030,14 @@ async function headerChecks(results) {
 
   await probe("HD.widget", `${APP}/widget/00000000-0000-0000-0000-000000000000`, (res) => {
     const csp = res.headers.get("content-security-policy") ?? "";
-    const framable = /frame-ancestors \*/.test(csp);
+    // An unknown org has no trusted sites, so only Dropin itself may frame it
+    // (invariant 36). `*` here means migration 067 is missing or the proxy
+    // stopped setting the header.
+    const fa = /frame-ancestors ([^;]+)/.exec(csp)?.[1]?.trim();
     const xfo = res.headers.get("x-frame-options");
-    if (!framable) return { state: "FAIL", detail: `widget is not framable: ${csp.slice(0, 80)}` };
+    if (fa !== "'self'") return { state: "FAIL", detail: `widget frame-ancestors is ${fa ?? "absent"}, expected 'self' for an unknown org` };
     if (xfo) return { state: "FAIL", detail: `X-Frame-Options: ${xfo} on the widget route` };
-    return { state: "PASS", detail: "frame-ancestors *, no X-Frame-Options" };
+    return { state: "PASS", detail: "frame-ancestors 'self' for an unknown org, no X-Frame-Options" };
   });
 }
 

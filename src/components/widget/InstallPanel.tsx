@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { Geist_Mono } from "next/font/google";
 import { Check, Copy, ExternalLink, Moon, Sun } from "lucide-react";
 import { cn } from "@/lib/utils/cn";
@@ -33,6 +34,13 @@ interface InstallPanelProps {
   /** True once a snippet option changed after the code was last copied. */
   snippetStale: boolean;
   onCopyCode: () => void;
+  /**
+   * Settings › Embedding: the only sites the script and iframe codes render
+   * on. null = not known (migration 067 not applied), and nothing is said.
+   */
+  trustedHosts: string[] | null;
+  /** Owner/Manager — who can change that list. */
+  canManageTrustedSites: boolean;
 }
 
 // The code block is the one place the dashboard sets type in mono, so Geist
@@ -87,11 +95,13 @@ const CMS_GUIDES: { id: string; name: string; steps: Record<"script" | "iframe",
         "In the editor, click Add → Embed → Embed a Widget.",
         'Click "Enter Code" and paste the code.',
         "Drag the box to size it, then Publish.",
+        "In Settings › Embedding, add your site and *.filesusr.com — Wix runs pasted code from that address.",
       ],
       iframe: [
         "In the editor, click Add → Embed → Embed a Site.",
         'Click "Enter Code" and paste the code.',
         "Drag the box to size it, then Publish.",
+        "In Settings › Embedding, add your site and *.filesusr.com — Wix runs pasted code from that address.",
       ],
     },
   },
@@ -153,6 +163,8 @@ export default function InstallPanel({
   shareUrl,
   snippetStale,
   onCopyCode,
+  trustedHosts,
+  canManageTrustedSites,
 }: InstallPanelProps) {
   const [copied, setCopied] = useState(false);
   const [guide, setGuide] = useState(CMS_GUIDES[0].id);
@@ -324,6 +336,8 @@ export default function InstallPanel({
         )}
       </section>
 
+      {!isLink && trustedHosts && <TrustedSitesNote hosts={trustedHosts} canManage={canManageTrustedSites} />}
+
       {isLink ? (
         <section className="space-y-2">
           <SectionHeading note="The link stays the same when you publish">Where do I put this?</SectionHeading>
@@ -347,6 +361,35 @@ export default function InstallPanel({
         </section>
       )}
     </div>
+  );
+}
+
+/**
+ * Where the code will actually render. The script and iframe are refused by
+ * the browser on any site not in Settings › Embedding, so an empty list is the
+ * difference between "paste this" working and a blank box — said as a warning
+ * before the code is pasted, rather than discovered after.
+ */
+function TrustedSitesNote({ hosts, canManage }: { hosts: string[]; canManage: boolean }) {
+  const manage = canManage ? (
+    <Link href="/dashboard/settings/embedding" className="font-medium underline underline-offset-2">
+      {hosts.length === 0 ? "Add your website" : "Change"}
+    </Link>
+  ) : null;
+
+  if (hosts.length === 0) {
+    return (
+      <Banner variant="warning">
+        This code won&apos;t show on any website yet. Your widget only appears on websites you trust.{" "}
+        {manage ?? "Ask an Owner or Manager to add your website under Settings › Embedding."}
+      </Banner>
+    );
+  }
+  return (
+    <p className="text-caption text-muted-foreground">
+      Works on <span className="font-medium text-foreground">{hosts.join(", ")}</span>. Anywhere else it shows a blank
+      box. {manage}
+    </p>
   );
 }
 

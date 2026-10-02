@@ -112,6 +112,12 @@ export type Database = {
            * supervisor, and both are defensible. Defaults false.
            */
           aux_can_post_notices: boolean;
+          /**
+           * Websites allowed to frame the widget (migration 067): bare hosts,
+           * sent as the widget response’s CSP frame-ancestors by proxy.ts.
+           * Empty = Dropin itself only. See lib/embed/trustedSites.ts.
+           */
+          embed_allowed_hosts: string[];
           created_at: string;
           updated_at: string;
         };
@@ -137,6 +143,7 @@ export type Database = {
           | "approved_by"
           | "stripe_customer_id"
           | "aux_can_post_notices"
+          | "embed_allowed_hosts"
         > & {
           description?: string | null;
           logo_url?: string | null;
@@ -153,6 +160,7 @@ export type Database = {
           approved_by?: string | null;
           stripe_customer_id?: string | null;
           aux_can_post_notices?: boolean;
+          embed_allowed_hosts?: string[];
         };
         Update: Partial<
           Database["public"]["Tables"]["organizations"]["Insert"]
@@ -1458,6 +1466,12 @@ export type Database = {
           p_window_seconds: number;
         };
         Returns: boolean;
+      };
+      // An organization’s trusted embed hosts (067). SECURITY DEFINER so the
+      // anonymous widget proxy can read this one column of a members-only table.
+      widget_frame_ancestors: {
+        Args: { p_org_id: string };
+        Returns: string[];
       };
       // Housekeeping for the rate_limits table. Not called from app code.
       sweep_rate_limits: {

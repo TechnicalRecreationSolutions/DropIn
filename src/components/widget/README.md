@@ -133,8 +133,11 @@ Notes for anyone touching this:
 - **A plain iframe gets no `widget_view` analytics.** Only `widget.js` posts to
   `/api/analytics/track`; the widget page itself passes `viewEvent: null`. Embed counts under-report
   by however many orgs choose the iframe.
-- **`/widget/*` ships `frame-ancestors *` and no `X-Frame-Options`** (`next.config.ts`), which is
-  what makes any of this frameable. Tightening it breaks the iframe method too, not just the loader.
+- **`/widget/*` is framed only by the org's trusted websites** (Settings › Embedding, migration
+  067). `proxy.ts` sets its CSP per request with `frame-ancestors 'self' <hosts>`; see
+  `src/lib/embed/trustedSites.ts`. It applies to Script and iFrame alike; Link is unaffected (a
+  top-level tab is not framed). Install warns when the list is empty. Wix needs `*.filesusr.com`
+  as well, because Wix runs pasted code in a frame from there.
 
 ## Two kinds of filtering
 

@@ -45,6 +45,9 @@ interface WidgetStudioProps {
   facilities: WidgetFacility[];
   /** Whether the org has any schedule at all — the Schedules section's empty state. */
   hasSchedules: boolean;
+  /** Settings › Embedding's list; null before migration 067. */
+  trustedHosts: string[] | null;
+  canManageTrustedSites: boolean;
 }
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://dropin.app";
@@ -92,7 +95,13 @@ function joinNames(names: string[]): string {
  * It starts from the snippet's theme and follows it when Install changes it,
  * but never writes back.
  */
-export default function WidgetStudio({ orgId, facilities, hasSchedules }: WidgetStudioProps) {
+export default function WidgetStudio({
+  orgId,
+  facilities,
+  hasSchedules,
+  trustedHosts,
+  canManageTrustedSites,
+}: WidgetStudioProps) {
   // Published settings.
   const [allowedTemplates, setAllowedTemplates] = useState<ScheduleTemplate[]>(["grid", "list", "map"]);
   const [primaryColor, setPrimaryColor] = useState("#0066CC");
@@ -810,6 +819,8 @@ export default function WidgetStudio({ orgId, facilities, hasSchedules }: Widget
               shareUrl={shareUrl}
               snippetStale={snippetStale}
               onCopyCode={() => setLastCopiedCode(embedCode)}
+              trustedHosts={trustedHosts}
+              canManageTrustedSites={canManageTrustedSites}
             />
           </div>
         </div>

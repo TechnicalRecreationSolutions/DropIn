@@ -1,7 +1,7 @@
 import { redirect } from "next/navigation";
 import { Suspense } from "react";
 import { getOrgContext } from "@/lib/auth/session";
-import { isReadOnly } from "@/lib/auth/roles";
+import { can, isReadOnly } from "@/lib/auth/roles";
 import { createClient } from "@/lib/supabase/server";
 import { Skeleton } from "@/components/ui/skeleton";
 import WidgetStudio from "@/components/widget/WidgetStudio";
@@ -63,6 +63,17 @@ async function WidgetBody() {
   return (
     <WidgetStudio
       orgId={orgContext.org.id}
+      // Install says where the code will work (Settings › Embedding,
+      // migration 067). null = column not there yet, so nothing is claimed.
+      trustedHosts={
+        Array.isArray((orgContext.org as { embed_allowed_hosts?: unknown }).embed_allowed_hosts)
+          ? orgContext.org.embed_allowed_hosts
+          : null
+      }
+      canManageTrustedSites={can(
+        { role: orgContext.membership.role, scopes: orgContext.scopes },
+        "org:edit-settings"
+      )}
       hasSchedules={(scheduleCount ?? 0) > 0}
       facilities={(facilities ?? []).map((f) => ({
         id: f.id,

@@ -5,6 +5,7 @@ import { getAuthedMembership } from "@/lib/auth/membership";
 import { requirePermission } from "@/lib/auth/guard";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { ORG_MEDIA_BUCKET } from "@/lib/storage/orgMedia";
+import { MAX_TRUSTED_HOSTS, normalizeHost } from "@/lib/embed/trustedSites";
 
 /**
  * Every second path segment the bucket uses (migration 030). Listed rather
@@ -53,6 +54,30 @@ const UpdateOrgSchema = z.object({
    * organization are the people who decide how far it trusts its guards.
    */
   aux_can_post_notices: z.boolean().optional(),
+  /**
+   * Websites allowed to show the embedded widget (migration 067). Whatever was
+   * pasted — a full URL, mixed case, a trailing slash — is reduced to a bare
+   * host here, and one entry that cannot be refuses the whole save rather than
+   * being dropped: a site silently missing from the list is a widget that is
+   * blank on that site with nothing saying why. The database CHECK enforces
+   * the same format again.
+   */
+  embed_allowed_hosts: z
+    .array(z.string().max(300))
+    .max(MAX_TRUSTED_HOSTS)
+    .transform((entries, ctx) => {
+      const hosts: string[] = [];
+      for (const entry of entries) {
+        const host = normalizeHost(entry);
+        if (!host) {
+          ctx.addIssue({ code: "custom", message: `"${entry.trim()}" is not a website address.` });
+          return z.NEVER;
+        }
+        if (!hosts.includes(host)) hosts.push(host);
+      }
+      return hosts;
+    })
+    .optional(),
 });
 
 function emptyToNull<T extends z.ZodType>(schema: T) {
@@ -96,7 +121,11 @@ export async function PATCH(request: Request) {
   const parsed = UpdateOrgSchema.safeParse(body);
   if (!parsed.success) {
     return NextResponse.json(
-      { error: "Invalid input", details: parsed.error.flatten().fieldErrors },
+      {
+        // The trusted-sites message names the entry, so it is the error shown.
+        error: parsed.error.flatten().fieldErrors.embed_allowed_hosts?.[0] ?? "Invalid input",
+        details: parsed.error.flatten().fieldErrors,
+      },
       { status: 400 }
     );
   }
